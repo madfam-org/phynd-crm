@@ -1,6 +1,8 @@
+import { isFeatureEnabled } from '@phyne/config/features'
 import { conversions, leads, stageTransitions } from '@phyne/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
 
 export class LeadsService {
   constructor(private readonly ctx: ServiceContext) {}
@@ -32,6 +34,9 @@ export class LeadsService {
       leadId: created.id,
     })
 
+    // Auto-compute lead score on creation
+    await this.triggerScoring(created.id)
+
     return created
   }
 
@@ -45,6 +50,12 @@ export class LeadsService {
     }>,
   ) {
     const [lead] = await this.ctx.db.update(leads).set(data).where(eq(leads.id, id)).returning()
+
+    // Auto-recompute lead score on status change
+    if (lead && data.status) {
+      await this.triggerScoring(id)
+    }
+
     return lead ?? null
   }
 
@@ -69,5 +80,15 @@ export class LeadsService {
   async delete(id: string) {
     const [deleted] = await this.ctx.db.delete(leads).where(eq(leads.id, id)).returning()
     return deleted ?? null
+  }
+
+  private async triggerScoring(leadId: string) {
+    if (!isFeatureEnabled('leadScoring')) return
+    try {
+      const scoringService = new LeadScoringService(this.ctx)
+      await scoringService.computeScore(leadId)
+    } catch {
+      // Non-blocking: scoring failure should not break lead operations
+    }
   }
 }

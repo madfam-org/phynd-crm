@@ -30,6 +30,13 @@ export const analyticsRouter = router({
     return service.getRevenueByStatus()
   }),
 
+  stageVelocity: protectedProcedure
+    .input(z.object({ pipelineId: z.string().uuid() }))
+    .query(({ ctx, input }) => {
+      const service = new AnalyticsService(ctx)
+      return service.getStageVelocity(input.pipelineId)
+    }),
+
   stageTransitions: protectedProcedure
     .input(
       z.object({
@@ -53,6 +60,18 @@ export const analyticsRouter = router({
       const service = new AnalyticsService(ctx)
       return service.getHealthTrend(input.provider, input.limit)
     }),
+
+  campaignPerformance: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(({ ctx, input }) => {
+      const service = new AnalyticsService(ctx)
+      return service.getCampaignPerformance(input.campaignId)
+    }),
+
+  allCampaignPerformance: protectedProcedure.query(({ ctx }) => {
+    const service = new AnalyticsService(ctx)
+    return service.getAllCampaignPerformance()
+  }),
 
   dashboardSummary: protectedProcedure.query(({ ctx }) => {
     const service = new AnalyticsService(ctx)

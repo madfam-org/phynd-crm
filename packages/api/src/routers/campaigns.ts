@@ -50,6 +50,7 @@ export const campaignsRouter = router({
         utmMedium: z.string().max(255).optional(),
         utmCampaign: z.string().max(255).optional(),
         budget: z.string().optional(),
+        spend: z.string().optional(),
         currency: z.string().max(3).optional(),
         startDate: z.date().optional(),
         endDate: z.date().optional(),

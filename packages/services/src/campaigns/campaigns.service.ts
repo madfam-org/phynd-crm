@@ -43,6 +43,7 @@ export class CampaignsService {
       utmMedium: string
       utmCampaign: string
       budget: string
+      spend: string
       currency: string
       startDate: Date
       endDate: Date

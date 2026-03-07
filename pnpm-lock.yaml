@@ -86,6 +86,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      drizzle-orm:
+        specifier: ^0.39.3
+        version: 0.39.3(postgres@3.4.8)
       ioredis:
         specifier: ^5.4.2
         version: 5.10.0
@@ -150,6 +153,9 @@ importers:
       '@phyne/federation':
         specifier: workspace:*
         version: link:../../packages/federation
+      '@phyne/services':
+        specifier: workspace:*
+        version: link:../../packages/services
       '@phyne/types':
         specifier: workspace:*
         version: link:../../packages/types

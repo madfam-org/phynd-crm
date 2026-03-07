@@ -2,14 +2,37 @@
 
 import { Badge } from '@/components/ui/badge'
 import type { ForjAssets } from '@phyne/types/federation'
+import { useCallback, useRef } from 'react'
 import { ModelViewerEmbed } from './model-viewer-embed'
 import { NftCertificateBadge } from './nft-certificate-badge'
 
 interface AssetsPanelProps {
   data: ForjAssets
+  visitorSessionId?: string
+  onAssetInteraction?: (event: {
+    assetId: string
+    eventType: '3d_load' | '3d_interact' | '3d_rotate' | '3d_zoom'
+    sessionId?: string
+  }) => void
 }
 
-export function AssetsPanel({ data }: AssetsPanelProps) {
+export function AssetsPanel({ data, visitorSessionId, onAssetInteraction }: AssetsPanelProps) {
+  const interactionCountRef = useRef<Record<string, number>>({})
+
+  const handleModelEvent = useCallback(
+    (assetId: string, eventType: '3d_load' | '3d_interact' | '3d_rotate' | '3d_zoom') => {
+      if (!onAssetInteraction) return
+      const key = `${assetId}:${eventType}`
+      const count = (interactionCountRef.current[key] ?? 0) + 1
+      interactionCountRef.current[key] = count
+      // Debounce: only fire on first interaction per type, and every 5th after
+      if (count === 1 || count % 5 === 0) {
+        onAssetInteraction({ assetId, eventType, sessionId: visitorSessionId })
+      }
+    },
+    [onAssetInteraction, visitorSessionId],
+  )
+
   return (
     <div className="space-y-3">
       <div>
@@ -21,12 +44,18 @@ export function AssetsPanel({ data }: AssetsPanelProps) {
           {data.assets.slice(0, 4).map((asset) => (
             <div key={asset.id} className="space-y-1.5 rounded-lg border p-2">
               {asset.modelUrl && asset.type === 'model_3d' ? (
-                <ModelViewerEmbed
-                  src={asset.modelUrl}
-                  alt={asset.name}
-                  poster={asset.thumbnailUrl ?? undefined}
-                  className="mb-1"
-                />
+                <div
+                  onPointerDown={() => handleModelEvent(asset.id, '3d_interact')}
+                  onWheel={() => handleModelEvent(asset.id, '3d_zoom')}
+                >
+                  <ModelViewerEmbed
+                    src={asset.modelUrl}
+                    alt={asset.name}
+                    poster={asset.thumbnailUrl ?? undefined}
+                    className="mb-1"
+                    onLoad={() => handleModelEvent(asset.id, '3d_load')}
+                  />
+                </div>
               ) : (
                 <div className="flex aspect-square items-center justify-center rounded bg-muted text-xs text-muted-foreground">
                   {asset.type}

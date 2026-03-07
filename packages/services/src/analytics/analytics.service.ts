@@ -1,12 +1,14 @@
 import {
+  campaigns,
   conversions,
   healthSnapshots,
   leads,
   opportunities,
+  pipelineStages,
   stageTransitions,
   visitorSessions,
 } from '@phyne/db/schema'
-import { desc, eq, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class AnalyticsService {
@@ -24,6 +26,30 @@ export class AnalyticsService {
       .where(eq(opportunities.pipelineId, pipelineId))
 
     return result ?? { avgDaysInPipeline: 0, totalOpportunities: 0, wonCount: 0, lostCount: 0 }
+  }
+
+  async getStageVelocity(pipelineId: string) {
+    // Compute average time-in-stage by joining consecutive transitions
+    // For each transition, duration = this transition time - previous transition time (or entity creation)
+    const rows = await this.ctx.db
+      .select({
+        stageId: stageTransitions.toStageId,
+        stageName: pipelineStages.name,
+        avgDays: sql<number>`coalesce(avg(extract(epoch from (
+          lead(${stageTransitions.transitionedAt}) over (
+            partition by ${stageTransitions.entityType}, ${stageTransitions.entityId}
+            order by ${stageTransitions.transitionedAt}
+          ) - ${stageTransitions.transitionedAt}
+        )) / 86400), 0)::numeric(10,1)`,
+        transitionCount: sql<number>`count(*)::int`,
+      })
+      .from(stageTransitions)
+      .innerJoin(pipelineStages, eq(stageTransitions.toStageId, pipelineStages.id))
+      .where(eq(pipelineStages.pipelineId, pipelineId))
+      .groupBy(stageTransitions.toStageId, pipelineStages.name, pipelineStages.position)
+      .orderBy(pipelineStages.position)
+
+    return rows
   }
 
   async getWinRate() {
@@ -94,6 +120,50 @@ export class AnalyticsService {
       .where(eq(healthSnapshots.provider, provider))
       .orderBy(desc(healthSnapshots.checkedAt))
       .limit(limit)
+  }
+
+  async getCampaignPerformance(campaignId: string) {
+    const [campaign] = await this.ctx.db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.id, campaignId))
+
+    if (!campaign) return null
+
+    const [metrics] = await this.ctx.db
+      .select({
+        conversionCount: sql<number>`count(*)::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+        redemptionCount: sql<number>`count(*) filter (where ${conversions.type} = 'offer_redemption')::int`,
+      })
+      .from(conversions)
+      .where(eq(conversions.campaignId, campaignId))
+
+    const spend = Number(campaign.spend ?? 0)
+    const revenue = Number(metrics?.totalValue ?? 0)
+    const roi = spend > 0 ? Number((((revenue - spend) / spend) * 100).toFixed(1)) : 0
+
+    return {
+      campaignId,
+      campaignName: campaign.name,
+      status: campaign.status,
+      budget: Number(campaign.budget ?? 0),
+      spend,
+      revenue,
+      roi,
+      conversions: metrics?.conversionCount ?? 0,
+      redemptions: metrics?.redemptionCount ?? 0,
+    }
+  }
+
+  async getAllCampaignPerformance() {
+    const allCampaigns = await this.ctx.db.select().from(campaigns)
+    const results = []
+    for (const campaign of allCampaigns) {
+      const perf = await this.getCampaignPerformance(campaign.id)
+      if (perf) results.push(perf)
+    }
+    return results
   }
 
   async getDashboardSummary() {

@@ -1,4 +1,10 @@
-import { leadScores, leadScoringRules, leads, visitorSessions } from '@phyne/db/schema'
+import {
+  leadScores,
+  leadScoringRules,
+  leads,
+  visitorPageViews,
+  visitorSessions,
+} from '@phyne/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
@@ -70,6 +76,7 @@ export class LeadScoringService {
     // Get visitor session data for behavior scoring
     let sessionCount = 0
     let totalPageViews = 0
+    let pageUrls: string[] = []
     if (lead.contactId) {
       const sessions = await this.ctx.db
         .select({
@@ -81,6 +88,24 @@ export class LeadScoringService {
       if (sessions[0]) {
         sessionCount = sessions[0].count
         totalPageViews = sessions[0].pageViews
+      }
+
+      // Get page-level URLs for URL-based scoring conditions
+      const sessionIds = await this.ctx.db
+        .select({ id: visitorSessions.id })
+        .from(visitorSessions)
+        .where(eq(visitorSessions.contactId, lead.contactId))
+      if (sessionIds.length > 0) {
+        const pages = await this.ctx.db
+          .select({ url: visitorPageViews.url })
+          .from(visitorPageViews)
+          .where(
+            sql`${visitorPageViews.sessionId} in (${sql.join(
+              sessionIds.map((s) => sql`${s.id}`),
+              sql`, `,
+            )})`,
+          )
+        pageUrls = pages.map((p) => p.url)
       }
     }
 
@@ -104,6 +129,20 @@ export class LeadScoringService {
         case 'has_contact':
           matches = condition.operator === 'exists' ? lead.contactId != null : false
           break
+        case 'page_url':
+          // Check if any visited page URL matches the condition
+          if (condition.operator === 'contains' && typeof condition.value === 'string') {
+            matches = pageUrls.some((url) => url.includes(condition.value as string))
+          } else if (condition.operator === 'eq' && typeof condition.value === 'string') {
+            matches = pageUrls.some((url) => url === condition.value)
+          }
+          break
+        case '3d_asset_views': {
+          // Count 3D asset interaction events (forj:// URLs)
+          const assetViewCount = pageUrls.filter((url) => url.startsWith('forj://')).length
+          matches = this.evaluateCondition(assetViewCount, condition)
+          break
+        }
       }
 
       if (matches) {

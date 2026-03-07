@@ -28,16 +28,16 @@ export interface FeatureFlags {
 const defaults: FeatureFlags = {
   federationReadOnly: true,
   bidirectionalSync: false,
-  leadScoring: false,
+  leadScoring: true,
   aiKanban: false,
   multiTenancy: false,
   piiMasking: false,
   observability: false,
   realtimeUpdates: false,
   forjEnabled: true,
-  visitorTracking: false,
-  funnelManagement: false,
-  analytics: false,
+  visitorTracking: true,
+  funnelManagement: true,
+  analytics: true,
 }
 
 let flags: FeatureFlags = { ...defaults }

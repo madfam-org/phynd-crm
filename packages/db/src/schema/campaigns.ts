@@ -12,6 +12,7 @@ export const campaigns = pgTable('campaigns', {
   utmMedium: varchar('utm_medium', { length: 255 }),
   utmCampaign: varchar('utm_campaign', { length: 255 }),
   budget: numeric('budget', { precision: 12, scale: 2 }),
+  spend: numeric('spend', { precision: 12, scale: 2 }).default('0'),
   currency: varchar('currency', { length: 3 }),
   startDate: timestamp('start_date', { withTimezone: true }),
   endDate: timestamp('end_date', { withTimezone: true }),

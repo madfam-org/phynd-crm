@@ -22,8 +22,8 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(getFeatureFlags().bidirectionalSync).toBe(false)
   })
 
-  it('has leadScoring disabled by default', () => {
-    expect(getFeatureFlags().leadScoring).toBe(false)
+  it('has leadScoring enabled by default', () => {
+    expect(getFeatureFlags().leadScoring).toBe(true)
   })
 
   it('has aiKanban disabled by default', () => {
@@ -50,16 +50,16 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(getFeatureFlags().forjEnabled).toBe(true)
   })
 
-  it('has visitorTracking disabled by default', () => {
-    expect(getFeatureFlags().visitorTracking).toBe(false)
+  it('has visitorTracking enabled by default', () => {
+    expect(getFeatureFlags().visitorTracking).toBe(true)
   })
 
-  it('has funnelManagement disabled by default', () => {
-    expect(getFeatureFlags().funnelManagement).toBe(false)
+  it('has funnelManagement enabled by default', () => {
+    expect(getFeatureFlags().funnelManagement).toBe(true)
   })
 
-  it('has analytics disabled by default', () => {
-    expect(getFeatureFlags().analytics).toBe(false)
+  it('has analytics enabled by default', () => {
+    expect(getFeatureFlags().analytics).toBe(true)
   })
 
   it('has exactly 12 feature flags defined', () => {
@@ -67,14 +67,21 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(Object.keys(flags)).toHaveLength(12)
   })
 
-  it('federationReadOnly and forjEnabled are true in defaults; all others are false', () => {
+  it('6 flags are true in defaults; 6 are false', () => {
     const flags = getFeatureFlags()
     const trueFlags = Object.entries(flags).filter(([, v]) => v === true)
     const falseFlags = Object.entries(flags).filter(([, v]) => v === false)
 
-    expect(trueFlags).toHaveLength(2)
-    expect(trueFlags.map(([k]) => k).sort()).toEqual(['federationReadOnly', 'forjEnabled'])
-    expect(falseFlags).toHaveLength(10)
+    expect(trueFlags).toHaveLength(6)
+    expect(trueFlags.map(([k]) => k).sort()).toEqual([
+      'analytics',
+      'federationReadOnly',
+      'forjEnabled',
+      'funnelManagement',
+      'leadScoring',
+      'visitorTracking',
+    ])
+    expect(falseFlags).toHaveLength(6)
   })
 })
 
@@ -87,18 +94,26 @@ describe('isFeatureEnabled', () => {
     expect(isFeatureEnabled('forjEnabled')).toBe(true)
   })
 
+  it('returns true for all Sprint 11-enabled features with default flags', () => {
+    const enabledFeatures: (keyof FeatureFlags)[] = [
+      'visitorTracking',
+      'funnelManagement',
+      'analytics',
+      'leadScoring',
+    ]
+    for (const flag of enabledFeatures) {
+      expect(isFeatureEnabled(flag)).toBe(true)
+    }
+  })
+
   it('returns false for all Phase 2/3 features with default flags', () => {
     const phase2And3: (keyof FeatureFlags)[] = [
       'bidirectionalSync',
-      'leadScoring',
       'aiKanban',
       'multiTenancy',
       'piiMasking',
       'observability',
       'realtimeUpdates',
-      'visitorTracking',
-      'funnelManagement',
-      'analytics',
     ]
     for (const flag of phase2And3) {
       expect(isFeatureEnabled(flag)).toBe(false)
@@ -106,9 +121,9 @@ describe('isFeatureEnabled', () => {
   })
 
   it('reflects changes made by setFeatureFlags', () => {
-    expect(isFeatureEnabled('leadScoring')).toBe(false)
-    setFeatureFlags({ leadScoring: true })
-    expect(isFeatureEnabled('leadScoring')).toBe(true)
+    expect(isFeatureEnabled('aiKanban')).toBe(false)
+    setFeatureFlags({ aiKanban: true })
+    expect(isFeatureEnabled('aiKanban')).toBe(true)
   })
 
   it('reflects restored defaults after resetFeatureFlags', () => {
@@ -128,32 +143,32 @@ describe('setFeatureFlags', () => {
     expect(flags.bidirectionalSync).toBe(true)
     // All other flags should remain at default values
     expect(flags.federationReadOnly).toBe(true)
-    expect(flags.leadScoring).toBe(false)
+    expect(flags.leadScoring).toBe(true)
     expect(flags.aiKanban).toBe(false)
     expect(flags.multiTenancy).toBe(false)
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
     expect(flags.forjEnabled).toBe(true)
-    expect(flags.visitorTracking).toBe(false)
-    expect(flags.funnelManagement).toBe(false)
-    expect(flags.analytics).toBe(false)
+    expect(flags.visitorTracking).toBe(true)
+    expect(flags.funnelManagement).toBe(true)
+    expect(flags.analytics).toBe(true)
   })
 
   it('overrides multiple flags simultaneously', () => {
     setFeatureFlags({
       bidirectionalSync: true,
-      leadScoring: true,
+      aiKanban: true,
       piiMasking: true,
     })
 
     const flags = getFeatureFlags()
     expect(flags.bidirectionalSync).toBe(true)
-    expect(flags.leadScoring).toBe(true)
+    expect(flags.aiKanban).toBe(true)
     expect(flags.piiMasking).toBe(true)
     // Unset flags remain default
     expect(flags.federationReadOnly).toBe(true)
-    expect(flags.aiKanban).toBe(false)
+    expect(flags.leadScoring).toBe(true)
   })
 
   it('can disable a flag that was previously enabled', () => {
@@ -163,11 +178,11 @@ describe('setFeatureFlags', () => {
   })
 
   it('applies overrides cumulatively across multiple calls', () => {
-    setFeatureFlags({ leadScoring: true })
+    setFeatureFlags({ aiKanban: true })
     setFeatureFlags({ observability: true })
 
     const flags = getFeatureFlags()
-    expect(flags.leadScoring).toBe(true)
+    expect(flags.aiKanban).toBe(true)
     expect(flags.observability).toBe(true)
   })
 
@@ -193,16 +208,16 @@ describe('resetFeatureFlags', () => {
     setFeatureFlags({
       federationReadOnly: false,
       bidirectionalSync: true,
-      leadScoring: true,
+      leadScoring: false,
       aiKanban: true,
       multiTenancy: true,
       piiMasking: true,
       observability: true,
       realtimeUpdates: true,
       forjEnabled: false,
-      visitorTracking: true,
-      funnelManagement: true,
-      analytics: true,
+      visitorTracking: false,
+      funnelManagement: false,
+      analytics: false,
     })
 
     resetFeatureFlags()
@@ -210,20 +225,20 @@ describe('resetFeatureFlags', () => {
     const flags = getFeatureFlags()
     expect(flags.federationReadOnly).toBe(true)
     expect(flags.bidirectionalSync).toBe(false)
-    expect(flags.leadScoring).toBe(false)
+    expect(flags.leadScoring).toBe(true)
     expect(flags.aiKanban).toBe(false)
     expect(flags.multiTenancy).toBe(false)
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
     expect(flags.forjEnabled).toBe(true)
-    expect(flags.visitorTracking).toBe(false)
-    expect(flags.funnelManagement).toBe(false)
-    expect(flags.analytics).toBe(false)
+    expect(flags.visitorTracking).toBe(true)
+    expect(flags.funnelManagement).toBe(true)
+    expect(flags.analytics).toBe(true)
   })
 
   it('is idempotent -- calling reset twice yields the same state', () => {
-    setFeatureFlags({ leadScoring: true })
+    setFeatureFlags({ aiKanban: true })
     resetFeatureFlags()
     const first = { ...getFeatureFlags() }
 

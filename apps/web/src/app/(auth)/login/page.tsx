@@ -11,7 +11,7 @@ export default function LoginPage() {
         <form
           action={async () => {
             'use server'
-            await signIn('janua', { redirectTo: '/' })
+            await signIn('janua', { redirectTo: '/overview' })
           }}
         >
           <button

@@ -47,6 +47,7 @@ pnpm db:seed          # Seed database
 - **No .js extensions**: Relative imports use extensionless paths for bundler compatibility
 - **Auto-conversion tracking**: Lead/opportunity creation and status changes auto-record conversion events
 - **Lead scoring**: Configurable rules engine evaluating conditions against lead + visitor session data
+- **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` unauthenticated
 
 ## DB Schema
 contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores

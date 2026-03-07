@@ -30,6 +30,12 @@
 	--color-federation-ok: #22c55e;
 	--color-federation-degraded: #f59e0b;
 	--color-federation-unavailable: #ef4444;
+
+	--color-accent-blue: #3b82f6;
+	--color-accent-emerald: #10b981;
+	--color-accent-amber: #f59e0b;
+	--color-accent-violet: #8b5cf6;
+	--color-accent-rose: #f43f5e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,6 +64,12 @@
 		--color-sidebar-border: #262626;
 		--color-sidebar-accent: #262626;
 		--color-sidebar-accent-foreground: #fafafa;
+
+		--color-accent-blue: #60a5fa;
+		--color-accent-emerald: #34d399;
+		--color-accent-amber: #fbbf24;
+		--color-accent-violet: #a78bfa;
+		--color-accent-rose: #fb7185;
 	}
 }
 
@@ -67,5 +79,37 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+}
+
+/* Marketing scroll-reveal animations */
+@media (prefers-reduced-motion: no-preference) {
+	.reveal {
+		opacity: 0;
+		transform: translateY(24px);
+		transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+	}
+	.reveal.visible {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	.reveal-stagger > .reveal:nth-child(2) { transition-delay: 0.1s; }
+	.reveal-stagger > .reveal:nth-child(3) { transition-delay: 0.2s; }
+	.reveal-stagger > .reveal:nth-child(4) { transition-delay: 0.3s; }
+	.reveal-stagger > .reveal:nth-child(5) { transition-delay: 0.4s; }
+	.reveal-stagger > .reveal:nth-child(6) { transition-delay: 0.5s; }
+
+	@keyframes pulse-node {
+		0%, 100% { r: 6; opacity: 0.8; }
+		50% { r: 9; opacity: 1; }
+	}
+	@keyframes flow-line {
+		0% { stroke-dashoffset: 40; }
+		100% { stroke-dashoffset: 0; }
+	}
+	.hero-node { animation: pulse-node 2s ease-in-out infinite; }
+	.hero-line {
+		stroke-dasharray: 8 4;
+		animation: flow-line 1.5s linear infinite;
 	}
 }

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: 'LayoutDashboard' },
+  { name: 'Dashboard', href: '/overview', icon: 'LayoutDashboard' },
   { name: 'Clients', href: '/clients', icon: 'Users' },
   { name: 'Contacts', href: '/contacts', icon: 'Contact' },
   { name: 'Leads', href: '/leads', icon: 'Target' },
@@ -25,14 +25,13 @@ export function Sidebar() {
   return (
     <aside className="hidden w-64 flex-shrink-0 border-r bg-sidebar lg:block">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="text-xl font-bold">
+        <Link href="/overview" className="text-xl font-bold">
           Phyne
         </Link>
       </div>
       <nav className="space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive =
-            pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
           return (
             <Link
               key={item.name}

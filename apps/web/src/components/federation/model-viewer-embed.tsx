@@ -7,9 +7,10 @@ interface ModelViewerEmbedProps {
   alt: string
   poster?: string
   className?: string
+  onLoad?: () => void
 }
 
-export function ModelViewerEmbed({ src, alt, poster, className }: ModelViewerEmbedProps) {
+export function ModelViewerEmbed({ src, alt, poster, className, onLoad }: ModelViewerEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -17,7 +18,10 @@ export function ModelViewerEmbed({ src, alt, poster, className }: ModelViewerEmb
     let cancelled = false
     import('@google/model-viewer')
       .then(() => {
-        if (!cancelled) setLoaded(true)
+        if (!cancelled) {
+          setLoaded(true)
+          onLoad?.()
+        }
       })
       .catch(() => {
         // model-viewer failed to load; keep placeholder
@@ -25,7 +29,7 @@ export function ModelViewerEmbed({ src, alt, poster, className }: ModelViewerEmb
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [onLoad])
 
   if (!loaded) {
     return (

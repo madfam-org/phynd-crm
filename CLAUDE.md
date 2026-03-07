@@ -45,12 +45,14 @@ pnpm db:seed          # Seed database
 - **Circuit Breaker**: CLOSED → OPEN (5 failures/60s) → HALF_OPEN (30s) → CLOSED (3 successes)
 - **tenantId**: Hardcoded to `'madfam'` in Phase 1, extracted from JWT in Phase 3
 - **No .js extensions**: Relative imports use extensionless paths for bundler compatibility
-- **Auto-conversion tracking**: Lead/opportunity creation and status changes auto-record conversion events
-- **Lead scoring**: Configurable rules engine evaluating conditions against lead + visitor session data
+- **Auto-conversion tracking**: Lead/opportunity creation and status changes auto-record conversion events; conversions auto-redeem linked campaign offers
+- **Lead scoring**: Configurable rules engine evaluating conditions against lead + visitor session + page view data; auto-recomputes on lead create, status change, and visitor identify
+- **Scoring conditions**: source, status, session_count, page_view_count, has_contact, page_url (contains/eq), 3d_asset_views (forj:// URL scheme)
+- **Fabrication activities**: PravaraMES webhook auto-creates CRM activities on fabrication status changes
 - **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` unauthenticated
 
 ## DB Schema
-contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
+contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
 
 ## tRPC Routers
 contacts, leads, opportunities, pipelines, activities, unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics, lead-scoring
@@ -58,10 +60,11 @@ contacts, leads, opportunities, pipelines, activities, unified-profile, federati
 ## Feature Flags (12 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
 - `forjEnabled: true` — Forj 3D digital assets provider
-- `visitorTracking: false` — Anonymous visitor tracking via Janua telemetry
-- `funnelManagement: false` — Funnel and offer management
-- `analytics: false` — Analytics dashboard
-- 7 others (bidirectionalSync, leadScoring, aiKanban, multiTenancy, piiMasking, observability, realtimeUpdates) — all `false`
+- `visitorTracking: true` — Anonymous visitor tracking via Janua telemetry
+- `funnelManagement: true` — Funnel and offer management
+- `analytics: true` — Analytics dashboard
+- `leadScoring: true` — Configurable lead scoring with auto-recomputation
+- 6 others (bidirectionalSync, aiKanban, multiTenancy, piiMasking, observability, realtimeUpdates) — all `false`
 
 ## Phasing
 - Phase 1 (MVP): Single-tenant, read-only federation + visitor tracking + offers + analytics + lead scoring

@@ -1,6 +1,8 @@
-import { visitorSessions } from '@phyne/db/schema'
+import { isFeatureEnabled } from '@phyne/config/features'
+import { leads, visitorPageViews, visitorSessions } from '@phyne/db/schema'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
 
 export class VisitorTrackingService {
   constructor(private readonly ctx: ServiceContext) {}
@@ -44,6 +46,12 @@ export class VisitorTrackingService {
       .set({ contactId, identified: true })
       .where(eq(visitorSessions.id, sessionId))
       .returning()
+
+    // Recompute lead scores for leads linked to this contact
+    if (updated && isFeatureEnabled('leadScoring')) {
+      await this.triggerScoringForContact(contactId)
+    }
+
     return updated ?? null
   }
 
@@ -94,6 +102,26 @@ export class VisitorTrackingService {
     return created!
   }
 
+  async recordPageView(data: {
+    sessionId: string
+    url: string
+    title?: string
+    duration?: number
+    viewedAt?: Date
+  }) {
+    const [pageView] = await this.ctx.db.insert(visitorPageViews).values(data).returning()
+    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
+    return pageView!
+  }
+
+  async getPageViews(sessionId: string) {
+    return this.ctx.db
+      .select()
+      .from(visitorPageViews)
+      .where(eq(visitorPageViews.sessionId, sessionId))
+      .orderBy(desc(visitorPageViews.viewedAt))
+  }
+
   async getMetrics() {
     const [result] = await this.ctx.db
       .select({
@@ -107,5 +135,20 @@ export class VisitorTrackingService {
     return (
       result ?? { totalSessions: 0, identifiedSessions: 0, anonymousSessions: 0, avgDuration: 0 }
     )
+  }
+
+  private async triggerScoringForContact(contactId: string) {
+    try {
+      const contactLeads = await this.ctx.db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(eq(leads.contactId, contactId))
+      const scoringService = new LeadScoringService(this.ctx)
+      for (const lead of contactLeads) {
+        await scoringService.computeScore(lead.id)
+      }
+    } catch {
+      // Non-blocking: scoring failure should not break visitor tracking
+    }
   }
 }

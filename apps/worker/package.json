@@ -14,9 +14,10 @@
   "dependencies": {
     "bullmq": "^5.34.8",
     "ioredis": "^5.4.2",
-    "@phyne/federation": "workspace:*",
     "@phyne/config": "workspace:*",
     "@phyne/db": "workspace:*",
+    "@phyne/federation": "workspace:*",
+    "@phyne/services": "workspace:*",
     "@phyne/types": "workspace:*"
   },
   "devDependencies": {

@@ -1,4 +1,8 @@
+import { getDb } from '@phyne/db'
+import { leads } from '@phyne/db/schema'
+import { LeadScoringService } from '@phyne/services'
 import type { Job } from 'bullmq'
+import { getCacheManager } from '../lib/federation'
 
 interface LeadScoringData {
   leadIds?: string[]
@@ -11,13 +15,32 @@ export async function processLeadScoring(job: Job<LeadScoringData>): Promise<voi
     `[lead-scoring] Computing scores for ${all ? 'all leads' : `${leadIds?.length ?? 0} leads`}`,
   )
 
-  // In production, this would use the LeadScoringService to batch-compute scores.
-  // The service requires a DB connection which is injected via ServiceContext.
-  if (leadIds) {
-    console.log(`[lead-scoring] Processing ${leadIds.length} lead(s)`)
-  } else if (all) {
-    console.log('[lead-scoring] Processing all leads')
+  const db = getDb()
+  const cache = getCacheManager()
+  const ctx = {
+    db,
+    cache,
+    auth: {
+      userId: 'system',
+      tenantId: 'madfam',
+      roles: ['admin'],
+      scopes: ['*'],
+      accessToken: '',
+    },
+    tenantId: 'madfam',
   }
 
+  const service = new LeadScoringService(ctx)
+
+  let targetIds: string[]
+  if (all) {
+    const allLeads = await db.select({ id: leads.id }).from(leads)
+    targetIds = allLeads.map((l) => l.id)
+  } else {
+    targetIds = leadIds ?? []
+  }
+
+  console.log(`[lead-scoring] Processing ${targetIds.length} lead(s)`)
+  await service.batchCompute(targetIds)
   console.log('[lead-scoring] Scoring complete')
 }

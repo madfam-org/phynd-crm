@@ -1,4 +1,4 @@
-import { conversions } from '@phyne/db/schema'
+import { campaigns, conversions, offers } from '@phyne/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
@@ -17,7 +17,14 @@ export class ConversionsService {
   }) {
     const [conversion] = await this.ctx.db.insert(conversions).values(data).returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
-    return conversion!
+    const created = conversion!
+
+    // Auto-redeem offer if conversion is linked to a campaign with an offer
+    if (data.campaignId) {
+      await this.autoRedeemOffer(data.campaignId)
+    }
+
+    return created
   }
 
   async getByEntity(entityType: 'contact' | 'lead' | 'opportunity', entityId: string) {
@@ -54,5 +61,37 @@ export class ConversionsService {
         totalValue: 0,
       }
     )
+  }
+
+  private async autoRedeemOffer(campaignId: string) {
+    try {
+      const [campaign] = await this.ctx.db
+        .select({ offerId: campaigns.offerId })
+        .from(campaigns)
+        .where(eq(campaigns.id, campaignId))
+
+      if (!campaign?.offerId) return
+
+      // Check offer is active and has remaining redemptions
+      const [offer] = await this.ctx.db.select().from(offers).where(eq(offers.id, campaign.offerId))
+
+      if (!offer || offer.status !== 'active') return
+      if (offer.maxRedemptions && offer.currentRedemptions >= offer.maxRedemptions) return
+
+      // Increment redemption count
+      await this.ctx.db
+        .update(offers)
+        .set({ currentRedemptions: sql`${offers.currentRedemptions} + 1` })
+        .where(eq(offers.id, campaign.offerId))
+
+      // Record the redemption as a conversion event
+      await this.ctx.db.insert(conversions).values({
+        type: 'offer_redemption',
+        campaignId,
+        metadata: { offerId: campaign.offerId, autoRedeemed: true },
+      })
+    } catch {
+      // Non-blocking: redemption failure should not break conversion recording
+    }
   }
 }

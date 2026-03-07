@@ -2,6 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+interface StageVelocityRow {
+  stageId: string
+  stageName: string
+  avgDays: number
+  transitionCount: number
+}
+
 interface AnalyticsDashboardProps {
   summary: {
     totalLeads: number
@@ -31,6 +38,7 @@ interface AnalyticsDashboardProps {
     totalValue: number
     count: number
   }>
+  stageVelocity?: StageVelocityRow[]
 }
 
 export function AnalyticsDashboard({
@@ -39,6 +47,7 @@ export function AnalyticsDashboard({
   conversionMetrics,
   visitorAnalytics,
   revenueByStatus,
+  stageVelocity,
 }: AnalyticsDashboardProps) {
   return (
     <div className="space-y-6">
@@ -115,6 +124,31 @@ export function AnalyticsDashboard({
             </div>
           </CardContent>
         </Card>
+
+        {stageVelocity && stageVelocity.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Avg Days in Stage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {stageVelocity.map((stage) => (
+                  <div key={stage.stageId} className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium">{stage.stageName}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({stage.transitionCount} transitions)
+                      </span>
+                    </div>
+                    <span className="text-lg font-semibold">
+                      {Number(stage.avgDays).toFixed(1)}d
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

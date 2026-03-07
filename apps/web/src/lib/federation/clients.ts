@@ -7,6 +7,7 @@ import {
   FederationClient,
   ForjProvider,
   JanuaProvider,
+  JanuaTelemetryProvider,
   PravaraProvider,
   ProviderHealthChecker,
 } from '@phyne/federation'
@@ -28,6 +29,8 @@ function getBaseUrls() {
     cotiza: process.env.COTIZA_API_URL ?? 'http://localhost:4003',
     pravara: process.env.PRAVARA_BASE_URL ?? 'http://localhost:4004',
     forj: process.env.FORJ_API_URL ?? 'http://localhost:4005',
+    'janua-telemetry':
+      process.env.JANUA_TELEMETRY_API_URL ?? process.env.JANUA_API_URL ?? 'http://localhost:4001',
   }
 }
 
@@ -53,6 +56,7 @@ function getCircuitBreakers() {
     cotiza: new CircuitBreaker(configs.cotiza.circuitBreaker),
     pravara: new CircuitBreaker(configs.pravara.circuitBreaker),
     forj: new CircuitBreaker(configs.forj.circuitBreaker),
+    'janua-telemetry': new CircuitBreaker(configs['janua-telemetry'].circuitBreaker),
   }
   return sharedCircuitBreakers
 }
@@ -83,6 +87,11 @@ function buildClients() {
       configs.pravara,
     ),
     forjClient: new FederationClient(new ForjProvider(configs.forj.baseUrl), cache, configs.forj),
+    januaTelemetryClient: new FederationClient(
+      new JanuaTelemetryProvider(configs['janua-telemetry'].baseUrl),
+      cache,
+      configs['janua-telemetry'],
+    ),
   }
 }
 
@@ -103,6 +112,11 @@ export function getHealthChecker(): ProviderHealthChecker {
     { provider: 'cotiza', baseUrl: urls.cotiza, circuitBreaker: cbs.cotiza },
     { provider: 'pravara', baseUrl: urls.pravara, circuitBreaker: cbs.pravara },
     { provider: 'forj', baseUrl: urls.forj, circuitBreaker: cbs.forj },
+    {
+      provider: 'janua-telemetry',
+      baseUrl: urls['janua-telemetry'],
+      circuitBreaker: cbs['janua-telemetry'],
+    },
   ])
   return healthChecker
 }

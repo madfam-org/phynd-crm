@@ -6,6 +6,7 @@ import type {
   DhanamBilling,
   ForjAssets,
   JanuaIdentity,
+  JanuaTelemetry,
   PravaraFabrication,
 } from '@phyne/types/federation'
 
@@ -15,6 +16,7 @@ export interface FederationClients {
   cotizaClient: FederationClient<unknown, CotizaManufacturing>
   pravaraClient: FederationClient<unknown, PravaraFabrication>
   forjClient: FederationClient<unknown, ForjAssets>
+  januaTelemetryClient: FederationClient<unknown, JanuaTelemetry>
 }
 
 export interface ServiceContext {

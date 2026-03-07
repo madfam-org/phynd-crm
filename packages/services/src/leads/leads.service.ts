@@ -1,4 +1,4 @@
-import { leads } from '@phyne/db/schema'
+import { conversions, leads, stageTransitions } from '@phyne/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
@@ -23,7 +23,16 @@ export class LeadsService {
   }) {
     const [lead] = await this.ctx.db.insert(leads).values(data).returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
-    return lead!
+    const created = lead!
+
+    // Auto-record visitor_to_lead conversion
+    await this.ctx.db.insert(conversions).values({
+      type: 'visitor_to_lead',
+      contactId: data.contactId,
+      leadId: created.id,
+    })
+
+    return created
   }
 
   async update(
@@ -40,7 +49,21 @@ export class LeadsService {
   }
 
   async moveToStage(id: string, stageId: string) {
-    return this.update(id, { stageId })
+    const current = await this.getById(id)
+    const result = await this.update(id, { stageId })
+
+    // Record stage transition
+    if (result) {
+      await this.ctx.db.insert(stageTransitions).values({
+        entityType: 'lead',
+        entityId: id,
+        fromStageId: current?.stageId ?? null,
+        toStageId: stageId,
+        transitionedBy: this.ctx.auth.userId || null,
+      })
+    }
+
+    return result
   }
 
   async delete(id: string) {

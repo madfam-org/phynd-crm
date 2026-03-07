@@ -65,6 +65,16 @@ const INVALIDATION_RULES: Record<FederationProviderName, Record<string, Invalida
       extractId: (p) => (p.owner_id as string) ?? null,
     },
   },
+  'janua-telemetry': {
+    'session.identified': {
+      cachePrefix: 'fed:janua-telemetry',
+      extractId: (p) => (p.contact_id as string) ?? null,
+    },
+    'session.ended': {
+      cachePrefix: 'fed:janua-telemetry',
+      extractId: (p) => (p.contact_id as string) ?? null,
+    },
+  },
 }
 
 export class CacheInvalidator {

@@ -11,6 +11,7 @@ export { CotizaProvider } from './providers/cotiza/index'
 export { DhanamProvider } from './providers/dhanam/index'
 export { ForjProvider } from './providers/forj/index'
 export { JanuaProvider } from './providers/janua/index'
+export { JanuaTelemetryProvider } from './providers/janua-telemetry/index'
 export { PravaraProvider } from './providers/pravara/index'
 export {
   CacheInvalidator,

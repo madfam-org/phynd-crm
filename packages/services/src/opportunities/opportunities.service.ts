@@ -1,4 +1,4 @@
-import { opportunities } from '@phyne/db/schema'
+import { conversions, opportunities, stageTransitions } from '@phyne/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
@@ -25,7 +25,17 @@ export class OpportunitiesService {
   }) {
     const [opp] = await this.ctx.db.insert(opportunities).values(data).returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
-    return opp!
+    const created = opp!
+
+    // Auto-record lead_to_opportunity conversion
+    await this.ctx.db.insert(conversions).values({
+      type: 'lead_to_opportunity',
+      contactId: data.contactId,
+      opportunityId: created.id,
+      value: data.value,
+    })
+
+    return created
   }
 
   async update(
@@ -39,6 +49,19 @@ export class OpportunitiesService {
       expectedCloseDate: Date
     }>,
   ) {
+    // Check for opportunity_to_won conversion
+    if (data.status === 'won') {
+      const current = await this.getById(id)
+      if (current && current.status !== 'won') {
+        await this.ctx.db.insert(conversions).values({
+          type: 'opportunity_to_won',
+          contactId: current.contactId,
+          opportunityId: id,
+          value: data.value ?? current.value,
+        })
+      }
+    }
+
     const [opp] = await this.ctx.db
       .update(opportunities)
       .set(data)
@@ -48,7 +71,21 @@ export class OpportunitiesService {
   }
 
   async moveToStage(id: string, stageId: string) {
-    return this.update(id, { stageId })
+    const current = await this.getById(id)
+    const result = await this.update(id, { stageId })
+
+    // Record stage transition
+    if (result) {
+      await this.ctx.db.insert(stageTransitions).values({
+        entityType: 'opportunity',
+        entityId: id,
+        fromStageId: current?.stageId ?? null,
+        toStageId: stageId,
+        transitionedBy: this.ctx.auth.userId || null,
+      })
+    }
+
+    return result
   }
 
   async delete(id: string) {

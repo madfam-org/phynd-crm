@@ -12,6 +12,10 @@ const navigation = [
   { name: 'Opportunities', href: '/opportunities', icon: 'TrendingUp' },
   { name: 'Pipeline', href: '/pipeline', icon: 'Kanban' },
   { name: 'Activities', href: '/activities', icon: 'Activity' },
+  { name: 'Visitors', href: '/visitors', icon: 'Eye' },
+  { name: 'Offers', href: '/offers', icon: 'Gift' },
+  { name: 'Funnel', href: '/funnel', icon: 'Filter' },
+  { name: 'Analytics', href: '/analytics', icon: 'BarChart3' },
   { name: 'Settings', href: '/settings', icon: 'Settings' },
 ]
 

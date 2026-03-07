@@ -46,29 +46,45 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(getFeatureFlags().realtimeUpdates).toBe(false)
   })
 
-  it('has forjEnabled disabled by default', () => {
-    expect(getFeatureFlags().forjEnabled).toBe(false)
+  it('has forjEnabled enabled by default', () => {
+    expect(getFeatureFlags().forjEnabled).toBe(true)
   })
 
-  it('has exactly 9 feature flags defined', () => {
+  it('has visitorTracking disabled by default', () => {
+    expect(getFeatureFlags().visitorTracking).toBe(false)
+  })
+
+  it('has funnelManagement disabled by default', () => {
+    expect(getFeatureFlags().funnelManagement).toBe(false)
+  })
+
+  it('has analytics disabled by default', () => {
+    expect(getFeatureFlags().analytics).toBe(false)
+  })
+
+  it('has exactly 12 feature flags defined', () => {
     const flags = getFeatureFlags()
-    expect(Object.keys(flags)).toHaveLength(9)
+    expect(Object.keys(flags)).toHaveLength(12)
   })
 
-  it('only federationReadOnly is true in defaults; all others are false', () => {
+  it('federationReadOnly and forjEnabled are true in defaults; all others are false', () => {
     const flags = getFeatureFlags()
     const trueFlags = Object.entries(flags).filter(([, v]) => v === true)
     const falseFlags = Object.entries(flags).filter(([, v]) => v === false)
 
-    expect(trueFlags).toHaveLength(1)
-    expect(trueFlags[0]?.[0]).toBe('federationReadOnly')
-    expect(falseFlags).toHaveLength(8)
+    expect(trueFlags).toHaveLength(2)
+    expect(trueFlags.map(([k]) => k).sort()).toEqual(['federationReadOnly', 'forjEnabled'])
+    expect(falseFlags).toHaveLength(10)
   })
 })
 
 describe('isFeatureEnabled', () => {
   it('returns true for federationReadOnly with default flags', () => {
     expect(isFeatureEnabled('federationReadOnly')).toBe(true)
+  })
+
+  it('returns true for forjEnabled with default flags', () => {
+    expect(isFeatureEnabled('forjEnabled')).toBe(true)
   })
 
   it('returns false for all Phase 2/3 features with default flags', () => {
@@ -80,7 +96,9 @@ describe('isFeatureEnabled', () => {
       'piiMasking',
       'observability',
       'realtimeUpdates',
-      'forjEnabled',
+      'visitorTracking',
+      'funnelManagement',
+      'analytics',
     ]
     for (const flag of phase2And3) {
       expect(isFeatureEnabled(flag)).toBe(false)
@@ -116,7 +134,10 @@ describe('setFeatureFlags', () => {
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
-    expect(flags.forjEnabled).toBe(false)
+    expect(flags.forjEnabled).toBe(true)
+    expect(flags.visitorTracking).toBe(false)
+    expect(flags.funnelManagement).toBe(false)
+    expect(flags.analytics).toBe(false)
   })
 
   it('overrides multiple flags simultaneously', () => {
@@ -178,7 +199,10 @@ describe('resetFeatureFlags', () => {
       piiMasking: true,
       observability: true,
       realtimeUpdates: true,
-      forjEnabled: true,
+      forjEnabled: false,
+      visitorTracking: true,
+      funnelManagement: true,
+      analytics: true,
     })
 
     resetFeatureFlags()
@@ -192,7 +216,10 @@ describe('resetFeatureFlags', () => {
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
-    expect(flags.forjEnabled).toBe(false)
+    expect(flags.forjEnabled).toBe(true)
+    expect(flags.visitorTracking).toBe(false)
+    expect(flags.funnelManagement).toBe(false)
+    expect(flags.analytics).toBe(false)
   })
 
   it('is idempotent -- calling reset twice yields the same state', () => {
@@ -230,6 +257,9 @@ describe('getFeatureFlags', () => {
       'observability',
       'realtimeUpdates',
       'forjEnabled',
+      'visitorTracking',
+      'funnelManagement',
+      'analytics',
     ]
     for (const key of keys) {
       expect(typeof flags[key]).toBe('boolean')

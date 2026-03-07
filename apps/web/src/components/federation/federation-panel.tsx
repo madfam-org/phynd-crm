@@ -6,14 +6,18 @@ import type { FederationProviderName } from '@phyne/types/crm'
 import type {
   CotizaManufacturing,
   DhanamBilling,
+  ForjAssets,
   JanuaIdentity,
+  JanuaTelemetry,
   PravaraFabrication,
   ProviderStatus,
 } from '@phyne/types/federation'
+import { AssetsPanel } from './assets-panel'
 import { BillingPanel } from './billing-panel'
 import { FabricationPanel } from './fabrication-panel'
 import { IdentityPanel } from './identity-panel'
 import { ManufacturingPanel } from './manufacturing-panel'
+import { TelemetryPanel } from './telemetry-panel'
 
 const providerLabels: Record<FederationProviderName, string> = {
   janua: 'Janua Identity',
@@ -21,6 +25,7 @@ const providerLabels: Record<FederationProviderName, string> = {
   cotiza: 'Cotiza Studio',
   pravara: 'PravaraMES',
   forj: 'Forj Digital Assets',
+  'janua-telemetry': 'Visitor Telemetry',
 }
 
 const statusBadgeVariant: Record<ProviderStatus, 'success' | 'warning' | 'error'> = {
@@ -90,6 +95,10 @@ function ProviderContent({
       return <ManufacturingPanel data={data as CotizaManufacturing} />
     case 'pravara':
       return <FabricationPanel data={data as PravaraFabrication} />
+    case 'forj':
+      return <AssetsPanel data={data as ForjAssets} />
+    case 'janua-telemetry':
+      return <TelemetryPanel data={data as JanuaTelemetry} />
     default:
       return <p className="text-sm text-muted-foreground">Provider display not available.</p>
   }

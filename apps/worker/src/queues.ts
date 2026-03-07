@@ -40,5 +40,25 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
-  return { federationSync, cacheWarmup, healthCheck }
+  const sessionIdentify = new Queue('session-identify', {
+    connection,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 5000 },
+    },
+  })
+
+  const leadScoring = new Queue('lead-scoring', {
+    connection,
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 500 },
+    },
+  })
+
+  return { federationSync, cacheWarmup, healthCheck, sessionIdentify, leadScoring }
 }

@@ -165,6 +165,52 @@ export type PravaraOrderStatus =
   | 'delayed'
   | 'cancelled'
 
+// Janua Telemetry -- Anonymous Visitor Tracking
+export interface JanuaTelemetry {
+  sessions: VisitorSession[]
+  totalSessions: number
+  uniqueDevices: number
+  topSources: UtmSource[]
+}
+
+export interface VisitorSession {
+  sessionId: string
+  fingerprint: string
+  contactId: string | null
+  identified: boolean
+  ipCity: string | null
+  ipCountry: string | null
+  deviceType: string | null
+  browser: string | null
+  os: string | null
+  referrer: string | null
+  utm: UtmParams | null
+  pageViews: PageView[]
+  startedAt: string
+  endedAt: string | null
+  duration: number | null
+}
+
+export interface PageView {
+  url: string
+  title: string | null
+  duration: number | null
+  timestamp: string
+}
+
+export interface UtmParams {
+  source: string | null
+  medium: string | null
+  campaign: string | null
+  term: string | null
+  content: string | null
+}
+
+export interface UtmSource {
+  source: string
+  count: number
+}
+
 // Unified Profile (SPOG)
 export interface UnifiedProfile {
   contact: import('./crm.js').Contact
@@ -173,5 +219,6 @@ export interface UnifiedProfile {
   manufacturing: FederationResponse<CotizaManufacturing>
   fabrication: FederationResponse<PravaraFabrication>
   assets?: FederationResponse<ForjAssets> | null
+  telemetry?: FederationResponse<JanuaTelemetry> | null
   federationStatus: Record<FederationProviderName, ProviderStatus>
 }

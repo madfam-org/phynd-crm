@@ -6,6 +6,7 @@ export function getFederationConfig(baseUrls: {
   cotiza: string
   pravara: string
   forj: string
+  'janua-telemetry'?: string
 }): Record<FederationProviderName, ProviderConfig> {
   return {
     janua: {
@@ -100,6 +101,26 @@ export function getFederationConfig(baseUrls: {
         maxRetries: 3,
         baseDelayMs: 500,
         maxDelayMs: 30000,
+        jitterFactor: 0.5,
+      },
+      circuitBreaker: {
+        failureThreshold: 5,
+        resetTimeoutMs: 30000,
+        halfOpenSuccessThreshold: 3,
+      },
+    },
+    'janua-telemetry': {
+      name: 'janua-telemetry',
+      baseUrl: baseUrls['janua-telemetry'] ?? baseUrls.janua,
+      timeout: 5000,
+      cache: {
+        ttlSeconds: 60,
+        keyPrefix: 'fed:janua-telemetry',
+      },
+      retry: {
+        maxRetries: 2,
+        baseDelayMs: 500,
+        maxDelayMs: 15000,
         jitterFactor: 0.5,
       },
       circuitBreaker: {

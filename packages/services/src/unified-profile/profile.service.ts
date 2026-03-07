@@ -6,6 +6,7 @@ import type {
   FederationProviderName,
   ForjAssets,
   JanuaIdentity,
+  JanuaTelemetry,
   PravaraFabrication,
   ProviderStatus,
 } from '@phyne/types/federation'
@@ -18,6 +19,7 @@ interface ProfileDeps {
   cotizaClient: FederationClient<unknown, CotizaManufacturing>
   pravaraClient: FederationClient<unknown, PravaraFabrication>
   forjClient: FederationClient<unknown, ForjAssets>
+  januaTelemetryClient: FederationClient<unknown, JanuaTelemetry>
 }
 
 export class UnifiedProfileService {
@@ -38,21 +40,32 @@ export class UnifiedProfileService {
     const externalId = contact.externalJanuaId ?? contactId
 
     // Promise.allSettled - partial provider failures don't block the page
-    const [identityResult, billingResult, mfgResult, fabricationResult, assetsResult] =
-      await Promise.allSettled([
-        this.deps.januaClient.fetch(externalId, token),
-        this.deps.dhanamClient.fetch(externalId, token),
-        this.deps.cotizaClient.fetch(externalId, token),
-        this.deps.pravaraClient.fetch(externalId, token),
-        isFeatureEnabled('forjEnabled')
-          ? this.deps.forjClient.fetch(externalId, token)
-          : Promise.resolve({
-              data: null,
-              status: 'unavailable' as const,
-              cachedAt: null,
-              error: null,
-            }),
-      ])
+    const unavailableResult = Promise.resolve({
+      data: null,
+      status: 'unavailable' as const,
+      cachedAt: null,
+      error: null,
+    })
+
+    const [
+      identityResult,
+      billingResult,
+      mfgResult,
+      fabricationResult,
+      assetsResult,
+      telemetryResult,
+    ] = await Promise.allSettled([
+      this.deps.januaClient.fetch(externalId, token),
+      this.deps.dhanamClient.fetch(externalId, token),
+      this.deps.cotizaClient.fetch(externalId, token),
+      this.deps.pravaraClient.fetch(externalId, token),
+      isFeatureEnabled('forjEnabled')
+        ? this.deps.forjClient.fetch(externalId, token)
+        : unavailableResult,
+      isFeatureEnabled('visitorTracking')
+        ? this.deps.januaTelemetryClient.fetch(externalId, token)
+        : unavailableResult,
+    ])
 
     const identity = this.unwrapResult<JanuaIdentity>(identityResult, 'janua')
     const billing = this.unwrapResult<DhanamBilling>(billingResult, 'dhanam')
@@ -61,6 +74,9 @@ export class UnifiedProfileService {
     const assets = isFeatureEnabled('forjEnabled')
       ? this.unwrapResult<ForjAssets>(assetsResult, 'forj')
       : null
+    const telemetry = isFeatureEnabled('visitorTracking')
+      ? this.unwrapResult<JanuaTelemetry>(telemetryResult, 'janua-telemetry')
+      : null
 
     const federationStatus: Record<FederationProviderName, ProviderStatus> = {
       janua: identity.status,
@@ -68,6 +84,7 @@ export class UnifiedProfileService {
       cotiza: manufacturing.status,
       pravara: fabrication.status,
       forj: assets?.status ?? 'unavailable',
+      'janua-telemetry': telemetry?.status ?? 'unavailable',
     }
 
     return {
@@ -77,6 +94,7 @@ export class UnifiedProfileService {
       manufacturing,
       fabrication,
       assets,
+      telemetry,
       federationStatus,
     }
   }

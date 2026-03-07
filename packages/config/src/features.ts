@@ -15,8 +15,14 @@ export interface FeatureFlags {
   observability: boolean
   /** Phase 2: WebSocket real-time updates from Cotiza */
   realtimeUpdates: boolean
-  /** Forj digital assets provider (under construction, disabled in MVP) */
+  /** Forj digital assets provider */
   forjEnabled: boolean
+  /** Anonymous visitor tracking via Janua telemetry */
+  visitorTracking: boolean
+  /** Funnel and offer management */
+  funnelManagement: boolean
+  /** Analytics dashboard */
+  analytics: boolean
 }
 
 const defaults: FeatureFlags = {
@@ -28,7 +34,10 @@ const defaults: FeatureFlags = {
   piiMasking: false,
   observability: false,
   realtimeUpdates: false,
-  forjEnabled: false,
+  forjEnabled: true,
+  visitorTracking: false,
+  funnelManagement: false,
+  analytics: false,
 }
 
 let flags: FeatureFlags = { ...defaults }

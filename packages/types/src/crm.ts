@@ -120,7 +120,81 @@ export interface ExternalReference {
   updatedAt: Date
 }
 
-export type FederationProviderName = 'janua' | 'dhanam' | 'cotiza' | 'pravara' | 'forj'
+export type FederationProviderName =
+  | 'janua'
+  | 'dhanam'
+  | 'cotiza'
+  | 'pravara'
+  | 'forj'
+  | 'janua-telemetry'
+
+export interface Offer {
+  id: string
+  name: string
+  description: string | null
+  type: OfferType
+  value: number | null
+  currency: string | null
+  validFrom: Date | null
+  validUntil: Date | null
+  maxRedemptions: number | null
+  currentRedemptions: number
+  status: OfferStatus
+  externalProductId: string | null
+  externalProvider: FederationProviderName | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type OfferType = 'discount' | 'bundle' | 'free_trial' | 'custom'
+export type OfferStatus = 'draft' | 'active' | 'paused' | 'expired'
+
+export interface Campaign {
+  id: string
+  name: string
+  description: string | null
+  channel: CampaignChannel
+  status: CampaignStatus
+  utmSource: string | null
+  utmMedium: string | null
+  utmCampaign: string | null
+  budget: number | null
+  currency: string | null
+  startDate: Date | null
+  endDate: Date | null
+  offerId: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type CampaignChannel =
+  | 'email'
+  | 'social'
+  | 'paid_search'
+  | 'organic'
+  | 'referral'
+  | 'direct'
+  | 'other'
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+
+export interface Conversion {
+  id: string
+  type: ConversionType
+  contactId: string | null
+  leadId: string | null
+  opportunityId: string | null
+  campaignId: string | null
+  visitorSessionId: string | null
+  value: number | null
+  metadata: Record<string, unknown> | null
+  convertedAt: Date
+}
+
+export type ConversionType =
+  | 'visitor_to_lead'
+  | 'lead_to_opportunity'
+  | 'opportunity_to_won'
+  | 'offer_redemption'
 
 export interface RoleViewPreference {
   id: string

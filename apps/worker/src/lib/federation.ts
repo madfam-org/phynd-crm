@@ -7,6 +7,7 @@ import {
   FederationClient,
   ForjProvider,
   JanuaProvider,
+  JanuaTelemetryProvider,
   PravaraProvider,
   ProviderHealthChecker,
 } from '@phyne/federation'
@@ -16,6 +17,7 @@ import type {
   FederationProviderName,
   ForjAssets,
   JanuaIdentity,
+  JanuaTelemetry,
   PravaraFabrication,
 } from '@phyne/types/federation'
 import Redis from 'ioredis'
@@ -26,6 +28,7 @@ interface WorkerFederationClients {
   cotizaClient: FederationClient<unknown, CotizaManufacturing>
   pravaraClient: FederationClient<unknown, PravaraFabrication>
   forjClient: FederationClient<unknown, ForjAssets>
+  januaTelemetryClient: FederationClient<unknown, JanuaTelemetry>
 }
 
 let redis: Redis | null = null
@@ -40,6 +43,8 @@ function getBaseUrls() {
     cotiza: process.env.COTIZA_API_URL ?? 'http://localhost:4003',
     pravara: process.env.PRAVARA_BASE_URL ?? 'http://localhost:4004',
     forj: process.env.FORJ_API_URL ?? 'http://localhost:4005',
+    'janua-telemetry':
+      process.env.JANUA_TELEMETRY_API_URL ?? process.env.JANUA_API_URL ?? 'http://localhost:4001',
   }
 }
 
@@ -82,6 +87,11 @@ function buildClients() {
       configs.pravara,
     ),
     forjClient: new FederationClient(new ForjProvider(configs.forj.baseUrl), cache, configs.forj),
+    januaTelemetryClient: new FederationClient(
+      new JanuaTelemetryProvider(configs['janua-telemetry'].baseUrl),
+      cache,
+      configs['janua-telemetry'],
+    ),
   }
 }
 
@@ -104,6 +114,7 @@ export function getFederationClient(
     cotiza: clients.cotizaClient,
     pravara: clients.pravaraClient,
     forj: clients.forjClient,
+    'janua-telemetry': clients.januaTelemetryClient,
   }
   return map[provider]
 }
@@ -137,6 +148,11 @@ export function getHealthChecker(): ProviderHealthChecker {
       provider: 'forj',
       baseUrl: configs.forj.baseUrl,
       circuitBreaker: new CircuitBreaker(configs.forj.circuitBreaker),
+    },
+    {
+      provider: 'janua-telemetry',
+      baseUrl: configs['janua-telemetry'].baseUrl,
+      circuitBreaker: new CircuitBreaker(configs['janua-telemetry'].circuitBreaker),
     },
   ])
   return healthChecker

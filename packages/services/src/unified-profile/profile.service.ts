@@ -1,7 +1,14 @@
 import type { FederationProviderName, ProviderStatus } from '@phyne/types/federation'
 import type { FederationClient } from '@phyne/federation'
-import type { JanuaIdentity, DhanamBilling, CotizaManufacturing, ForjAssets } from '@phyne/types/federation'
+import type {
+  JanuaIdentity,
+  DhanamBilling,
+  CotizaManufacturing,
+  PravaraFabrication,
+  ForjAssets,
+} from '@phyne/types/federation'
 import type { FederationCallResult } from '@phyne/federation'
+import { isFeatureEnabled } from '@phyne/config/features'
 import type { ServiceContext } from '../context'
 import { ContactsService } from '../contacts/contacts.service'
 
@@ -9,6 +16,7 @@ interface ProfileDeps {
   januaClient: FederationClient<unknown, JanuaIdentity>
   dhanamClient: FederationClient<unknown, DhanamBilling>
   cotizaClient: FederationClient<unknown, CotizaManufacturing>
+  pravaraClient: FederationClient<unknown, PravaraFabrication>
   forjClient: FederationClient<unknown, ForjAssets>
 }
 
@@ -30,23 +38,31 @@ export class UnifiedProfileService {
     const externalId = contact.externalJanuaId ?? contactId
 
     // Promise.allSettled - partial provider failures don't block the page
-    const [identityResult, billingResult, mfgResult, assetsResult] = await Promise.allSettled([
-      this.deps.januaClient.fetch(externalId, token),
-      this.deps.dhanamClient.fetch(externalId, token),
-      this.deps.cotizaClient.fetch(externalId, token),
-      this.deps.forjClient.fetch(externalId, token),
-    ])
+    const [identityResult, billingResult, mfgResult, fabricationResult, assetsResult] =
+      await Promise.allSettled([
+        this.deps.januaClient.fetch(externalId, token),
+        this.deps.dhanamClient.fetch(externalId, token),
+        this.deps.cotizaClient.fetch(externalId, token),
+        this.deps.pravaraClient.fetch(externalId, token),
+        isFeatureEnabled('forjEnabled')
+          ? this.deps.forjClient.fetch(externalId, token)
+          : Promise.resolve({ data: null, status: 'unavailable' as const, cachedAt: null, error: null }),
+      ])
 
     const identity = this.unwrapResult<JanuaIdentity>(identityResult, 'janua')
     const billing = this.unwrapResult<DhanamBilling>(billingResult, 'dhanam')
     const manufacturing = this.unwrapResult<CotizaManufacturing>(mfgResult, 'cotiza')
-    const assets = this.unwrapResult<ForjAssets>(assetsResult, 'forj')
+    const fabrication = this.unwrapResult<PravaraFabrication>(fabricationResult, 'pravara')
+    const assets = isFeatureEnabled('forjEnabled')
+      ? this.unwrapResult<ForjAssets>(assetsResult, 'forj')
+      : null
 
     const federationStatus: Record<FederationProviderName, ProviderStatus> = {
       janua: identity.status,
       dhanam: billing.status,
       cotiza: manufacturing.status,
-      forj: assets.status,
+      pravara: fabrication.status,
+      forj: assets?.status ?? 'unavailable',
     }
 
     return {
@@ -54,6 +70,7 @@ export class UnifiedProfileService {
       identity,
       billing,
       manufacturing,
+      fabrication,
       assets,
       federationStatus,
     }

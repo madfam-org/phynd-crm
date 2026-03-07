@@ -11,7 +11,8 @@ interface FederationPanelProps {
 const providerLabels: Record<FederationProviderName, string> = {
   janua: 'Janua Identity',
   dhanam: 'Dhanam Billing',
-  cotiza: 'Cotiza Manufacturing',
+  cotiza: 'Cotiza Studio — Custom Orders',
+  pravara: 'PravaraMES — Fabrication',
   forj: 'Forj Digital Assets',
 }
 

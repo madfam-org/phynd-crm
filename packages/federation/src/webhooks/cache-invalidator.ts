@@ -41,6 +41,20 @@ const INVALIDATION_RULES: Record<FederationProviderName, Record<string, Invalida
       extractId: (p) => (p.client_id as string) ?? null,
     },
   },
+  pravara: {
+    'order.status_changed': {
+      cachePrefix: 'fed:pravara',
+      extractId: (p) => (p.contact_id as string) ?? null,
+    },
+    'order.created': {
+      cachePrefix: 'fed:pravara',
+      extractId: (p) => (p.contact_id as string) ?? null,
+    },
+    'order.completed': {
+      cachePrefix: 'fed:pravara',
+      extractId: (p) => (p.contact_id as string) ?? null,
+    },
+  },
   forj: {
     'asset.processed': {
       cachePrefix: 'fed:forj',

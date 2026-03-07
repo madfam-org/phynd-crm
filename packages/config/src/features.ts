@@ -15,6 +15,8 @@ export interface FeatureFlags {
   observability: boolean
   /** Phase 2: WebSocket real-time updates from Cotiza */
   realtimeUpdates: boolean
+  /** Forj digital assets provider (under construction, disabled in MVP) */
+  forjEnabled: boolean
 }
 
 const defaults: FeatureFlags = {
@@ -26,6 +28,7 @@ const defaults: FeatureFlags = {
   piiMasking: false,
   observability: false,
   realtimeUpdates: false,
+  forjEnabled: false,
 }
 
 let flags: FeatureFlags = { ...defaults }

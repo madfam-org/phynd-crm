@@ -4,6 +4,7 @@ export function getFederationConfig(baseUrls: {
   janua: string
   dhanam: string
   cotiza: string
+  pravara: string
   forj: string
 }): Record<string, ProviderConfig> {
   return {
@@ -54,6 +55,26 @@ export function getFederationConfig(baseUrls: {
       cache: {
         ttlSeconds: 60,
         keyPrefix: 'fed:cotiza',
+      },
+      retry: {
+        maxRetries: 3,
+        baseDelayMs: 500,
+        maxDelayMs: 30000,
+        jitterFactor: 0.5,
+      },
+      circuitBreaker: {
+        failureThreshold: 5,
+        resetTimeoutMs: 30000,
+        halfOpenSuccessThreshold: 3,
+      },
+    },
+    pravara: {
+      name: 'pravara',
+      baseUrl: baseUrls.pravara,
+      timeout: 10000,
+      cache: {
+        ttlSeconds: 45,
+        keyPrefix: 'fed:pravara',
       },
       retry: {
         maxRetries: 3,

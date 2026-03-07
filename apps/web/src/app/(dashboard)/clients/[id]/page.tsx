@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { FederationPanel } from '@/components/federation/federation-panel'
 import { FederationErrorBoundary } from '@/components/federation/error-boundary'
+import { isFeatureEnabled } from '@phyne/config/features'
 
 interface ClientProfilePageProps {
   params: Promise<{ id: string }>
@@ -36,16 +37,24 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
         </FederationErrorBoundary>
 
         <FederationErrorBoundary provider="cotiza">
-          <Suspense fallback={<PanelSkeleton title="Manufacturing" />}>
-            <FederationPanel provider="cotiza" contactId={id} title="Manufacturing" />
+          <Suspense fallback={<PanelSkeleton title="Custom Orders" />}>
+            <FederationPanel provider="cotiza" contactId={id} title="Custom Orders" />
           </Suspense>
         </FederationErrorBoundary>
 
-        <FederationErrorBoundary provider="forj">
-          <Suspense fallback={<PanelSkeleton title="Assets" />}>
-            <FederationPanel provider="forj" contactId={id} title="Assets" />
+        <FederationErrorBoundary provider="pravara">
+          <Suspense fallback={<PanelSkeleton title="Fabrication" />}>
+            <FederationPanel provider="pravara" contactId={id} title="Fabrication" />
           </Suspense>
         </FederationErrorBoundary>
+
+        {isFeatureEnabled('forjEnabled') && (
+          <FederationErrorBoundary provider="forj">
+            <Suspense fallback={<PanelSkeleton title="Assets" />}>
+              <FederationPanel provider="forj" contactId={id} title="Assets" />
+            </Suspense>
+          </FederationErrorBoundary>
+        )}
       </div>
     </div>
   )

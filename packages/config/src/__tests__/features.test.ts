@@ -46,9 +46,13 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(getFeatureFlags().realtimeUpdates).toBe(false)
   })
 
-  it('has exactly 8 feature flags defined', () => {
+  it('has forjEnabled disabled by default', () => {
+    expect(getFeatureFlags().forjEnabled).toBe(false)
+  })
+
+  it('has exactly 9 feature flags defined', () => {
     const flags = getFeatureFlags()
-    expect(Object.keys(flags)).toHaveLength(8)
+    expect(Object.keys(flags)).toHaveLength(9)
   })
 
   it('only federationReadOnly is true in defaults; all others are false', () => {
@@ -58,7 +62,7 @@ describe('default feature flags (Phase 1 MVP)', () => {
 
     expect(trueFlags).toHaveLength(1)
     expect(trueFlags[0]?.[0]).toBe('federationReadOnly')
-    expect(falseFlags).toHaveLength(7)
+    expect(falseFlags).toHaveLength(8)
   })
 })
 
@@ -76,6 +80,7 @@ describe('isFeatureEnabled', () => {
       'piiMasking',
       'observability',
       'realtimeUpdates',
+      'forjEnabled',
     ]
     for (const flag of phase2And3) {
       expect(isFeatureEnabled(flag)).toBe(false)
@@ -111,6 +116,7 @@ describe('setFeatureFlags', () => {
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
+    expect(flags.forjEnabled).toBe(false)
   })
 
   it('overrides multiple flags simultaneously', () => {
@@ -172,6 +178,7 @@ describe('resetFeatureFlags', () => {
       piiMasking: true,
       observability: true,
       realtimeUpdates: true,
+      forjEnabled: true,
     })
 
     resetFeatureFlags()
@@ -185,6 +192,7 @@ describe('resetFeatureFlags', () => {
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
+    expect(flags.forjEnabled).toBe(false)
   })
 
   it('is idempotent -- calling reset twice yields the same state', () => {
@@ -221,6 +229,7 @@ describe('getFeatureFlags', () => {
       'piiMasking',
       'observability',
       'realtimeUpdates',
+      'forjEnabled',
     ]
     for (const key of keys) {
       expect(typeof flags[key]).toBe('boolean')

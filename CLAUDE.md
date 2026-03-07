@@ -1,7 +1,7 @@
 # Phyne CRM - Project Instructions
 
 ## Overview
-Phyne is a phygital CRM — "Synthetic Single Pane of Glass" that federates data from 4 MADFAM ecosystem platforms (Janua, Dhanam, Cotiza, Forj) without duplicating it.
+Phyne is a phygital CRM — "Synthetic Single Pane of Glass" that federates data from 5 MADFAM ecosystem platforms (Janua, Dhanam, Cotiza, PravaraMES, Forj) without duplicating it. In MVP, 4 providers are active; Forj is feature-flagged off.
 
 ## Tech Stack
 - **Monorepo**: Turborepo + pnpm workspaces
@@ -40,7 +40,7 @@ pnpm db:seed          # Seed database
 ```
 
 ## Key Patterns
-- **Federation**: `Promise.allSettled()` across all 4 providers — partial failures don't block
+- **Federation**: `Promise.allSettled()` across all 5 providers (4 active + Forj feature-flagged) — partial failures don't block
 - **Cache**: Redis with tenant-namespaced keys (`phyne:{tenantId}:fed:{provider}:{id}`)
 - **Circuit Breaker**: CLOSED → OPEN (5 failures/60s) → HALF_OPEN (30s) → CLOSED (3 successes)
 - **tenantId**: Hardcoded to `'madfam'` in Phase 1, extracted from JWT in Phase 3

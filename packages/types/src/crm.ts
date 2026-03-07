@@ -120,7 +120,7 @@ export interface ExternalReference {
   updatedAt: Date
 }
 
-export type FederationProviderName = 'janua' | 'dhanam' | 'cotiza' | 'forj'
+export type FederationProviderName = 'janua' | 'dhanam' | 'cotiza' | 'pravara' | 'forj'
 
 export interface RoleViewPreference {
   id: string

@@ -1,10 +1,10 @@
 # Phyne CRM
 
-A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates real-time data from four MADFAM ecosystem platforms without duplicating it. Open-source core with a commercial SaaS tier.
+A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates real-time data from five MADFAM ecosystem platforms without duplicating it. Open-source core with a commercial SaaS tier.
 
 ## Overview
 
-Phyne owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, manufacturing, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phyne queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
+Phyne owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, custom orders, fabrication status, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phyne queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
 
 ## Architecture
 
@@ -26,9 +26,11 @@ Phyne owns CRM-native entities (contacts, leads, opportunities, pipelines) and v
    +----------+----------+             +--------------+--------------+
    |   packages/db       |             |   packages/federation       |
    |   (Drizzle + PG)    |             |   (data virtualization)     |
-   +---------------------+             +---+------+------+------+---+
-                                           |      |      |      |
-                                         Janua  Dhanam Cotiza  Forj
+   +---------------------+             +--+-----+------+-------+--+-+
+                                          |     |      |       |  |
+                                        Janua Dhanam Cotiza Pravara Forj*
+
+* Forj is feature-flagged off in MVP
 ```
 
 All federation calls use `Promise.allSettled()` so that a failure in one provider does not block the rest of the page. The service layer is transport-agnostic: tRPC is the transport for the MVP, with GraphQL federation planned for Phase 2+.
@@ -149,14 +151,15 @@ All SPOG (Single Pane of Glass) queries use `Promise.allSettled()`. If one provi
 
 ## External Systems
 
-Phyne federates data from four platforms in the MADFAM ecosystem:
+Phyne federates data from five platforms in the MADFAM ecosystem (4 active in MVP, 1 feature-flagged):
 
-| Platform       | Role                        | Integration              |
-| -------------- | --------------------------- | ------------------------ |
-| **Janua**      | Identity and access (OIDC)  | OIDC provider, REST API, webhook cache invalidation |
-| **Dhanam**     | Billing and monetization    | REST SDK with idempotency keys |
-| **Cotiza Studio** | Manufacturing / MES      | REST + WebSocket for real-time updates |
-| **Forj**       | 3D digital assets           | model-viewer embedding, NFT certificates |
+| Platform        | Role                          | Status              | Integration              |
+| --------------- | ----------------------------- | ------------------- | ------------------------ |
+| **Janua**       | Identity and access (OIDC)    | Active              | OIDC provider, REST API, webhook cache invalidation |
+| **Dhanam**      | Billing and monetization      | Active              | REST SDK with idempotency keys |
+| **Cotiza Studio** | Custom orders / quotes      | Active              | REST + WebSocket for real-time updates |
+| **PravaraMES**  | Fabrication order status      | Active              | REST (+ WebSocket future) |
+| **Forj**        | 3D digital assets / storefront | Feature-flagged OFF | REST (future) |
 
 ## Phasing
 
@@ -191,8 +194,9 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Database               | `DATABASE_URL`                                       |
 | Redis                  | `REDIS_URL`                                          |
 | Auth (Janua OIDC)      | `AUTH_SECRET`, `AUTH_JANUA_ISSUER`, `AUTH_JANUA_CLIENT_ID`, `AUTH_JANUA_CLIENT_SECRET` |
-| Federation URLs        | `JANUA_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `FORJ_API_URL` |
-| Webhook Secrets        | `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET` |
+| Federation URLs        | `JANUA_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `FORJ_API_URL` |
+| Federation API Keys    | `PRAVARA_API_KEY`                                    |
+| Webhook Secrets        | `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET` |
 | App                    | `NEXT_PUBLIC_APP_URL`, `NODE_ENV`                    |
 
 All environment variables are validated at startup using Zod schemas in `packages/config`.

@@ -130,12 +130,36 @@ export interface ForjAsset {
 
 export type ForjAssetType = 'model_3d' | 'texture' | 'material' | 'scene'
 
+// PravaraMES -- Fabrication Order Status
+export interface PravaraFabrication {
+  orders: PravaraOrder[]
+  summary: { total: number; inProgress: number; completed: number; delayed: number }
+}
+
+export interface PravaraOrder {
+  orderId: string
+  cotizaOrderId?: string
+  status: PravaraOrderStatus
+  productName: string
+  quantity: number
+  startedAt: string
+  estimatedCompletion: string
+  completedAt?: string
+  currentStep: string
+  totalSteps: number
+  completedSteps: number
+  notes?: string
+}
+
+export type PravaraOrderStatus = 'queued' | 'in_progress' | 'quality_check' | 'completed' | 'delayed' | 'cancelled'
+
 // Unified Profile (SPOG)
 export interface UnifiedProfile {
   contact: import('./crm.js').Contact
   identity: FederationResponse<JanuaIdentity>
   billing: FederationResponse<DhanamBilling>
   manufacturing: FederationResponse<CotizaManufacturing>
-  assets: FederationResponse<ForjAssets>
+  fabrication: FederationResponse<PravaraFabrication>
+  assets?: FederationResponse<ForjAssets> | null
   federationStatus: Record<FederationProviderName, ProviderStatus>
 }

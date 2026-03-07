@@ -78,22 +78,22 @@ async function seed() {
   await db.insert(roleViewPreferences).values([
     {
       role: 'sales_rep',
-      panelOrder: ['identity', 'billing', 'manufacturing', 'assets'],
+      panelOrder: ['identity', 'billing', 'manufacturing', 'fabrication', 'assets'],
       defaultTab: 'identity',
     },
     {
       role: 'manufacturing',
-      panelOrder: ['manufacturing', 'assets', 'identity', 'billing'],
+      panelOrder: ['manufacturing', 'fabrication', 'assets', 'identity', 'billing'],
       defaultTab: 'manufacturing',
     },
     {
       role: 'finance',
-      panelOrder: ['billing', 'identity', 'manufacturing', 'assets'],
+      panelOrder: ['billing', 'identity', 'manufacturing', 'fabrication', 'assets'],
       defaultTab: 'billing',
     },
     {
       role: 'admin',
-      panelOrder: ['identity', 'billing', 'manufacturing', 'assets'],
+      panelOrder: ['identity', 'billing', 'manufacturing', 'fabrication', 'assets'],
       defaultTab: 'identity',
     },
   ])

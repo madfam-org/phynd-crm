@@ -1,0 +1,61 @@
+# Phyne CRM - Project Instructions
+
+## Overview
+Phyne is a phygital CRM — "Synthetic Single Pane of Glass" that federates data from 4 MADFAM ecosystem platforms (Janua, Dhanam, Cotiza, Forj) without duplicating it.
+
+## Tech Stack
+- **Monorepo**: Turborepo + pnpm workspaces
+- **Frontend**: Next.js 15 (App Router) + React 19 + Tailwind CSS 4 + shadcn/ui
+- **API**: tRPC v11 (MVP) — service layer is transport-agnostic for future GraphQL
+- **ORM**: Drizzle ORM + PostgreSQL 16
+- **Cache/Queue**: Redis (ioredis) + BullMQ
+- **Auth**: Auth.js v5 with Janua as OIDC provider
+- **Tooling**: Biome (lint/format), Vitest + Playwright (test)
+
+## Project Structure
+```
+apps/web          — Next.js frontend + API routes
+apps/worker       — BullMQ background processors
+packages/api      — tRPC routers
+packages/config   — Zod env validation, feature flags
+packages/db       — Drizzle schema + migrations
+packages/federation — Data virtualization layer (providers, cache, retry, circuit breaker)
+packages/services — Transport-agnostic business logic
+packages/types    — Shared TypeScript types
+packages/ui       — Shared UI primitives
+tooling/          — Shared tsconfig, biome config
+```
+
+## Commands
+```bash
+pnpm dev              # Start all apps in dev mode
+pnpm build            # Build all packages
+pnpm typecheck        # TypeScript checks across monorepo
+pnpm lint             # Biome lint
+pnpm test             # Vitest unit tests
+pnpm test:e2e         # Playwright E2E tests
+pnpm db:generate      # Generate Drizzle migrations
+pnpm db:migrate       # Run migrations
+pnpm db:seed          # Seed database
+```
+
+## Key Patterns
+- **Federation**: `Promise.allSettled()` across all 4 providers — partial failures don't block
+- **Cache**: Redis with tenant-namespaced keys (`phyne:{tenantId}:fed:{provider}:{id}`)
+- **Circuit Breaker**: CLOSED → OPEN (5 failures/60s) → HALF_OPEN (30s) → CLOSED (3 successes)
+- **tenantId**: Hardcoded to `'madfam'` in Phase 1, extracted from JWT in Phase 3
+- **No .js extensions**: Relative imports use extensionless paths for bundler compatibility
+
+## Phasing
+- Phase 1 (MVP): Single-tenant, read-only federation
+- Phase 2: Bidirectional sync, lead scoring, AI Kanban
+- Phase 3: Multi-tenant SaaS
+
+## Local Development
+```bash
+docker compose -f docker/docker-compose.yml up -d  # Start Postgres + Redis
+pnpm install
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```

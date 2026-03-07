@@ -1,0 +1,30 @@
+{
+  "name": "@phyne/federation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./providers/*": "./src/providers/*/index.ts",
+    "./webhooks": "./src/webhooks/index.ts",
+    "./health": "./src/health/provider-health.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/",
+    "format": "biome format --write src/"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.2",
+    "@phyne/types": "workspace:*",
+    "@phyne/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "vitest": "^3.0.5",
+    "typescript": "^5.7.3",
+    "@biomejs/biome": "^1.9.4"
+  }
+}

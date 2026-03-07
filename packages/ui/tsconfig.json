@@ -1,0 +1,9 @@
+{
+  "extends": "../../tooling/typescript/tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "dist",
+    "lib": ["dom", "dom.iterable", "es2022"]
+  },
+  "include": ["src"]
+}

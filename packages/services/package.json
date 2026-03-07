@@ -1,0 +1,29 @@
+{
+  "name": "@phyne/services",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./context": "./src/context.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/",
+    "format": "biome format --write src/"
+  },
+  "dependencies": {
+    "@phyne/db": "workspace:*",
+    "@phyne/federation": "workspace:*",
+    "@phyne/types": "workspace:*",
+    "@phyne/config": "workspace:*",
+    "drizzle-orm": "^0.39.3"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.5",
+    "typescript": "^5.7.3",
+    "@biomejs/biome": "^1.9.4"
+  }
+}

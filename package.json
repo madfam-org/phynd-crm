@@ -1,0 +1,24 @@
+{
+  "name": "phyne-crm",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
+    "db:generate": "turbo db:generate --filter=@phyne/db",
+    "db:migrate": "turbo db:migrate --filter=@phyne/db",
+    "db:seed": "turbo db:seed --filter=@phyne/db",
+    "db:studio": "turbo db:studio --filter=@phyne/db",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "turbo": "^2.4.4",
+    "typescript": "^5.7.3"
+  }
+}

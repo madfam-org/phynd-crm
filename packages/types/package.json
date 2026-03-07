@@ -1,0 +1,22 @@
+{
+  "name": "@phyne/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./crm": "./src/crm.ts",
+    "./federation": "./src/federation.ts",
+    "./auth": "./src/auth.ts",
+    "./ui": "./src/ui.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/",
+    "format": "biome format --write src/"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@biomejs/biome": "^1.9.4"
+  }
+}

@@ -1,16 +1,19 @@
 import type { Job } from 'bullmq'
+import { getHealthChecker } from '../lib/federation'
 
 interface HealthCheckData {
   providers: string[]
 }
 
-export async function processHealthCheck(job: Job<HealthCheckData>): Promise<void> {
-  const { providers } = job.data
-  console.log(`[health-check] Checking ${providers.length} providers`)
+export async function processHealthCheck(_job: Job<HealthCheckData>): Promise<void> {
+  console.log('[health-check] Running provider health checks')
 
-  // In production, this would use ProviderHealthChecker to probe
-  // each provider's /health endpoint and update circuit breaker state
-  for (const provider of providers) {
-    console.log(`  Checking ${provider}: ok`)
+  const checker = getHealthChecker()
+  const results = await checker.checkAll()
+
+  for (const result of results) {
+    console.log(
+      `  ${result.provider}: ${result.status} (${result.latencyMs ?? '?'}ms, circuit: ${result.circuitState})`,
+    )
   }
 }

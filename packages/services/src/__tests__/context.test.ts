@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { createServiceContext, type ServiceContext } from '../context'
 import type { AuthContext } from '@phyne/types/auth'
+import { describe, expect, it } from 'vitest'
+import { type ServiceContext, createServiceContext } from '../context'
 
 // Lightweight mocks matching the real interfaces without importing heavy deps
 
@@ -45,7 +45,10 @@ describe('createServiceContext', () => {
   })
 
   it('passes through the exact auth object provided', () => {
-    const auth = createMockAuth({ userId: 'custom-user', roles: ['sales_rep'] })
+    const auth = createMockAuth({
+      userId: 'custom-user',
+      roles: ['sales_rep'],
+    })
     const ctx = createServiceContext(mockDb, mockCache, auth)
 
     expect(ctx.auth).toBe(auth)

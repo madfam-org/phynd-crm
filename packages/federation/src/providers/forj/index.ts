@@ -1,4 +1,4 @@
-import type { ForjAssets, ForjAssetType } from '@phyne/types/federation'
+import type { ForjAssetType, ForjAssets } from '@phyne/types/federation'
 import type { FederationProvider } from '../../core/types'
 
 interface ForjRawData {

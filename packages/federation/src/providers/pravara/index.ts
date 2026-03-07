@@ -18,7 +18,12 @@ interface PravaraRawOrder {
 
 interface PravaraRawData {
   orders: PravaraRawOrder[]
-  summary: { total: number; in_progress: number; completed: number; delayed: number }
+  summary: {
+    total: number
+    in_progress: number
+    completed: number
+    delayed: number
+  }
 }
 
 export class PravaraProvider implements FederationProvider<PravaraRawData, PravaraFabrication> {

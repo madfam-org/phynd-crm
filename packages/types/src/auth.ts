@@ -21,6 +21,19 @@ export interface AuthContext {
   accessToken: string
 }
 
-export type CrmRole = 'admin' | 'sales_manager' | 'sales_rep' | 'manufacturing' | 'finance' | 'viewer'
+export type CrmRole =
+  | 'admin'
+  | 'sales_manager'
+  | 'sales_rep'
+  | 'manufacturing'
+  | 'finance'
+  | 'viewer'
 
-export const CRM_ROLES = ['admin', 'sales_manager', 'sales_rep', 'manufacturing', 'finance', 'viewer'] as const
+export const CRM_ROLES = [
+  'admin',
+  'sales_manager',
+  'sales_rep',
+  'manufacturing',
+  'finance',
+  'viewer',
+] as const

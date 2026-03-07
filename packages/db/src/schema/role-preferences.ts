@@ -8,5 +8,8 @@ export const roleViewPreferences = pgTable('role_view_preferences', {
   defaultTab: varchar('default_tab', { length: 100 }),
   visibleColumns: jsonb('visible_columns').$type<Record<string, string[]>>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })

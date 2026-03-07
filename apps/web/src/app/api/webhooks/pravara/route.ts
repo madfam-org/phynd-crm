@@ -1,10 +1,25 @@
+import { getCacheManager } from '@/lib/federation/clients'
+import { CacheInvalidator, WebhookHandler } from '@phyne/federation'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   const signature = req.headers.get('x-webhook-signature') ?? ''
   const body = await req.text()
+  const secret = process.env.PRAVARA_WEBHOOK_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+  }
 
-  console.log('[webhook:pravara] Received event', { signature: signature.slice(0, 8) + '...' })
-
-  return NextResponse.json({ received: true })
+  try {
+    const cache = getCacheManager()
+    const invalidator = new CacheInvalidator(cache)
+    const handler = new WebhookHandler(invalidator)
+    const result = await handler.handle('pravara', body, signature, secret)
+    return NextResponse.json(result)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Invalid webhook signature') {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
+  }
 }

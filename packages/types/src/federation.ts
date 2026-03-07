@@ -1,4 +1,5 @@
 import type { FederationProviderName } from './crm'
+
 export type { FederationProviderName } from './crm'
 
 export type ProviderStatus = 'ok' | 'degraded' | 'unavailable'
@@ -133,7 +134,12 @@ export type ForjAssetType = 'model_3d' | 'texture' | 'material' | 'scene'
 // PravaraMES -- Fabrication Order Status
 export interface PravaraFabrication {
   orders: PravaraOrder[]
-  summary: { total: number; inProgress: number; completed: number; delayed: number }
+  summary: {
+    total: number
+    inProgress: number
+    completed: number
+    delayed: number
+  }
 }
 
 export interface PravaraOrder {
@@ -151,7 +157,13 @@ export interface PravaraOrder {
   notes?: string
 }
 
-export type PravaraOrderStatus = 'queued' | 'in_progress' | 'quality_check' | 'completed' | 'delayed' | 'cancelled'
+export type PravaraOrderStatus =
+  | 'queued'
+  | 'in_progress'
+  | 'quality_check'
+  | 'completed'
+  | 'delayed'
+  | 'cancelled'
 
 // Unified Profile (SPOG)
 export interface UnifiedProfile {

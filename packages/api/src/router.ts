@@ -1,11 +1,11 @@
-import { router } from './trpc'
+import { activitiesRouter } from './routers/activities'
 import { contactsRouter } from './routers/contacts'
+import { federationHealthRouter } from './routers/federation-health'
 import { leadsRouter } from './routers/leads'
 import { opportunitiesRouter } from './routers/opportunities'
 import { pipelinesRouter } from './routers/pipelines'
-import { activitiesRouter } from './routers/activities'
 import { unifiedProfileRouter } from './routers/unified-profile'
-import { federationHealthRouter } from './routers/federation-health'
+import { router } from './trpc'
 
 export const appRouter = router({
   contacts: contactsRouter,

@@ -1,8 +1,8 @@
 import { Worker } from 'bullmq'
-import { createRedisConnection } from './queues'
-import { processFederationSync } from './processors/federation-sync'
 import { processCacheWarmup } from './processors/cache-warmup'
+import { processFederationSync } from './processors/federation-sync'
 import { processHealthCheck } from './processors/health-check'
+import { createRedisConnection } from './queues'
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'
 
@@ -31,11 +31,7 @@ async function main() {
 
   const shutdown = async () => {
     console.log('Shutting down workers...')
-    await Promise.all([
-      federationWorker.close(),
-      cacheWorker.close(),
-      healthWorker.close(),
-    ])
+    await Promise.all([federationWorker.close(), cacheWorker.close(), healthWorker.close()])
     process.exit(0)
   }
 

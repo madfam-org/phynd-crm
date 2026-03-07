@@ -1,16 +1,16 @@
-import type { FederationProviderName, ProviderStatus } from '@phyne/types/federation'
-import type { FederationClient } from '@phyne/federation'
-import type {
-  JanuaIdentity,
-  DhanamBilling,
-  CotizaManufacturing,
-  PravaraFabrication,
-  ForjAssets,
-} from '@phyne/types/federation'
-import type { FederationCallResult } from '@phyne/federation'
 import { isFeatureEnabled } from '@phyne/config/features'
-import type { ServiceContext } from '../context'
+import type { FederationCallResult, FederationClient } from '@phyne/federation'
+import type {
+  CotizaManufacturing,
+  DhanamBilling,
+  FederationProviderName,
+  ForjAssets,
+  JanuaIdentity,
+  PravaraFabrication,
+  ProviderStatus,
+} from '@phyne/types/federation'
 import { ContactsService } from '../contacts/contacts.service'
+import type { ServiceContext } from '../context'
 
 interface ProfileDeps {
   januaClient: FederationClient<unknown, JanuaIdentity>
@@ -46,7 +46,12 @@ export class UnifiedProfileService {
         this.deps.pravaraClient.fetch(externalId, token),
         isFeatureEnabled('forjEnabled')
           ? this.deps.forjClient.fetch(externalId, token)
-          : Promise.resolve({ data: null, status: 'unavailable' as const, cachedAt: null, error: null }),
+          : Promise.resolve({
+              data: null,
+              status: 'unavailable' as const,
+              cachedAt: null,
+              error: null,
+            }),
       ])
 
     const identity = this.unwrapResult<JanuaIdentity>(identityResult, 'janua')
@@ -79,7 +84,13 @@ export class UnifiedProfileService {
   private unwrapResult<T>(
     result: PromiseSettledResult<FederationCallResult<T>>,
     provider: FederationProviderName,
-  ): { data: T | null; status: ProviderStatus; cachedAt: Date | null; error: string | null; provider: FederationProviderName } {
+  ): {
+    data: T | null
+    status: ProviderStatus
+    cachedAt: Date | null
+    error: string | null
+    provider: FederationProviderName
+  } {
     if (result.status === 'fulfilled') {
       return { ...result.value, provider }
     }

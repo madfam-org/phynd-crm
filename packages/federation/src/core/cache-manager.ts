@@ -21,7 +21,10 @@ export class CacheManager {
 
   async set<T>(prefix: string, id: string, data: T, ttlSeconds: number): Promise<void> {
     const key = this.buildKey(prefix, id)
-    const payload = JSON.stringify({ data, cachedAt: new Date().toISOString() })
+    const payload = JSON.stringify({
+      data,
+      cachedAt: new Date().toISOString(),
+    })
     await this.redis.set(key, payload, 'EX', ttlSeconds)
   }
 

@@ -11,5 +11,8 @@ export const contacts = pgTable('contacts', {
   status: varchar('status', { length: 20 }).notNull().default('active'),
   ownerId: text('owner_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })

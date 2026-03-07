@@ -1,14 +1,14 @@
-import { describe, it, expect, vi } from 'vitest'
-import { TRPCError } from '@trpc/server'
-import {
-  createTRPCContext,
-  router,
-  publicProcedure,
-  protectedProcedure,
-  createCallerFactory,
-} from '../trpc'
 import type { ServiceContext } from '@phyne/services/context'
 import type { AuthContext } from '@phyne/types/auth'
+import { TRPCError } from '@trpc/server'
+import { describe, expect, it } from 'vitest'
+import {
+  createCallerFactory,
+  createTRPCContext,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from '../trpc'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -25,9 +25,7 @@ function createMockAuth(overrides: Partial<AuthContext> = {}): AuthContext {
   }
 }
 
-function createMockServiceContext(
-  authOverrides: Partial<AuthContext> = {},
-): ServiceContext {
+function createMockServiceContext(authOverrides: Partial<AuthContext> = {}): ServiceContext {
   return {
     db: {} as ServiceContext['db'],
     cache: {} as ServiceContext['cache'],
@@ -133,7 +131,7 @@ describe('requireRole middleware', () => {
   it('allows access when user has one of the required roles', async () => {
     const roleRouter = router({
       adminOnly: protectedProcedure
-        .use(requireRole!('admin'))
+        .use(requireRole?.('admin'))
         .query(() => ({ access: 'granted' })),
     })
     const createCaller = createCallerFactory(roleRouter)
@@ -147,11 +145,14 @@ describe('requireRole middleware', () => {
   it('allows access when user has any one of multiple required roles', async () => {
     const roleRouter = router({
       salesOrAdmin: protectedProcedure
-        .use(requireRole!('admin', 'sales_manager'))
+        .use(requireRole?.('admin', 'sales_manager'))
         .query(() => ({ access: 'granted' })),
     })
     const createCaller = createCallerFactory(roleRouter)
-    const ctx = createMockServiceContext({ userId: 'u1', roles: ['sales_manager'] })
+    const ctx = createMockServiceContext({
+      userId: 'u1',
+      roles: ['sales_manager'],
+    })
     const caller = createCaller(ctx)
 
     const result = await caller.salesOrAdmin()
@@ -161,7 +162,7 @@ describe('requireRole middleware', () => {
   it('throws FORBIDDEN when user lacks all required roles', async () => {
     const roleRouter = router({
       adminOnly: protectedProcedure
-        .use(requireRole!('admin'))
+        .use(requireRole?.('admin'))
         .query(() => ({ access: 'granted' })),
     })
     const createCaller = createCallerFactory(roleRouter)
@@ -177,7 +178,7 @@ describe('requireRole middleware', () => {
   it('includes the required roles in the FORBIDDEN error message', async () => {
     const roleRouter = router({
       restricted: protectedProcedure
-        .use(requireRole!('admin', 'sales_manager'))
+        .use(requireRole?.('admin', 'sales_manager'))
         .query(() => ({ access: 'granted' })),
     })
     const createCaller = createCallerFactory(roleRouter)
@@ -198,7 +199,7 @@ describe('requireRole middleware', () => {
   it('throws UNAUTHORIZED before FORBIDDEN when userId is empty', async () => {
     const roleRouter = router({
       adminOnly: protectedProcedure
-        .use(requireRole!('admin'))
+        .use(requireRole?.('admin'))
         .query(() => ({ access: 'granted' })),
     })
     const createCaller = createCallerFactory(roleRouter)

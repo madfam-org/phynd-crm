@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
 import { opportunities } from '@phyne/db/schema'
+import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class OpportunitiesService {
@@ -10,10 +10,7 @@ export class OpportunitiesService {
   }
 
   async getById(id: string) {
-    const [opp] = await this.ctx.db
-      .select()
-      .from(opportunities)
-      .where(eq(opportunities.id, id))
+    const [opp] = await this.ctx.db.select().from(opportunities).where(eq(opportunities.id, id))
     return opp ?? null
   }
 
@@ -26,21 +23,22 @@ export class OpportunitiesService {
     probability?: number
     expectedCloseDate?: Date
   }) {
-    const [opp] = await this.ctx.db
-      .insert(opportunities)
-      .values(data)
-      .returning()
+    const [opp] = await this.ctx.db.insert(opportunities).values(data).returning()
+    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
     return opp!
   }
 
-  async update(id: string, data: Partial<{
-    name: string
-    stageId: string
-    value: string
-    probability: number
-    status: string
-    expectedCloseDate: Date
-  }>) {
+  async update(
+    id: string,
+    data: Partial<{
+      name: string
+      stageId: string
+      value: string
+      probability: number
+      status: string
+      expectedCloseDate: Date
+    }>,
+  ) {
     const [opp] = await this.ctx.db
       .update(opportunities)
       .set(data)

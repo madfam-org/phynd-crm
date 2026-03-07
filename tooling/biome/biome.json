@@ -39,7 +39,8 @@
       ".next",
       ".turbo",
       "coverage",
-      "*.gen.ts"
+      "*.gen.ts",
+      "*.css"
     ]
   }
 }

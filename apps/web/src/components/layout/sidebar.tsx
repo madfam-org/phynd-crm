@@ -1,8 +1,8 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: 'LayoutDashboard' },
@@ -27,7 +27,8 @@ export function Sidebar() {
       </div>
       <nav className="space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const isActive =
+            pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
           return (
             <Link
               key={item.name}

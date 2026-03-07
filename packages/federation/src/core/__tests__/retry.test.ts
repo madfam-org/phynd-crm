@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { calculateDelay, isRetryableError, withRetry, DEFAULT_RETRY_CONFIG } from '../retry'
 import type { RetryConfig } from '@phyne/types/federation'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_RETRY_CONFIG, calculateDelay, isRetryableError, withRetry } from '../retry'
 
 // ---------------------------------------------------------------------------
 // calculateDelay

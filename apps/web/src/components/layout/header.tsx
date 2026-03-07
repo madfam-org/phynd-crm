@@ -1,3 +1,5 @@
+import { SignOutButton } from './sign-out-button'
+
 interface HeaderProps {
   user?: {
     name?: string | null
@@ -17,6 +19,7 @@ export function Header({ user }: HeaderProps) {
           <span className="font-medium">{user?.name ?? 'User'}</span>
           <span className="ml-2 text-muted-foreground">{user?.email}</span>
         </div>
+        <SignOutButton />
       </div>
     </header>
   )

@@ -1,9 +1,9 @@
 'use client'
 
-import { Component, type ReactNode } from 'react'
-import type { FederationProviderName } from '@phyne/types/crm'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { FederationProviderName } from '@phyne/types/crm'
+import { Component, type ReactNode } from 'react'
 
 interface Props {
   provider: FederationProviderName
@@ -37,9 +37,7 @@ export class FederationErrorBoundary extends Component<Props, State> {
             <p className="text-sm text-muted-foreground">
               Unable to load data from {this.props.provider}
             </p>
-            <p className="mt-1 text-xs text-destructive">
-              {this.state.error?.message}
-            </p>
+            <p className="mt-1 text-xs text-destructive">{this.state.error?.message}</p>
           </CardContent>
         </Card>
       )

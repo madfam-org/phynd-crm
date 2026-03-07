@@ -1,5 +1,5 @@
-import { Queue } from 'bullmq'
 import type { ConnectionOptions } from 'bullmq'
+import { Queue } from 'bullmq'
 
 export function createRedisConnection(redisUrl: string): ConnectionOptions {
   const url = new URL(redisUrl)

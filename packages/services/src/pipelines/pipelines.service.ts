@@ -1,5 +1,5 @@
-import { eq, asc } from 'drizzle-orm'
-import { pipelines, pipelineStages } from '@phyne/db/schema'
+import { pipelineStages, pipelines } from '@phyne/db/schema'
+import { asc, eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class PipelinesService {
@@ -10,10 +10,7 @@ export class PipelinesService {
   }
 
   async getById(id: string) {
-    const [pipeline] = await this.ctx.db
-      .select()
-      .from(pipelines)
-      .where(eq(pipelines.id, id))
+    const [pipeline] = await this.ctx.db.select().from(pipelines).where(eq(pipelines.id, id))
     return pipeline ?? null
   }
 

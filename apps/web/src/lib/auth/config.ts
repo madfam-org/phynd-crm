@@ -33,10 +33,10 @@ export const authConfig: NextAuthConfig = {
     },
     session({ session, token }) {
       if (session.user) {
-        session.user.id = token.sub!
-        ;(session as any).accessToken = token.accessToken
-        ;(session.user as any).roles = token.roles ?? []
-        ;(session.user as any).scopes = token.scopes ?? []
+        session.user.id = token.sub ?? ''
+        session.accessToken = token.accessToken
+        session.user.roles = token.roles ?? []
+        session.user.scopes = token.scopes ?? []
       }
       return session
     },

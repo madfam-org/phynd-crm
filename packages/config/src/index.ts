@@ -1,9 +1,9 @@
-export { getEnv, getEnvUnsafe, type Env } from './env'
-export { getFederationConfig } from './federation'
+export { type Env, getEnv, getEnvUnsafe } from './env'
 export {
+  type FeatureFlags,
   getFeatureFlags,
   isFeatureEnabled,
-  setFeatureFlags,
   resetFeatureFlags,
-  type FeatureFlags,
+  setFeatureFlags,
 } from './features'
+export { getFederationConfig } from './federation'

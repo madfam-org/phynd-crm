@@ -1,17 +1,17 @@
-export default function LeadsPage() {
+import { LeadsDataTable } from '@/components/leads/leads-data-table'
+import { getServerCaller } from '@/lib/trpc/server'
+
+export default async function LeadsPage() {
+  const caller = await getServerCaller()
+  const leads = await caller.leads.list()
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Leads</h1>
-          <p className="text-muted-foreground">Track and qualify leads</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">Leads</h1>
+        <p className="text-muted-foreground">Track and qualify leads</p>
       </div>
-      <div className="rounded-lg border">
-        <div className="p-6 text-center text-muted-foreground">
-          Leads data table will be rendered here
-        </div>
-      </div>
+      <LeadsDataTable initialData={leads} />
     </div>
   )
 }

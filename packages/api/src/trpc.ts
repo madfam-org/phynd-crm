@@ -1,6 +1,6 @@
-import { initTRPC, TRPCError } from '@trpc/server'
-import superjson from 'superjson'
 import type { ServiceContext } from '@phyne/services/context'
+import { TRPCError, initTRPC } from '@trpc/server'
+import superjson from 'superjson'
 
 export const createTRPCContext = (ctx: ServiceContext) => ctx
 

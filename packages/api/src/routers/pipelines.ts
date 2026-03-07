@@ -1,5 +1,5 @@
-import { z } from 'zod'
 import { PipelinesService } from '@phyne/services'
+import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
 export const pipelinesRouter = router({
@@ -8,12 +8,10 @@ export const pipelinesRouter = router({
     return service.list()
   }),
 
-  getById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .query(({ ctx, input }) => {
-      const service = new PipelinesService(ctx)
-      return service.getById(input.id)
-    }),
+  getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
+    const service = new PipelinesService(ctx)
+    return service.getById(input.id)
+  }),
 
   getStages: protectedProcedure
     .input(z.object({ pipelineId: z.string().uuid() }))

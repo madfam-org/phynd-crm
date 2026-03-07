@@ -1,6 +1,7 @@
-import { Suspense } from 'react'
-import { FederationPanel } from '@/components/federation/federation-panel'
 import { FederationErrorBoundary } from '@/components/federation/error-boundary'
+import { FederationPanel } from '@/components/federation/federation-panel'
+import { Badge } from '@/components/ui/badge'
+import { getServerCaller } from '@/lib/trpc/server'
 import { isFeatureEnabled } from '@phyne/config/features'
 
 interface ClientProfilePageProps {
@@ -9,6 +10,18 @@ interface ClientProfilePageProps {
 
 export default async function ClientProfilePage({ params }: ClientProfilePageProps) {
   const { id } = await params
+  const caller = await getServerCaller()
+
+  let profile: Awaited<ReturnType<typeof caller.unifiedProfile.getProfile>> | null = null
+  let profileError: string | null = null
+
+  try {
+    profile = await caller.unifiedProfile.getProfile({ contactId: id })
+  } catch (err) {
+    profileError = err instanceof Error ? err.message : 'Failed to load profile'
+  }
+
+  const contact = profile?.contact
 
   return (
     <div className="space-y-6">
@@ -17,57 +30,81 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
         <p className="text-muted-foreground">Unified view across all systems</p>
       </div>
 
-      {/* Profile Header - from local DB */}
       <div className="rounded-lg border bg-card p-6">
-        <p className="text-sm text-muted-foreground">Contact ID: {id}</p>
+        {contact ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">{contact.name}</h2>
+              <p className="text-sm text-muted-foreground">
+                {contact.email} {contact.company && `| ${contact.company}`}
+              </p>
+            </div>
+            <Badge variant={contact.status === 'active' ? 'success' : 'secondary'}>
+              {contact.status}
+            </Badge>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{profileError ?? `Contact ID: ${id}`}</p>
+        )}
       </div>
 
-      {/* Federation Panels - each with independent Suspense + Error boundary */}
       <div className="grid gap-4 lg:grid-cols-2">
         <FederationErrorBoundary provider="janua">
-          <Suspense fallback={<PanelSkeleton title="Identity" />}>
-            <FederationPanel provider="janua" contactId={id} title="Identity" />
-          </Suspense>
+          <FederationPanel
+            provider="janua"
+            title="Identity"
+            status={profile?.federationStatus?.janua ?? 'unavailable'}
+            data={profile?.identity?.data ?? null}
+            error={profile?.identity?.error ?? null}
+            cachedAt={profile?.identity?.cachedAt ?? null}
+          />
         </FederationErrorBoundary>
 
         <FederationErrorBoundary provider="dhanam">
-          <Suspense fallback={<PanelSkeleton title="Billing" />}>
-            <FederationPanel provider="dhanam" contactId={id} title="Billing" />
-          </Suspense>
+          <FederationPanel
+            provider="dhanam"
+            title="Billing"
+            status={profile?.federationStatus?.dhanam ?? 'unavailable'}
+            data={profile?.billing?.data ?? null}
+            error={profile?.billing?.error ?? null}
+            cachedAt={profile?.billing?.cachedAt ?? null}
+          />
         </FederationErrorBoundary>
 
         <FederationErrorBoundary provider="cotiza">
-          <Suspense fallback={<PanelSkeleton title="Custom Orders" />}>
-            <FederationPanel provider="cotiza" contactId={id} title="Custom Orders" />
-          </Suspense>
+          <FederationPanel
+            provider="cotiza"
+            title="Custom Orders"
+            status={profile?.federationStatus?.cotiza ?? 'unavailable'}
+            data={profile?.manufacturing?.data ?? null}
+            error={profile?.manufacturing?.error ?? null}
+            cachedAt={profile?.manufacturing?.cachedAt ?? null}
+          />
         </FederationErrorBoundary>
 
         <FederationErrorBoundary provider="pravara">
-          <Suspense fallback={<PanelSkeleton title="Fabrication" />}>
-            <FederationPanel provider="pravara" contactId={id} title="Fabrication" />
-          </Suspense>
+          <FederationPanel
+            provider="pravara"
+            title="Fabrication"
+            status={profile?.federationStatus?.pravara ?? 'unavailable'}
+            data={profile?.fabrication?.data ?? null}
+            error={profile?.fabrication?.error ?? null}
+            cachedAt={profile?.fabrication?.cachedAt ?? null}
+          />
         </FederationErrorBoundary>
 
         {isFeatureEnabled('forjEnabled') && (
           <FederationErrorBoundary provider="forj">
-            <Suspense fallback={<PanelSkeleton title="Assets" />}>
-              <FederationPanel provider="forj" contactId={id} title="Assets" />
-            </Suspense>
+            <FederationPanel
+              provider="forj"
+              title="Assets"
+              status={profile?.federationStatus?.forj ?? 'unavailable'}
+              data={profile?.assets?.data ?? null}
+              error={profile?.assets?.error ?? null}
+              cachedAt={profile?.assets?.cachedAt ?? null}
+            />
           </FederationErrorBoundary>
         )}
-      </div>
-    </div>
-  )
-}
-
-function PanelSkeleton({ title }: { title: string }) {
-  return (
-    <div className="rounded-lg border bg-card p-6 animate-pulse">
-      <div className="text-sm font-medium text-muted-foreground">{title}</div>
-      <div className="mt-4 space-y-2">
-        <div className="h-4 w-3/4 rounded bg-muted" />
-        <div className="h-4 w-1/2 rounded bg-muted" />
-        <div className="h-4 w-2/3 rounded bg-muted" />
       </div>
     </div>
   )

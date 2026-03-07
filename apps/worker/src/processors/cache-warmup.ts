@@ -1,18 +1,25 @@
+import type { FederationProviderName } from '@phyne/types/federation'
 import type { Job } from 'bullmq'
+import { getFederationClient } from '../lib/federation'
 
 interface CacheWarmupData {
-  provider: string
+  provider: FederationProviderName
   externalIds: string[]
+  token: string
 }
 
 export async function processCacheWarmup(job: Job<CacheWarmupData>): Promise<void> {
-  const { provider, externalIds } = job.data
+  const { provider, externalIds, token } = job.data
   console.log(`[cache-warmup] Warming ${provider} cache for ${externalIds.length} entries`)
 
-  // In production, this would batch-fetch data from the provider
-  // and populate the Redis cache ahead of user requests
+  const client = getFederationClient(provider)
+
   for (const id of externalIds) {
-    console.log(`  Warming cache for ${provider}:${id}`)
-    // federationClient.fetch(id, serviceToken)
+    try {
+      await client.fetch(id, token)
+      console.log(`  Warmed cache for ${provider}:${id}`)
+    } catch (err) {
+      console.error(`  Failed to warm cache for ${provider}:${id}`, err)
+    }
   }
 }

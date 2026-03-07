@@ -1,6 +1,11 @@
-export { FederationClient } from './federation-client'
 export { CacheManager } from './cache-manager'
 export { CircuitBreaker, DEFAULT_CB_CONFIG } from './circuit-breaker'
-export { withRetry, calculateDelay, isRetryableError, DEFAULT_RETRY_CONFIG } from './retry'
+export { FederationClient } from './federation-client'
 export { generateIdempotencyKey } from './idempotency'
-export type { FederationProvider, FederationCallResult } from './types'
+export {
+  calculateDelay,
+  DEFAULT_RETRY_CONFIG,
+  isRetryableError,
+  withRetry,
+} from './retry'
+export type { FederationCallResult, FederationProvider } from './types'

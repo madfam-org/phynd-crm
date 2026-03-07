@@ -1,4 +1,4 @@
-import type { ProviderConfig } from '@phyne/types/federation'
+import type { FederationProviderName, ProviderConfig } from '@phyne/types/federation'
 
 export function getFederationConfig(baseUrls: {
   janua: string
@@ -6,7 +6,7 @@ export function getFederationConfig(baseUrls: {
   cotiza: string
   pravara: string
   forj: string
-}): Record<string, ProviderConfig> {
+}): Record<FederationProviderName, ProviderConfig> {
   return {
     janua: {
       name: 'janua',

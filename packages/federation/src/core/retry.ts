@@ -7,7 +7,10 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   jitterFactor: 0.5,
 }
 
-export function calculateDelay(attempt: number, config: RetryConfig = DEFAULT_RETRY_CONFIG): number {
+export function calculateDelay(
+  attempt: number,
+  config: RetryConfig = DEFAULT_RETRY_CONFIG,
+): number {
   const exponentialDelay = config.baseDelayMs * 2 ** attempt
   const capped = Math.min(exponentialDelay, config.maxDelayMs)
   const jitter = capped * config.jitterFactor * Math.random()
@@ -17,7 +20,11 @@ export function calculateDelay(attempt: number, config: RetryConfig = DEFAULT_RE
 export function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
-    if (message.includes('timeout') || message.includes('econnreset') || message.includes('econnrefused')) {
+    if (
+      message.includes('timeout') ||
+      message.includes('econnreset') ||
+      message.includes('econnrefused')
+    ) {
       return true
     }
   }

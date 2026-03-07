@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  type FeatureFlags,
   getFeatureFlags,
   isFeatureEnabled,
-  setFeatureFlags,
   resetFeatureFlags,
-  type FeatureFlags,
+  setFeatureFlags,
 } from '../features'
 
 // Reset to known state before every test to prevent cross-test pollution

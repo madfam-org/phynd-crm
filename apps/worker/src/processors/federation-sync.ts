@@ -1,23 +1,35 @@
+import type { FederationProviderName } from '@phyne/types/federation'
 import type { Job } from 'bullmq'
+import { getCacheManager, getFederationClient } from '../lib/federation'
 
 interface FederationSyncData {
-  provider: string
+  provider: FederationProviderName
   externalId: string
   action: 'invalidate' | 'refresh'
+  token?: string
 }
 
 export async function processFederationSync(job: Job<FederationSyncData>): Promise<void> {
-  const { provider, externalId, action } = job.data
+  const { provider, externalId, action, token } = job.data
   console.log(`[federation-sync] ${action} ${provider}:${externalId}`)
 
-  // In production, this would use CacheManager to invalidate or refresh
-  // federation data for a specific provider and external ID
+  const cache = getCacheManager()
+
   switch (action) {
-    case 'invalidate':
-      // cache.invalidate(provider prefix, externalId)
+    case 'invalidate': {
+      await cache.invalidate(`fed:${provider}`, externalId)
+      console.log(`[federation-sync] Invalidated cache for ${provider}:${externalId}`)
       break
-    case 'refresh':
-      // Fetch fresh data and update cache
+    }
+    case 'refresh': {
+      if (!token) {
+        console.warn(`[federation-sync] No token provided for refresh of ${provider}:${externalId}`)
+        break
+      }
+      const client = getFederationClient(provider)
+      await client.fetch(externalId, token)
+      console.log(`[federation-sync] Refreshed cache for ${provider}:${externalId}`)
       break
+    }
   }
 }

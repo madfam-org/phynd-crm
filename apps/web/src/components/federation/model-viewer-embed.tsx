@@ -7,7 +7,7 @@ interface ModelViewerEmbedProps {
   className?: string
 }
 
-export function ModelViewerEmbed({ src, alt, poster, className }: ModelViewerEmbedProps) {
+export function ModelViewerEmbed({ src, alt, poster: _poster, className }: ModelViewerEmbedProps) {
   return (
     <div className={className}>
       {/* @google/model-viewer provides the <model-viewer> custom element */}
@@ -18,12 +18,8 @@ export function ModelViewerEmbed({ src, alt, poster, className }: ModelViewerEmb
         // This requires dynamic import of @google/model-viewer
       >
         <div className="flex h-full items-center justify-center">
-          <p className="text-sm text-muted-foreground">
-            3D Model: {alt}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            src: {src}
-          </p>
+          <p className="text-sm text-muted-foreground">3D Model: {alt}</p>
+          <p className="mt-1 text-xs text-muted-foreground">src: {src}</p>
         </div>
       </div>
     </div>

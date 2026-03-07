@@ -1,0 +1,108 @@
+import { getFederationConfig } from '@phyne/config/federation'
+import {
+  CacheManager,
+  CircuitBreaker,
+  CotizaProvider,
+  DhanamProvider,
+  FederationClient,
+  ForjProvider,
+  JanuaProvider,
+  PravaraProvider,
+  ProviderHealthChecker,
+} from '@phyne/federation'
+import type { FederationProviderName } from '@phyne/types/federation'
+import Redis from 'ioredis'
+
+// --- Lazy singletons (survive across requests, preserve circuit breaker state) ---
+
+let redis: Redis | null = null
+let cacheManager: CacheManager | null = null
+let federationClients: ReturnType<typeof buildClients> | null = null
+let healthChecker: ProviderHealthChecker | null = null
+let sharedCircuitBreakers: Record<FederationProviderName, CircuitBreaker> | null = null
+
+function getBaseUrls() {
+  return {
+    janua: process.env.JANUA_API_URL ?? 'http://localhost:4001',
+    dhanam: process.env.DHANAM_API_URL ?? 'http://localhost:4002',
+    cotiza: process.env.COTIZA_API_URL ?? 'http://localhost:4003',
+    pravara: process.env.PRAVARA_BASE_URL ?? 'http://localhost:4004',
+    forj: process.env.FORJ_API_URL ?? 'http://localhost:4005',
+  }
+}
+
+function getRedis(): Redis {
+  if (redis) return redis
+  const url = process.env.REDIS_URL ?? 'redis://localhost:6379'
+  redis = new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true })
+  return redis
+}
+
+export function getCacheManager(): CacheManager {
+  if (cacheManager) return cacheManager
+  cacheManager = new CacheManager(getRedis())
+  return cacheManager
+}
+
+function getCircuitBreakers() {
+  if (sharedCircuitBreakers) return sharedCircuitBreakers
+  const configs = getFederationConfig(getBaseUrls())
+  sharedCircuitBreakers = {
+    janua: new CircuitBreaker(configs.janua.circuitBreaker),
+    dhanam: new CircuitBreaker(configs.dhanam.circuitBreaker),
+    cotiza: new CircuitBreaker(configs.cotiza.circuitBreaker),
+    pravara: new CircuitBreaker(configs.pravara.circuitBreaker),
+    forj: new CircuitBreaker(configs.forj.circuitBreaker),
+  }
+  return sharedCircuitBreakers
+}
+
+function buildClients() {
+  const cache = getCacheManager()
+  const configs = getFederationConfig(getBaseUrls())
+
+  return {
+    januaClient: new FederationClient(
+      new JanuaProvider(configs.janua.baseUrl),
+      cache,
+      configs.janua,
+    ),
+    dhanamClient: new FederationClient(
+      new DhanamProvider(configs.dhanam.baseUrl),
+      cache,
+      configs.dhanam,
+    ),
+    cotizaClient: new FederationClient(
+      new CotizaProvider(configs.cotiza.baseUrl),
+      cache,
+      configs.cotiza,
+    ),
+    pravaraClient: new FederationClient(
+      new PravaraProvider(configs.pravara.baseUrl),
+      cache,
+      configs.pravara,
+    ),
+    forjClient: new FederationClient(new ForjProvider(configs.forj.baseUrl), cache, configs.forj),
+  }
+}
+
+export function getFederationClients() {
+  if (federationClients) return federationClients
+  federationClients = buildClients()
+  return federationClients
+}
+
+export function getHealthChecker(): ProviderHealthChecker {
+  if (healthChecker) return healthChecker
+  const cbs = getCircuitBreakers()
+  const urls = getBaseUrls()
+
+  healthChecker = new ProviderHealthChecker([
+    { provider: 'janua', baseUrl: urls.janua, circuitBreaker: cbs.janua },
+    { provider: 'dhanam', baseUrl: urls.dhanam, circuitBreaker: cbs.dhanam },
+    { provider: 'cotiza', baseUrl: urls.cotiza, circuitBreaker: cbs.cotiza },
+    { provider: 'pravara', baseUrl: urls.pravara, circuitBreaker: cbs.pravara },
+    { provider: 'forj', baseUrl: urls.forj, circuitBreaker: cbs.forj },
+  ])
+  return healthChecker
+}

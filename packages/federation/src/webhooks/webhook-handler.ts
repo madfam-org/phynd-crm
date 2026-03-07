@@ -1,5 +1,5 @@
 import type { FederationProviderName } from '@phyne/types'
-import { CacheInvalidator } from './cache-invalidator'
+import type { CacheInvalidator } from './cache-invalidator'
 import { validateWebhookSignature } from './webhook-validator'
 
 interface WebhookResult {

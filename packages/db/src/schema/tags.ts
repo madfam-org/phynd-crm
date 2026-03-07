@@ -11,11 +11,11 @@ export const tags = pgTable('tags', {
 export const taggables = pgTable(
   'taggables',
   {
-    tagId: text('tag_id').notNull().references(() => tags.id, { onDelete: 'cascade' }),
+    tagId: text('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
     entityType: varchar('entity_type', { length: 20 }).notNull(),
     entityId: text('entity_id').notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.tagId, table.entityType, table.entityId] }),
-  ],
+  (table) => [primaryKey({ columns: [table.tagId, table.entityType, table.entityId] })],
 )

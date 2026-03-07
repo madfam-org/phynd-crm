@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import crypto from 'node:crypto'
+import { describe, expect, it } from 'vitest'
 import { validateWebhookSignature } from '../webhook-validator'
 
 /**
@@ -20,7 +20,10 @@ describe('validateWebhookSignature', () => {
   })
 
   it('returns true for a valid signature with a different payload', () => {
-    const payload = JSON.stringify({ event: 'user.created', userId: 'usr_456' })
+    const payload = JSON.stringify({
+      event: 'user.created',
+      userId: 'usr_456',
+    })
     const signature = computeSignature(payload, SECRET)
 
     expect(validateWebhookSignature(payload, signature, SECRET)).toBe(true)
@@ -42,11 +45,19 @@ describe('validateWebhookSignature', () => {
   })
 
   it('returns false for a tampered payload (modified body after signing)', () => {
-    const originalPayload = JSON.stringify({ event: 'invoice.paid', id: 'inv_123', amount: 100 })
+    const originalPayload = JSON.stringify({
+      event: 'invoice.paid',
+      id: 'inv_123',
+      amount: 100,
+    })
     const signature = computeSignature(originalPayload, SECRET)
 
     // Tamper with the payload after signing
-    const tamperedPayload = JSON.stringify({ event: 'invoice.paid', id: 'inv_123', amount: 999 })
+    const tamperedPayload = JSON.stringify({
+      event: 'invoice.paid',
+      id: 'inv_123',
+      amount: 999,
+    })
 
     expect(validateWebhookSignature(tamperedPayload, signature, SECRET)).toBe(false)
   })
@@ -72,8 +83,6 @@ describe('validateWebhookSignature', () => {
     const shortSignature = signature.slice(0, 32) // truncated to 32 chars
 
     // crypto.timingSafeEqual throws when buffer lengths differ
-    expect(() =>
-      validateWebhookSignature(payload, shortSignature, SECRET),
-    ).toThrow()
+    expect(() => validateWebhookSignature(payload, shortSignature, SECRET)).toThrow()
   })
 })

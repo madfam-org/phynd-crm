@@ -1,5 +1,5 @@
 import type { ProviderConfig, ProviderStatus } from '@phyne/types/federation'
-import { CacheManager } from './cache-manager'
+import type { CacheManager } from './cache-manager'
 import { CircuitBreaker } from './circuit-breaker'
 import { generateIdempotencyKey } from './idempotency'
 import { withRetry } from './retry'
@@ -22,7 +22,11 @@ export class FederationClient<TRaw, TMapped> {
     this.circuitBreaker = new CircuitBreaker(config.circuitBreaker)
   }
 
-  async fetch(externalId: string, token: string, tenantId = 'madfam'): Promise<FederationCallResult<TMapped>> {
+  async fetch(
+    externalId: string,
+    token: string,
+    tenantId = 'madfam',
+  ): Promise<FederationCallResult<TMapped>> {
     // 1. Check cache
     const cacheKey = this.provider.getCacheKey(externalId, tenantId)
     const cached = await this.cache.get<TMapped>(this.config.cache.keyPrefix, cacheKey)
@@ -50,15 +54,17 @@ export class FederationClient<TRaw, TMapped> {
     try {
       const _idempotencyKey = generateIdempotencyKey(this.provider.name, 'fetch', externalId)
 
-      const raw = await withRetry(
-        () => this.provider.fetch(externalId, token),
-        this.config.retry,
-      )
+      const raw = await withRetry(() => this.provider.fetch(externalId, token), this.config.retry)
 
       const mapped = this.provider.map(raw)
 
       // 4. Cache result
-      await this.cache.set(this.config.cache.keyPrefix, cacheKey, mapped, this.config.cache.ttlSeconds)
+      await this.cache.set(
+        this.config.cache.keyPrefix,
+        cacheKey,
+        mapped,
+        this.config.cache.ttlSeconds,
+      )
 
       this.circuitBreaker.recordSuccess()
 

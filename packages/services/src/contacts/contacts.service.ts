@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
 import { contacts } from '@phyne/db/schema'
+import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class ContactsService {
@@ -10,10 +10,7 @@ export class ContactsService {
   }
 
   async getById(id: string) {
-    const [contact] = await this.ctx.db
-      .select()
-      .from(contacts)
-      .where(eq(contacts.id, id))
+    const [contact] = await this.ctx.db.select().from(contacts).where(eq(contacts.id, id))
     return contact ?? null
   }
 
@@ -32,20 +29,21 @@ export class ContactsService {
     company?: string
     externalJanuaId?: string
   }) {
-    const [contact] = await this.ctx.db
-      .insert(contacts)
-      .values(data)
-      .returning()
+    const [contact] = await this.ctx.db.insert(contacts).values(data).returning()
+    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
     return contact!
   }
 
-  async update(id: string, data: Partial<{
-    name: string
-    email: string | null
-    phone: string | null
-    company: string | null
-    status: string
-  }>) {
+  async update(
+    id: string,
+    data: Partial<{
+      name: string
+      email: string | null
+      phone: string | null
+      company: string | null
+      status: string
+    }>,
+  ) {
     const [contact] = await this.ctx.db
       .update(contacts)
       .set(data)
@@ -55,10 +53,7 @@ export class ContactsService {
   }
 
   async delete(id: string) {
-    const [deleted] = await this.ctx.db
-      .delete(contacts)
-      .where(eq(contacts.id, id))
-      .returning()
+    const [deleted] = await this.ctx.db.delete(contacts).where(eq(contacts.id, id)).returning()
     return deleted ?? null
   }
 }

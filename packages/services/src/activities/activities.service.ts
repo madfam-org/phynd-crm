@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm'
 import { activities } from '@phyne/db/schema'
 import type { EntityType } from '@phyne/types/crm'
+import { and, desc, eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class ActivitiesService {
@@ -10,10 +10,7 @@ export class ActivitiesService {
     return this.ctx.db
       .select()
       .from(activities)
-      .where(and(
-        eq(activities.entityType, entityType),
-        eq(activities.entityId, entityId),
-      ))
+      .where(and(eq(activities.entityType, entityType), eq(activities.entityId, entityId)))
       .orderBy(activities.createdAt)
   }
 
@@ -32,7 +29,12 @@ export class ActivitiesService {
         ownerId: this.ctx.auth.userId,
       })
       .returning()
+    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
     return activity!
+  }
+
+  async listRecent(limit = 50) {
+    return this.ctx.db.select().from(activities).orderBy(desc(activities.createdAt)).limit(limit)
   }
 
   async complete(id: string) {

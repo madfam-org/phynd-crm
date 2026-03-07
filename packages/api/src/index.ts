@@ -1,9 +1,9 @@
-export { appRouter, type AppRouter } from './router'
+export { type AppRouter, appRouter } from './router'
 export {
-  createTRPCContext,
-  router,
-  publicProcedure,
-  protectedProcedure,
   createCallerFactory,
+  createTRPCContext,
+  protectedProcedure,
+  publicProcedure,
+  router,
   type TRPCContext,
 } from './trpc'

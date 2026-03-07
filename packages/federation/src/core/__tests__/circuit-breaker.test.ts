@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { CircuitBreaker, DEFAULT_CB_CONFIG } from '../circuit-breaker'
 import type { CircuitBreakerConfig } from '@phyne/types/federation'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CircuitBreaker, DEFAULT_CB_CONFIG } from '../circuit-breaker'
 
 describe('CircuitBreaker', () => {
   const TEST_CONFIG: CircuitBreakerConfig = {

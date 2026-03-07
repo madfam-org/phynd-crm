@@ -26,38 +26,56 @@ async function seed() {
     { name: 'Closed Lost', position: 5, probability: 0 },
   ]
 
+  const pipelineId = defaultPipeline?.id
+  if (!pipelineId) throw new Error('Failed to create default pipeline')
+
   const stages = await db
     .insert(pipelineStages)
-    .values(stageData.map((s) => ({ ...s, pipelineId: defaultPipeline!.id })))
+    .values(stageData.map((s) => ({ ...s, pipelineId })))
     .returning()
 
   // Create sample contacts
   const sampleContacts = await db
     .insert(contacts)
     .values([
-      { name: 'Alice Johnson', email: 'alice@example.com', company: 'TechCorp', status: 'active' },
-      { name: 'Bob Smith', email: 'bob@example.com', company: 'DesignLab', status: 'active' },
-      { name: 'Carol White', email: 'carol@example.com', company: 'MfgWorks', status: 'active' },
+      {
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+        company: 'TechCorp',
+        status: 'active',
+      },
+      {
+        name: 'Bob Smith',
+        email: 'bob@example.com',
+        company: 'DesignLab',
+        status: 'active',
+      },
+      {
+        name: 'Carol White',
+        email: 'carol@example.com',
+        company: 'MfgWorks',
+        status: 'active',
+      },
     ])
     .returning()
 
   // Create sample leads
   await db.insert(leads).values([
     {
-      contactId: sampleContacts[0]!.id,
+      contactId: sampleContacts[0]?.id,
       source: 'website',
       status: 'qualified',
       score: 85,
-      pipelineId: defaultPipeline!.id,
-      stageId: stages[2]!.id,
+      pipelineId,
+      stageId: stages[2]?.id ?? stages[0]?.id ?? pipelineId,
     },
     {
-      contactId: sampleContacts[1]!.id,
+      contactId: sampleContacts[1]?.id,
       source: 'referral',
       status: 'new',
       score: 60,
-      pipelineId: defaultPipeline!.id,
-      stageId: stages[0]!.id,
+      pipelineId,
+      stageId: stages[0]?.id ?? pipelineId,
     },
   ])
 
@@ -65,9 +83,9 @@ async function seed() {
   await db.insert(opportunities).values([
     {
       name: 'TechCorp Enterprise Deal',
-      contactId: sampleContacts[0]!.id,
-      pipelineId: defaultPipeline!.id,
-      stageId: stages[2]!.id,
+      contactId: sampleContacts[0]?.id,
+      pipelineId,
+      stageId: stages[2]?.id ?? stages[0]?.id ?? pipelineId,
       value: '50000.00',
       probability: 50,
       status: 'open',

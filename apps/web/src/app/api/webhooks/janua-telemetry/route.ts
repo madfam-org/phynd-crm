@@ -1,49 +1,38 @@
 import { getCacheManager } from '@/lib/federation/clients'
+import { handleWebhook } from '@/lib/webhooks/handler'
 import { getDb } from '@phyne/db'
 import { visitorPageViews, visitorSessions } from '@phyne/db/schema'
-import { CacheInvalidator, WebhookHandler } from '@phyne/federation'
+import { CacheInvalidator } from '@phyne/federation'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
-  const signature = req.headers.get('x-webhook-signature') ?? ''
-  const body = await req.text()
   const secret = process.env.JANUA_TELEMETRY_WEBHOOK_SECRET ?? process.env.JANUA_WEBHOOK_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
 
-  try {
-    const cache = getCacheManager()
-    const invalidator = new CacheInvalidator(cache)
-    const handler = new WebhookHandler(invalidator)
-    const result = await handler.handle('janua-telemetry', body, signature, secret)
+  return handleWebhook(req, {
+    secret,
+    onEvent: async (payload) => {
+      const cache = getCacheManager()
+      const invalidator = new CacheInvalidator(cache)
+      const eventType = (payload.type ?? payload.event ?? 'unknown') as string
+      await invalidator.invalidate('janua-telemetry', eventType, payload)
 
-    // Persist individual page views from telemetry webhook payload
-    await persistPageViews(body)
-
-    return NextResponse.json(result)
-  } catch (err) {
-    if (err instanceof Error && err.message === 'Invalid webhook signature') {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
-  }
+      await persistPageViews(payload)
+    },
+  })
 }
 
-async function persistPageViews(body: string) {
+async function persistPageViews(payload: Record<string, unknown>) {
   try {
-    const payload = JSON.parse(body) as {
-      externalSessionId?: string
-      pageViews?: Array<{
-        url: string
-        title?: string
-        duration?: number
-        viewedAt?: string
-      }>
-    }
+    const externalSessionId = payload.externalSessionId as string | undefined
+    const pageViews = payload.pageViews as
+      | Array<{ url: string; title?: string; duration?: number; viewedAt?: string }>
+      | undefined
 
-    if (!payload.externalSessionId || !payload.pageViews?.length) return
+    if (!externalSessionId || !pageViews?.length) return
 
     const db = getDb()
 
@@ -51,13 +40,13 @@ async function persistPageViews(body: string) {
     const [session] = await db
       .select({ id: visitorSessions.id })
       .from(visitorSessions)
-      .where(eq(visitorSessions.externalSessionId, payload.externalSessionId))
+      .where(eq(visitorSessions.externalSessionId, externalSessionId))
       .limit(1)
 
     if (!session) return
 
     // Insert page views
-    const values = payload.pageViews.map((pv) => ({
+    const values = pageViews.map((pv) => ({
       sessionId: session.id,
       url: pv.url,
       title: pv.title,

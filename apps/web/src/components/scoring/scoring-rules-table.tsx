@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -157,34 +158,57 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
                 })
               }}
             >
-              <Input name="name" placeholder="Rule name" required />
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="demographic">Demographic</SelectItem>
-                  <SelectItem value="behavior">Behavior</SelectItem>
-                  <SelectItem value="engagement">Engagement</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input name="field" placeholder="Field (e.g. source, session_count)" required />
-              <Select value={operator} onValueChange={setOperator}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select operator" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="eq">Equals</SelectItem>
-                  <SelectItem value="gt">Greater than</SelectItem>
-                  <SelectItem value="lt">Less than</SelectItem>
-                  <SelectItem value="gte">Greater or equal</SelectItem>
-                  <SelectItem value="lte">Less or equal</SelectItem>
-                  <SelectItem value="contains">Contains</SelectItem>
-                  <SelectItem value="exists">Exists</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input name="conditionValue" placeholder="Value" />
-              <Input name="points" type="number" placeholder="Points" required />
+              <div className="space-y-1">
+                <Label htmlFor="rule-name">Rule name</Label>
+                <Input id="rule-name" name="name" placeholder="Rule name" required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rule-category">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger id="rule-category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="demographic">Demographic</SelectItem>
+                    <SelectItem value="behavior">Behavior</SelectItem>
+                    <SelectItem value="engagement">Engagement</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rule-field">Condition field</Label>
+                <Input
+                  id="rule-field"
+                  name="field"
+                  placeholder="Field (e.g. source, session_count)"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rule-operator">Operator</Label>
+                <Select value={operator} onValueChange={setOperator}>
+                  <SelectTrigger id="rule-operator">
+                    <SelectValue placeholder="Select operator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eq">Equals</SelectItem>
+                    <SelectItem value="gt">Greater than</SelectItem>
+                    <SelectItem value="lt">Less than</SelectItem>
+                    <SelectItem value="gte">Greater or equal</SelectItem>
+                    <SelectItem value="lte">Less or equal</SelectItem>
+                    <SelectItem value="contains">Contains</SelectItem>
+                    <SelectItem value="exists">Exists</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rule-value">Condition value</Label>
+                <Input id="rule-value" name="conditionValue" placeholder="Value" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rule-points">Points</Label>
+                <Input id="rule-points" name="points" type="number" placeholder="Points" required />
+              </div>
               <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending ? 'Creating...' : 'Create Rule'}
               </Button>

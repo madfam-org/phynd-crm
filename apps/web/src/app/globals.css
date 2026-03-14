@@ -38,39 +38,37 @@
 	--color-accent-rose: #f43f5e;
 }
 
-@media (prefers-color-scheme: dark) {
-	@theme {
-		--color-background: #0a0a0a;
-		--color-foreground: #fafafa;
-		--color-muted: #262626;
-		--color-muted-foreground: #a3a3a3;
-		--color-border: #262626;
-		--color-input: #262626;
-		--color-ring: #d4d4d4;
-		--color-primary: #fafafa;
-		--color-primary-foreground: #0a0a0a;
-		--color-secondary: #262626;
-		--color-secondary-foreground: #fafafa;
-		--color-destructive: #dc2626;
-		--color-destructive-foreground: #fafafa;
-		--color-accent: #262626;
-		--color-accent-foreground: #fafafa;
-		--color-card: #0a0a0a;
-		--color-card-foreground: #fafafa;
-		--color-popover: #0a0a0a;
-		--color-popover-foreground: #fafafa;
-		--color-sidebar: #0a0a0a;
-		--color-sidebar-foreground: #fafafa;
-		--color-sidebar-border: #262626;
-		--color-sidebar-accent: #262626;
-		--color-sidebar-accent-foreground: #fafafa;
+.dark {
+	--color-background: #0a0a0a;
+	--color-foreground: #fafafa;
+	--color-muted: #262626;
+	--color-muted-foreground: #a3a3a3;
+	--color-border: #262626;
+	--color-input: #262626;
+	--color-ring: #d4d4d4;
+	--color-primary: #fafafa;
+	--color-primary-foreground: #0a0a0a;
+	--color-secondary: #262626;
+	--color-secondary-foreground: #fafafa;
+	--color-destructive: #dc2626;
+	--color-destructive-foreground: #fafafa;
+	--color-accent: #262626;
+	--color-accent-foreground: #fafafa;
+	--color-card: #0a0a0a;
+	--color-card-foreground: #fafafa;
+	--color-popover: #0a0a0a;
+	--color-popover-foreground: #fafafa;
+	--color-sidebar: #0a0a0a;
+	--color-sidebar-foreground: #fafafa;
+	--color-sidebar-border: #262626;
+	--color-sidebar-accent: #262626;
+	--color-sidebar-accent-foreground: #fafafa;
 
-		--color-accent-blue: #60a5fa;
-		--color-accent-emerald: #34d399;
-		--color-accent-amber: #fbbf24;
-		--color-accent-violet: #a78bfa;
-		--color-accent-rose: #fb7185;
-	}
+	--color-accent-blue: #60a5fa;
+	--color-accent-emerald: #34d399;
+	--color-accent-amber: #fbbf24;
+	--color-accent-violet: #a78bfa;
+	--color-accent-rose: #fb7185;
 }
 
 @layer base {

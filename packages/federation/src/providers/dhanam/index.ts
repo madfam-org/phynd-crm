@@ -29,13 +29,13 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
     this.baseUrl = baseUrl
   }
 
-  async fetch(externalId: string, token: string): Promise<DhanamRawCustomer> {
+  async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<DhanamRawCustomer> {
     const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      signal: AbortSignal.timeout(5000),
+      signal: signal ?? AbortSignal.timeout(5000),
     })
 
     if (!response.ok) {

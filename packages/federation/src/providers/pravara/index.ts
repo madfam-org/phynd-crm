@@ -34,7 +34,7 @@ export class PravaraProvider implements FederationProvider<PravaraRawData, Prava
     this.baseUrl = baseUrl
   }
 
-  async fetch(externalId: string, token: string): Promise<PravaraRawData> {
+  async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<PravaraRawData> {
     const response = await fetch(
       `${this.baseUrl}/api/v1/fabrication/orders?contactId=${encodeURIComponent(externalId)}`,
       {
@@ -42,7 +42,7 @@ export class PravaraProvider implements FederationProvider<PravaraRawData, Prava
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(10000),
+        signal: signal ?? AbortSignal.timeout(10000),
       },
     )
 

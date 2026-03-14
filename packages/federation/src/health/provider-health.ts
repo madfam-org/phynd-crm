@@ -9,6 +9,7 @@ interface HealthProbeConfig {
   provider: FederationProviderName
   baseUrl: string
   circuitBreaker: CircuitBreaker
+  timeoutMs?: number
 }
 
 export class ProviderHealthChecker {
@@ -29,7 +30,7 @@ export class ProviderHealthChecker {
 
     try {
       const response = await fetch(`${probe.baseUrl}/health`, {
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(probe.timeoutMs ?? 5000),
       })
       latencyMs = Date.now() - start
 

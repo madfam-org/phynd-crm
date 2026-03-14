@@ -29,13 +29,13 @@ export class CotizaProvider implements FederationProvider<CotizaRawData, CotizaM
     this.baseUrl = baseUrl
   }
 
-  async fetch(externalId: string, token: string): Promise<CotizaRawData> {
+  async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<CotizaRawData> {
     const response = await fetch(`${this.baseUrl}/api/v1/clients/${externalId}/summary`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: signal ?? AbortSignal.timeout(10000),
     })
 
     if (!response.ok) {

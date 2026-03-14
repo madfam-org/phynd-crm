@@ -1,6 +1,7 @@
 import { index, integer, numeric, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import { contacts } from './contacts'
 import { pipelineStages, pipelines } from './pipelines'
+import { users } from './users'
 import { createId } from './utils'
 
 export const opportunities = pgTable(
@@ -19,7 +20,7 @@ export const opportunities = pgTable(
     probability: integer('probability'),
     status: varchar('status', { length: 20 }).notNull().default('open'),
     expectedCloseDate: timestamp('expected_close_date', { withTimezone: true }),
-    ownerId: text('owner_id'),
+    ownerId: text('owner_id').references(() => users.id),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

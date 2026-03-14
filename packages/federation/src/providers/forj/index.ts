@@ -24,13 +24,13 @@ export class ForjProvider implements FederationProvider<ForjRawData, ForjAssets>
     this.baseUrl = baseUrl
   }
 
-  async fetch(externalId: string, token: string): Promise<ForjRawData> {
+  async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<ForjRawData> {
     const response = await fetch(`${this.baseUrl}/api/v1/owners/${externalId}/assets`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      signal: AbortSignal.timeout(8000),
+      signal: signal ?? AbortSignal.timeout(8000),
     })
 
     if (!response.ok) {

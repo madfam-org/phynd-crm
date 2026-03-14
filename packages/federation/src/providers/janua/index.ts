@@ -20,13 +20,13 @@ export class JanuaProvider implements FederationProvider<JanuaRawProfile, JanuaI
     this.baseUrl = baseUrl
   }
 
-  async fetch(externalId: string, token: string): Promise<JanuaRawProfile> {
+  async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<JanuaRawProfile> {
     const response = await fetch(`${this.baseUrl}/api/v1/users/${externalId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      signal: AbortSignal.timeout(5000),
+      signal: signal ?? AbortSignal.timeout(5000),
     })
 
     if (!response.ok) {

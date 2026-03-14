@@ -1,6 +1,9 @@
 import { validateWebhookSignature } from '@phyne/federation/webhooks'
+import { createLogger } from '@phyne/logging'
 import { NextResponse } from 'next/server'
 import { checkRateLimit } from './rate-limiter'
+
+const logger = createLogger('web:webhook')
 
 const MAX_TIMESTAMP_AGE_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -54,7 +57,7 @@ export async function handleWebhook(
       { headers: { 'X-RateLimit-Remaining': String(remaining) } },
     )
   } catch (error) {
-    console.error('Webhook processing error:', error)
+    logger.error({ err: error }, 'Webhook processing error')
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
 }

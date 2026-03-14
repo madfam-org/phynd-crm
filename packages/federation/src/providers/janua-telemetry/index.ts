@@ -43,7 +43,7 @@ export class JanuaTelemetryProvider
     this.baseUrl = baseUrl
   }
 
-  async fetch(externalId: string, token: string): Promise<JanuaRawTelemetry> {
+  async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<JanuaRawTelemetry> {
     const response = await fetch(
       `${this.baseUrl}/api/v1/telemetry/visitors?contactId=${encodeURIComponent(externalId)}`,
       {
@@ -51,7 +51,7 @@ export class JanuaTelemetryProvider
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(5000),
+        signal: signal ?? AbortSignal.timeout(5000),
       },
     )
 

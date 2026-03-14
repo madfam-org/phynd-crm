@@ -1,6 +1,7 @@
 import { index, integer, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import { contacts } from './contacts'
 import { pipelineStages, pipelines } from './pipelines'
+import { users } from './users'
 import { createId } from './utils'
 
 export const leads = pgTable(
@@ -18,7 +19,7 @@ export const leads = pgTable(
     stageId: text('stage_id')
       .notNull()
       .references(() => pipelineStages.id),
-    ownerId: text('owner_id'),
+    ownerId: text('owner_id').references(() => users.id),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

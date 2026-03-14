@@ -5,15 +5,9 @@ import {
   visitorPageViews,
   visitorSessions,
 } from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import type { PaginatedResult, PaginationInput, ScoringCondition } from '@phyne/types/crm'
 import { and, eq, gt, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
-
-export interface ScoringCondition {
-  field: string
-  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'exists'
-  value?: unknown
-}
 
 export class LeadScoringService {
   constructor(private readonly ctx: ServiceContext) {}

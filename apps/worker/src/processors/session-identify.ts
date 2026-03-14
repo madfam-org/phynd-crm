@@ -1,4 +1,10 @@
+import { getDb } from '@phyne/db'
+import { createLogger } from '@phyne/logging'
+import { VisitorTrackingService } from '@phyne/services'
 import type { Job } from 'bullmq'
+import { getCacheManager } from '../lib/federation'
+
+const logger = createLogger('worker:session-identify')
 
 interface SessionIdentifyData {
   externalSessionId: string
@@ -23,14 +29,49 @@ interface SessionIdentifyData {
 
 export async function processSessionIdentify(job: Job<SessionIdentifyData>): Promise<void> {
   const data = job.data
-  console.log(
-    `[session-identify] Processing session ${data.externalSessionId} → contact ${data.contactId}`,
+  logger.info(
+    { jobId: job.id, externalSessionId: data.externalSessionId, contactId: data.contactId },
+    `Processing session ${data.externalSessionId} for contact ${data.contactId}`,
   )
 
-  // In production, this would use the VisitorTrackingService to upsert the session.
-  // The service requires a DB connection which is injected via ServiceContext.
-  // For now, log the event for the worker to process when wired to the DB.
-  console.log(
-    `[session-identify] Session ${data.externalSessionId} identified for contact ${data.contactId}`,
+  const db = getDb()
+  const cache = getCacheManager()
+  const ctx = {
+    db,
+    cache,
+    auth: {
+      userId: 'system',
+      tenantId: 'madfam',
+      roles: ['admin'],
+      scopes: ['*'],
+      accessToken: '',
+    },
+    tenantId: 'madfam',
+  }
+
+  const service = new VisitorTrackingService(ctx)
+
+  await service.upsertFromWebhook({
+    externalSessionId: data.externalSessionId,
+    fingerprint: data.fingerprint ?? 'unknown',
+    contactId: data.contactId,
+    ipCity: data.ipCity,
+    ipCountry: data.ipCountry,
+    deviceType: data.deviceType,
+    browser: data.browser,
+    os: data.os,
+    referrer: data.referrer,
+    utmSource: data.utmSource,
+    utmMedium: data.utmMedium,
+    utmCampaign: data.utmCampaign,
+    utmTerm: data.utmTerm,
+    utmContent: data.utmContent,
+    startedAt: new Date(data.startedAt),
+    endedAt: data.endedAt ? new Date(data.endedAt) : undefined,
+  })
+
+  logger.info(
+    { externalSessionId: data.externalSessionId, contactId: data.contactId },
+    `Session ${data.externalSessionId} identified for contact ${data.contactId}`,
   )
 }

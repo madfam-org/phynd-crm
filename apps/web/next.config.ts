@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
     '@phyne/config',
     '@phyne/types',
   ],
+  serverExternalPackages: ['pino', 'pino-pretty'],
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',

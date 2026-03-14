@@ -1,6 +1,9 @@
+import { createLogger } from '@phyne/logging'
 import type { FederationProviderName } from '@phyne/types/federation'
 import type { Job } from 'bullmq'
 import { getFederationClient } from '../lib/federation'
+
+const logger = createLogger('worker:cache-warmup')
 
 interface CacheWarmupData {
   provider: FederationProviderName
@@ -10,16 +13,19 @@ interface CacheWarmupData {
 
 export async function processCacheWarmup(job: Job<CacheWarmupData>): Promise<void> {
   const { provider, externalIds, token } = job.data
-  console.log(`[cache-warmup] Warming ${provider} cache for ${externalIds.length} entries`)
+  logger.info(
+    { jobId: job.id, provider, count: externalIds.length },
+    `Warming ${provider} cache for ${externalIds.length} entries`,
+  )
 
   const client = getFederationClient(provider)
 
   for (const id of externalIds) {
     try {
       await client.fetch(id, token)
-      console.log(`  Warmed cache for ${provider}:${id}`)
+      logger.info({ provider, externalId: id }, `Warmed cache for ${provider}:${id}`)
     } catch (err) {
-      console.error(`  Failed to warm cache for ${provider}:${id}`, err)
+      logger.error({ provider, externalId: id, err }, `Failed to warm cache for ${provider}:${id}`)
     }
   }
 }

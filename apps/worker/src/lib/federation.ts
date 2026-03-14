@@ -35,6 +35,7 @@ let redis: Redis | null = null
 let cacheManager: CacheManager | null = null
 let federationClients: WorkerFederationClients | null = null
 let healthChecker: ProviderHealthChecker | null = null
+let sharedCircuitBreakers: Record<FederationProviderName, CircuitBreaker> | null = null
 
 function getBaseUrls() {
   return {
@@ -61,36 +62,61 @@ export function getCacheManager(): CacheManager {
   return cacheManager
 }
 
+function getCircuitBreakers(): Record<FederationProviderName, CircuitBreaker> {
+  if (sharedCircuitBreakers) return sharedCircuitBreakers
+  const configs = getFederationConfig(getBaseUrls())
+  sharedCircuitBreakers = {
+    janua: new CircuitBreaker(configs.janua.circuitBreaker),
+    dhanam: new CircuitBreaker(configs.dhanam.circuitBreaker),
+    cotiza: new CircuitBreaker(configs.cotiza.circuitBreaker),
+    pravara: new CircuitBreaker(configs.pravara.circuitBreaker),
+    forj: new CircuitBreaker(configs.forj.circuitBreaker),
+    'janua-telemetry': new CircuitBreaker(configs['janua-telemetry'].circuitBreaker),
+  }
+  return sharedCircuitBreakers
+}
+
 function buildClients() {
   const cache = getCacheManager()
   const configs = getFederationConfig(getBaseUrls())
+  const cbs = getCircuitBreakers()
 
   return {
     januaClient: new FederationClient(
       new JanuaProvider(configs.janua.baseUrl),
       cache,
       configs.janua,
+      cbs.janua,
     ),
     dhanamClient: new FederationClient(
       new DhanamProvider(configs.dhanam.baseUrl),
       cache,
       configs.dhanam,
+      cbs.dhanam,
     ),
     cotizaClient: new FederationClient(
       new CotizaProvider(configs.cotiza.baseUrl),
       cache,
       configs.cotiza,
+      cbs.cotiza,
     ),
     pravaraClient: new FederationClient(
       new PravaraProvider(configs.pravara.baseUrl),
       cache,
       configs.pravara,
+      cbs.pravara,
     ),
-    forjClient: new FederationClient(new ForjProvider(configs.forj.baseUrl), cache, configs.forj),
+    forjClient: new FederationClient(
+      new ForjProvider(configs.forj.baseUrl),
+      cache,
+      configs.forj,
+      cbs.forj,
+    ),
     januaTelemetryClient: new FederationClient(
       new JanuaTelemetryProvider(configs['janua-telemetry'].baseUrl),
       cache,
       configs['janua-telemetry'],
+      cbs['janua-telemetry'],
     ),
   }
 }
@@ -121,38 +147,19 @@ export function getFederationClient(
 
 export function getHealthChecker(): ProviderHealthChecker {
   if (healthChecker) return healthChecker
-  const configs = getFederationConfig(getBaseUrls())
+  const cbs = getCircuitBreakers()
+  const urls = getBaseUrls()
 
   healthChecker = new ProviderHealthChecker([
-    {
-      provider: 'janua',
-      baseUrl: configs.janua.baseUrl,
-      circuitBreaker: new CircuitBreaker(configs.janua.circuitBreaker),
-    },
-    {
-      provider: 'dhanam',
-      baseUrl: configs.dhanam.baseUrl,
-      circuitBreaker: new CircuitBreaker(configs.dhanam.circuitBreaker),
-    },
-    {
-      provider: 'cotiza',
-      baseUrl: configs.cotiza.baseUrl,
-      circuitBreaker: new CircuitBreaker(configs.cotiza.circuitBreaker),
-    },
-    {
-      provider: 'pravara',
-      baseUrl: configs.pravara.baseUrl,
-      circuitBreaker: new CircuitBreaker(configs.pravara.circuitBreaker),
-    },
-    {
-      provider: 'forj',
-      baseUrl: configs.forj.baseUrl,
-      circuitBreaker: new CircuitBreaker(configs.forj.circuitBreaker),
-    },
+    { provider: 'janua', baseUrl: urls.janua, circuitBreaker: cbs.janua },
+    { provider: 'dhanam', baseUrl: urls.dhanam, circuitBreaker: cbs.dhanam },
+    { provider: 'cotiza', baseUrl: urls.cotiza, circuitBreaker: cbs.cotiza },
+    { provider: 'pravara', baseUrl: urls.pravara, circuitBreaker: cbs.pravara },
+    { provider: 'forj', baseUrl: urls.forj, circuitBreaker: cbs.forj },
     {
       provider: 'janua-telemetry',
-      baseUrl: configs['janua-telemetry'].baseUrl,
-      circuitBreaker: new CircuitBreaker(configs['janua-telemetry'].circuitBreaker),
+      baseUrl: urls['janua-telemetry'],
+      circuitBreaker: cbs['janua-telemetry'],
     },
   ])
   return healthChecker

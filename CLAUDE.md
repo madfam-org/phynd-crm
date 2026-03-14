@@ -22,6 +22,7 @@ packages/config   — Zod env validation, feature flags
 packages/db       — Drizzle schema + migrations
 packages/federation — Data virtualization layer (providers, cache, retry, circuit breaker)
 packages/services — Transport-agnostic business logic
+packages/logging  — Structured logging (pino)
 packages/types    — Shared TypeScript types
 packages/ui       — Shared UI primitives
 tooling/          — Shared tsconfig, biome config
@@ -60,7 +61,9 @@ pnpm db:seed          # Seed database
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
-- **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`)
+- **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`); all 6 webhook routes use the shared handler
+- **Structured logging**: `@phyne/logging` package (pino); all worker processors and webhook handler use structured JSON logging
+- **Signal propagation**: All 6 federation providers accept optional `signal?: AbortSignal` parameter, with config-driven fallback timeouts
 
 ## DB Schema
 users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
@@ -82,7 +85,7 @@ users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, n
 - contacts, leads, opportunities: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts, leads, opportunities, pipelines, activities (list, listForEntity, create, update, delete, complete), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (with date range filtering), lead-scoring
+contacts, leads, opportunities, pipelines, activities (list, listForEntity, create, update, delete, complete), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (with date range filtering), lead-scoring, preferences (getForRole, upsert)
 
 ## Feature Flags (12 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
@@ -117,6 +120,7 @@ contacts, leads, opportunities, pipelines, activities (list, listForEntity, crea
 - `cache-warmup`: Pre-fetches federation data for given external IDs
 - `federation-sync`: Handles cache invalidation and refresh
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
+- All processors use structured logging via `@phyne/logging` (pino JSON output)
 
 ## Docker
 - `docker/docker-compose.yml` — Local dev (Postgres + Redis)

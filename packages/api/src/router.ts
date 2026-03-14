@@ -9,6 +9,7 @@ import { leadsRouter } from './routers/leads'
 import { offersRouter } from './routers/offers'
 import { opportunitiesRouter } from './routers/opportunities'
 import { pipelinesRouter } from './routers/pipelines'
+import { preferencesRouter } from './routers/preferences'
 import { unifiedProfileRouter } from './routers/unified-profile'
 import { visitorTrackingRouter } from './routers/visitor-tracking'
 import { router } from './trpc'
@@ -27,6 +28,7 @@ export const appRouter = router({
   conversions: conversionsRouter,
   analytics: analyticsRouter,
   leadScoring: leadScoringRouter,
+  preferences: preferencesRouter,
 })
 
 export type AppRouter = typeof appRouter

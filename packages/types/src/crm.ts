@@ -219,8 +219,8 @@ export interface WebhookEvent {
 
 export interface ScoringCondition {
   field: string
-  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains'
-  value?: string | number
+  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'exists'
+  value?: unknown
 }
 
 export interface PaginationInput {

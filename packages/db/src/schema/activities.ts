@@ -1,4 +1,5 @@
 import { index, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { users } from './users'
 import { createId } from './utils'
 
 export const activities = pgTable(
@@ -13,7 +14,7 @@ export const activities = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     entityType: varchar('entity_type', { length: 20 }).notNull(),
     entityId: text('entity_id').notNull(),
-    ownerId: text('owner_id'),
+    ownerId: text('owner_id').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()

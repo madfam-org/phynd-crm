@@ -1,18 +1,130 @@
-import { FederationErrorBoundary } from '@/components/federation/error-boundary'
-import { FederationPanel } from '@/components/federation/federation-panel'
 import { Badge } from '@/components/ui/badge'
 import { getServerCaller } from '@/lib/trpc/server'
 import { isFeatureEnabled } from '@phyne/config/features'
+import type { FederationProviderName } from '@phyne/types/crm'
+import type { ProviderStatus } from '@phyne/types/federation'
+import { FederationTabs } from './federation-tabs'
 
 interface ClientProfilePageProps {
   params: Promise<{ id: string }>
+}
+
+interface FederationPanelConfig {
+  provider: FederationProviderName
+  title: string
+  tabLabel: string
+  tabValue: string
+  status: ProviderStatus
+  data: unknown
+  error: string | null
+  cachedAt: Date | null
+}
+
+type ServerCaller = Awaited<ReturnType<typeof getServerCaller>>
+type UnifiedProfile = Awaited<ReturnType<ServerCaller['unifiedProfile']['getProfile']>>
+
+interface ProviderDataSlice {
+  data?: unknown
+  error?: string | null
+  cachedAt?: Date | null
+}
+
+interface PanelDescriptor {
+  provider: FederationProviderName
+  title: string
+  tabLabel: string
+  tabValue: string
+  statusKey: keyof NonNullable<UnifiedProfile['federationStatus']>
+  dataKey: keyof UnifiedProfile
+  featureFlag?: string
+}
+
+const PANEL_DESCRIPTORS: PanelDescriptor[] = [
+  {
+    provider: 'janua',
+    title: 'Identity',
+    tabLabel: 'Identity',
+    tabValue: 'identity',
+    statusKey: 'janua',
+    dataKey: 'identity',
+  },
+  {
+    provider: 'dhanam',
+    title: 'Billing',
+    tabLabel: 'Billing',
+    tabValue: 'billing',
+    statusKey: 'dhanam',
+    dataKey: 'billing',
+  },
+  {
+    provider: 'cotiza',
+    title: 'Custom Orders',
+    tabLabel: 'Orders',
+    tabValue: 'orders',
+    statusKey: 'cotiza',
+    dataKey: 'manufacturing',
+  },
+  {
+    provider: 'pravara',
+    title: 'Fabrication',
+    tabLabel: 'Fabrication',
+    tabValue: 'fabrication',
+    statusKey: 'pravara',
+    dataKey: 'fabrication',
+  },
+  {
+    provider: 'forj',
+    title: 'Assets',
+    tabLabel: 'Assets',
+    tabValue: 'assets',
+    statusKey: 'forj',
+    dataKey: 'assets',
+    featureFlag: 'forjEnabled',
+  },
+]
+
+function resolveProviderSlice(
+  profile: UnifiedProfile | null,
+  dataKey: keyof UnifiedProfile,
+): ProviderDataSlice {
+  const slice = profile?.[dataKey]
+  if (slice && typeof slice === 'object' && 'data' in slice) {
+    return slice as ProviderDataSlice
+  }
+  return {}
+}
+
+function resolveProviderStatus(
+  profile: UnifiedProfile | null,
+  statusKey: keyof NonNullable<UnifiedProfile['federationStatus']>,
+): ProviderStatus {
+  return profile?.federationStatus?.[statusKey] ?? 'unavailable'
+}
+
+function buildFederationPanels(profile: UnifiedProfile | null): FederationPanelConfig[] {
+  return PANEL_DESCRIPTORS.filter((desc) => {
+    if (!desc.featureFlag) return true
+    return isFeatureEnabled(desc.featureFlag as Parameters<typeof isFeatureEnabled>[0])
+  }).map((desc) => {
+    const slice = resolveProviderSlice(profile, desc.dataKey)
+    return {
+      provider: desc.provider,
+      title: desc.title,
+      tabLabel: desc.tabLabel,
+      tabValue: desc.tabValue,
+      status: resolveProviderStatus(profile, desc.statusKey),
+      data: slice.data ?? null,
+      error: slice.error ?? null,
+      cachedAt: slice.cachedAt ?? null,
+    }
+  })
 }
 
 export default async function ClientProfilePage({ params }: ClientProfilePageProps) {
   const { id } = await params
   const caller = await getServerCaller()
 
-  let profile: Awaited<ReturnType<typeof caller.unifiedProfile.getProfile>> | null = null
+  let profile: UnifiedProfile | null = null
   let profileError: string | null = null
 
   try {
@@ -22,6 +134,7 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
   }
 
   const contact = profile?.contact
+  const panels = buildFederationPanels(profile)
 
   return (
     <div className="space-y-6">
@@ -48,64 +161,7 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <FederationErrorBoundary provider="janua">
-          <FederationPanel
-            provider="janua"
-            title="Identity"
-            status={profile?.federationStatus?.janua ?? 'unavailable'}
-            data={profile?.identity?.data ?? null}
-            error={profile?.identity?.error ?? null}
-            cachedAt={profile?.identity?.cachedAt ?? null}
-          />
-        </FederationErrorBoundary>
-
-        <FederationErrorBoundary provider="dhanam">
-          <FederationPanel
-            provider="dhanam"
-            title="Billing"
-            status={profile?.federationStatus?.dhanam ?? 'unavailable'}
-            data={profile?.billing?.data ?? null}
-            error={profile?.billing?.error ?? null}
-            cachedAt={profile?.billing?.cachedAt ?? null}
-          />
-        </FederationErrorBoundary>
-
-        <FederationErrorBoundary provider="cotiza">
-          <FederationPanel
-            provider="cotiza"
-            title="Custom Orders"
-            status={profile?.federationStatus?.cotiza ?? 'unavailable'}
-            data={profile?.manufacturing?.data ?? null}
-            error={profile?.manufacturing?.error ?? null}
-            cachedAt={profile?.manufacturing?.cachedAt ?? null}
-          />
-        </FederationErrorBoundary>
-
-        <FederationErrorBoundary provider="pravara">
-          <FederationPanel
-            provider="pravara"
-            title="Fabrication"
-            status={profile?.federationStatus?.pravara ?? 'unavailable'}
-            data={profile?.fabrication?.data ?? null}
-            error={profile?.fabrication?.error ?? null}
-            cachedAt={profile?.fabrication?.cachedAt ?? null}
-          />
-        </FederationErrorBoundary>
-
-        {isFeatureEnabled('forjEnabled') && (
-          <FederationErrorBoundary provider="forj">
-            <FederationPanel
-              provider="forj"
-              title="Assets"
-              status={profile?.federationStatus?.forj ?? 'unavailable'}
-              data={profile?.assets?.data ?? null}
-              error={profile?.assets?.error ?? null}
-              cachedAt={profile?.assets?.cachedAt ?? null}
-            />
-          </FederationErrorBoundary>
-        )}
-      </div>
+      <FederationTabs panels={panels} />
     </div>
   )
 }

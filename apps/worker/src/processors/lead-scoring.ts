@@ -1,8 +1,11 @@
 import { getDb } from '@phyne/db'
 import { leads } from '@phyne/db/schema'
+import { createLogger } from '@phyne/logging'
 import { LeadScoringService } from '@phyne/services'
 import type { Job } from 'bullmq'
 import { getCacheManager } from '../lib/federation'
+
+const logger = createLogger('worker:lead-scoring')
 
 interface LeadScoringData {
   leadIds?: string[]
@@ -11,8 +14,9 @@ interface LeadScoringData {
 
 export async function processLeadScoring(job: Job<LeadScoringData>): Promise<void> {
   const { leadIds, all } = job.data
-  console.log(
-    `[lead-scoring] Computing scores for ${all ? 'all leads' : `${leadIds?.length ?? 0} leads`}`,
+  logger.info(
+    { jobId: job.id, all, count: leadIds?.length ?? 0 },
+    `Computing scores for ${all ? 'all leads' : `${leadIds?.length ?? 0} leads`}`,
   )
 
   const db = getDb()
@@ -40,7 +44,7 @@ export async function processLeadScoring(job: Job<LeadScoringData>): Promise<voi
     targetIds = leadIds ?? []
   }
 
-  console.log(`[lead-scoring] Processing ${targetIds.length} lead(s)`)
+  logger.info({ count: targetIds.length }, `Processing ${targetIds.length} lead(s)`)
   await service.batchCompute(targetIds)
-  console.log('[lead-scoring] Scoring complete')
+  logger.info('Scoring complete')
 }

@@ -64,33 +64,44 @@ function getCircuitBreakers() {
 function buildClients() {
   const cache = getCacheManager()
   const configs = getFederationConfig(getBaseUrls())
+  const cbs = getCircuitBreakers()
 
   return {
     januaClient: new FederationClient(
       new JanuaProvider(configs.janua.baseUrl),
       cache,
       configs.janua,
+      cbs.janua,
     ),
     dhanamClient: new FederationClient(
       new DhanamProvider(configs.dhanam.baseUrl),
       cache,
       configs.dhanam,
+      cbs.dhanam,
     ),
     cotizaClient: new FederationClient(
       new CotizaProvider(configs.cotiza.baseUrl),
       cache,
       configs.cotiza,
+      cbs.cotiza,
     ),
     pravaraClient: new FederationClient(
       new PravaraProvider(configs.pravara.baseUrl),
       cache,
       configs.pravara,
+      cbs.pravara,
     ),
-    forjClient: new FederationClient(new ForjProvider(configs.forj.baseUrl), cache, configs.forj),
+    forjClient: new FederationClient(
+      new ForjProvider(configs.forj.baseUrl),
+      cache,
+      configs.forj,
+      cbs.forj,
+    ),
     januaTelemetryClient: new FederationClient(
       new JanuaTelemetryProvider(configs['janua-telemetry'].baseUrl),
       cache,
       configs['janua-telemetry'],
+      cbs['janua-telemetry'],
     ),
   }
 }

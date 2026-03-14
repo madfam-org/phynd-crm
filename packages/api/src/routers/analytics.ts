@@ -97,6 +97,24 @@ export const analyticsRouter = router({
     return service.getAllCampaignPerformance()
   }),
 
+  weightedPipelineValue: protectedProcedure.query(({ ctx }) => {
+    const service = new AnalyticsService(ctx)
+    return service.getWeightedPipelineValue()
+  }),
+
+  atRiskDeals: protectedProcedure
+    .input(
+      z
+        .object({
+          staleThresholdDays: z.number().int().min(1).max(365).optional(),
+        })
+        .optional(),
+    )
+    .query(({ ctx, input }) => {
+      const service = new AnalyticsService(ctx)
+      return service.getAtRiskDeals(input?.staleThresholdDays)
+    }),
+
   dashboardSummary: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
     const service = new AnalyticsService(ctx)
     return service.getDashboardSummary(toDateRange(input ?? undefined))

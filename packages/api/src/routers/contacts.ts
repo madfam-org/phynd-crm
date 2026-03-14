@@ -6,14 +6,30 @@ const paginationInput = z
   .object({
     cursor: z.string().optional(),
     limit: z.number().int().min(1).max(200).optional(),
+    ownerId: z.string().uuid().optional(),
   })
   .optional()
 
 export const contactsRouter = router({
   list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
+    const { ownerId, ...pagination } = input ?? {}
     const service = new ContactsService(ctx)
-    return service.list(input ?? undefined)
+    return service.list(pagination, ownerId ? { ownerId } : undefined)
   }),
+
+  listMine: protectedProcedure
+    .input(
+      z
+        .object({
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(200).optional(),
+        })
+        .optional(),
+    )
+    .query(({ ctx, input }) => {
+      const service = new ContactsService(ctx)
+      return service.list(input ?? undefined, { ownerId: ctx.auth.userId })
+    }),
 
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
     const service = new ContactsService(ctx)

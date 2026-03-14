@@ -2,17 +2,22 @@ import { conversions, opportunities, stageTransitions } from '@phyne/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { NotificationsService } from '../notifications/notifications.service'
 
 export class OpportunitiesService {
   constructor(private readonly ctx: ServiceContext) {}
 
   async list(
     pagination?: PaginationInput,
+    filters?: { ownerId?: string },
   ): Promise<PaginatedResult<typeof opportunities.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(opportunities.deletedAt)]
     if (pagination?.cursor) {
       conditions.push(gt(opportunities.id, pagination.cursor))
+    }
+    if (filters?.ownerId) {
+      conditions.push(eq(opportunities.ownerId, filters.ownerId))
     }
 
     const rows = await this.ctx.db
@@ -102,8 +107,16 @@ export class OpportunitiesService {
       probability: number
       status: string
       expectedCloseDate: Date
+      ownerId: string
     }>,
   ) {
+    // Check if owner is changing for notification
+    let previousOwnerId: string | null = null
+    if (data.ownerId) {
+      const existing = await this.getById(id)
+      previousOwnerId = existing?.ownerId ?? null
+    }
+
     // When marking as won, wrap update + conversion in a transaction
     if (data.status === 'won') {
       const current = await this.getById(id)
@@ -124,6 +137,11 @@ export class OpportunitiesService {
 
           return [updated]
         })
+
+        if (opp && data.ownerId && data.ownerId !== previousOwnerId) {
+          await this.notifyOwnerAssignment(data.ownerId, 'opportunity', id, opp.name)
+        }
+
         return opp ?? null
       }
     }
@@ -133,6 +151,12 @@ export class OpportunitiesService {
       .set(data)
       .where(eq(opportunities.id, id))
       .returning()
+
+    // Notify new owner on assignment
+    if (opp && data.ownerId && data.ownerId !== previousOwnerId) {
+      await this.notifyOwnerAssignment(data.ownerId, 'opportunity', id, opp.name)
+    }
+
     return opp ?? null
   }
 
@@ -168,6 +192,27 @@ export class OpportunitiesService {
       return updated
     })
     return results
+  }
+
+  private async notifyOwnerAssignment(
+    userId: string,
+    entityType: string,
+    entityId: string,
+    entityName: string,
+  ) {
+    try {
+      const notificationsService = new NotificationsService(this.ctx)
+      await notificationsService.create({
+        userId,
+        type: 'owner_assignment',
+        title: `New ${entityType} assigned to you`,
+        message: `You have been assigned ${entityType}: ${entityName}`,
+        entityType,
+        entityId,
+      })
+    } catch {
+      // Non-blocking: notification failure should not break opportunity operations
+    }
   }
 
   async delete(id: string) {

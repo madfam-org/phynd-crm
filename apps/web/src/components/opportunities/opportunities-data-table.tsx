@@ -22,6 +22,7 @@ import { exportToCsv } from '@/lib/csv-export'
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CreateOpportunityDialog } from './create-opportunity-dialog'
@@ -42,14 +43,31 @@ const statusVariant: Record<string, 'default' | 'success' | 'destructive'> = {
 
 const OPP_STATUSES = ['open', 'won', 'lost'] as const
 
+type ViewMode = 'all' | 'mine'
+
 export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTableProps) {
-  const { data: opportunities } = trpc.opportunities.list.useQuery(undefined, {
+  const [viewMode, setViewMode] = useState<ViewMode>('all')
+
+  const { data: allOpportunities } = trpc.opportunities.list.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
+    enabled: viewMode === 'all',
   })
+  const { data: myOpportunities } = trpc.opportunities.listMine.useQuery(undefined, {
+    refetchInterval: 60_000,
+    enabled: viewMode === 'mine',
+  })
+
+  const opportunities = viewMode === 'mine' ? myOpportunities : allOpportunities
   const { data: usersData } = trpc.users.list.useQuery(undefined, {
     retry: false,
   })
+  const { data: defaultPipeline } = trpc.pipelines.getDefault.useQuery()
+  const pipelineId = defaultPipeline?.id ?? ''
+  const { data: stagesData } = trpc.pipelines.getStages.useQuery(
+    { pipelineId },
+    { enabled: !!defaultPipeline?.id },
+  )
   const [editOpp, setEditOpp] = useState<OpportunityRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
@@ -62,14 +80,26 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
     return map
   }, [usersData])
 
+  const stageMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of stagesData ?? []) {
+      map.set(s.id, s.name)
+    }
+    return map
+  }, [stagesData])
+
   const utils = trpc.useUtils()
+  const invalidateOpportunities = () => {
+    utils.opportunities.list.invalidate()
+    utils.opportunities.listMine.invalidate()
+  }
   const deleteMutation = trpc.opportunities.delete.useMutation({
-    onSuccess: () => utils.opportunities.list.invalidate(),
+    onSuccess: invalidateOpportunities,
     onError: (err) => toast.error('Failed to delete opportunity', { description: err.message }),
   })
   const bulkUpdateMutation = trpc.opportunities.bulkUpdateStatus.useMutation({
     onSuccess: () => {
-      utils.opportunities.list.invalidate()
+      invalidateOpportunities()
       setSelectedKeys(new Set())
       setBulkStatus('')
       toast.success('Opportunities updated')
@@ -81,7 +111,14 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
     {
       id: 'name',
       header: 'Name',
-      cell: (row) => <span className="font-medium">{row.name}</span>,
+      cell: (row) => (
+        <Link
+          href={`/opportunities/${row.id}`}
+          className="font-medium text-primary hover:underline"
+        >
+          {row.name}
+        </Link>
+      ),
     },
     {
       id: 'value',
@@ -97,6 +134,11 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
       id: 'status',
       header: 'Status',
       cell: (row) => <Badge variant={statusVariant[row.status] ?? 'default'}>{row.status}</Badge>,
+    },
+    {
+      id: 'stage',
+      header: 'Stage',
+      cell: (row) => stageMap.get(row.stageId) ?? '—',
     },
     {
       id: 'owner',
@@ -121,6 +163,9 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href={`/opportunities/${row.id}`}>View</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditOpp(row)}>Edit</DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
@@ -162,11 +207,31 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <BulkActionsToolbar
-          selectedCount={selectedKeys.size}
-          onChangeStatus={handleBulkStatusChange}
-          onExport={handleExport}
-        />
+        <div className="flex items-center gap-4">
+          <fieldset className="inline-flex rounded-md border">
+            <Button
+              variant={viewMode === 'mine' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none"
+              onClick={() => setViewMode('mine')}
+            >
+              My Deals
+            </Button>
+            <Button
+              variant={viewMode === 'all' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => setViewMode('all')}
+            >
+              All Deals
+            </Button>
+          </fieldset>
+          <BulkActionsToolbar
+            selectedCount={selectedKeys.size}
+            onChangeStatus={handleBulkStatusChange}
+            onExport={handleExport}
+          />
+        </div>
         <CreateOpportunityDialog />
       </div>
       {selectedKeys.size > 0 && (

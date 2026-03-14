@@ -7,6 +7,7 @@ import { externalReferences } from './schema/external-references'
 import { leadScoringRules } from './schema/lead-scoring-rules'
 import { leads } from './schema/leads'
 import { notes } from './schema/notes'
+import { notifications } from './schema/notifications'
 import { offers } from './schema/offers'
 import { opportunities } from './schema/opportunities'
 import { pipelineStages, pipelines } from './schema/pipelines'
@@ -581,6 +582,32 @@ async function seed() {
       ])
       .onConflictDoNothing()
   }
+
+  // 20. Create sample notifications
+  await db
+    .insert(notifications)
+    .values([
+      {
+        userId: adminId,
+        type: 'owner_assignment',
+        title: 'New lead assigned to you',
+        message: 'You have been assigned lead: website',
+        entityType: 'lead',
+        entityId: sampleLeads[0]?.id ?? '',
+        isRead: false,
+      },
+      {
+        userId: adminId,
+        type: 'owner_assignment',
+        title: 'New opportunity assigned to you',
+        message: 'You have been assigned opportunity: TechCorp Enterprise Deal',
+        entityType: 'opportunity',
+        entityId: sampleOpps[0]?.id ?? '',
+        isRead: true,
+        readAt: new Date(),
+      },
+    ])
+    .onConflictDoNothing()
 
   console.log('Seed complete!')
   process.exit(0)

@@ -4,15 +4,22 @@ import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
+import { NotificationsService } from '../notifications/notifications.service'
 
 export class LeadsService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async list(pagination?: PaginationInput): Promise<PaginatedResult<typeof leads.$inferSelect>> {
+  async list(
+    pagination?: PaginationInput,
+    filters?: { ownerId?: string },
+  ): Promise<PaginatedResult<typeof leads.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(leads.deletedAt)]
     if (pagination?.cursor) {
       conditions.push(gt(leads.id, pagination.cursor))
+    }
+    if (filters?.ownerId) {
+      conditions.push(eq(leads.ownerId, filters.ownerId))
     }
 
     const rows = await this.ctx.db
@@ -102,11 +109,23 @@ export class LeadsService {
       ownerId: string
     }>,
   ) {
+    // Check if owner is changing for notification
+    let previousOwnerId: string | null = null
+    if (data.ownerId) {
+      const current = await this.getById(id)
+      previousOwnerId = current?.ownerId ?? null
+    }
+
     const [lead] = await this.ctx.db.update(leads).set(data).where(eq(leads.id, id)).returning()
 
     // Auto-recompute lead score on status change
     if (lead && data.status) {
       await this.triggerScoring(id)
+    }
+
+    // Notify new owner on assignment
+    if (lead && data.ownerId && data.ownerId !== previousOwnerId) {
+      await this.notifyOwnerAssignment(data.ownerId, 'lead', id, lead.source ?? 'Lead')
     }
 
     return lead ?? null
@@ -149,6 +168,27 @@ export class LeadsService {
       .where(eq(leads.id, id))
       .returning()
     return deleted ?? null
+  }
+
+  private async notifyOwnerAssignment(
+    userId: string,
+    entityType: string,
+    entityId: string,
+    entityName: string,
+  ) {
+    try {
+      const notificationsService = new NotificationsService(this.ctx)
+      await notificationsService.create({
+        userId,
+        type: 'owner_assignment',
+        title: `New ${entityType} assigned to you`,
+        message: `You have been assigned ${entityType}: ${entityName}`,
+        entityType,
+        entityId,
+      })
+    } catch {
+      // Non-blocking: notification failure should not break lead operations
+    }
   }
 
   private async triggerScoring(leadId: string) {

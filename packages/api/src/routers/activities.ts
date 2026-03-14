@@ -6,14 +6,30 @@ const paginationInput = z
   .object({
     cursor: z.string().optional(),
     limit: z.number().int().min(1).max(200).optional(),
+    ownerId: z.string().uuid().optional(),
   })
   .optional()
 
 export const activitiesRouter = router({
   list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
+    const { ownerId, ...pagination } = input ?? {}
     const service = new ActivitiesService(ctx)
-    return service.listRecent(input ?? undefined)
+    return service.listRecent(pagination, ownerId ? { ownerId } : undefined)
   }),
+
+  listMine: protectedProcedure
+    .input(
+      z
+        .object({
+          cursor: z.string().optional(),
+          limit: z.number().int().min(1).max(200).optional(),
+        })
+        .optional(),
+    )
+    .query(({ ctx, input }) => {
+      const service = new ActivitiesService(ctx)
+      return service.listRecent(input ?? undefined, { ownerId: ctx.auth.userId })
+    }),
 
   listForEntity: protectedProcedure
     .input(

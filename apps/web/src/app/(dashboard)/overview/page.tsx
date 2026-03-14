@@ -1,3 +1,4 @@
+import { AtRiskDealsCard } from '@/components/analytics/at-risk-deals-card'
 import { ConversionFunnelChart } from '@/components/analytics/conversion-funnel-chart'
 import { RevenueByStatusChart } from '@/components/analytics/revenue-by-status-chart'
 import { Badge } from '@/components/ui/badge'
@@ -5,7 +6,7 @@ import { getServerCaller } from '@/lib/trpc/server'
 
 export default async function DashboardPage() {
   const caller = await getServerCaller()
-  const [contacts, leads, opportunities, conversions, revenueByStatus, activities] =
+  const [contacts, leads, opportunities, conversions, revenueByStatus, activities, weighted] =
     await Promise.all([
       caller.contacts.list(),
       caller.leads.list(),
@@ -13,6 +14,7 @@ export default async function DashboardPage() {
       caller.analytics.conversionMetrics(),
       caller.analytics.revenueByStatus(),
       caller.activities.list({ limit: 5 }),
+      caller.analytics.weightedPipelineValue(),
     ])
 
   const openOpps = opportunities.items.filter((o) => o.status === 'open')
@@ -43,7 +45,7 @@ export default async function DashboardPage() {
         <DashboardCard
           title="Pipeline Value"
           value={`$${pipelineValue.toLocaleString()}`}
-          description="Total pipeline"
+          description={`Weighted: $${weighted.weightedValue.toLocaleString()}`}
         />
       </div>
 
@@ -56,6 +58,11 @@ export default async function DashboardPage() {
           <h3 className="mb-4 text-lg font-semibold">Revenue by Status</h3>
           <RevenueByStatusChart data={revenueByStatus} />
         </div>
+      </div>
+
+      <div className="rounded-lg border bg-card p-6">
+        <h3 className="mb-4 text-lg font-semibold">At-Risk Deals</h3>
+        <AtRiskDealsCard />
       </div>
 
       <div className="rounded-lg border bg-card p-6">

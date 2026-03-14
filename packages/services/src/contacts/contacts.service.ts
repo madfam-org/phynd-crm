@@ -6,11 +6,17 @@ import type { ServiceContext } from '../context'
 export class ContactsService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async list(pagination?: PaginationInput): Promise<PaginatedResult<typeof contacts.$inferSelect>> {
+  async list(
+    pagination?: PaginationInput,
+    filters?: { ownerId?: string },
+  ): Promise<PaginatedResult<typeof contacts.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(contacts.deletedAt)]
     if (pagination?.cursor) {
       conditions.push(gt(contacts.id, pagination.cursor))
+    }
+    if (filters?.ownerId) {
+      conditions.push(eq(contacts.ownerId, filters.ownerId))
     }
 
     const rows = await this.ctx.db

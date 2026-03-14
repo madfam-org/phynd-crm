@@ -1,3 +1,4 @@
+import { NotificationBell } from '../notifications/notification-bell'
 import { GlobalSearch } from './global-search'
 import { MobileSidebar } from './mobile-sidebar'
 import { SignOutButton } from './sign-out-button'
@@ -22,6 +23,7 @@ export function Header({ user }: HeaderProps) {
         <GlobalSearch />
       </div>
       <div className="flex items-center gap-4">
+        <NotificationBell />
         <div className="hidden text-sm sm:block">
           <span className="font-medium">{user?.name ?? 'User'}</span>
           <span className="ml-2 text-muted-foreground">{user?.email}</span>

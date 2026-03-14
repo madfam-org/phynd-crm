@@ -65,49 +65,48 @@ function createMockCtx(): ServiceContext {
   }
 }
 
-describe('activities router', () => {
+describe('notifications router', () => {
   const createCaller = createCallerFactory(appRouter)
 
-  it('listForEntity accepts entityType and entityId input', async () => {
+  it('list returns notifications for current user', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)
-    // Verifies that the input validation passes and the router calls the service
-    const result = await caller.activities.listForEntity({
-      entityId: '00000000-0000-0000-0000-000000000001',
-      entityType: 'contact',
-    })
-    // Mock DB returns [] which the service wraps into pagination
+    const result = await caller.notifications.list()
+    expect(result).toEqual([])
+  })
+
+  it('list accepts unreadOnly and limit options', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.notifications.list({ unreadOnly: true, limit: 5 })
     expect(result).toBeDefined()
   })
 
-  it('create validates input schema', async () => {
+  it('unreadCount resolves without error', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)
-
-    // Should not throw with valid input (even if mock returns empty)
-    await expect(
-      caller.activities.create({
-        entityId: '00000000-0000-0000-0000-000000000001',
-        entityType: 'contact',
-        title: 'Call prospect',
-        type: 'call',
-      }),
-    ).resolves.not.toThrow()
+    const result = await caller.notifications.unreadCount()
+    expect(typeof result).toBe('number')
   })
 
-  it('listMine returns activities owned by current user', async () => {
+  it('markAsRead accepts a UUID id', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)
-    const result = await caller.activities.listMine()
-    expect(result).toEqual({ hasMore: false, items: [], nextCursor: null })
-  })
-
-  it('list accepts optional ownerId filter', async () => {
-    const ctx = createMockCtx()
-    const caller = createCaller(ctx)
-    const result = await caller.activities.list({
-      ownerId: '00000000-0000-0000-0000-000000000001',
+    const result = await caller.notifications.markAsRead({
+      id: '00000000-0000-0000-0000-000000000001',
     })
-    expect(result).toHaveProperty('items')
+    expect(result).toBeNull()
+  })
+
+  it('markAllAsRead resolves without error', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    await expect(caller.notifications.markAllAsRead()).resolves.not.toThrow()
+  })
+
+  it('markAsRead rejects invalid id', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    await expect(caller.notifications.markAsRead({ id: 'not-a-uuid' })).rejects.toThrow()
   })
 })

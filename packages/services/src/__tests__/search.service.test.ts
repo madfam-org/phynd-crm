@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SearchService } from '../search/search.service'
-import { type MockDatabase, createTestContext, makeContact, makeLead, makeOpportunity } from './helpers'
+import {
+  type MockDatabase,
+  createTestContext,
+  makeContact,
+  makeLead,
+  makeOpportunity,
+} from './helpers'
 
 // ---------------------------------------------------------------------------
 // Mock external modules

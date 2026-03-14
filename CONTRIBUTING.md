@@ -62,7 +62,7 @@ packages/logging  → (standalone, pino structured logging)
 ### Service Tests
 - Located in `packages/services/src/__tests__/`
 - Use mock query builder from `helpers.ts` (`createTestContext()`, `createMockDb()`)
-- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, etc.
+- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, `makeActivity()`, `makeStageTransition()`, `makeNotification()`, etc.
 - Every new service must have a corresponding test file
 
 ### Router Tests
@@ -88,11 +88,20 @@ packages/logging  → (standalone, pino structured logging)
 8. Add E2E test specs for new UI features
 9. Update `CLAUDE.md` if adding new patterns, schemas, or routers
 
-## tRPC Routers (18 total)
+## tRPC Routers (20 total)
 
-`activities`, `analytics`, `campaigns`, `contacts`, `conversions`, `federationHealth`, `leadScoring`, `leads`, `notes`, `offers`, `opportunities`, `pipelines`, `preferences`, `search`, `tags`, `unifiedProfile`, `users`, `visitorTracking`
+`activities`, `analytics`, `campaigns`, `contacts`, `conversions`, `federationHealth`, `leadScoring`, `leads`, `notes`, `notifications`, `offers`, `opportunities`, `pipelines`, `preferences`, `search`, `tags`, `timeline`, `unifiedProfile`, `users`, `visitorTracking`
 
 Admin-gated routers use `requireRole('admin')` middleware (e.g. `users`).
+
+### Notification Triggers
+When a service modifies an entity's `ownerId`, it creates a notification for the new owner using `NotificationsService.create()`. This is non-blocking (wrapped in try/catch) to avoid breaking the primary operation if notification fails.
+
+### Timeline Service
+`TimelineService.getTimeline()` aggregates three data sources (activities, stage_transitions, notes) filtered by entityType/entityId, maps each to a `TimelineEntry`, and sorts by timestamp descending. No new DB tables — it reads from existing tables.
+
+### Owner-Scoped Queries
+Services accept optional `filters?: { ownerId?: string }` parameter. Router `listMine` procedures auto-scope to `ctx.auth.userId`. Frontend uses `enabled` flag on tRPC queries to conditionally fetch "My Deals" vs "All Deals".
 
 ## Architecture Decisions
 

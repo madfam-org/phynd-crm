@@ -7,12 +7,14 @@ import { federationHealthRouter } from './routers/federation-health'
 import { leadScoringRouter } from './routers/lead-scoring'
 import { leadsRouter } from './routers/leads'
 import { notesRouter } from './routers/notes'
+import { notificationsRouter } from './routers/notifications'
 import { offersRouter } from './routers/offers'
 import { opportunitiesRouter } from './routers/opportunities'
 import { pipelinesRouter } from './routers/pipelines'
 import { preferencesRouter } from './routers/preferences'
 import { searchRouter } from './routers/search'
 import { tagsRouter } from './routers/tags'
+import { timelineRouter } from './routers/timeline'
 import { unifiedProfileRouter } from './routers/unified-profile'
 import { usersRouter } from './routers/users'
 import { visitorTrackingRouter } from './routers/visitor-tracking'
@@ -28,12 +30,14 @@ export const appRouter = router({
   leadScoring: leadScoringRouter,
   leads: leadsRouter,
   notes: notesRouter,
+  notifications: notificationsRouter,
   offers: offersRouter,
   opportunities: opportunitiesRouter,
   pipelines: pipelinesRouter,
   preferences: preferencesRouter,
   search: searchRouter,
   tags: tagsRouter,
+  timeline: timelineRouter,
   unifiedProfile: unifiedProfileRouter,
   users: usersRouter,
   visitorTracking: visitorTrackingRouter,

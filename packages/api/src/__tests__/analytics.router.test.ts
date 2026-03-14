@@ -94,4 +94,31 @@ describe('analytics router', () => {
     const result = await caller.analytics.revenueByStatus()
     expect(result).toBeDefined()
   })
+
+  it('weightedPipelineValue returns weighted and raw values', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    const result = await caller.analytics.weightedPipelineValue()
+    expect(result).toBeDefined()
+    expect(result).toHaveProperty('weightedValue')
+    expect(result).toHaveProperty('rawValue')
+    expect(result).toHaveProperty('count')
+  })
+
+  it('atRiskDeals returns at-risk deals array', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    const result = await caller.analytics.atRiskDeals()
+    expect(result).toEqual([])
+  })
+
+  it('atRiskDeals accepts optional staleThresholdDays', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    const result = await caller.analytics.atRiskDeals({ staleThresholdDays: 7 })
+    expect(result).toBeDefined()
+  })
 })

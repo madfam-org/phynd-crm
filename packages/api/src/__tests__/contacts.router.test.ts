@@ -83,4 +83,20 @@ describe('contacts router', () => {
     expect(result).toHaveProperty('items')
     expect(result).toHaveProperty('hasMore')
   })
+
+  it('listMine returns contacts owned by current user', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.contacts.listMine()
+    expect(result).toEqual({ hasMore: false, items: [], nextCursor: null })
+  })
+
+  it('list accepts optional ownerId filter', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.contacts.list({
+      ownerId: '00000000-0000-0000-0000-000000000001',
+    })
+    expect(result).toHaveProperty('items')
+  })
 })

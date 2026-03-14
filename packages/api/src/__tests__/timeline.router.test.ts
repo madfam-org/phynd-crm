@@ -65,49 +65,34 @@ function createMockCtx(): ServiceContext {
   }
 }
 
-describe('activities router', () => {
+describe('timeline router', () => {
   const createCaller = createCallerFactory(appRouter)
 
-  it('listForEntity accepts entityType and entityId input', async () => {
+  it('getTimeline returns timeline entries for a lead', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)
-    // Verifies that the input validation passes and the router calls the service
-    const result = await caller.activities.listForEntity({
+    const result = await caller.timeline.getTimeline({
+      entityType: 'lead',
       entityId: '00000000-0000-0000-0000-000000000001',
-      entityType: 'contact',
     })
-    // Mock DB returns [] which the service wraps into pagination
-    expect(result).toBeDefined()
+    expect(result).toEqual([])
   })
 
-  it('create validates input schema', async () => {
+  it('getTimeline returns timeline entries for an opportunity', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)
+    const result = await caller.timeline.getTimeline({
+      entityType: 'opportunity',
+      entityId: '00000000-0000-0000-0000-000000000001',
+    })
+    expect(result).toEqual([])
+  })
 
-    // Should not throw with valid input (even if mock returns empty)
+  it('getTimeline rejects invalid entityId', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
     await expect(
-      caller.activities.create({
-        entityId: '00000000-0000-0000-0000-000000000001',
-        entityType: 'contact',
-        title: 'Call prospect',
-        type: 'call',
-      }),
-    ).resolves.not.toThrow()
-  })
-
-  it('listMine returns activities owned by current user', async () => {
-    const ctx = createMockCtx()
-    const caller = createCaller(ctx)
-    const result = await caller.activities.listMine()
-    expect(result).toEqual({ hasMore: false, items: [], nextCursor: null })
-  })
-
-  it('list accepts optional ownerId filter', async () => {
-    const ctx = createMockCtx()
-    const caller = createCaller(ctx)
-    const result = await caller.activities.list({
-      ownerId: '00000000-0000-0000-0000-000000000001',
-    })
-    expect(result).toHaveProperty('items')
+      caller.timeline.getTimeline({ entityType: 'lead', entityId: 'not-a-uuid' }),
+    ).rejects.toThrow()
   })
 })

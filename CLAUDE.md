@@ -64,9 +64,14 @@ pnpm db:seed          # Seed database
 - **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`); all 6 webhook routes use the shared handler
 - **Structured logging**: `@phyne/logging` package (pino); all worker processors and webhook handler use structured JSON logging
 - **Signal propagation**: All 6 federation providers accept optional `signal?: AbortSignal` parameter, with config-driven fallback timeouts
+- **Owner-scoped queries**: `list()` accepts optional `filters?: { ownerId?: string }`; `listMine` router procedures auto-scope to `ctx.auth.userId`
+- **Timeline**: `TimelineService.getTimeline()` merges activities, stage_transitions, and notes into chronological `TimelineEntry[]`
+- **Weighted pipeline**: `AnalyticsService.getWeightedPipelineValue()` computes `sum(value * probability / 100)` for open opps
+- **At-risk deals**: `AnalyticsService.getAtRiskDeals()` flags opps stuck > threshold days or > 1.5× avg stage velocity
+- **Notifications**: Owner assignment triggers non-blocking notification creation in leads/opportunities `update()`
 
 ## DB Schema
-users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
+users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
 
 ### Indexes
 - leads: `contact_id`, composite `(pipeline_id, stage_id)`
@@ -80,12 +85,13 @@ users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, n
 - conversions: `campaign_id`, `contact_id`, `lead_id`, `visitor_session_id`, partial unique `(type, lead_id)`, partial unique `(type, opportunity_id)`
 - stage_transitions: composite `(entity_type, entity_id)`, composite `(to_stage_id, from_stage_id)`
 - lead_scores: unique `lead_id`
+- notifications: `user_id`, composite `(user_id, is_read)`
 
 ### Soft Delete Columns
 - contacts, leads, opportunities: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts, leads (+ listByContactId, bulkUpdateStatus), opportunities (+ listByContactId, bulkUpdateStatus), pipelines, activities (list, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (with date range filtering), lead-scoring, preferences (getForRole, upsert)
+contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), pipelines, activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead)
 
 ## Feature Flags (12 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
@@ -123,6 +129,11 @@ contacts, leads (+ listByContactId, bulkUpdateStatus), opportunities (+ listByCo
 - **CSV export**: Export contacts/leads/opportunities to CSV (all or selected rows)
 - **Owner column**: Leads and opportunities tables show owner name, edit dialogs have owner select
 - **Health endpoint**: `GET /api/health` returns `{ status: 'ok', timestamp }` for Docker health checks
+- **Lead detail page**: `/leads/[id]` — info card + timeline + notes + tags
+- **Opportunity detail page**: `/opportunities/[id]` — info card + timeline + notes + tags
+- **Notification bell**: In header, polls unreadCount every 30s, click navigates to entity
+- **My Deals toggle**: Segmented button on leads/opportunities tables to switch between owner-scoped and all records
+- **Stage names**: Data tables resolve stageId to human-readable stage name via pipeline stages lookup
 - **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`
 
 ## Worker Processors

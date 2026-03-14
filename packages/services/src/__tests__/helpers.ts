@@ -322,6 +322,53 @@ export function makeCampaign(overrides: Record<string, unknown> = {}) {
   }
 }
 
+export function makeActivity(overrides: Record<string, unknown> = {}) {
+  return {
+    completedAt: null,
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    description: null,
+    dueAt: null,
+    entityId: 'entity-001',
+    entityType: 'lead',
+    id: 'activity-001',
+    ownerId: 'test-user',
+    status: 'pending',
+    title: 'Test Activity',
+    type: 'call',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
+export function makeStageTransition(overrides: Record<string, unknown> = {}) {
+  return {
+    entityId: 'entity-001',
+    entityType: 'lead',
+    fromStageId: 'stage-001',
+    id: 'transition-001',
+    toStageId: 'stage-002',
+    transitionedAt: new Date('2025-01-15T10:00:00Z'),
+    transitionedBy: 'test-user',
+    ...overrides,
+  }
+}
+
+export function makeNotification(overrides: Record<string, unknown> = {}) {
+  return {
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    entityId: null,
+    entityType: null,
+    id: 'notif-001',
+    isRead: false,
+    message: 'Test notification message',
+    readAt: null,
+    title: 'Test Notification',
+    type: 'owner_assignment',
+    userId: 'test-user',
+    ...overrides,
+  }
+}
+
 export function makeOffer(overrides: Record<string, unknown> = {}) {
   return {
     createdAt: new Date('2025-01-15T10:00:00Z'),

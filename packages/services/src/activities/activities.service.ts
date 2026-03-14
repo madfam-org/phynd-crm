@@ -35,11 +35,15 @@ export class ActivitiesService {
 
   async listRecent(
     pagination?: PaginationInput,
+    filters?: { ownerId?: string },
   ): Promise<PaginatedResult<typeof activities.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = []
     if (pagination?.cursor) {
       conditions.push(gt(activities.id, pagination.cursor))
+    }
+    if (filters?.ownerId) {
+      conditions.push(eq(activities.ownerId, filters.ownerId))
     }
 
     const rows = await this.ctx.db

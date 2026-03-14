@@ -155,7 +155,12 @@ describe('TagsService', () => {
   // -------------------------------------------------------------------------
   describe('addToEntity()', () => {
     it('inserts a taggable record linking tag to entity', async () => {
-      const taggable = { entityId: 'contact-001', entityType: 'contact', id: 'tg-001', tagId: 'tag-001' }
+      const taggable = {
+        entityId: 'contact-001',
+        entityType: 'contact',
+        id: 'tg-001',
+        tagId: 'tag-001',
+      }
       mockDb._qb._result = [taggable]
 
       const result = await service.addToEntity('tag-001', 'contact', 'contact-001')
@@ -181,7 +186,12 @@ describe('TagsService', () => {
   // -------------------------------------------------------------------------
   describe('removeFromEntity()', () => {
     it('removes the taggable record and returns it', async () => {
-      const taggable = { entityId: 'contact-001', entityType: 'contact', id: 'tg-001', tagId: 'tag-001' }
+      const taggable = {
+        entityId: 'contact-001',
+        entityType: 'contact',
+        id: 'tg-001',
+        tagId: 'tag-001',
+      }
       mockDb._qb._result = [taggable]
 
       const result = await service.removeFromEntity('tag-001', 'contact', 'contact-001')

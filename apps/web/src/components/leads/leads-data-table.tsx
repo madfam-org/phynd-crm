@@ -22,6 +22,7 @@ import { exportToCsv } from '@/lib/csv-export'
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CreateLeadDialog } from './create-lead-dialog'
@@ -44,14 +45,31 @@ const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'seconda
 
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted'] as const
 
+type ViewMode = 'all' | 'mine'
+
 export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
-  const { data: leads } = trpc.leads.list.useQuery(undefined, {
+  const [viewMode, setViewMode] = useState<ViewMode>('all')
+
+  const { data: allLeads } = trpc.leads.list.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
+    enabled: viewMode === 'all',
   })
+  const { data: myLeads } = trpc.leads.listMine.useQuery(undefined, {
+    refetchInterval: 60_000,
+    enabled: viewMode === 'mine',
+  })
+
+  const leads = viewMode === 'mine' ? myLeads : allLeads
   const { data: usersData } = trpc.users.list.useQuery(undefined, {
     retry: false,
   })
+  const { data: defaultPipeline } = trpc.pipelines.getDefault.useQuery()
+  const pipelineId = defaultPipeline?.id ?? ''
+  const { data: stagesData } = trpc.pipelines.getStages.useQuery(
+    { pipelineId },
+    { enabled: !!defaultPipeline?.id },
+  )
   const [editLead, setEditLead] = useState<LeadRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
@@ -64,14 +82,26 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
     return map
   }, [usersData])
 
+  const stageMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of stagesData ?? []) {
+      map.set(s.id, s.name)
+    }
+    return map
+  }, [stagesData])
+
   const utils = trpc.useUtils()
+  const invalidateLeads = () => {
+    utils.leads.list.invalidate()
+    utils.leads.listMine.invalidate()
+  }
   const deleteMutation = trpc.leads.delete.useMutation({
-    onSuccess: () => utils.leads.list.invalidate(),
+    onSuccess: invalidateLeads,
     onError: (err) => toast.error('Failed to delete lead', { description: err.message }),
   })
   const bulkUpdateMutation = trpc.leads.bulkUpdateStatus.useMutation({
     onSuccess: () => {
-      utils.leads.list.invalidate()
+      invalidateLeads()
       setSelectedKeys(new Set())
       setBulkStatus('')
       toast.success('Leads updated')
@@ -83,7 +113,11 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
     {
       id: 'id',
       header: 'ID',
-      cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}</span>,
+      cell: (row) => (
+        <Link href={`/leads/${row.id}`} className="font-mono text-xs text-primary hover:underline">
+          {row.id.slice(0, 8)}
+        </Link>
+      ),
     },
     { id: 'source', header: 'Source', cell: (row) => row.source ?? '—' },
     {
@@ -95,6 +129,11 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
       id: 'score',
       header: 'Score',
       cell: (row) => (row.score != null ? String(row.score) : '—'),
+    },
+    {
+      id: 'stage',
+      header: 'Stage',
+      cell: (row) => stageMap.get(row.stageId) ?? '—',
     },
     {
       id: 'owner',
@@ -113,6 +152,9 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href={`/leads/${row.id}`}>View</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditLead(row)}>Edit</DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
@@ -153,11 +195,31 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <BulkActionsToolbar
-          selectedCount={selectedKeys.size}
-          onChangeStatus={handleBulkStatusChange}
-          onExport={handleExport}
-        />
+        <div className="flex items-center gap-4">
+          <fieldset className="inline-flex rounded-md border">
+            <Button
+              variant={viewMode === 'mine' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none"
+              onClick={() => setViewMode('mine')}
+            >
+              My Deals
+            </Button>
+            <Button
+              variant={viewMode === 'all' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => setViewMode('all')}
+            >
+              All Deals
+            </Button>
+          </fieldset>
+          <BulkActionsToolbar
+            selectedCount={selectedKeys.size}
+            onChangeStatus={handleBulkStatusChange}
+            onExport={handleExport}
+          />
+        </div>
         <CreateLeadDialog />
       </div>
       {selectedKeys.size > 0 && (

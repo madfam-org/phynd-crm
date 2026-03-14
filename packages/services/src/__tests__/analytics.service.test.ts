@@ -11,6 +11,7 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gte: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gte', col, val })),
+  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
   lte: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lte', col, val })),
   sql: Object.assign(
     vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -46,7 +47,12 @@ vi.mock('@phyne/db/schema', () => ({
   },
   opportunities: {
     createdAt: 'opportunities.createdAt',
+    deletedAt: 'opportunities.deletedAt',
+    id: 'opportunities.id',
+    name: 'opportunities.name',
     pipelineId: 'opportunities.pipelineId',
+    probability: 'opportunities.probability',
+    stageId: 'opportunities.stageId',
     status: 'opportunities.status',
     updatedAt: 'opportunities.updatedAt',
     value: 'opportunities.value',
@@ -399,27 +405,17 @@ describe('AnalyticsService', () => {
   // -------------------------------------------------------------------------
   describe('getDashboardSummary()', () => {
     it('returns a summary of key dashboard metrics', async () => {
+      const responses = [
+        [{ count: 25 }],
+        [{ count: 10, totalValue: 250000 }],
+        [{ count: 150 }],
+        [{ total: 20, won: 12 }],
+        [{ count: 10, rawValue: 250000, weightedValue: 125000 }],
+      ]
       let callCount = 0
-      mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
-        callCount++
-        if (callCount === 1) {
-          // lead count
-          return Promise.resolve([{ count: 25 }]).then(resolve)
-        }
-        if (callCount === 2) {
-          // open opportunity count + value
-          return Promise.resolve([{ count: 10, totalValue: 250000 }]).then(resolve)
-        }
-        if (callCount === 3) {
-          // recent visitors
-          return Promise.resolve([{ count: 150 }]).then(resolve)
-        }
-        if (callCount === 4) {
-          // win rate query
-          return Promise.resolve([{ total: 20, won: 12 }]).then(resolve)
-        }
-        return Promise.resolve([]).then(resolve)
-      })
+      mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) =>
+        Promise.resolve(responses[callCount++] ?? []).then(resolve),
+      )
 
       const result = await service.getDashboardSummary()
 
@@ -431,15 +427,17 @@ describe('AnalyticsService', () => {
     })
 
     it('applies date range filtering when provided', async () => {
+      const responses = [
+        [{ count: 5 }],
+        [{ count: 2, totalValue: 50000 }],
+        [{ count: 30 }],
+        [{ total: 4, won: 2 }],
+        [{ count: 2, rawValue: 50000, weightedValue: 25000 }],
+      ]
       let callCount = 0
-      mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
-        callCount++
-        if (callCount === 1) return Promise.resolve([{ count: 5 }]).then(resolve)
-        if (callCount === 2) return Promise.resolve([{ count: 2, totalValue: 50000 }]).then(resolve)
-        if (callCount === 3) return Promise.resolve([{ count: 30 }]).then(resolve)
-        if (callCount === 4) return Promise.resolve([{ total: 4, won: 2 }]).then(resolve)
-        return Promise.resolve([]).then(resolve)
-      })
+      mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) =>
+        Promise.resolve(responses[callCount++] ?? []).then(resolve),
+      )
 
       const result = await service.getDashboardSummary({
         from: new Date('2025-01-01'),
@@ -448,6 +446,44 @@ describe('AnalyticsService', () => {
 
       expect(result.totalLeads).toBe(5)
       expect(result.winRate).toBe(50)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // getWeightedPipelineValue()
+  // -------------------------------------------------------------------------
+  describe('getWeightedPipelineValue()', () => {
+    it('returns weighted and raw pipeline values', async () => {
+      mockDb._qb._result = [{ count: 5, rawValue: 100000, weightedValue: 65000 }]
+
+      const result = await service.getWeightedPipelineValue()
+
+      expect(result.weightedValue).toBe(65000)
+      expect(result.rawValue).toBe(100000)
+      expect(result.count).toBe(5)
+    })
+
+    it('returns zeroes when no open opportunities', async () => {
+      mockDb._qb._result = [undefined]
+
+      const result = await service.getWeightedPipelineValue()
+
+      expect(result.weightedValue).toBe(0)
+      expect(result.rawValue).toBe(0)
+      expect(result.count).toBe(0)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // getAtRiskDeals()
+  // -------------------------------------------------------------------------
+  describe('getAtRiskDeals()', () => {
+    it('returns empty array when no open opportunities', async () => {
+      mockDb._qb._result = []
+
+      const result = await service.getAtRiskDeals()
+
+      expect(result).toEqual([])
     })
   })
 })

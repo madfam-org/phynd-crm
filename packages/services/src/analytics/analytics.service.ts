@@ -9,7 +9,7 @@ import {
   visitorSessions,
 } from '@phyne/db/schema'
 import type { SQL } from 'drizzle-orm'
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 interface DateRange {
@@ -239,6 +239,130 @@ export class AnalyticsService {
     })
   }
 
+  async getWeightedPipelineValue() {
+    const [result] = await this.ctx.db
+      .select({
+        weightedValue: sql<number>`coalesce(sum(${opportunities.value}::numeric * coalesce(${opportunities.probability}, 50) / 100), 0)::numeric(12,2)`,
+        rawValue: sql<number>`coalesce(sum(${opportunities.value}::numeric), 0)::numeric(12,2)`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(opportunities)
+      .where(and(eq(opportunities.status, 'open'), isNull(opportunities.deletedAt)))
+
+    return {
+      weightedValue: Number(result?.weightedValue ?? 0),
+      rawValue: Number(result?.rawValue ?? 0),
+      count: result?.count ?? 0,
+    }
+  }
+
+  async getAtRiskDeals(staleThresholdDays = 14) {
+    // Get open, non-deleted opportunities
+    const openOpps = await this.ctx.db
+      .select({
+        id: opportunities.id,
+        name: opportunities.name,
+        value: opportunities.value,
+        stageId: opportunities.stageId,
+        pipelineId: opportunities.pipelineId,
+      })
+      .from(opportunities)
+      .where(and(eq(opportunities.status, 'open'), isNull(opportunities.deletedAt)))
+
+    if (openOpps.length === 0) return []
+
+    // Get latest stage transition per entity to compute days-in-stage
+    const transitions = await this.ctx.db
+      .select({
+        entityId: stageTransitions.entityId,
+        toStageId: stageTransitions.toStageId,
+        transitionedAt: stageTransitions.transitionedAt,
+      })
+      .from(stageTransitions)
+      .where(eq(stageTransitions.entityType, 'opportunity'))
+      .orderBy(desc(stageTransitions.transitionedAt))
+
+    // Get stage names
+    const allStages = await this.ctx.db.select().from(pipelineStages)
+    const stageMap = new Map(allStages.map((s) => [s.id, s.name]))
+
+    // Compute avg days per stage
+    const stageDurations: Record<string, number[]> = {}
+    const latestTransitionByOpp = new Map<string, Date>()
+
+    for (const t of transitions) {
+      if (!latestTransitionByOpp.has(t.entityId)) {
+        latestTransitionByOpp.set(t.entityId, t.transitionedAt)
+      }
+    }
+
+    // Compute average stage velocity from all transitions
+    const transitionsByEntity = new Map<string, typeof transitions>()
+    for (const t of transitions) {
+      const existing = transitionsByEntity.get(t.entityId) ?? []
+      existing.push(t)
+      transitionsByEntity.set(t.entityId, existing)
+    }
+
+    for (const [, entityTransitions] of transitionsByEntity) {
+      for (let i = 0; i < entityTransitions.length - 1; i++) {
+        const current = entityTransitions[i]
+        const next = entityTransitions[i + 1]
+        if (!current || !next) continue
+        const days =
+          (current.transitionedAt.getTime() - next.transitionedAt.getTime()) / (1000 * 60 * 60 * 24)
+        const stageId = current.toStageId
+        if (!stageDurations[stageId]) stageDurations[stageId] = []
+        stageDurations[stageId].push(days)
+      }
+    }
+
+    const stageAvgDays = new Map<string, number>()
+    for (const [stageId, durations] of Object.entries(stageDurations)) {
+      const avg = durations.reduce((a, b) => a + b, 0) / durations.length
+      stageAvgDays.set(stageId, avg)
+    }
+
+    const now = new Date()
+    const atRisk: {
+      opportunityId: string
+      name: string
+      value: number
+      stageName: string
+      daysInStage: number
+      averageDays: number
+      riskLevel: 'warning' | 'critical'
+    }[] = []
+
+    for (const opp of openOpps) {
+      const lastTransition = latestTransitionByOpp.get(opp.id)
+      if (!lastTransition) continue
+
+      const daysInStage = Math.floor(
+        (now.getTime() - lastTransition.getTime()) / (1000 * 60 * 60 * 24),
+      )
+      const avgDays = stageAvgDays.get(opp.stageId) ?? staleThresholdDays
+      const isStale = daysInStage > staleThresholdDays || daysInStage > avgDays * 1.5
+
+      if (isStale) {
+        atRisk.push({
+          opportunityId: opp.id,
+          name: opp.name,
+          value: Number(opp.value ?? 0),
+          stageName: stageMap.get(opp.stageId) ?? 'Unknown',
+          daysInStage,
+          averageDays: Math.round(avgDays),
+          riskLevel:
+            daysInStage > avgDays * 2 || daysInStage > staleThresholdDays * 2
+              ? 'critical'
+              : 'warning',
+        })
+      }
+    }
+
+    return atRisk.sort((a, b) => b.daysInStage - a.daysInStage)
+  }
+
   async getDashboardSummary(dateRange?: DateRange) {
     const leadConditions: SQL[] = []
     if (dateRange?.from) {
@@ -284,12 +408,16 @@ export class AnalyticsService {
       .from(visitorSessions)
       .where(and(...visitorConditions))
 
-    const winRate = await this.getWinRate(dateRange)
+    const [winRate, weighted] = await Promise.all([
+      this.getWinRate(dateRange),
+      this.getWeightedPipelineValue(),
+    ])
 
     return {
       totalLeads: leadCount?.count ?? 0,
       openOpportunities: oppCount?.count ?? 0,
       pipelineValue: oppCount?.totalValue ?? 0,
+      weightedPipelineValue: weighted.weightedValue,
       recentVisitors: recentVisitors?.count ?? 0,
       winRate: winRate.winRate,
     }

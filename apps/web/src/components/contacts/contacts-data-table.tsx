@@ -1,6 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
+import { BulkActionsToolbar } from '@/components/ui/bulk-actions-toolbar'
 import { Button } from '@/components/ui/button'
 import type { ColumnDef } from '@/components/ui/data-table'
 import { DataTable } from '@/components/ui/data-table'
@@ -10,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { exportToCsv } from '@/lib/csv-export'
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
@@ -32,6 +34,24 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
   })
   const [editContact, setEditContact] = useState<ContactRow | null>(null)
   const [deleteContact, setDeleteContact] = useState<ContactRow | null>(null)
+  const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
+
+  function handleExport() {
+    const items = contacts?.items ?? []
+    const toExport = selectedKeys.size > 0 ? items.filter((c) => selectedKeys.has(c.id)) : items
+    exportToCsv(
+      toExport,
+      [
+        { key: 'id', header: 'ID' },
+        { key: 'name', header: 'Name' },
+        { key: 'email', header: 'Email' },
+        { key: 'phone', header: 'Phone' },
+        { key: 'company', header: 'Company' },
+        { key: 'status', header: 'Status' },
+      ],
+      'contacts',
+    )
+  }
 
   const columns: ColumnDef<ContactRow>[] = [
     {
@@ -75,10 +95,21 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <BulkActionsToolbar
+          selectedCount={selectedKeys.size}
+          onExport={handleExport}
+          showStatusAction={false}
+        />
         <CreateContactDialog />
       </div>
-      <DataTable columns={columns} data={contacts?.items ?? []} getRowKey={(row) => row.id} />
+      <DataTable
+        columns={columns}
+        data={contacts?.items ?? []}
+        getRowKey={(row) => row.id}
+        selectable
+        onSelectionChange={setSelectedKeys}
+      />
       {editContact && (
         <EditContactDialog
           contact={editContact}

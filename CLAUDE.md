@@ -85,7 +85,7 @@ users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, n
 - contacts, leads, opportunities: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts, leads, opportunities, pipelines, activities (list, listForEntity, create, update, delete, complete), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (with date range filtering), lead-scoring, preferences (getForRole, upsert)
+contacts, leads (+ listByContactId, bulkUpdateStatus), opportunities (+ listByContactId, bulkUpdateStatus), pipelines, activities (list, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (with date range filtering), lead-scoring, preferences (getForRole, upsert)
 
 ## Feature Flags (12 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
@@ -112,6 +112,18 @@ contacts, leads, opportunities, pipelines, activities (list, listForEntity, crea
 - **Polling**: `refetchInterval` on data tables (60s leads/opps/activities, 120s contacts)
 - **Analytics charts**: recharts (ConversionFunnelChart, PipelineVelocityChart, RevenueByStatusChart)
 - **Activities CRUD**: Full create/edit/delete/complete via data table with dialogs
+- **Notes panel**: Per-entity notes (contact/lead/opportunity) with create/edit/delete/pin toggle
+- **Tags panel**: Per-entity tags with add/remove, badge display, create new tags with color
+- **User management**: Admin-gated CRUD at `/settings/users`
+- **Global search**: Cmd+K searchbar in header, searches contacts/leads/opportunities with debounced query
+- **Kanban pipeline**: Drag-and-drop pipeline board using `@hello-pangea/dnd`, moves leads/opps between stages
+- **Contact detail**: Federation tabs + activities + notes + tags + related leads/opportunities
+- **Dashboard charts**: ConversionFunnelChart + RevenueByStatusChart on overview page, plus recent activities
+- **Bulk operations**: Row selection checkboxes on data tables, bulk status change for leads/opportunities
+- **CSV export**: Export contacts/leads/opportunities to CSV (all or selected rows)
+- **Owner column**: Leads and opportunities tables show owner name, edit dialogs have owner select
+- **Health endpoint**: `GET /api/health` returns `{ status: 'ok', timestamp }` for Docker health checks
+- **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`
 
 ## Worker Processors
 - `health-check`: Calls `checkAll()` and persists results to `healthSnapshots` table

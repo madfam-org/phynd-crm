@@ -31,6 +31,32 @@ export class OpportunitiesService {
     }
   }
 
+  async listByContactId(
+    contactId: string,
+    pagination?: PaginationInput,
+  ): Promise<PaginatedResult<typeof opportunities.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = [eq(opportunities.contactId, contactId), isNull(opportunities.deletedAt)]
+    if (pagination?.cursor) {
+      conditions.push(gt(opportunities.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(opportunities)
+      .where(and(...conditions))
+      .orderBy(opportunities.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
+  }
+
   async getById(id: string) {
     const [opp] = await this.ctx.db
       .select()
@@ -126,6 +152,22 @@ export class OpportunitiesService {
     }
 
     return result
+  }
+
+  async bulkUpdateStatus(ids: string[], status: string) {
+    const results = await this.ctx.db.transaction(async (tx) => {
+      const updated = []
+      for (const id of ids) {
+        const [opp] = await tx
+          .update(opportunities)
+          .set({ status })
+          .where(eq(opportunities.id, id))
+          .returning()
+        if (opp) updated.push(opp)
+      }
+      return updated
+    })
+    return results
   }
 
   async delete(id: string) {

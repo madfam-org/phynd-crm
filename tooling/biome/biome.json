@@ -40,7 +40,8 @@
       ".turbo",
       "coverage",
       "*.gen.ts",
-      "*.css"
+      "*.css",
+      "**/migrations/**"
     ]
   }
 }

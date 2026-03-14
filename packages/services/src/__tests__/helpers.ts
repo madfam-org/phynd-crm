@@ -19,6 +19,7 @@ export interface MockQueryBuilder {
   insert: ReturnType<typeof vi.fn>
   leftJoin: ReturnType<typeof vi.fn>
   limit: ReturnType<typeof vi.fn>
+  onConflictDoNothing: ReturnType<typeof vi.fn>
   orderBy: ReturnType<typeof vi.fn>
   returning: ReturnType<typeof vi.fn>
   select: ReturnType<typeof vi.fn>
@@ -39,6 +40,7 @@ export function createMockQueryBuilder(result: unknown = []): MockQueryBuilder {
     insert: vi.fn(),
     leftJoin: vi.fn(),
     limit: vi.fn(),
+    onConflictDoNothing: vi.fn(),
     orderBy: vi.fn(),
     returning: vi.fn(),
     select: vi.fn(),
@@ -59,6 +61,7 @@ export function createMockQueryBuilder(result: unknown = []): MockQueryBuilder {
     'insert',
     'leftJoin',
     'limit',
+    'onConflictDoNothing',
     'orderBy',
     'returning',
     'select',
@@ -176,6 +179,23 @@ export function createTestContext(
 // Factory helpers for test data
 // ---------------------------------------------------------------------------
 
+export function makeContact(overrides: Record<string, unknown> = {}) {
+  return {
+    company: 'Acme Corp',
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    deletedAt: null,
+    email: 'john@acme.com',
+    externalJanuaId: null,
+    id: 'contact-001',
+    name: 'John Doe',
+    ownerId: null,
+    phone: null,
+    status: 'active',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
 export function makeLead(overrides: Record<string, unknown> = {}) {
   return {
     contactId: null,
@@ -189,6 +209,20 @@ export function makeLead(overrides: Record<string, unknown> = {}) {
     source: 'web',
     stageId: 'stage-001',
     status: 'new',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
+export function makeNote(overrides: Record<string, unknown> = {}) {
+  return {
+    authorId: 'test-user',
+    content: 'Test note content',
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    entityId: 'entity-001',
+    entityType: 'contact',
+    id: 'note-001',
+    isPinned: false,
     updatedAt: new Date('2025-01-15T10:00:00Z'),
     ...overrides,
   }
@@ -209,6 +243,29 @@ export function makeOpportunity(overrides: Record<string, unknown> = {}) {
     status: 'open',
     updatedAt: new Date('2025-01-15T10:00:00Z'),
     value: '10000.00',
+    ...overrides,
+  }
+}
+
+export function makeTag(overrides: Record<string, unknown> = {}) {
+  return {
+    color: '#8b5cf6',
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    id: 'tag-001',
+    name: 'VIP',
+    ...overrides,
+  }
+}
+
+export function makeUser(overrides: Record<string, unknown> = {}) {
+  return {
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    email: 'test@example.com',
+    externalJanuaId: null,
+    id: 'user-001',
+    name: 'Test User',
+    role: 'viewer',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
     ...overrides,
   }
 }

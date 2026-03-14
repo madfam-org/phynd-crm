@@ -1,5 +1,6 @@
 'use client'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -16,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 export interface ColumnDef<T> {
   id: string
@@ -33,26 +34,31 @@ export interface FilterOption {
 interface DataTableProps<T> {
   columns: ColumnDef<T>[]
   data: T[]
-  getRowKey?: (row: T, index: number) => string | number
-  onRowClick?: (row: T) => void
-  searchKey?: keyof T & string
-  searchPlaceholder?: string
   filterKey?: keyof T & string
   filterOptions?: FilterOption[]
+  getRowKey?: (row: T, index: number) => string | number
+  onRowClick?: (row: T) => void
+  onSelectionChange?: (selectedKeys: Set<string | number>) => void
+  searchKey?: keyof T & string
+  searchPlaceholder?: string
+  selectable?: boolean
 }
 
 export function DataTable<T>({
   columns,
   data,
-  getRowKey,
-  onRowClick,
-  searchKey,
-  searchPlaceholder,
   filterKey,
   filterOptions,
+  getRowKey,
+  onRowClick,
+  onSelectionChange,
+  searchKey,
+  searchPlaceholder,
+  selectable = false,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
 
   const filteredData = useMemo(() => {
     let result = data
@@ -72,7 +78,75 @@ export function DataTable<T>({
     return result
   }, [data, search, searchKey, filter, filterKey])
 
+  const resolveRowKey = useCallback(
+    (row: T, index: number): string | number => {
+      return getRowKey ? getRowKey(row, index) : index
+    },
+    [getRowKey],
+  )
+
+  const filteredKeys = useMemo(() => {
+    if (!selectable) return new Set<string | number>()
+    return new Set(filteredData.map((row, i) => resolveRowKey(row, i)))
+  }, [selectable, filteredData, resolveRowKey])
+
+  const allFilteredSelected = useMemo(() => {
+    if (filteredKeys.size === 0) return false
+    for (const key of filteredKeys) {
+      if (!selectedKeys.has(key)) return false
+    }
+    return true
+  }, [filteredKeys, selectedKeys])
+
+  const someFilteredSelected = useMemo(() => {
+    if (allFilteredSelected) return false
+    for (const key of filteredKeys) {
+      if (selectedKeys.has(key)) return true
+    }
+    return false
+  }, [filteredKeys, selectedKeys, allFilteredSelected])
+
+  const updateSelection = useCallback(
+    (next: Set<string | number>) => {
+      setSelectedKeys(next)
+      onSelectionChange?.(next)
+    },
+    [onSelectionChange],
+  )
+
+  const handleSelectAll = useCallback(() => {
+    if (allFilteredSelected) {
+      // Deselect all filtered rows (keep selections from non-visible rows)
+      const next = new Set(selectedKeys)
+      for (const key of filteredKeys) {
+        next.delete(key)
+      }
+      updateSelection(next)
+    } else {
+      // Select all filtered rows
+      const next = new Set(selectedKeys)
+      for (const key of filteredKeys) {
+        next.add(key)
+      }
+      updateSelection(next)
+    }
+  }, [allFilteredSelected, filteredKeys, selectedKeys, updateSelection])
+
+  const handleSelectRow = useCallback(
+    (key: string | number) => {
+      const next = new Set(selectedKeys)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      updateSelection(next)
+    },
+    [selectedKeys, updateSelection],
+  )
+
   const showToolbar = searchKey || filterOptions
+  const colSpan = selectable ? columns.length + 1 : columns.length
 
   return (
     <div className="space-y-4">
@@ -107,6 +181,17 @@ export function DataTable<T>({
         <Table>
           <TableHeader>
             <TableRow>
+              {selectable && (
+                <TableHead className="w-12">
+                  <Checkbox
+                    aria-label="Select all rows"
+                    checked={
+                      allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false
+                    }
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+              )}
               {columns.map((col) => (
                 <TableHead key={col.id} className={col.className}>
                   {col.header}
@@ -117,24 +202,39 @@ export function DataTable<T>({
           <TableBody>
             {filteredData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={colSpan} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredData.map((row, i) => (
-                <TableRow
-                  key={getRowKey ? getRowKey(row, i) : i}
-                  className={onRowClick ? 'cursor-pointer' : undefined}
-                  onClick={() => onRowClick?.(row)}
-                >
-                  {columns.map((col) => (
-                    <TableCell key={col.id} className={col.className}>
-                      {col.cell(row)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              filteredData.map((row, i) => {
+                const rowKey = resolveRowKey(row, i)
+                const isSelected = selectedKeys.has(rowKey)
+                return (
+                  <TableRow
+                    key={rowKey}
+                    className={onRowClick ? 'cursor-pointer' : undefined}
+                    data-state={isSelected ? 'selected' : undefined}
+                    onClick={() => onRowClick?.(row)}
+                  >
+                    {selectable && (
+                      <TableCell className="w-12">
+                        <Checkbox
+                          aria-label={`Select row ${rowKey}`}
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={() => handleSelectRow(rowKey)}
+                        />
+                      </TableCell>
+                    )}
+                    {columns.map((col) => (
+                      <TableCell key={col.id} className={col.className}>
+                        {col.cell(row)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

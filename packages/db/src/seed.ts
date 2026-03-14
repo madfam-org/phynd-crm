@@ -12,6 +12,7 @@ import { opportunities } from './schema/opportunities'
 import { pipelineStages, pipelines } from './schema/pipelines'
 import { roleViewPreferences } from './schema/role-preferences'
 import { stageTransitions } from './schema/stage-transitions'
+import { taggables, tags } from './schema/tags'
 import { users } from './schema/users'
 import { visitorPageViews } from './schema/visitor-page-views'
 import { visitorSessions } from './schema/visitor-sessions'
@@ -545,6 +546,41 @@ async function seed() {
       defaultTab: 'identity',
     },
   ])
+
+  // 18. Create sample tags
+  const sampleTags = await db
+    .insert(tags)
+    .values([
+      { name: 'VIP', color: '#8b5cf6' },
+      { name: 'Enterprise', color: '#3b82f6' },
+      { name: 'Hot Lead', color: '#ef4444' },
+    ])
+    .onConflictDoNothing()
+    .returning()
+
+  // 19. Create tag associations
+  if (sampleTags.length > 0) {
+    await db
+      .insert(taggables)
+      .values([
+        {
+          tagId: sampleTags[0]?.id ?? '',
+          entityType: 'contact',
+          entityId: sampleContacts[0]?.id ?? '',
+        },
+        {
+          tagId: sampleTags[1]?.id ?? '',
+          entityType: 'contact',
+          entityId: sampleContacts[0]?.id ?? '',
+        },
+        {
+          tagId: sampleTags[2]?.id ?? '',
+          entityType: 'lead',
+          entityId: sampleLeads[0]?.id ?? '',
+        },
+      ])
+      .onConflictDoNothing()
+  }
 
   console.log('Seed complete!')
   process.exit(0)

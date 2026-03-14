@@ -23,7 +23,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 interface EditLeadDialogProps {
-  lead: { id: string; status: string; score: number | null }
+  lead: { id: string; status: string; score: number | null; ownerId: string | null }
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -31,6 +31,9 @@ interface EditLeadDialogProps {
 export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps) {
   const [status, setStatus] = useState(lead.status)
   const [score, setScore] = useState(String(lead.score ?? ''))
+  const [ownerId, setOwnerId] = useState(lead.ownerId ?? '')
+
+  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
 
   const utils = trpc.useUtils()
   const updateMutation = trpc.leads.update.useMutation({
@@ -47,6 +50,7 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
       id: lead.id,
       status: status as 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted',
       score: score ? Number(score) : undefined,
+      ownerId: ownerId || undefined,
     })
   }
 
@@ -56,7 +60,7 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Lead</DialogTitle>
-            <DialogDescription>Update lead status and score.</DialogDescription>
+            <DialogDescription>Update lead status, score, and owner.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -84,6 +88,22 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                 value={score}
                 onChange={(e) => setScore(e.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label>Owner</Label>
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {(usersData?.items ?? []).map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name ?? u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

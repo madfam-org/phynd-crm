@@ -28,7 +28,7 @@ packages/api      → @phyne/config, @phyne/db, @phyne/services, @phyne/types
 packages/services → @phyne/config, @phyne/db, @phyne/types
 packages/federation → @phyne/config, @phyne/types
 packages/config   → (standalone, Zod validation)
-packages/db       → (standalone, Drizzle schema)
+packages/db       → (standalone, Drizzle schema + migrations)
 packages/types    → (standalone, shared TypeScript types)
 packages/ui       → (standalone, shared UI primitives)
 packages/logging  → (standalone, pino structured logging)
@@ -55,6 +55,26 @@ packages/logging  → (standalone, pino structured logging)
 - **No `.js` extensions** in relative imports
 - **Optional chaining** (`?.`) over non-null assertion (`!.`)
 - **Decorative SVGs**: Must have `aria-hidden="true"`
+- **Generated files**: Drizzle migration files (`**/migrations/**`) are excluded from Biome checks
+
+## Testing
+
+### Service Tests
+- Located in `packages/services/src/__tests__/`
+- Use mock query builder from `helpers.ts` (`createTestContext()`, `createMockDb()`)
+- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, etc.
+- Every new service must have a corresponding test file
+
+### Router Tests
+- Located in `packages/api/src/__tests__/`
+- Use `createCallerFactory(appRouter)` to create type-safe callers
+- Include `onConflictDoNothing` in mock query builder when testing upsert operations
+- Admin-gated routers (e.g. `users`) must test FORBIDDEN for non-admin roles
+
+### E2E Tests
+- Located in `apps/web/e2e/`
+- Use Playwright with `test.fixme` for tests requiring auth/DB setup
+- New UI features should include E2E test specs
 
 ## PR Guidelines
 
@@ -63,8 +83,16 @@ packages/logging  → (standalone, pino structured logging)
 3. Lint must pass: `pnpm lint`
 4. Build must succeed: `pnpm build`
 5. Existing tests must pass: `pnpm test`
-6. Add tests for new service logic
-7. Update `CLAUDE.md` if adding new patterns, schemas, or routers
+6. Add service tests for new service logic
+7. Add router tests for new tRPC routers
+8. Add E2E test specs for new UI features
+9. Update `CLAUDE.md` if adding new patterns, schemas, or routers
+
+## tRPC Routers (18 total)
+
+`activities`, `analytics`, `campaigns`, `contacts`, `conversions`, `federationHealth`, `leadScoring`, `leads`, `notes`, `offers`, `opportunities`, `pipelines`, `preferences`, `search`, `tags`, `unifiedProfile`, `users`, `visitorTracking`
+
+Admin-gated routers use `requireRole('admin')` middleware (e.g. `users`).
 
 ## Architecture Decisions
 

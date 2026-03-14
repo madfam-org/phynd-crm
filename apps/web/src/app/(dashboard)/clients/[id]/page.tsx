@@ -1,8 +1,12 @@
+import { NotesPanel } from '@/components/notes/notes-panel'
+import { TagsPanel } from '@/components/tags/tags-panel'
 import { Badge } from '@/components/ui/badge'
 import { getServerCaller } from '@/lib/trpc/server'
 import { isFeatureEnabled } from '@phyne/config/features'
 import type { FederationProviderName } from '@phyne/types/crm'
 import type { ProviderStatus } from '@phyne/types/federation'
+import { ContactActivities } from './contact-activities'
+import { ContactRelated } from './contact-related'
 import { FederationTabs } from './federation-tabs'
 
 interface ClientProfilePageProps {
@@ -162,6 +166,29 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
       </div>
 
       <FederationTabs panels={panels} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="mb-4 text-lg font-semibold">Activities</h3>
+            <ContactActivities contactId={id} />
+          </div>
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="mb-4 text-lg font-semibold">Related</h3>
+            <ContactRelated contactId={id} />
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="mb-4 text-lg font-semibold">Notes</h3>
+            <NotesPanel entityType="contact" entityId={id} />
+          </div>
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="mb-4 text-lg font-semibold">Tags</h3>
+            <TagsPanel entityType="contact" entityId={id} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

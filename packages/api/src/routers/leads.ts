@@ -15,6 +15,20 @@ export const leadsRouter = router({
     return service.list(input ?? undefined)
   }),
 
+  listByContactId: protectedProcedure
+    .input(
+      z.object({
+        contactId: z.string().uuid(),
+        cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      const { contactId, ...pagination } = input
+      const service = new LeadsService(ctx)
+      return service.listByContactId(contactId, pagination)
+    }),
+
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
     const service = new LeadsService(ctx)
     return service.getById(input.id)
@@ -61,6 +75,18 @@ export const leadsRouter = router({
     .mutation(({ ctx, input }) => {
       const service = new LeadsService(ctx)
       return service.moveToStage(input.id, input.stageId)
+    }),
+
+  bulkUpdateStatus: protectedProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string().uuid()).min(1),
+        status: z.enum(['new', 'contacted', 'qualified', 'unqualified', 'converted']),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new LeadsService(ctx)
+      return service.bulkUpdateStatus(input.ids, input.status)
     }),
 
   delete: protectedProcedure

@@ -29,6 +29,7 @@ interface EditOpportunityDialogProps {
     value: string | null
     probability: number | null
     status: string
+    ownerId: string | null
   }
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -43,6 +44,9 @@ export function EditOpportunityDialog({
   const [value, setValue] = useState(opportunity.value ?? '')
   const [probability, setProbability] = useState(String(opportunity.probability ?? ''))
   const [status, setStatus] = useState(opportunity.status)
+  const [ownerId, setOwnerId] = useState(opportunity.ownerId ?? '')
+
+  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
 
   const utils = trpc.useUtils()
   const updateMutation = trpc.opportunities.update.useMutation({
@@ -115,6 +119,22 @@ export function EditOpportunityDialog({
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="won">Won</SelectItem>
                   <SelectItem value="lost">Lost</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Owner</Label>
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {(usersData?.items ?? []).map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name ?? u.email}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

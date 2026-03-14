@@ -31,6 +31,8 @@ import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { DeleteScoringRuleDialog } from './delete-scoring-rule-dialog'
+import { EditScoringRuleDialog } from './edit-scoring-rule-dialog'
 
 type RulesListOutput = inferRouterOutputs<AppRouter>['leadScoring']['listRules']
 type RuleRow = RulesListOutput['items'][number]
@@ -48,15 +50,12 @@ const categoryVariant: Record<string, 'default' | 'success' | 'warning'> = {
 export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
   const { data: rules } = trpc.leadScoring.listRules.useQuery(undefined, { initialData })
   const [createOpen, setCreateOpen] = useState(false)
+  const [editRule, setEditRule] = useState<RuleRow | null>(null)
+  const [deleteRule, setDeleteRule] = useState<RuleRow | null>(null)
   const [category, setCategory] = useState<string>('demographic')
   const [operator, setOperator] = useState<string>('eq')
 
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.leadScoring.deleteRule.useMutation({
-    onSuccess: () => utils.leadScoring.listRules.invalidate(),
-    onError: (err) => toast.error('Failed to delete rule', { description: err.message }),
-  })
-
   const createMutation = trpc.leadScoring.createRule.useMutation({
     onSuccess: () => {
       utils.leadScoring.listRules.invalidate()
@@ -111,10 +110,8 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => deleteMutation.mutate({ id: row.id })}
-            >
+            <DropdownMenuItem onClick={() => setEditRule(row)}>Edit</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteRule(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -217,6 +214,21 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
         </Dialog>
       </div>
       <DataTable columns={columns} data={rules?.items ?? []} getRowKey={(row) => row.id} />
+      {editRule && (
+        <EditScoringRuleDialog
+          rule={editRule}
+          open={!!editRule}
+          onOpenChange={(open) => !open && setEditRule(null)}
+        />
+      )}
+      {deleteRule && (
+        <DeleteScoringRuleDialog
+          ruleId={deleteRule.id}
+          ruleName={deleteRule.name}
+          open={!!deleteRule}
+          onOpenChange={(open) => !open && setDeleteRule(null)}
+        />
+      )}
     </div>
   )
 }

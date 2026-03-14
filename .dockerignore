@@ -1,0 +1,13 @@
+.git
+.github
+.turbo
+node_modules
+*.tsbuildinfo
+.next
+dist/
+coverage/
+docs/
+**/*.test.ts
+**/__tests__/
+.env*
+docker-compose*.yml

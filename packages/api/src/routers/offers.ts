@@ -1,6 +1,17 @@
+import { isFeatureEnabled } from '@phyne/config/features'
 import { OffersService } from '@phyne/services'
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
+
+function assertFunnelManagement() {
+  if (!isFeatureEnabled('funnelManagement')) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'Feature not enabled: funnelManagement',
+    })
+  }
+}
 
 const paginationInput = z
   .object({
@@ -11,11 +22,13 @@ const paginationInput = z
 
 export const offersRouter = router({
   list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
+    assertFunnelManagement()
     const service = new OffersService(ctx)
     return service.list(input ?? undefined)
   }),
 
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
+    assertFunnelManagement()
     const service = new OffersService(ctx)
     return service.getById(input.id)
   }),
@@ -36,6 +49,7 @@ export const offersRouter = router({
       }),
     )
     .mutation(({ ctx, input }) => {
+      assertFunnelManagement()
       const service = new OffersService(ctx)
       return service.create(input)
     }),
@@ -58,6 +72,7 @@ export const offersRouter = router({
       }),
     )
     .mutation(({ ctx, input }) => {
+      assertFunnelManagement()
       const { id, ...data } = input
       const service = new OffersService(ctx)
       return service.update(id, data)
@@ -66,6 +81,7 @@ export const offersRouter = router({
   redeem: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(({ ctx, input }) => {
+      assertFunnelManagement()
       const service = new OffersService(ctx)
       return service.recordRedemption(input.id)
     }),
@@ -73,6 +89,7 @@ export const offersRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(({ ctx, input }) => {
+      assertFunnelManagement()
       const service = new OffersService(ctx)
       return service.delete(input.id)
     }),

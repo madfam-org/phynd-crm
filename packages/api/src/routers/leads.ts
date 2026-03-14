@@ -96,7 +96,7 @@ export const leadsRouter = router({
   bulkUpdateStatus: protectedProcedure
     .input(
       z.object({
-        ids: z.array(z.string().uuid()).min(1),
+        ids: z.array(z.string().uuid()).min(1).max(100),
         status: z.enum(['new', 'contacted', 'qualified', 'unqualified', 'converted']),
       }),
     )

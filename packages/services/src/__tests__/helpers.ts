@@ -20,6 +20,7 @@ export interface MockQueryBuilder {
   leftJoin: ReturnType<typeof vi.fn>
   limit: ReturnType<typeof vi.fn>
   onConflictDoNothing: ReturnType<typeof vi.fn>
+  onConflictDoUpdate: ReturnType<typeof vi.fn>
   orderBy: ReturnType<typeof vi.fn>
   returning: ReturnType<typeof vi.fn>
   select: ReturnType<typeof vi.fn>
@@ -41,6 +42,7 @@ export function createMockQueryBuilder(result: unknown = []): MockQueryBuilder {
     leftJoin: vi.fn(),
     limit: vi.fn(),
     onConflictDoNothing: vi.fn(),
+    onConflictDoUpdate: vi.fn(),
     orderBy: vi.fn(),
     returning: vi.fn(),
     select: vi.fn(),
@@ -62,6 +64,7 @@ export function createMockQueryBuilder(result: unknown = []): MockQueryBuilder {
     'leftJoin',
     'limit',
     'onConflictDoNothing',
+    'onConflictDoUpdate',
     'orderBy',
     'returning',
     'select',
@@ -386,6 +389,75 @@ export function makeOffer(overrides: Record<string, unknown> = {}) {
     validFrom: null,
     validUntil: null,
     value: '50.00',
+    ...overrides,
+  }
+}
+
+export function makePipeline(overrides: Record<string, unknown> = {}) {
+  return {
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    id: 'pipeline-001',
+    isDefault: true,
+    name: 'Default Pipeline',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
+export function makePipelineStage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'stage-001',
+    name: 'Prospecting',
+    pipelineId: 'pipeline-001',
+    position: 0,
+    probability: 10,
+    ...overrides,
+  }
+}
+
+export function makeVisitorSession(overrides: Record<string, unknown> = {}) {
+  return {
+    browser: 'Chrome',
+    contactId: null,
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    deviceType: 'desktop',
+    externalSessionId: 'sess-001',
+    fingerprint: 'fp-abc123',
+    id: 'session-001',
+    identified: false,
+    ipCity: null,
+    ipCountry: null,
+    os: 'macOS',
+    pageViewCount: 0,
+    startedAt: new Date('2025-01-15T10:00:00Z'),
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    utmCampaign: null,
+    utmMedium: null,
+    utmSource: null,
+    ...overrides,
+  }
+}
+
+export function makePageView(overrides: Record<string, unknown> = {}) {
+  return {
+    duration: null,
+    id: 'pv-001',
+    sessionId: 'session-001',
+    title: 'Home',
+    url: 'https://example.com/',
+    viewedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
+export function makePreference(overrides: Record<string, unknown> = {}) {
+  return {
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    defaultTab: 'identity',
+    id: 'pref-001',
+    panelOrder: ['identity', 'billing', 'manufacturing', 'fabrication', 'assets'],
+    role: 'admin',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
     ...overrides,
   }
 }

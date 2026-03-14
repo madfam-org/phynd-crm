@@ -12,6 +12,7 @@ import type {
 } from '@phyne/types/federation'
 import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
+import { NotFoundError } from '../errors'
 
 interface ProfileDeps {
   januaClient: FederationClient<unknown, JanuaIdentity>
@@ -34,7 +35,7 @@ export class UnifiedProfileService {
   async getProfile(contactId: string, token: string) {
     const contact = await this.contactsService.getById(contactId)
     if (!contact) {
-      throw new Error(`Contact not found: ${contactId}`)
+      throw new NotFoundError('Contact', contactId)
     }
 
     const externalId = contact.externalJanuaId ?? contactId

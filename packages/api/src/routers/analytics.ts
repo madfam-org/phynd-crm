@@ -1,6 +1,14 @@
+import { isFeatureEnabled } from '@phyne/config/features'
 import { AnalyticsService } from '@phyne/services'
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
+
+function assertAnalytics() {
+  if (!isFeatureEnabled('analytics')) {
+    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Feature not enabled: analytics' })
+  }
+}
 
 const dateRangeInput = z
   .object({
@@ -24,26 +32,31 @@ export const analyticsRouter = router({
       }),
     )
     .query(({ ctx, input }) => {
+      assertAnalytics()
       const service = new AnalyticsService(ctx)
       return service.getPipelineVelocity(input.pipelineId, toDateRange(input))
     }),
 
   winRate: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getWinRate(toDateRange(input ?? undefined))
   }),
 
   conversionMetrics: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getConversionMetrics(toDateRange(input ?? undefined))
   }),
 
   visitorAnalytics: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getVisitorAnalytics(toDateRange(input ?? undefined))
   }),
 
   revenueByStatus: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getRevenueByStatus()
   }),
@@ -57,6 +70,7 @@ export const analyticsRouter = router({
       }),
     )
     .query(({ ctx, input }) => {
+      assertAnalytics()
       const service = new AnalyticsService(ctx)
       return service.getStageVelocity(input.pipelineId, toDateRange(input))
     }),
@@ -69,6 +83,7 @@ export const analyticsRouter = router({
       }),
     )
     .query(({ ctx, input }) => {
+      assertAnalytics()
       const service = new AnalyticsService(ctx)
       return service.getStageTransitions(input.entityType, input.limit)
     }),
@@ -81,6 +96,7 @@ export const analyticsRouter = router({
       }),
     )
     .query(({ ctx, input }) => {
+      assertAnalytics()
       const service = new AnalyticsService(ctx)
       return service.getHealthTrend(input.provider, input.limit)
     }),
@@ -88,16 +104,19 @@ export const analyticsRouter = router({
   campaignPerformance: protectedProcedure
     .input(z.object({ campaignId: z.string().uuid() }))
     .query(({ ctx, input }) => {
+      assertAnalytics()
       const service = new AnalyticsService(ctx)
       return service.getCampaignPerformance(input.campaignId)
     }),
 
   allCampaignPerformance: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getAllCampaignPerformance()
   }),
 
   weightedPipelineValue: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getWeightedPipelineValue()
   }),
@@ -111,11 +130,13 @@ export const analyticsRouter = router({
         .optional(),
     )
     .query(({ ctx, input }) => {
+      assertAnalytics()
       const service = new AnalyticsService(ctx)
       return service.getAtRiskDeals(input?.staleThresholdDays)
     }),
 
   dashboardSummary: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
+    assertAnalytics()
     const service = new AnalyticsService(ctx)
     return service.getDashboardSummary(toDateRange(input ?? undefined))
   }),

@@ -69,6 +69,13 @@ pnpm db:seed          # Seed database
 - **Weighted pipeline**: `AnalyticsService.getWeightedPipelineValue()` computes `sum(value * probability / 100)` for open opps
 - **At-risk deals**: `AnalyticsService.getAtRiskDeals()` flags opps stuck > threshold days or > 1.5× avg stage velocity
 - **Notifications**: Owner assignment triggers non-blocking notification creation in leads/opportunities `update()`
+- **tRPC rate limiting**: Redis sliding window, 200 req/min per IP via `checkApiRateLimit()` in `apps/web/src/lib/rate-limiter.ts`; wraps the tRPC route handler (not Edge middleware — ioredis incompatible with Edge Runtime)
+- **Security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy` via `next.config.ts` `headers()`
+- **Feature flag enforcement**: 5 gated routers (lead-scoring, visitor-tracking, analytics, offers, campaigns) check `isFeatureEnabled()` at the top of each procedure; throw `TRPCError({ code: 'PRECONDITION_FAILED' })` when disabled
+- **Bulk array caps**: `bulkUpdateStatus` on leads/opportunities capped at `.max(100)` items via Zod
+- **Seed guard**: `seed.ts` exits with error when `NODE_ENV=production`
+- **Delete confirmations**: Offers, campaigns, and scoring rules use confirmation dialogs (no direct inline mutation)
+- **Scoring rules CRUD UI**: Full create/edit/delete dialogs in `components/scoring/`
 
 ## DB Schema
 users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
@@ -111,7 +118,7 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - **Dark mode**: next-themes with `.dark` class selector (globals.css); ThemeToggle in header
 - **Mobile nav**: Sheet-based sidebar (slides from left, auto-close on route change)
 - **Sidebar icons**: Lucide icons via shared `navigation.ts` module
-- **Loading skeletons**: `TableSkeleton`, `CardSkeleton` + Next.js `loading.tsx` files for overview/analytics
+- **Loading skeletons**: `TableSkeleton`, `CardSkeleton` + Next.js `loading.tsx` files for all 14 dashboard pages (contacts, leads, opportunities, pipeline, activities, visitors, funnel, offers, campaigns, settings, settings/scoring, settings/users, clients/[id], overview/analytics)
 - **Error pages**: Global `error.tsx`, `not-found.tsx`, dashboard-scoped `error.tsx`/`loading.tsx`
 - **Data table search/filter**: Client-side search + status filter on contacts, leads, opportunities, visitors, offers, campaigns
 - **Radix Select**: All dropdowns use `@radix-ui/react-select` (not native `<select>`)
@@ -134,10 +141,10 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - **Notification bell**: In header, polls unreadCount every 30s, click navigates to entity
 - **My Deals toggle**: Segmented button on leads/opportunities tables to switch between owner-scoped and all records
 - **Stage names**: Data tables resolve stageId to human-readable stage name via pipeline stages lookup
-- **Offers CRUD**: Full create/edit/delete with enhanced create form (value, currency, dates, max redemptions)
-- **Campaigns page**: Full CRUD data table with create/edit/delete, channel badges, UTM tracking, linked offers, budget/spend
+- **Offers CRUD**: Full create/edit/delete with enhanced create form (value, currency, dates, max redemptions); delete uses confirmation dialog
+- **Campaigns page**: Full CRUD data table with create/edit/delete, channel badges, UTM tracking, linked offers, budget/spend; delete uses confirmation dialog
+- **Scoring rules CRUD**: Full create/edit/delete UI at `/settings/scoring` with edit-scoring-rule-dialog, delete-scoring-rule-dialog
 - **Navigation**: 12 entries (Clients removed — redirects to /contacts; Campaigns added with Megaphone icon)
-- **Campaigns loading**: `loading.tsx` skeleton for campaigns page (TableSkeleton pattern)
 - **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`; notifications migration generated
 
 ## Worker Processors
@@ -154,10 +161,11 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - `docker/docker-compose.prod.yml` — Production (web + worker + Postgres + Redis with health checks); `JANUA_TELEMETRY_API_URL` in both web and worker
 - `docker/Dockerfile.web` — Multi-stage Next.js standalone build
 - `docker/Dockerfile.worker` — Multi-stage BullMQ worker build
-- `apps/web/next.config.ts` has `output: 'standalone'`
+- `apps/web/next.config.ts` has `output: 'standalone'` + security headers
+- `.dockerignore` — Excludes `.git`, `node_modules`, test files, `.env*`, coverage from Docker build context
 
 ## CI/CD
-- `.github/workflows/ci.yml` — lint + typecheck + test (parallel) → build
+- `.github/workflows/ci.yml` — lint + typecheck + test (parallel) → build; `JANUA_TELEMETRY_API_URL` in build env
 - `.github/workflows/e2e.yml` — Playwright with Postgres/Redis services
 
 ## Local Development

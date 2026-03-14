@@ -1,6 +1,17 @@
+import { isFeatureEnabled } from '@phyne/config/features'
 import { LeadScoringService } from '@phyne/services'
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
+
+function assertLeadScoring() {
+  if (!isFeatureEnabled('leadScoring')) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'Feature not enabled: leadScoring',
+    })
+  }
+}
 
 const scoringConditionSchema = z.object({
   field: z.string(),
@@ -17,6 +28,7 @@ const paginationInput = z
 
 export const leadScoringRouter = router({
   listRules: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
+    assertLeadScoring()
     const service = new LeadScoringService(ctx)
     return service.listRules(input ?? undefined)
   }),
@@ -32,6 +44,7 @@ export const leadScoringRouter = router({
       }),
     )
     .mutation(({ ctx, input }) => {
+      assertLeadScoring()
       const service = new LeadScoringService(ctx)
       // biome-ignore lint/suspicious/noExplicitAny: zod infers narrower operator type than ScoringCondition
       return service.createRule(input as any)
@@ -49,6 +62,7 @@ export const leadScoringRouter = router({
       }),
     )
     .mutation(({ ctx, input }) => {
+      assertLeadScoring()
       const { id, ...data } = input
       const service = new LeadScoringService(ctx)
       return service.updateRule(id, data as Parameters<typeof service.updateRule>[1])
@@ -57,6 +71,7 @@ export const leadScoringRouter = router({
   deleteRule: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(({ ctx, input }) => {
+      assertLeadScoring()
       const service = new LeadScoringService(ctx)
       return service.deleteRule(input.id)
     }),
@@ -64,6 +79,7 @@ export const leadScoringRouter = router({
   compute: protectedProcedure
     .input(z.object({ leadId: z.string().uuid() }))
     .mutation(({ ctx, input }) => {
+      assertLeadScoring()
       const service = new LeadScoringService(ctx)
       return service.computeScore(input.leadId)
     }),
@@ -71,6 +87,7 @@ export const leadScoringRouter = router({
   getScore: protectedProcedure
     .input(z.object({ leadId: z.string().uuid() }))
     .query(({ ctx, input }) => {
+      assertLeadScoring()
       const service = new LeadScoringService(ctx)
       return service.getScore(input.leadId)
     }),
@@ -78,6 +95,7 @@ export const leadScoringRouter = router({
   batchCompute: protectedProcedure
     .input(z.object({ leadIds: z.array(z.string().uuid()) }))
     .mutation(({ ctx, input }) => {
+      assertLeadScoring()
       const service = new LeadScoringService(ctx)
       return service.batchCompute(input.leadIds)
     }),

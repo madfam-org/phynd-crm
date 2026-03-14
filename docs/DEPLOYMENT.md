@@ -1,0 +1,119 @@
+# Phyne CRM — Production Deployment Guide
+
+## Prerequisites
+
+- Docker 24+ with Compose v2
+- PostgreSQL 16+ (or use Docker Compose)
+- Redis 7+ (or use Docker Compose)
+- Node.js 22+ and pnpm 9+ (for migrations and builds)
+
+## Environment Variables
+
+All required environment variables are defined and validated in `packages/config/src/env.ts` using Zod schemas. Key variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://phyne:secret@db:5432/phyne_crm` |
+| `REDIS_URL` | Redis connection string | `redis://redis:6379` |
+| `AUTH_SECRET` | Auth.js session secret (min 16 chars) | `your-production-secret` |
+| `AUTH_JANUA_ISSUER` | Janua OIDC issuer URL | `https://janua.example.com` |
+| `AUTH_JANUA_CLIENT_ID` | Janua OIDC client ID | `phyne-crm` |
+| `AUTH_JANUA_CLIENT_SECRET` | Janua OIDC client secret | `secret` |
+| `NEXT_PUBLIC_APP_URL` | Public-facing app URL | `https://crm.example.com` |
+| `JANUA_API_URL` | Janua Identity API | `https://api.janua.example.com` |
+| `JANUA_TELEMETRY_API_URL` | Janua Telemetry API | `https://telemetry.janua.example.com` |
+| `DHANAM_API_URL` | Dhanam Billing API | `https://api.dhanam.example.com` |
+| `COTIZA_API_URL` | Cotiza Studio API | `https://api.cotiza.example.com` |
+| `PRAVARA_BASE_URL` | PravaraMES API | `https://api.pravara.example.com` |
+| `PRAVARA_API_KEY` | PravaraMES API key | `key` |
+| `FORJ_API_URL` | Forj Assets API | `https://api.forj.example.com` |
+| `*_WEBHOOK_SECRET` | HMAC secrets for each provider | Unique per provider |
+
+**Safety**: `AUTH_BYPASS=true` is blocked in production by Zod validation. The seed script refuses to run when `NODE_ENV=production`.
+
+## Docker Build
+
+### Using Docker Compose (recommended)
+
+```bash
+# Production deployment
+docker compose -f docker/docker-compose.prod.yml up -d
+
+# View logs
+docker compose -f docker/docker-compose.prod.yml logs -f web
+```
+
+The production compose file starts:
+- `web` — Next.js standalone app (port 3000)
+- `worker` — BullMQ background job processor
+- `postgres` — PostgreSQL 16 with health checks
+- `redis` — Redis 7 with health checks
+
+### Manual Docker Build
+
+```bash
+# Web app
+docker build -f docker/Dockerfile.web -t phyne-web .
+
+# Worker
+docker build -f docker/Dockerfile.worker -t phyne-worker .
+```
+
+The `.dockerignore` excludes `.git`, `node_modules`, test files, coverage, and environment files from the build context.
+
+## Database Migrations
+
+```bash
+# Generate migrations from schema changes
+pnpm db:generate
+
+# Apply migrations
+pnpm db:migrate
+
+# Seed (development only — blocked in production)
+pnpm db:seed
+```
+
+Migrations are stored in `packages/db/src/migrations/` and tracked by Drizzle Kit.
+
+## Health Endpoint
+
+`GET /api/health` returns `{ status: 'ok', timestamp: '...' }` for Docker health checks and load balancer probes.
+
+## Security
+
+### Headers
+All responses include security headers configured in `apps/web/next.config.ts`:
+- `X-Frame-Options: DENY` — prevents clickjacking
+- `X-Content-Type-Options: nosniff` — prevents MIME sniffing
+- `Strict-Transport-Security` — enforces HTTPS with preload
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-DNS-Prefetch-Control: on`
+- `Permissions-Policy` — disables camera, microphone, geolocation
+
+### Rate Limiting
+- **tRPC API**: 200 requests/minute per IP via Redis sliding window
+- **Webhooks**: 100 requests/minute per IP via Redis sliding window
+- Both fail open if Redis is unavailable (defense-in-depth, not sole control)
+- See ADR-005 for design rationale
+
+### Webhook Security
+All 6 provider webhook routes use a shared handler with:
+- Rate limiting (Redis sliding window)
+- HMAC-SHA256 signature verification
+- Timestamp validation (replay attack prevention)
+
+## Monitoring
+
+### Federation Health
+The worker runs periodic health checks against all 6 providers. Results are persisted to the `health_snapshots` table and exposed via the `federation-health` tRPC router.
+
+### Structured Logging
+All services use `@phyne/logging` (pino) for structured JSON logging. Workers and webhook handlers log with contextual metadata.
+
+## Architecture Notes
+
+- **Single-tenant**: Phase 1 uses hardcoded `tenantId: 'madfam'` in all service contexts
+- **Read-only federation**: Data is fetched and cached from external systems, not written back
+- **Feature flags**: 12 flags control feature availability; 6 are enabled for Phase 1 (see `packages/config/src/features.ts`)
+- **Circuit breakers**: Shared instances protect against cascade failures from provider downtime

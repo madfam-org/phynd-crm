@@ -19,6 +19,11 @@ import { visitorPageViews } from './schema/visitor-page-views'
 import { visitorSessions } from './schema/visitor-sessions'
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Seed script cannot run in production')
+    process.exit(1)
+  }
+
   const db = getDb()
 
   console.log('Seeding database...')

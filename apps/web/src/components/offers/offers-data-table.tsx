@@ -34,6 +34,7 @@ import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { DeleteOfferDialog } from './delete-offer-dialog'
 import { EditOfferDialog } from './edit-offer-dialog'
 
 type OffersListOutput = inferRouterOutputs<AppRouter>['offers']['list']
@@ -57,6 +58,7 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
   })
   const [createOpen, setCreateOpen] = useState(false)
   const [editOffer, setEditOffer] = useState<OfferRow | null>(null)
+  const [deleteOffer, setDeleteOffer] = useState<OfferRow | null>(null)
   const [createName, setCreateName] = useState('')
   const [createType, setCreateType] = useState<string>('custom')
   const [createDescription, setCreateDescription] = useState('')
@@ -67,10 +69,6 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
   const [createMaxRedemptions, setCreateMaxRedemptions] = useState('')
 
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.offers.delete.useMutation({
-    onSuccess: () => utils.offers.list.invalidate(),
-    onError: (err) => toast.error('Failed to delete offer', { description: err.message }),
-  })
 
   function resetCreateForm() {
     setCreateName('')
@@ -134,10 +132,7 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setEditOffer(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => deleteMutation.mutate({ id: row.id })}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteOffer(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -276,6 +271,14 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
           offer={editOffer}
           open={!!editOffer}
           onOpenChange={(open) => !open && setEditOffer(null)}
+        />
+      )}
+      {deleteOffer && (
+        <DeleteOfferDialog
+          offerId={deleteOffer.id}
+          offerName={deleteOffer.name}
+          open={!!deleteOffer}
+          onOpenChange={(open) => !open && setDeleteOffer(null)}
         />
       )}
     </div>

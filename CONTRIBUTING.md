@@ -62,13 +62,13 @@ packages/logging  → (standalone, pino structured logging)
 ### Service Tests
 - Located in `packages/services/src/__tests__/`
 - Use mock query builder from `helpers.ts` (`createTestContext()`, `createMockDb()`)
-- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, `makeActivity()`, `makeStageTransition()`, `makeNotification()`, etc.
+- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, `makeActivity()`, `makeStageTransition()`, `makeNotification()`, `makeOffer()`, `makeCampaign()`, `makeConversion()`, `makeScoringRule()`, `makePipeline()`, `makePipelineStage()`, `makeVisitorSession()`, `makePageView()`, `makePreference()`
 - Every new service must have a corresponding test file
 
 ### Router Tests
 - Located in `packages/api/src/__tests__/`
 - Use `createCallerFactory(appRouter)` to create type-safe callers
-- Include `onConflictDoNothing` in mock query builder when testing upsert operations
+- Include `onConflictDoNothing`/`onConflictDoUpdate` in mock query builder when testing upsert operations
 - Admin-gated routers (e.g. `users`) must test FORBIDDEN for non-admin roles
 
 ### E2E Tests
@@ -103,6 +103,26 @@ When a service modifies an entity's `ownerId`, it creates a notification for the
 ### Owner-Scoped Queries
 Services accept optional `filters?: { ownerId?: string }` parameter. Router `listMine` procedures auto-scope to `ctx.auth.userId`. Frontend uses `enabled` flag on tRPC queries to conditionally fetch "My Deals" vs "All Deals".
 
+### Feature Flag Enforcement
+Feature-gated routers (`leadScoring`, `visitorTracking`, `analytics`, `offers`, `campaigns`) check `isFeatureEnabled()` at the top of each procedure body. When disabled, they throw `TRPCError({ code: 'PRECONDITION_FAILED' })`. All flags default to `true`, so existing tests pass unchanged. When adding tests for gated routers, mock `@phyne/config/features` with `isFeatureEnabled` returning `true`.
+
+### Bulk Operation Caps
+`bulkUpdateStatus` on leads/opportunities is capped at 100 items via Zod `.max(100)`. Router tests verify both the happy path (<=100 ids) and the rejection (>100 ids).
+
+### Delete Confirmations
+All delete operations in the UI use confirmation dialogs (not direct inline mutations). Pattern: `[deleteEntity, setDeleteEntity] = useState<Row | null>(null)` state drives a `<DeleteEntityDialog>` component. Follow `delete-activity-dialog.tsx` as the canonical pattern.
+
+### Rate Limiting
+tRPC API requests are rate-limited at 200 req/min per IP via Redis sliding window (`apps/web/src/lib/rate-limiter.ts`). Webhooks have a separate limit at 100 req/min (`apps/web/src/lib/webhooks/rate-limiter.ts`). Both fail open if Redis is unavailable.
+
+### Security Headers
+Security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`) are set via `next.config.ts` `headers()`. No CSP yet (shadcn/recharts inline styles need audit).
+
 ## Architecture Decisions
 
-See `docs/adr/` for Architecture Decision Records.
+See `docs/adr/` for Architecture Decision Records:
+- ADR-001: Federation over ETL
+- ADR-002: tRPC over GraphQL
+- ADR-003: Single-tenant first
+- ADR-004: Circuit breaker pattern
+- ADR-005: Rate limiting strategy

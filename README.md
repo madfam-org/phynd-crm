@@ -162,7 +162,7 @@ Phyne federates data from six platforms in the MADFAM ecosystem (5 active in MVP
 | **Dhanam**           | Billing and monetization      | Active              | REST SDK with idempotency keys |
 | **Cotiza Studio**    | Custom orders / quotes        | Active              | REST + WebSocket for real-time updates |
 | **PravaraMES**       | Fabrication order status      | Active              | REST (+ WebSocket future) |
-| **Forj**             | 3D digital assets / storefront | Feature-flagged OFF | REST (future) |
+| **Forj**             | 3D digital assets / storefront | Active              | REST API, 3D asset interactions |
 
 ## Phasing
 

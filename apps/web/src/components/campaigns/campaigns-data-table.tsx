@@ -14,8 +14,8 @@ import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { CreateCampaignDialog } from './create-campaign-dialog'
+import { DeleteCampaignDialog } from './delete-campaign-dialog'
 import { EditCampaignDialog } from './edit-campaign-dialog'
 
 type CampaignsListOutput = inferRouterOutputs<AppRouter>['campaigns']['list']
@@ -60,12 +60,7 @@ export function CampaignsDataTable({ initialData }: CampaignsDataTableProps) {
   const campaigns = data?.items ?? []
 
   const [editCampaign, setEditCampaign] = useState<CampaignRow | null>(null)
-
-  const utils = trpc.useUtils()
-  const deleteMutation = trpc.campaigns.delete.useMutation({
-    onSuccess: () => utils.campaigns.list.invalidate(),
-    onError: (err) => toast.error('Failed to delete campaign', { description: err.message }),
-  })
+  const [deleteCampaign, setDeleteCampaign] = useState<CampaignRow | null>(null)
 
   const columns: ColumnDef<CampaignRow>[] = [
     {
@@ -138,10 +133,7 @@ export function CampaignsDataTable({ initialData }: CampaignsDataTableProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setEditCampaign(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => deleteMutation.mutate({ id: row.id })}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteCampaign(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -161,6 +153,14 @@ export function CampaignsDataTable({ initialData }: CampaignsDataTableProps) {
           campaign={editCampaign}
           open={!!editCampaign}
           onOpenChange={(open) => !open && setEditCampaign(null)}
+        />
+      )}
+      {deleteCampaign && (
+        <DeleteCampaignDialog
+          campaignId={deleteCampaign.id}
+          campaignName={deleteCampaign.name}
+          open={!!deleteCampaign}
+          onOpenChange={(open) => !open && setDeleteCampaign(null)}
         />
       )}
     </div>

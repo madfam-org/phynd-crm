@@ -113,11 +113,11 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - **Sidebar icons**: Lucide icons via shared `navigation.ts` module
 - **Loading skeletons**: `TableSkeleton`, `CardSkeleton` + Next.js `loading.tsx` files for overview/analytics
 - **Error pages**: Global `error.tsx`, `not-found.tsx`, dashboard-scoped `error.tsx`/`loading.tsx`
-- **Data table search/filter**: Client-side search + status filter on contacts, leads, opportunities, visitors, offers
+- **Data table search/filter**: Client-side search + status filter on contacts, leads, opportunities, visitors, offers, campaigns
 - **Radix Select**: All dropdowns use `@radix-ui/react-select` (not native `<select>`)
 - **Polling**: `refetchInterval` on data tables (60s leads/opps/activities, 120s contacts)
 - **Analytics charts**: recharts (ConversionFunnelChart, PipelineVelocityChart, RevenueByStatusChart)
-- **Activities CRUD**: Full create/edit/delete/complete via data table with dialogs
+- **Activities page**: Server-rendered with full `ActivitiesDataTable` (create/edit/delete/complete via dialogs)
 - **Notes panel**: Per-entity notes (contact/lead/opportunity) with create/edit/delete/pin toggle
 - **Tags panel**: Per-entity tags with add/remove, badge display, create new tags with color
 - **User management**: Admin-gated CRUD at `/settings/users`
@@ -134,7 +134,11 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - **Notification bell**: In header, polls unreadCount every 30s, click navigates to entity
 - **My Deals toggle**: Segmented button on leads/opportunities tables to switch between owner-scoped and all records
 - **Stage names**: Data tables resolve stageId to human-readable stage name via pipeline stages lookup
-- **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`
+- **Offers CRUD**: Full create/edit/delete with enhanced create form (value, currency, dates, max redemptions)
+- **Campaigns page**: Full CRUD data table with create/edit/delete, channel badges, UTM tracking, linked offers, budget/spend
+- **Navigation**: 12 entries (Clients removed — redirects to /contacts; Campaigns added with Megaphone icon)
+- **Campaigns loading**: `loading.tsx` skeleton for campaigns page (TableSkeleton pattern)
+- **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`; notifications migration generated
 
 ## Worker Processors
 - `health-check`: Calls `checkAll()` and persists results to `healthSnapshots` table
@@ -147,7 +151,7 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 
 ## Docker
 - `docker/docker-compose.yml` — Local dev (Postgres + Redis)
-- `docker/docker-compose.prod.yml` — Production (web + worker + Postgres + Redis with health checks)
+- `docker/docker-compose.prod.yml` — Production (web + worker + Postgres + Redis with health checks); `JANUA_TELEMETRY_API_URL` in both web and worker
 - `docker/Dockerfile.web` — Multi-stage Next.js standalone build
 - `docker/Dockerfile.worker` — Multi-stage BullMQ worker build
 - `apps/web/next.config.ts` has `output: 'standalone'`

@@ -1,6 +1,6 @@
 # Phyne CRM
 
-A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates real-time data from five MADFAM ecosystem platforms without duplicating it. Open-source core with a commercial SaaS tier.
+A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates real-time data from six MADFAM ecosystem platforms without duplicating it. Open-source core with a commercial SaaS tier.
 
 ## Overview
 
@@ -28,7 +28,8 @@ Phyne owns CRM-native entities (contacts, leads, opportunities, pipelines) and v
    |   (Drizzle + PG)    |             |   (data virtualization)     |
    +---------------------+             +--+-----+------+-------+--+-+
                                           |     |      |       |  |
-                                        Janua Dhanam Cotiza Pravara Forj*
+                                       Janua  Janua   Dhanam Cotiza Pravara Forj*
+                                              Telemetry
 
 * Forj is feature-flagged off in MVP
 ```
@@ -63,6 +64,7 @@ phyne-crm/
     config/           Zod env validation and feature flags
     db/               Drizzle schema and migrations
     federation/       Data virtualization layer (providers, cache, retry, circuit breaker)
+    logging/          Structured logging (pino)
     services/         Transport-agnostic business logic
     types/            Shared TypeScript types
     ui/               Shared UI primitives
@@ -151,15 +153,16 @@ All SPOG (Single Pane of Glass) queries use `Promise.allSettled()`. If one provi
 
 ## External Systems
 
-Phyne federates data from five platforms in the MADFAM ecosystem (4 active in MVP, 1 feature-flagged):
+Phyne federates data from six platforms in the MADFAM ecosystem (5 active in MVP, 1 feature-flagged):
 
-| Platform        | Role                          | Status              | Integration              |
-| --------------- | ----------------------------- | ------------------- | ------------------------ |
-| **Janua**       | Identity and access (OIDC)    | Active              | OIDC provider, REST API, webhook cache invalidation |
-| **Dhanam**      | Billing and monetization      | Active              | REST SDK with idempotency keys |
-| **Cotiza Studio** | Custom orders / quotes      | Active              | REST + WebSocket for real-time updates |
-| **PravaraMES**  | Fabrication order status      | Active              | REST (+ WebSocket future) |
-| **Forj**        | 3D digital assets / storefront | Feature-flagged OFF | REST (future) |
+| Platform             | Role                          | Status              | Integration              |
+| -------------------- | ----------------------------- | ------------------- | ------------------------ |
+| **Janua**            | Identity and access (OIDC)    | Active              | OIDC provider, REST API, webhook cache invalidation |
+| **Janua Telemetry**  | Visitor sessions / page views | Active              | REST API (TTL=60s), UTM tracking |
+| **Dhanam**           | Billing and monetization      | Active              | REST SDK with idempotency keys |
+| **Cotiza Studio**    | Custom orders / quotes        | Active              | REST + WebSocket for real-time updates |
+| **PravaraMES**       | Fabrication order status      | Active              | REST (+ WebSocket future) |
+| **Forj**             | 3D digital assets / storefront | Feature-flagged OFF | REST (future) |
 
 ## Phasing
 
@@ -194,7 +197,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Database               | `DATABASE_URL`                                       |
 | Redis                  | `REDIS_URL`                                          |
 | Auth (Janua OIDC)      | `AUTH_SECRET`, `AUTH_JANUA_ISSUER`, `AUTH_JANUA_CLIENT_ID`, `AUTH_JANUA_CLIENT_SECRET` |
-| Federation URLs        | `JANUA_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `FORJ_API_URL` |
+| Federation URLs        | `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `FORJ_API_URL` |
 | Federation API Keys    | `PRAVARA_API_KEY`                                    |
 | Webhook Secrets        | `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET` |
 | App                    | `NEXT_PUBLIC_APP_URL`, `NODE_ENV`                    |

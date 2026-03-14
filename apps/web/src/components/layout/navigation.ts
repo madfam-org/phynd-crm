@@ -7,10 +7,10 @@ import {
   Gift,
   Kanban,
   LayoutDashboard,
+  Megaphone,
   Settings,
   Target,
   TrendingUp,
-  Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -22,7 +22,6 @@ export interface NavigationItem {
 
 export const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/overview', icon: LayoutDashboard },
-  { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Contacts', href: '/contacts', icon: Contact },
   { name: 'Leads', href: '/leads', icon: Target },
   { name: 'Opportunities', href: '/opportunities', icon: TrendingUp },
@@ -30,6 +29,7 @@ export const navigation: NavigationItem[] = [
   { name: 'Activities', href: '/activities', icon: Activity },
   { name: 'Visitors', href: '/visitors', icon: Eye },
   { name: 'Offers', href: '/offers', icon: Gift },
+  { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
   { name: 'Funnel', href: '/funnel', icon: Filter },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },

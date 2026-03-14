@@ -7,6 +7,8 @@ import { DataTable } from '@/components/ui/data-table'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -17,11 +19,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { EditOfferDialog } from './edit-offer-dialog'
 
 type OffersListOutput = inferRouterOutputs<AppRouter>['offers']['list']
 type OfferRow = OffersListOutput['items'][number]
@@ -38,8 +51,20 @@ const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'seconda
 }
 
 export function OffersDataTable({ initialData }: OffersDataTableProps) {
-  const { data: offers } = trpc.offers.list.useQuery(undefined, { initialData })
+  const { data: offers } = trpc.offers.list.useQuery(undefined, {
+    initialData,
+    refetchInterval: 60_000,
+  })
   const [createOpen, setCreateOpen] = useState(false)
+  const [editOffer, setEditOffer] = useState<OfferRow | null>(null)
+  const [createName, setCreateName] = useState('')
+  const [createType, setCreateType] = useState<string>('custom')
+  const [createDescription, setCreateDescription] = useState('')
+  const [createValue, setCreateValue] = useState('')
+  const [createCurrency, setCreateCurrency] = useState('')
+  const [createValidFrom, setCreateValidFrom] = useState('')
+  const [createValidUntil, setCreateValidUntil] = useState('')
+  const [createMaxRedemptions, setCreateMaxRedemptions] = useState('')
 
   const utils = trpc.useUtils()
   const deleteMutation = trpc.offers.delete.useMutation({
@@ -47,10 +72,22 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
     onError: (err) => toast.error('Failed to delete offer', { description: err.message }),
   })
 
+  function resetCreateForm() {
+    setCreateName('')
+    setCreateType('custom')
+    setCreateDescription('')
+    setCreateValue('')
+    setCreateCurrency('')
+    setCreateValidFrom('')
+    setCreateValidUntil('')
+    setCreateMaxRedemptions('')
+  }
+
   const createMutation = trpc.offers.create.useMutation({
     onSuccess: () => {
       utils.offers.list.invalidate()
       setCreateOpen(false)
+      resetCreateForm()
     },
     onError: (err) => toast.error('Failed to create offer', { description: err.message }),
   })
@@ -96,6 +133,7 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setEditOffer(row)}>Edit</DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
               onClick={() => deleteMutation.mutate({ id: row.id })}
@@ -116,49 +154,130 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
             <Button>Create Offer</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Offer</DialogTitle>
-            </DialogHeader>
             <form
-              className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault()
-                const fd = new FormData(e.currentTarget)
                 createMutation.mutate({
-                  name: fd.get('name') as string,
-                  type:
-                    (fd.get('type') as 'discount' | 'bundle' | 'free_trial' | 'custom') ||
-                    undefined,
-                  description: (fd.get('description') as string) || undefined,
+                  name: createName,
+                  type: createType as 'discount' | 'bundle' | 'free_trial' | 'custom',
+                  description: createDescription || undefined,
+                  value: createValue || undefined,
+                  currency: createCurrency || undefined,
+                  validFrom: createValidFrom ? new Date(createValidFrom) : undefined,
+                  validUntil: createValidUntil ? new Date(createValidUntil) : undefined,
+                  maxRedemptions: createMaxRedemptions ? Number(createMaxRedemptions) : undefined,
                 })
               }}
             >
-              <input
-                name="name"
-                placeholder="Offer name"
-                required
-                className="w-full rounded border px-3 py-2"
-              />
-              <select name="type" className="w-full rounded border px-3 py-2">
-                <option value="custom">Custom</option>
-                <option value="discount">Discount</option>
-                <option value="bundle">Bundle</option>
-                <option value="free_trial">Free Trial</option>
-              </select>
-              <textarea
-                name="description"
-                placeholder="Description (optional)"
-                className="w-full rounded border px-3 py-2"
-                rows={3}
-              />
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create'}
-              </Button>
+              <DialogHeader>
+                <DialogTitle>Create Offer</DialogTitle>
+                <DialogDescription>Add a new offer for Cotiza and Forj products.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="create-offer-name">Name *</Label>
+                  <Input
+                    id="create-offer-name"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Type</Label>
+                  <Select value={createType} onValueChange={setCreateType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="custom">Custom</SelectItem>
+                      <SelectItem value="discount">Discount</SelectItem>
+                      <SelectItem value="bundle">Bundle</SelectItem>
+                      <SelectItem value="free_trial">Free Trial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="create-offer-description">Description</Label>
+                  <Textarea
+                    id="create-offer-description"
+                    value={createDescription}
+                    onChange={(e) => setCreateDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-offer-value">Value</Label>
+                    <Input
+                      id="create-offer-value"
+                      value={createValue}
+                      onChange={(e) => setCreateValue(e.target.value)}
+                      placeholder="e.g. 10.00"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-offer-currency">Currency</Label>
+                    <Input
+                      id="create-offer-currency"
+                      value={createCurrency}
+                      onChange={(e) => setCreateCurrency(e.target.value)}
+                      placeholder="e.g. USD"
+                      maxLength={3}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-offer-valid-from">Valid From</Label>
+                    <Input
+                      id="create-offer-valid-from"
+                      type="date"
+                      value={createValidFrom}
+                      onChange={(e) => setCreateValidFrom(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-offer-valid-until">Valid Until</Label>
+                    <Input
+                      id="create-offer-valid-until"
+                      type="date"
+                      value={createValidUntil}
+                      onChange={(e) => setCreateValidUntil(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="create-offer-max-redemptions">Max Redemptions</Label>
+                  <Input
+                    id="create-offer-max-redemptions"
+                    type="number"
+                    min={1}
+                    value={createMaxRedemptions}
+                    onChange={(e) => setCreateMaxRedemptions(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending || !createName}>
+                  {createMutation.isPending ? 'Creating...' : 'Create'}
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
       <DataTable columns={columns} data={offers?.items ?? []} getRowKey={(row) => row.id} />
+      {editOffer && (
+        <EditOfferDialog
+          offer={editOffer}
+          open={!!editOffer}
+          onOpenChange={(open) => !open && setEditOffer(null)}
+        />
+      )}
     </div>
   )
 }

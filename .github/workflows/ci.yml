@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+        env:
+          DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
+          REDIS_URL: redis://localhost:6379
+          AUTH_SECRET: ci-test-secret-minimum-16
+          AUTH_JANUA_ISSUER: https://janua.example.com
+          AUTH_JANUA_CLIENT_ID: ci-client-id
+          AUTH_JANUA_CLIENT_SECRET: ci-client-secret
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          JANUA_API_URL: http://localhost:4001
+          DHANAM_API_URL: http://localhost:4002
+          COTIZA_API_URL: http://localhost:4003
+          PRAVARA_BASE_URL: http://localhost:4004
+          FORJ_API_URL: http://localhost:4005
+          PRAVARA_API_KEY: ci-pravara-key
+          JANUA_WEBHOOK_SECRET: ci-webhook-secret
+          DHANAM_WEBHOOK_SECRET: ci-webhook-secret
+          COTIZA_WEBHOOK_SECRET: ci-webhook-secret
+          PRAVARA_WEBHOOK_SECRET: ci-webhook-secret
+          FORJ_WEBHOOK_SECRET: ci-webhook-secret

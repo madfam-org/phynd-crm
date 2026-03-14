@@ -2,10 +2,17 @@ import { OffersService } from '@phyne/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
+const paginationInput = z
+  .object({
+    cursor: z.string().optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+  })
+  .optional()
+
 export const offersRouter = router({
-  list: protectedProcedure.query(({ ctx }) => {
+  list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
     const service = new OffersService(ctx)
-    return service.list()
+    return service.list(input ?? undefined)
   }),
 
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {

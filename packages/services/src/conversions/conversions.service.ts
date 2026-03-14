@@ -71,24 +71,28 @@ export class ConversionsService {
         .where(eq(campaigns.id, campaignId))
 
       if (!campaign?.offerId) return
+      const offerId = campaign.offerId
 
-      // Check offer is active and has remaining redemptions
-      const [offer] = await this.ctx.db.select().from(offers).where(eq(offers.id, campaign.offerId))
+      // Wrap capacity check + redemption in a transaction for consistency
+      await this.ctx.db.transaction(async (tx) => {
+        // Check offer is active and has remaining redemptions
+        const [offer] = await tx.select().from(offers).where(eq(offers.id, offerId))
 
-      if (!offer || offer.status !== 'active') return
-      if (offer.maxRedemptions && offer.currentRedemptions >= offer.maxRedemptions) return
+        if (!offer || offer.status !== 'active') return
+        if (offer.maxRedemptions && offer.currentRedemptions >= offer.maxRedemptions) return
 
-      // Increment redemption count
-      await this.ctx.db
-        .update(offers)
-        .set({ currentRedemptions: sql`${offers.currentRedemptions} + 1` })
-        .where(eq(offers.id, campaign.offerId))
+        // Increment redemption count
+        await tx
+          .update(offers)
+          .set({ currentRedemptions: sql`${offers.currentRedemptions} + 1` })
+          .where(eq(offers.id, offerId))
 
-      // Record the redemption as a conversion event
-      await this.ctx.db.insert(conversions).values({
-        type: 'offer_redemption',
-        campaignId,
-        metadata: { offerId: campaign.offerId, autoRedeemed: true },
+        // Record the redemption as a conversion event
+        await tx.insert(conversions).values({
+          type: 'offer_redemption',
+          campaignId,
+          metadata: { offerId, autoRedeemed: true },
+        })
       })
     } catch {
       // Non-blocking: redemption failure should not break conversion recording

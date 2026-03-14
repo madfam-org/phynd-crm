@@ -1,16 +1,39 @@
 import { contacts } from '@phyne/db/schema'
-import { eq } from 'drizzle-orm'
+import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class ContactsService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async list() {
-    return this.ctx.db.select().from(contacts).orderBy(contacts.createdAt)
+  async list(pagination?: PaginationInput): Promise<PaginatedResult<typeof contacts.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = [isNull(contacts.deletedAt)]
+    if (pagination?.cursor) {
+      conditions.push(gt(contacts.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(contacts)
+      .where(and(...conditions))
+      .orderBy(contacts.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
   }
 
   async getById(id: string) {
-    const [contact] = await this.ctx.db.select().from(contacts).where(eq(contacts.id, id))
+    const [contact] = await this.ctx.db
+      .select()
+      .from(contacts)
+      .where(and(eq(contacts.id, id), isNull(contacts.deletedAt)))
     return contact ?? null
   }
 
@@ -18,7 +41,7 @@ export class ContactsService {
     const [contact] = await this.ctx.db
       .select()
       .from(contacts)
-      .where(eq(contacts.externalJanuaId, januaId))
+      .where(and(eq(contacts.externalJanuaId, januaId), isNull(contacts.deletedAt)))
     return contact ?? null
   }
 
@@ -53,7 +76,11 @@ export class ContactsService {
   }
 
   async delete(id: string) {
-    const [deleted] = await this.ctx.db.delete(contacts).where(eq(contacts.id, id)).returning()
+    const [deleted] = await this.ctx.db
+      .update(contacts)
+      .set({ deletedAt: new Date() })
+      .where(eq(contacts.id, id))
+      .returning()
     return deleted ?? null
   }
 }

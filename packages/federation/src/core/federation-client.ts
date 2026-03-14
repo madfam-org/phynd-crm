@@ -1,7 +1,6 @@
 import type { ProviderConfig, ProviderStatus } from '@phyne/types/federation'
 import type { CacheManager } from './cache-manager'
 import { CircuitBreaker } from './circuit-breaker'
-import { generateIdempotencyKey } from './idempotency'
 import { withRetry } from './retry'
 import type { FederationCallResult, FederationProvider } from './types'
 
@@ -15,11 +14,12 @@ export class FederationClient<TRaw, TMapped> {
     provider: FederationProvider<TRaw, TMapped>,
     cache: CacheManager,
     config: ProviderConfig,
+    circuitBreaker?: CircuitBreaker,
   ) {
     this.provider = provider
     this.cache = cache
     this.config = config
-    this.circuitBreaker = new CircuitBreaker(config.circuitBreaker)
+    this.circuitBreaker = circuitBreaker ?? new CircuitBreaker(config.circuitBreaker)
   }
 
   async fetch(
@@ -52,9 +52,12 @@ export class FederationClient<TRaw, TMapped> {
 
     // 3. Fetch with retry
     try {
-      const _idempotencyKey = generateIdempotencyKey(this.provider.name, 'fetch', externalId)
+      const signal = AbortSignal.timeout(this.config.timeout ?? 10000)
 
-      const raw = await withRetry(() => this.provider.fetch(externalId, token), this.config.retry)
+      const raw = await withRetry(
+        () => this.provider.fetch(externalId, token, signal),
+        this.config.retry,
+      )
 
       const mapped = this.provider.map(raw)
 

@@ -22,8 +22,8 @@ export default async function PipelinePage() {
     caller.opportunities.list(),
   ])
 
-  const pipelineLeads = leads.filter((l) => l.pipelineId === pipeline.id)
-  const pipelineOpps = opportunities.filter((o) => o.pipelineId === pipeline.id)
+  const pipelineLeads = leads.items.filter((l) => l.pipelineId === pipeline.id)
+  const pipelineOpps = opportunities.items.filter((o) => o.pipelineId === pipeline.id)
 
   return (
     <div className="space-y-6">

@@ -1,16 +1,41 @@
 import { conversions, opportunities, stageTransitions } from '@phyne/db/schema'
-import { eq } from 'drizzle-orm'
+import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class OpportunitiesService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async list() {
-    return this.ctx.db.select().from(opportunities).orderBy(opportunities.createdAt)
+  async list(
+    pagination?: PaginationInput,
+  ): Promise<PaginatedResult<typeof opportunities.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = [isNull(opportunities.deletedAt)]
+    if (pagination?.cursor) {
+      conditions.push(gt(opportunities.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(opportunities)
+      .where(and(...conditions))
+      .orderBy(opportunities.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
   }
 
   async getById(id: string) {
-    const [opp] = await this.ctx.db.select().from(opportunities).where(eq(opportunities.id, id))
+    const [opp] = await this.ctx.db
+      .select()
+      .from(opportunities)
+      .where(and(eq(opportunities.id, id), isNull(opportunities.deletedAt)))
     return opp ?? null
   }
 
@@ -23,16 +48,20 @@ export class OpportunitiesService {
     probability?: number
     expectedCloseDate?: Date
   }) {
-    const [opp] = await this.ctx.db.insert(opportunities).values(data).returning()
-    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
-    const created = opp!
+    const created = await this.ctx.db.transaction(async (tx) => {
+      const [opp] = await tx.insert(opportunities).values(data).returning()
+      // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
+      const newOpp = opp!
 
-    // Auto-record lead_to_opportunity conversion
-    await this.ctx.db.insert(conversions).values({
-      type: 'lead_to_opportunity',
-      contactId: data.contactId,
-      opportunityId: created.id,
-      value: data.value,
+      // Auto-record lead_to_opportunity conversion
+      await tx.insert(conversions).values({
+        type: 'lead_to_opportunity',
+        contactId: data.contactId,
+        opportunityId: newOpp.id,
+        value: data.value,
+      })
+
+      return newOpp
     })
 
     return created
@@ -49,16 +78,27 @@ export class OpportunitiesService {
       expectedCloseDate: Date
     }>,
   ) {
-    // Check for opportunity_to_won conversion
+    // When marking as won, wrap update + conversion in a transaction
     if (data.status === 'won') {
       const current = await this.getById(id)
       if (current && current.status !== 'won') {
-        await this.ctx.db.insert(conversions).values({
-          type: 'opportunity_to_won',
-          contactId: current.contactId,
-          opportunityId: id,
-          value: data.value ?? current.value,
+        const [opp] = await this.ctx.db.transaction(async (tx) => {
+          const [updated] = await tx
+            .update(opportunities)
+            .set(data)
+            .where(eq(opportunities.id, id))
+            .returning()
+
+          await tx.insert(conversions).values({
+            type: 'opportunity_to_won',
+            contactId: current.contactId,
+            opportunityId: id,
+            value: data.value ?? current.value,
+          })
+
+          return [updated]
         })
+        return opp ?? null
       }
     }
 
@@ -90,7 +130,8 @@ export class OpportunitiesService {
 
   async delete(id: string) {
     const [deleted] = await this.ctx.db
-      .delete(opportunities)
+      .update(opportunities)
+      .set({ deletedAt: new Date() })
       .where(eq(opportunities.id, id))
       .returning()
     return deleted ?? null

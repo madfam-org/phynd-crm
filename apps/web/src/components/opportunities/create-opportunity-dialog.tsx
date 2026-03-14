@@ -12,6 +12,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -104,42 +111,42 @@ export function CreateOpportunityDialog() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="opp-pipeline">Pipeline *</Label>
-              <select
-                id="opp-pipeline"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              <Label>Pipeline *</Label>
+              <Select
                 value={pipelineId}
-                onChange={(e) => {
-                  setPipelineId(e.target.value)
+                onValueChange={(val: string) => {
+                  setPipelineId(val)
                   setStageId('')
                 }}
                 required
               >
-                <option value="">Select pipeline</option>
-                {pipelines?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pipeline" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pipelines?.items.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {pipelineId && (
               <div className="grid gap-2">
-                <Label htmlFor="opp-stage">Stage *</Label>
-                <select
-                  id="opp-stage"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                  value={stageId}
-                  onChange={(e) => setStageId(e.target.value)}
-                  required
-                >
-                  <option value="">Select stage</option>
-                  {stages?.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <Label>Stage *</Label>
+                <Select value={stageId} onValueChange={setStageId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stages?.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>

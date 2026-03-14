@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: phyne
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: phyne_crm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phyne -d phyne_crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/var/lib/redis/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://phyne:${POSTGRES_PASSWORD}@postgres:5432/phyne_crm
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_JANUA_ISSUER: ${AUTH_JANUA_ISSUER}
+      AUTH_JANUA_CLIENT_ID: ${AUTH_JANUA_CLIENT_ID}
+      AUTH_JANUA_CLIENT_SECRET: ${AUTH_JANUA_CLIENT_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      JANUA_API_URL: ${JANUA_API_URL}
+      DHANAM_API_URL: ${DHANAM_API_URL}
+      COTIZA_API_URL: ${COTIZA_API_URL}
+      PRAVARA_BASE_URL: ${PRAVARA_BASE_URL}
+      FORJ_API_URL: ${FORJ_API_URL}
+      PRAVARA_API_KEY: ${PRAVARA_API_KEY}
+      JANUA_WEBHOOK_SECRET: ${JANUA_WEBHOOK_SECRET}
+      DHANAM_WEBHOOK_SECRET: ${DHANAM_WEBHOOK_SECRET}
+      COTIZA_WEBHOOK_SECRET: ${COTIZA_WEBHOOK_SECRET}
+      PRAVARA_WEBHOOK_SECRET: ${PRAVARA_WEBHOOK_SECRET}
+      FORJ_WEBHOOK_SECRET: ${FORJ_WEBHOOK_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      DATABASE_URL: postgresql://phyne:${POSTGRES_PASSWORD}@postgres:5432/phyne_crm
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      JANUA_API_URL: ${JANUA_API_URL}
+      DHANAM_API_URL: ${DHANAM_API_URL}
+      COTIZA_API_URL: ${COTIZA_API_URL}
+      PRAVARA_BASE_URL: ${PRAVARA_BASE_URL}
+      FORJ_API_URL: ${FORJ_API_URL}
+      PRAVARA_API_KEY: ${PRAVARA_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

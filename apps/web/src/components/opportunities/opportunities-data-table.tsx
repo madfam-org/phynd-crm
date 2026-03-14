@@ -18,10 +18,11 @@ import { toast } from 'sonner'
 import { CreateOpportunityDialog } from './create-opportunity-dialog'
 import { EditOpportunityDialog } from './edit-opportunity-dialog'
 
-type OpportunityRow = inferRouterOutputs<AppRouter>['opportunities']['list'][number]
+type OpportunitiesListOutput = inferRouterOutputs<AppRouter>['opportunities']['list']
+type OpportunityRow = OpportunitiesListOutput['items'][number]
 
 interface OpportunitiesDataTableProps {
-  initialData: OpportunityRow[]
+  initialData: OpportunitiesListOutput
 }
 
 const statusVariant: Record<string, 'default' | 'success' | 'destructive'> = {
@@ -33,6 +34,7 @@ const statusVariant: Record<string, 'default' | 'success' | 'destructive'> = {
 export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTableProps) {
   const { data: opportunities } = trpc.opportunities.list.useQuery(undefined, {
     initialData,
+    refetchInterval: 60_000,
   })
   const [editOpp, setEditOpp] = useState<OpportunityRow | null>(null)
 
@@ -99,7 +101,7 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
       <div className="flex justify-end">
         <CreateOpportunityDialog />
       </div>
-      <DataTable columns={columns} data={opportunities ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={opportunities?.items ?? []} getRowKey={(row) => row.id} />
       {editOpp && (
         <EditOpportunityDialog
           opportunity={editOpp}

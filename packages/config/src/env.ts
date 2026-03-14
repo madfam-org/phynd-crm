@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const envSchema = z.object({
+const envSchemaBase = z.object({
   // Database
   DATABASE_URL: z.string().url(),
 
@@ -34,8 +34,21 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
+  // Dev bypass (must not be true in production)
+  AUTH_BYPASS: z.string().optional(),
+
   // Observability (optional, Phase 2)
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+})
+
+const envSchema = envSchemaBase.superRefine((data, ctx) => {
+  if (data.NODE_ENV === 'production' && data.AUTH_BYPASS === 'true') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'AUTH_BYPASS cannot be enabled in production',
+      path: ['AUTH_BYPASS'],
+    })
+  }
 })
 
 export type Env = z.infer<typeof envSchema>
@@ -57,5 +70,5 @@ export function getEnv(): Env {
 }
 
 export function getEnvUnsafe(): Partial<Env> {
-  return envSchema.partial().parse(process.env)
+  return envSchemaBase.partial().parse(process.env)
 }

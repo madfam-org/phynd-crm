@@ -1,0 +1,74 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: phyne
+          POSTGRES_PASSWORD: phyne
+          POSTGRES_DB: phyne_crm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phyne -d phyne_crm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate && pnpm db:migrate && pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
+      - run: npx playwright install --with-deps chromium
+      - run: pnpm test:e2e
+        env:
+          DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
+          REDIS_URL: redis://localhost:6379
+          AUTH_SECRET: e2e-test-secret-minimum-16
+          AUTH_BYPASS: "true"
+          AUTH_JANUA_ISSUER: https://janua.example.com
+          AUTH_JANUA_CLIENT_ID: e2e-client-id
+          AUTH_JANUA_CLIENT_SECRET: e2e-client-secret
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          JANUA_API_URL: http://localhost:4001
+          DHANAM_API_URL: http://localhost:4002
+          COTIZA_API_URL: http://localhost:4003
+          PRAVARA_BASE_URL: http://localhost:4004
+          FORJ_API_URL: http://localhost:4005
+          PRAVARA_API_KEY: e2e-pravara-key
+          JANUA_WEBHOOK_SECRET: e2e-webhook-secret
+          DHANAM_WEBHOOK_SECRET: e2e-webhook-secret
+          COTIZA_WEBHOOK_SECRET: e2e-webhook-secret
+          PRAVARA_WEBHOOK_SECRET: e2e-webhook-secret
+          FORJ_WEBHOOK_SECRET: e2e-webhook-secret

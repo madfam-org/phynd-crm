@@ -23,10 +23,11 @@ import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-type OfferRow = inferRouterOutputs<AppRouter>['offers']['list'][number]
+type OffersListOutput = inferRouterOutputs<AppRouter>['offers']['list']
+type OfferRow = OffersListOutput['items'][number]
 
 interface OffersDataTableProps {
-  initialData: OfferRow[]
+  initialData: OffersListOutput
 }
 
 const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'secondary'> = {
@@ -157,7 +158,7 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={offers ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={offers?.items ?? []} getRowKey={(row) => row.id} />
     </div>
   )
 }

@@ -1,12 +1,34 @@
 import { campaigns } from '@phyne/db/schema'
-import { eq } from 'drizzle-orm'
+import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { and, eq, gt } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class CampaignsService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async list() {
-    return this.ctx.db.select().from(campaigns).orderBy(campaigns.createdAt)
+  async list(
+    pagination?: PaginationInput,
+  ): Promise<PaginatedResult<typeof campaigns.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = []
+    if (pagination?.cursor) {
+      conditions.push(gt(campaigns.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(campaigns)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(campaigns.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
   }
 
   async getById(id: string) {

@@ -2,13 +2,18 @@ import { ActivitiesService } from '@phyne/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
+const paginationInput = z
+  .object({
+    cursor: z.string().optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+  })
+  .optional()
+
 export const activitiesRouter = router({
-  list: protectedProcedure
-    .input(z.object({ limit: z.number().int().min(1).max(200).optional() }).optional())
-    .query(({ ctx, input }) => {
-      const service = new ActivitiesService(ctx)
-      return service.listRecent(input?.limit)
-    }),
+  list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
+    const service = new ActivitiesService(ctx)
+    return service.listRecent(input ?? undefined)
+  }),
 
   listForEntity: protectedProcedure
     .input(
@@ -36,6 +41,28 @@ export const activitiesRouter = router({
     .mutation(({ ctx, input }) => {
       const service = new ActivitiesService(ctx)
       return service.create(input)
+    }),
+
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        title: z.string().min(1).max(255).optional(),
+        description: z.string().nullable().optional(),
+        dueAt: z.date().nullable().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const { id, ...data } = input
+      const service = new ActivitiesService(ctx)
+      return service.update(id, data)
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(({ ctx, input }) => {
+      const service = new ActivitiesService(ctx)
+      return service.delete(input.id)
     }),
 
   complete: protectedProcedure

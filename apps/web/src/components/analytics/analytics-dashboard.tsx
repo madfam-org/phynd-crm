@@ -1,6 +1,9 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ConversionFunnelChart } from './conversion-funnel-chart'
+import { PipelineVelocityChart } from './pipeline-velocity-chart'
+import { RevenueByStatusChart } from './revenue-by-status-chart'
 
 interface StageVelocityRow {
   stageId: string
@@ -88,14 +91,7 @@ export function AnalyticsDashboard({
             <CardTitle>Conversion Pipeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <ConversionRow label="Visitor → Lead" value={conversionMetrics.visitorToLead} />
-              <ConversionRow
-                label="Lead → Opportunity"
-                value={conversionMetrics.leadToOpportunity}
-              />
-              <ConversionRow label="Opportunity → Won" value={conversionMetrics.opportunityToWon} />
-            </div>
+            <ConversionFunnelChart data={conversionMetrics} />
           </CardContent>
         </Card>
 
@@ -128,24 +124,10 @@ export function AnalyticsDashboard({
         {stageVelocity && stageVelocity.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Avg Days in Stage</CardTitle>
+              <CardTitle>Pipeline Velocity (Avg Days in Stage)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {stageVelocity.map((stage) => (
-                  <div key={stage.stageId} className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium">{stage.stageName}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({stage.transitionCount} transitions)
-                      </span>
-                    </div>
-                    <span className="text-lg font-semibold">
-                      {Number(stage.avgDays).toFixed(1)}d
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <PipelineVelocityChart data={stageVelocity} />
             </CardContent>
           </Card>
         )}
@@ -155,19 +137,17 @@ export function AnalyticsDashboard({
             <CardTitle>Revenue by Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {revenueByStatus.map((item) => (
-                <div key={item.status ?? 'unknown'} className="flex justify-between">
-                  <span className="text-sm capitalize text-muted-foreground">
-                    {item.status ?? 'Unknown'} ({item.count})
-                  </span>
-                  <span className="font-medium">${Number(item.totalValue).toLocaleString()}</span>
-                </div>
-              ))}
-              {revenueByStatus.length === 0 && (
-                <p className="text-sm text-muted-foreground">No revenue data yet.</p>
-              )}
-            </div>
+            {revenueByStatus.length > 0 ? (
+              <RevenueByStatusChart
+                data={revenueByStatus.map((item) => ({
+                  status: item.status ?? 'unknown',
+                  totalValue: item.totalValue,
+                  count: item.count,
+                }))}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">No revenue data yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -180,15 +160,6 @@ function MetricCard({ label, value }: { label: string; value: string | number })
     <div className="rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="text-2xl font-bold">{value}</p>
-    </div>
-  )
-}
-
-function ConversionRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-lg font-semibold">{value}</span>
     </div>
   )
 }

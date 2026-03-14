@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   type FeatureFlags,
   getFeatureFlags,
@@ -290,20 +290,46 @@ describe('getFeatureFlags', () => {
 
   it('mutations to the returned object do not affect internal state', () => {
     const flags = getFeatureFlags() as Record<string, boolean>
-    // Attempt to mutate (may or may not throw depending on freeze)
-    try {
+    // Object.freeze means mutation throws in strict mode
+    expect(() => {
       flags.federationReadOnly = false
-    } catch {
-      // If frozen, mutation throws -- that is acceptable behavior
-    }
+    }).toThrow()
 
-    // Internal state should still have the default
-    // Note: The current implementation does not Object.freeze, so this
-    // verifies the module-level variable is not the same reference as returned
-    // If it IS the same reference, this test documents that behavior
+    // Internal state is unaffected
     const fresh = getFeatureFlags()
-    // We are testing the actual behavior: if the returned object IS the
-    // internal state (no defensive copy), mutations would propagate
-    expect(typeof fresh.federationReadOnly).toBe('boolean')
+    expect(fresh.federationReadOnly).toBe(true)
+  })
+
+  it('returns a frozen object', () => {
+    const flags = getFeatureFlags()
+    expect(Object.isFrozen(flags)).toBe(true)
+  })
+})
+
+describe('setFeatureFlags production guard', () => {
+  const originalEnv = process.env.NODE_ENV
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv
+    resetFeatureFlags()
+  })
+
+  it('throws when called in production environment', () => {
+    process.env.NODE_ENV = 'production'
+    expect(() => setFeatureFlags({ aiKanban: true })).toThrow(
+      'Cannot modify feature flags in production',
+    )
+  })
+
+  it('allows modification in development environment', () => {
+    process.env.NODE_ENV = 'development'
+    expect(() => setFeatureFlags({ aiKanban: true })).not.toThrow()
+    expect(getFeatureFlags().aiKanban).toBe(true)
+  })
+
+  it('allows modification in test environment', () => {
+    process.env.NODE_ENV = 'test'
+    expect(() => setFeatureFlags({ aiKanban: true })).not.toThrow()
+    expect(getFeatureFlags().aiKanban).toBe(true)
   })
 })

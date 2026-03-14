@@ -18,15 +18,17 @@ import { CreateContactDialog } from './create-contact-dialog'
 import { DeleteContactDialog } from './delete-contact-dialog'
 import { EditContactDialog } from './edit-contact-dialog'
 
-type ContactRow = inferRouterOutputs<AppRouter>['contacts']['list'][number]
+type ContactsListOutput = inferRouterOutputs<AppRouter>['contacts']['list']
+type ContactRow = ContactsListOutput['items'][number]
 
 interface ContactsDataTableProps {
-  initialData: ContactRow[]
+  initialData: ContactsListOutput
 }
 
 export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
   const { data: contacts } = trpc.contacts.list.useQuery(undefined, {
     initialData,
+    refetchInterval: 120_000,
   })
   const [editContact, setEditContact] = useState<ContactRow | null>(null)
   const [deleteContact, setDeleteContact] = useState<ContactRow | null>(null)
@@ -76,7 +78,7 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
       <div className="flex justify-end">
         <CreateContactDialog />
       </div>
-      <DataTable columns={columns} data={contacts ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={contacts?.items ?? []} getRowKey={(row) => row.id} />
       {editContact && (
         <EditContactDialog
           contact={editContact}

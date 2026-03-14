@@ -18,10 +18,11 @@ import { toast } from 'sonner'
 import { CreateLeadDialog } from './create-lead-dialog'
 import { EditLeadDialog } from './edit-lead-dialog'
 
-type LeadRow = inferRouterOutputs<AppRouter>['leads']['list'][number]
+type LeadsListOutput = inferRouterOutputs<AppRouter>['leads']['list']
+type LeadRow = LeadsListOutput['items'][number]
 
 interface LeadsDataTableProps {
-  initialData: LeadRow[]
+  initialData: LeadsListOutput
 }
 
 const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'secondary'> = {
@@ -33,7 +34,10 @@ const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'seconda
 }
 
 export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
-  const { data: leads } = trpc.leads.list.useQuery(undefined, { initialData })
+  const { data: leads } = trpc.leads.list.useQuery(undefined, {
+    initialData,
+    refetchInterval: 60_000,
+  })
   const [editLead, setEditLead] = useState<LeadRow | null>(null)
 
   const utils = trpc.useUtils()
@@ -89,7 +93,7 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
       <div className="flex justify-end">
         <CreateLeadDialog />
       </div>
-      <DataTable columns={columns} data={leads ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={leads?.items ?? []} getRowKey={(row) => row.id} />
       {editLead && (
         <EditLeadDialog
           lead={editLead}

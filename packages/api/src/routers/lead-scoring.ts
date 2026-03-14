@@ -8,10 +8,17 @@ const scoringConditionSchema = z.object({
   value: z.unknown().optional(),
 })
 
+const paginationInput = z
+  .object({
+    cursor: z.string().optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+  })
+  .optional()
+
 export const leadScoringRouter = router({
-  listRules: protectedProcedure.query(({ ctx }) => {
+  listRules: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
     const service = new LeadScoringService(ctx)
-    return service.listRules()
+    return service.listRules(input ?? undefined)
   }),
 
   createRule: protectedProcedure

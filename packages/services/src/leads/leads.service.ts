@@ -1,18 +1,41 @@
 import { isFeatureEnabled } from '@phyne/config/features'
 import { conversions, leads, stageTransitions } from '@phyne/db/schema'
-import { eq } from 'drizzle-orm'
+import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
 
 export class LeadsService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async list() {
-    return this.ctx.db.select().from(leads).orderBy(leads.createdAt)
+  async list(pagination?: PaginationInput): Promise<PaginatedResult<typeof leads.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = [isNull(leads.deletedAt)]
+    if (pagination?.cursor) {
+      conditions.push(gt(leads.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(leads)
+      .where(and(...conditions))
+      .orderBy(leads.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
   }
 
   async getById(id: string) {
-    const [lead] = await this.ctx.db.select().from(leads).where(eq(leads.id, id))
+    const [lead] = await this.ctx.db
+      .select()
+      .from(leads)
+      .where(and(eq(leads.id, id), isNull(leads.deletedAt)))
     return lead ?? null
   }
 
@@ -23,18 +46,22 @@ export class LeadsService {
     pipelineId: string
     stageId: string
   }) {
-    const [lead] = await this.ctx.db.insert(leads).values(data).returning()
-    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
-    const created = lead!
+    const created = await this.ctx.db.transaction(async (tx) => {
+      const [lead] = await tx.insert(leads).values(data).returning()
+      // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
+      const newLead = lead!
 
-    // Auto-record visitor_to_lead conversion
-    await this.ctx.db.insert(conversions).values({
-      type: 'visitor_to_lead',
-      contactId: data.contactId,
-      leadId: created.id,
+      // Auto-record visitor_to_lead conversion
+      await tx.insert(conversions).values({
+        type: 'visitor_to_lead',
+        contactId: data.contactId,
+        leadId: newLead.id,
+      })
+
+      return newLead
     })
 
-    // Auto-compute lead score on creation
+    // Auto-compute lead score on creation (outside transaction, non-blocking)
     await this.triggerScoring(created.id)
 
     return created
@@ -78,7 +105,11 @@ export class LeadsService {
   }
 
   async delete(id: string) {
-    const [deleted] = await this.ctx.db.delete(leads).where(eq(leads.id, id)).returning()
+    const [deleted] = await this.ctx.db
+      .update(leads)
+      .set({ deletedAt: new Date() })
+      .where(eq(leads.id, id))
+      .returning()
     return deleted ?? null
   }
 

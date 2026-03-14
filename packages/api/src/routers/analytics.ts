@@ -2,27 +2,45 @@ import { AnalyticsService } from '@phyne/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
+const dateRangeInput = z
+  .object({
+    dateFrom: z.date().optional(),
+    dateTo: z.date().optional(),
+  })
+  .optional()
+
+function toDateRange(input?: { dateFrom?: Date; dateTo?: Date }) {
+  if (!input?.dateFrom && !input?.dateTo) return undefined
+  return { from: input?.dateFrom, to: input?.dateTo }
+}
+
 export const analyticsRouter = router({
   pipelineVelocity: protectedProcedure
-    .input(z.object({ pipelineId: z.string().uuid() }))
+    .input(
+      z.object({
+        pipelineId: z.string().uuid(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+      }),
+    )
     .query(({ ctx, input }) => {
       const service = new AnalyticsService(ctx)
-      return service.getPipelineVelocity(input.pipelineId)
+      return service.getPipelineVelocity(input.pipelineId, toDateRange(input))
     }),
 
-  winRate: protectedProcedure.query(({ ctx }) => {
+  winRate: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
     const service = new AnalyticsService(ctx)
-    return service.getWinRate()
+    return service.getWinRate(toDateRange(input ?? undefined))
   }),
 
-  conversionMetrics: protectedProcedure.query(({ ctx }) => {
+  conversionMetrics: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
     const service = new AnalyticsService(ctx)
-    return service.getConversionMetrics()
+    return service.getConversionMetrics(toDateRange(input ?? undefined))
   }),
 
-  visitorAnalytics: protectedProcedure.query(({ ctx }) => {
+  visitorAnalytics: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
     const service = new AnalyticsService(ctx)
-    return service.getVisitorAnalytics()
+    return service.getVisitorAnalytics(toDateRange(input ?? undefined))
   }),
 
   revenueByStatus: protectedProcedure.query(({ ctx }) => {
@@ -31,10 +49,16 @@ export const analyticsRouter = router({
   }),
 
   stageVelocity: protectedProcedure
-    .input(z.object({ pipelineId: z.string().uuid() }))
+    .input(
+      z.object({
+        pipelineId: z.string().uuid(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+      }),
+    )
     .query(({ ctx, input }) => {
       const service = new AnalyticsService(ctx)
-      return service.getStageVelocity(input.pipelineId)
+      return service.getStageVelocity(input.pipelineId, toDateRange(input))
     }),
 
   stageTransitions: protectedProcedure
@@ -73,8 +97,8 @@ export const analyticsRouter = router({
     return service.getAllCampaignPerformance()
   }),
 
-  dashboardSummary: protectedProcedure.query(({ ctx }) => {
+  dashboardSummary: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
     const service = new AnalyticsService(ctx)
-    return service.getDashboardSummary()
+    return service.getDashboardSummary(toDateRange(input ?? undefined))
   }),
 })

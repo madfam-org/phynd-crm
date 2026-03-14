@@ -43,7 +43,7 @@ const defaults: FeatureFlags = {
 let flags: FeatureFlags = { ...defaults }
 
 export function getFeatureFlags(): Readonly<FeatureFlags> {
-  return flags
+  return Object.freeze({ ...flags })
 }
 
 export function isFeatureEnabled(flag: keyof FeatureFlags): boolean {
@@ -51,6 +51,9 @@ export function isFeatureEnabled(flag: keyof FeatureFlags): boolean {
 }
 
 export function setFeatureFlags(overrides: Partial<FeatureFlags>): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Cannot modify feature flags in production')
+  }
   flags = { ...flags, ...overrides }
 }
 

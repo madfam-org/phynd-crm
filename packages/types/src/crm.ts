@@ -81,7 +81,7 @@ export interface Activity {
   updatedAt: Date
 }
 
-export type ActivityType = 'call' | 'email' | 'meeting' | 'task' | 'note'
+export type ActivityType = 'call' | 'email' | 'fabrication_update' | 'meeting' | 'task' | 'note'
 export type ActivityStatus = 'pending' | 'completed' | 'cancelled'
 
 export interface Note {
@@ -159,6 +159,7 @@ export interface Campaign {
   utmMedium: string | null
   utmCampaign: string | null
   budget: number | null
+  spend: string | null
   currency: string | null
   startDate: Date | null
   endDate: Date | null
@@ -214,4 +215,21 @@ export interface WebhookEvent {
   processedAt: Date | null
   error: string | null
   createdAt: Date
+}
+
+export interface ScoringCondition {
+  field: string
+  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains'
+  value?: string | number
+}
+
+export interface PaginationInput {
+  cursor?: string
+  limit?: number
+}
+
+export interface PaginatedResult<T> {
+  items: T[]
+  nextCursor: string | null
+  hasMore: boolean
 }

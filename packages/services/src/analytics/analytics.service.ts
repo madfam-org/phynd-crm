@@ -8,13 +8,27 @@ import {
   stageTransitions,
   visitorSessions,
 } from '@phyne/db/schema'
-import { and, desc, eq, gte, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+
+interface DateRange {
+  from?: Date
+  to?: Date
+}
 
 export class AnalyticsService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async getPipelineVelocity(pipelineId: string) {
+  async getPipelineVelocity(pipelineId: string, dateRange?: DateRange) {
+    const conditions: SQL[] = [eq(opportunities.pipelineId, pipelineId)]
+    if (dateRange?.from) {
+      conditions.push(gte(opportunities.createdAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(opportunities.createdAt, dateRange.to))
+    }
+
     const [result] = await this.ctx.db
       .select({
         avgDaysInPipeline: sql<number>`coalesce(avg(extract(epoch from (${opportunities.updatedAt} - ${opportunities.createdAt})) / 86400), 0)::numeric(10,1)`,
@@ -23,12 +37,20 @@ export class AnalyticsService {
         lostCount: sql<number>`count(*) filter (where ${opportunities.status} = 'lost')::int`,
       })
       .from(opportunities)
-      .where(eq(opportunities.pipelineId, pipelineId))
+      .where(and(...conditions))
 
     return result ?? { avgDaysInPipeline: 0, totalOpportunities: 0, wonCount: 0, lostCount: 0 }
   }
 
-  async getStageVelocity(pipelineId: string) {
+  async getStageVelocity(pipelineId: string, dateRange?: DateRange) {
+    const conditions: SQL[] = [eq(pipelineStages.pipelineId, pipelineId)]
+    if (dateRange?.from) {
+      conditions.push(gte(stageTransitions.transitionedAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(stageTransitions.transitionedAt, dateRange.to))
+    }
+
     // Compute average time-in-stage by joining consecutive transitions
     // For each transition, duration = this transition time - previous transition time (or entity creation)
     const rows = await this.ctx.db
@@ -45,20 +67,29 @@ export class AnalyticsService {
       })
       .from(stageTransitions)
       .innerJoin(pipelineStages, eq(stageTransitions.toStageId, pipelineStages.id))
-      .where(eq(pipelineStages.pipelineId, pipelineId))
+      .where(and(...conditions))
       .groupBy(stageTransitions.toStageId, pipelineStages.name, pipelineStages.position)
       .orderBy(pipelineStages.position)
 
     return rows
   }
 
-  async getWinRate() {
+  async getWinRate(dateRange?: DateRange) {
+    const conditions: SQL[] = []
+    if (dateRange?.from) {
+      conditions.push(gte(opportunities.createdAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(opportunities.createdAt, dateRange.to))
+    }
+
     const [result] = await this.ctx.db
       .select({
         total: sql<number>`count(*) filter (where ${opportunities.status} in ('won', 'lost'))::int`,
         won: sql<number>`count(*) filter (where ${opportunities.status} = 'won')::int`,
       })
       .from(opportunities)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
 
     if (!result || result.total === 0) return { winRate: 0, total: 0, won: 0 }
     return {
@@ -68,7 +99,15 @@ export class AnalyticsService {
     }
   }
 
-  async getConversionMetrics() {
+  async getConversionMetrics(dateRange?: DateRange) {
+    const conditions: SQL[] = []
+    if (dateRange?.from) {
+      conditions.push(gte(conversions.convertedAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(conversions.convertedAt, dateRange.to))
+    }
+
     const [result] = await this.ctx.db
       .select({
         visitorToLead: sql<number>`count(*) filter (where ${conversions.type} = 'visitor_to_lead')::int`,
@@ -76,11 +115,20 @@ export class AnalyticsService {
         opportunityToWon: sql<number>`count(*) filter (where ${conversions.type} = 'opportunity_to_won')::int`,
       })
       .from(conversions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
 
     return result ?? { visitorToLead: 0, leadToOpportunity: 0, opportunityToWon: 0 }
   }
 
-  async getVisitorAnalytics() {
+  async getVisitorAnalytics(dateRange?: DateRange) {
+    const conditions: SQL[] = []
+    if (dateRange?.from) {
+      conditions.push(gte(visitorSessions.createdAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(visitorSessions.createdAt, dateRange.to))
+    }
+
     const [result] = await this.ctx.db
       .select({
         total: sql<number>`count(*)::int`,
@@ -89,6 +137,7 @@ export class AnalyticsService {
         avgPageViews: sql<number>`coalesce(avg(${visitorSessions.pageViewCount}), 0)::numeric(10,1)`,
       })
       .from(visitorSessions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
 
     return result ?? { total: 0, identified: 0, anonymous: 0, avgPageViews: 0 }
   }
@@ -157,17 +206,60 @@ export class AnalyticsService {
   }
 
   async getAllCampaignPerformance() {
-    const allCampaigns = await this.ctx.db.select().from(campaigns)
-    const results = []
-    for (const campaign of allCampaigns) {
-      const perf = await this.getCampaignPerformance(campaign.id)
-      if (perf) results.push(perf)
-    }
-    return results
+    const rows = await this.ctx.db
+      .select({
+        campaignId: campaigns.id,
+        campaignName: campaigns.name,
+        status: campaigns.status,
+        budget: campaigns.budget,
+        spend: campaigns.spend,
+        conversionCount: sql<number>`count(${conversions.id})::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+        redemptionCount: sql<number>`count(*) filter (where ${conversions.type} = 'offer_redemption')::int`,
+      })
+      .from(campaigns)
+      .leftJoin(conversions, eq(conversions.campaignId, campaigns.id))
+      .groupBy(campaigns.id)
+
+    return rows.map((row) => {
+      const spend = Number(row.spend ?? 0)
+      const revenue = Number(row.totalValue)
+      const roi = spend > 0 ? Number((((revenue - spend) / spend) * 100).toFixed(1)) : 0
+      return {
+        campaignId: row.campaignId,
+        campaignName: row.campaignName,
+        status: row.status,
+        budget: Number(row.budget ?? 0),
+        spend,
+        revenue,
+        roi,
+        conversions: row.conversionCount,
+        redemptions: row.redemptionCount,
+      }
+    })
   }
 
-  async getDashboardSummary() {
-    const [leadCount] = await this.ctx.db.select({ count: sql<number>`count(*)::int` }).from(leads)
+  async getDashboardSummary(dateRange?: DateRange) {
+    const leadConditions: SQL[] = []
+    if (dateRange?.from) {
+      leadConditions.push(gte(leads.createdAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      leadConditions.push(lte(leads.createdAt, dateRange.to))
+    }
+
+    const [leadCount] = await this.ctx.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leads)
+      .where(leadConditions.length > 0 ? and(...leadConditions) : undefined)
+
+    const oppConditions: SQL[] = [eq(opportunities.status, 'open')]
+    if (dateRange?.from) {
+      oppConditions.push(gte(opportunities.createdAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      oppConditions.push(lte(opportunities.createdAt, dateRange.to))
+    }
 
     const [oppCount] = await this.ctx.db
       .select({
@@ -175,14 +267,24 @@ export class AnalyticsService {
         totalValue: sql<number>`coalesce(sum(${opportunities.value}::numeric), 0)::numeric`,
       })
       .from(opportunities)
-      .where(eq(opportunities.status, 'open'))
+      .where(and(...oppConditions))
+
+    const visitorConditions: SQL[] = [
+      gte(visitorSessions.startedAt, sql`now() - interval '7 days'`),
+    ]
+    if (dateRange?.from) {
+      visitorConditions.push(gte(visitorSessions.createdAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      visitorConditions.push(lte(visitorSessions.createdAt, dateRange.to))
+    }
 
     const [recentVisitors] = await this.ctx.db
       .select({ count: sql<number>`count(*)::int` })
       .from(visitorSessions)
-      .where(gte(visitorSessions.startedAt, sql`now() - interval '7 days'`))
+      .where(and(...visitorConditions))
 
-    const winRate = await this.getWinRate()
+    const winRate = await this.getWinRate(dateRange)
 
     return {
       totalLeads: leadCount?.count ?? 0,

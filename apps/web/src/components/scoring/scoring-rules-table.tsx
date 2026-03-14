@@ -17,16 +17,25 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-type RuleRow = inferRouterOutputs<AppRouter>['leadScoring']['listRules'][number]
+type RulesListOutput = inferRouterOutputs<AppRouter>['leadScoring']['listRules']
+type RuleRow = RulesListOutput['items'][number]
 
 interface ScoringRulesTableProps {
-  initialData: RuleRow[]
+  initialData: RulesListOutput
 }
 
 const categoryVariant: Record<string, 'default' | 'success' | 'warning'> = {
@@ -38,6 +47,8 @@ const categoryVariant: Record<string, 'default' | 'success' | 'warning'> = {
 export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
   const { data: rules } = trpc.leadScoring.listRules.useQuery(undefined, { initialData })
   const [createOpen, setCreateOpen] = useState(false)
+  const [category, setCategory] = useState<string>('demographic')
+  const [operator, setOperator] = useState<string>('eq')
 
   const utils = trpc.useUtils()
   const deleteMutation = trpc.leadScoring.deleteRule.useMutation({
@@ -49,6 +60,8 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
     onSuccess: () => {
       utils.leadScoring.listRules.invalidate()
       setCreateOpen(false)
+      setCategory('demographic')
+      setOperator('eq')
     },
     onError: (err) => toast.error('Failed to create rule', { description: err.message }),
   })
@@ -127,11 +140,11 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
                 const fd = new FormData(e.currentTarget)
                 createMutation.mutate({
                   name: fd.get('name') as string,
-                  category: fd.get('category') as 'demographic' | 'behavior' | 'engagement',
+                  category: category as 'demographic' | 'behavior' | 'engagement',
                   points: Number(fd.get('points')),
                   condition: {
                     field: fd.get('field') as string,
-                    operator: fd.get('operator') as
+                    operator: operator as
                       | 'eq'
                       | 'gt'
                       | 'lt'
@@ -144,44 +157,34 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
                 })
               }}
             >
-              <input
-                name="name"
-                placeholder="Rule name"
-                required
-                className="w-full rounded border px-3 py-2"
-              />
-              <select name="category" className="w-full rounded border px-3 py-2">
-                <option value="demographic">Demographic</option>
-                <option value="behavior">Behavior</option>
-                <option value="engagement">Engagement</option>
-              </select>
-              <input
-                name="field"
-                placeholder="Field (e.g. source, session_count)"
-                required
-                className="w-full rounded border px-3 py-2"
-              />
-              <select name="operator" className="w-full rounded border px-3 py-2">
-                <option value="eq">Equals</option>
-                <option value="gt">Greater than</option>
-                <option value="lt">Less than</option>
-                <option value="gte">Greater or equal</option>
-                <option value="lte">Less or equal</option>
-                <option value="contains">Contains</option>
-                <option value="exists">Exists</option>
-              </select>
-              <input
-                name="conditionValue"
-                placeholder="Value"
-                className="w-full rounded border px-3 py-2"
-              />
-              <input
-                name="points"
-                type="number"
-                placeholder="Points"
-                required
-                className="w-full rounded border px-3 py-2"
-              />
+              <Input name="name" placeholder="Rule name" required />
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="demographic">Demographic</SelectItem>
+                  <SelectItem value="behavior">Behavior</SelectItem>
+                  <SelectItem value="engagement">Engagement</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input name="field" placeholder="Field (e.g. source, session_count)" required />
+              <Select value={operator} onValueChange={setOperator}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select operator" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="eq">Equals</SelectItem>
+                  <SelectItem value="gt">Greater than</SelectItem>
+                  <SelectItem value="lt">Less than</SelectItem>
+                  <SelectItem value="gte">Greater or equal</SelectItem>
+                  <SelectItem value="lte">Less or equal</SelectItem>
+                  <SelectItem value="contains">Contains</SelectItem>
+                  <SelectItem value="exists">Exists</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input name="conditionValue" placeholder="Value" />
+              <Input name="points" type="number" placeholder="Points" required />
               <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending ? 'Creating...' : 'Create Rule'}
               </Button>
@@ -189,7 +192,7 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={rules ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={rules?.items ?? []} getRowKey={(row) => row.id} />
     </div>
   )
 }

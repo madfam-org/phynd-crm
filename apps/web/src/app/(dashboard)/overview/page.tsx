@@ -8,7 +8,7 @@ export default async function DashboardPage() {
     caller.opportunities.list(),
   ])
 
-  const openOpps = opportunities.filter((o) => o.status === 'open')
+  const openOpps = opportunities.items.filter((o) => o.status === 'open')
   const pipelineValue = openOpps.reduce((sum, o) => sum + Number(o.value ?? 0), 0)
 
   return (
@@ -20,10 +20,14 @@ export default async function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           title="Contacts"
-          value={String(contacts.length)}
+          value={String(contacts.items.length)}
           description="Total contacts"
         />
-        <DashboardCard title="Leads" value={String(leads.length)} description="Active leads" />
+        <DashboardCard
+          title="Leads"
+          value={String(leads.items.length)}
+          description="Active leads"
+        />
         <DashboardCard
           title="Opportunities"
           value={String(openOpps.length)}

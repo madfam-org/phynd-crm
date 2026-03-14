@@ -1,4 +1,4 @@
-import { pgTable, primaryKey, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { index, pgTable, primaryKey, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import { createId } from './utils'
 
 export const tags = pgTable('tags', {
@@ -17,5 +17,8 @@ export const taggables = pgTable(
     entityType: varchar('entity_type', { length: 20 }).notNull(),
     entityId: text('entity_id').notNull(),
   },
-  (table) => [primaryKey({ columns: [table.tagId, table.entityType, table.entityId] })],
+  (table) => [
+    primaryKey({ columns: [table.tagId, table.entityType, table.entityId] }),
+    index('taggables_entity_idx').on(table.entityType, table.entityId),
+  ],
 )

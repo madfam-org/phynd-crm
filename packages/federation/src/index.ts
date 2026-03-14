@@ -3,7 +3,6 @@ export {
   CacheManager,
   CircuitBreaker,
   FederationClient,
-  generateIdempotencyKey,
   withRetry,
 } from './core/index'
 export { ProviderHealthChecker } from './health/provider-health'

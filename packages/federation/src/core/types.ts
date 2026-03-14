@@ -2,7 +2,7 @@ import type { FederationProviderName, ProviderStatus } from '@phyne/types/federa
 
 export interface FederationProvider<TRaw, TMapped> {
   readonly name: FederationProviderName
-  fetch(externalId: string, token: string): Promise<TRaw>
+  fetch(externalId: string, token: string, signal?: AbortSignal): Promise<TRaw>
   map(raw: TRaw): TMapped
   getCacheKey(externalId: string, tenantId: string): string
 }

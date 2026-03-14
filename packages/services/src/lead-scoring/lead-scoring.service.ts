@@ -5,7 +5,8 @@ import {
   visitorPageViews,
   visitorSessions,
 } from '@phyne/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { and, eq, gt, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export interface ScoringCondition {
@@ -17,8 +18,29 @@ export interface ScoringCondition {
 export class LeadScoringService {
   constructor(private readonly ctx: ServiceContext) {}
 
-  async listRules() {
-    return this.ctx.db.select().from(leadScoringRules).orderBy(leadScoringRules.category)
+  async listRules(
+    pagination?: PaginationInput,
+  ): Promise<PaginatedResult<typeof leadScoringRules.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = []
+    if (pagination?.cursor) {
+      conditions.push(gt(leadScoringRules.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(leadScoringRules)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(leadScoringRules.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
   }
 
   async createRule(data: {
@@ -146,7 +168,7 @@ export class LeadScoringService {
       }
 
       if (matches) {
-        breakdown[rule.name] = rule.points
+        breakdown[rule.id] = rule.points
 
         switch (rule.category) {
           case 'demographic':

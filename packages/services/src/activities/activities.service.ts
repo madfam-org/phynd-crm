@@ -1,6 +1,6 @@
 import { activities } from '@phyne/db/schema'
-import type { EntityType } from '@phyne/types/crm'
-import { and, desc, eq } from 'drizzle-orm'
+import type { EntityType, PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { and, desc, eq, gt } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class ActivitiesService {
@@ -33,8 +33,46 @@ export class ActivitiesService {
     return activity!
   }
 
-  async listRecent(limit = 50) {
-    return this.ctx.db.select().from(activities).orderBy(desc(activities.createdAt)).limit(limit)
+  async listRecent(
+    pagination?: PaginationInput,
+  ): Promise<PaginatedResult<typeof activities.$inferSelect>> {
+    const limit = pagination?.limit ?? 50
+    const conditions = []
+    if (pagination?.cursor) {
+      conditions.push(gt(activities.id, pagination.cursor))
+    }
+
+    const rows = await this.ctx.db
+      .select()
+      .from(activities)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(activities.id)
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    return {
+      items,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+      hasMore,
+    }
+  }
+
+  async update(
+    id: string,
+    data: { title?: string; description?: string | null; dueAt?: Date | null },
+  ) {
+    const [activity] = await this.ctx.db
+      .update(activities)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(activities.id, id))
+      .returning()
+    return activity ?? null
+  }
+
+  async delete(id: string) {
+    const [activity] = await this.ctx.db.delete(activities).where(eq(activities.id, id)).returning()
+    return activity ?? null
   }
 
   async complete(id: string) {

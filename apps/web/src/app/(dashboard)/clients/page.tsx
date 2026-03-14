@@ -13,7 +13,7 @@ export default async function ClientsPage() {
         <p className="text-muted-foreground">Manage your client relationships</p>
       </div>
       <div className="space-y-2">
-        {contacts.map((contact) => (
+        {contacts.items.map((contact) => (
           <Link
             key={contact.id}
             href={`/clients/${contact.id}`}
@@ -30,7 +30,7 @@ export default async function ClientsPage() {
             </Badge>
           </Link>
         ))}
-        {contacts.length === 0 && (
+        {contacts.items.length === 0 && (
           <p className="text-center text-muted-foreground">No clients found.</p>
         )}
       </div>

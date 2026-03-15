@@ -144,9 +144,10 @@ Visitors can try the full CRM via `/demo` without signing up. Architecture:
 1. **Entry**: `GET /demo` → generates UUID session, sets `phyne-demo` cookie (httpOnly, 4h), seeds demo tenant, redirects to `/overview`
 2. **Isolation**: Each demo session gets `tenantId = demo-{sessionId}`. All seeded entity IDs are prefixed with the session ID. Demo writes only affect the demo sandbox.
 3. **Auth injection**: Middleware allows demo cookie holders through without real auth. Both `getServerCaller()` and the tRPC route handler check for the demo cookie and inject `createDemoAuth(sessionId)` as auth context.
-4. **UX**: DemoBanner component (gradient bar with Sign Up / Exit Demo). DEMO badge in sidebar. Header shows "Demo Visitor" instead of user email.
-5. **Cleanup**: `demo-cleanup` BullMQ processor runs hourly, deletes demo tenant data older than 4h in dependency order within a transaction.
-6. **Exit**: `GET /demo/exit` clears cookie and redirects to `/`.
+4. **Seed data**: ~62 rows per session covering all 14 dashboard pages: user, pipeline, 6 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification. Leads/opps/quotes/orders are backdated across 25 days for analytics trends.
+5. **UX**: DemoBanner component (gradient bar with Sign Up / Exit Demo). DEMO badge in sidebar. Header shows "Demo Visitor" instead of user email.
+6. **Cleanup**: `demo-cleanup` BullMQ processor runs hourly, deletes all 20 entity types older than 4h in 5-phase dependency order within a transaction (leaf entities → referencing entities → core entities → campaigns/offers → pipeline/user).
+7. **Exit**: `GET /demo/exit` clears cookie and redirects to `/`.
 
 To test demo mode locally: navigate to `http://localhost:3000/demo`.
 

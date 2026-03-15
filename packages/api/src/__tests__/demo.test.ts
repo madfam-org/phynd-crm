@@ -175,10 +175,37 @@ describe('demo seed ID patterns', () => {
       `${prefix}-a1`,
       `${prefix}-n1`,
       `${prefix}-tag1`,
+      `${prefix}-offer1`,
+      `${prefix}-camp1`,
+      `${prefix}-conv1`,
+      `${prefix}-vs1`,
+      `${prefix}-vpv1`,
+      `${prefix}-lsr1`,
+      `${prefix}-ext1`,
+      `${prefix}-st1`,
     ]
     for (const id of ids) {
       expect(id.startsWith('demo-')).toBe(true)
     }
+  })
+
+  it('new entity ID patterns match expected format', () => {
+    expect(`${prefix}-offer1`).toMatch(/^demo-[a-f0-9-]+-offer1$/)
+    expect(`${prefix}-camp1`).toMatch(/^demo-[a-f0-9-]+-camp1$/)
+    expect(`${prefix}-conv1`).toMatch(/^demo-[a-f0-9-]+-conv1$/)
+    expect(`${prefix}-vs1`).toMatch(/^demo-[a-f0-9-]+-vs1$/)
+    expect(`${prefix}-vpv1`).toMatch(/^demo-[a-f0-9-]+-vpv1$/)
+    expect(`${prefix}-lsr1`).toMatch(/^demo-[a-f0-9-]+-lsr1$/)
+    expect(`${prefix}-ext1`).toMatch(/^demo-[a-f0-9-]+-ext1$/)
+    expect(`${prefix}-st1`).toMatch(/^demo-[a-f0-9-]+-st1$/)
+  })
+
+  it('stage-5 (Closed Lost) ID matches pattern', () => {
+    expect(`${prefix}-stage-5`).toMatch(/^demo-[a-f0-9-]+-stage-5$/)
+  })
+
+  it('visitor session external IDs use prefix for uniqueness', () => {
+    expect(`${prefix}-sess-001`).toMatch(/^demo-[a-f0-9-]+-sess-001$/)
   })
 
   it('LIKE demo-% pattern matches all demo IDs', () => {

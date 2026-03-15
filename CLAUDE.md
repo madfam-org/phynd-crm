@@ -59,7 +59,7 @@ pnpm db:seed          # Seed database
 - **Fabrication activities**: PravaraMES webhook auto-creates CRM activities on fabrication status changes
 - **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` and `/demo` unauthenticated
 - **Demo mode**: Cookie-based (`phyne-demo={sessionId}`, httpOnly, 4h expiry). `/demo` route generates session, seeds per-session tenant (`demo-{sessionId}`), redirects to `/overview`. Demo users get admin role, isolated tenant. `/demo/exit` clears cookie. Dashboard layout shows DemoBanner + DEMO badge in sidebar. Cleanup via BullMQ job (every 1h, removes data > 4h old)
-- **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — creates user, pipeline, 5 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 4 activities, 2 notes, 3 tags, 1 notification. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
+- **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — creates user, pipeline, 6 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification (~62 rows). Leads/opps/quotes/orders backdated across 25 days for analytics trends. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
@@ -180,7 +180,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `cache-warmup`: Pre-fetches federation data for given external IDs
 - `federation-sync`: Handles cache invalidation and refresh
 - `task-reminders`: Repeatable job (every 4h) scanning activities due within 24h, creates notifications with dedup
-- `demo-cleanup`: Repeatable job (every 1h) deleting expired demo tenant data > 4h old; deletes in dependency order within transaction
+- `demo-cleanup`: Repeatable job (every 1h) deleting expired demo tenant data > 4h old; deletes all 20 entity types in dependency order within transaction (5 phases: leaf entities → referencing entities → core entities → campaigns/offers → pipeline/user)
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
 - All processors use structured logging via `@phyne/logging` (pino JSON output)
 

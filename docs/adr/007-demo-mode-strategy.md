@@ -23,14 +23,15 @@ Implement a **cookie-based interactive demo mode** with per-session tenant isola
 - Demo writes only affect the demo sandbox — no shared state between sessions
 
 #### Demo Seed
-- `seedDemoTenant(sessionId)` creates ~25 entities per session in a single transaction
-- Entities: 1 user, 1 pipeline, 5 stages, 4 contacts, 3 leads, 3 opportunities, 2 quotes, 2 orders, 4 activities, 2 notes, 3 tags + 3 taggables, 1 notification
+- `seedDemoTenant(sessionId)` creates ~62 rows per session in a single transaction, covering all 14 dashboard pages
+- Entities: 1 user, 1 pipeline, 6 stages, 4 contacts, 3 leads, 3 opportunities, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 lead scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags + 3 taggables, 1 notification
+- Leads/opps/quotes/orders are backdated across 25 days so analytics trend charts show meaningful data
 - Non-blocking: `seedDemoTenant().catch(() => {})` — dashboard pages handle empty state gracefully
 
 #### Cleanup
 - `demo-cleanup` BullMQ processor runs every hour (`0 * * * *`)
 - Finds users with `id LIKE 'demo-%'` and `createdAt < now() - 4h`
-- Deletes in reverse dependency order within transaction: taggables → tags → notes → notifications → activities → orders → quotes → opportunities → leads → contacts → pipeline_stages → pipelines → users
+- Deletes all 20 entity types in 5-phase dependency order within transaction: (1) taggables, tags, notes, notifications, activities → (2) conversions, page views, sessions, stage transitions, external references, scoring rules → (3) orders, quotes, opportunities, leads, contacts → (4) campaigns, offers → (5) pipeline stages, pipelines, users
 - Per-tenant try/catch: one tenant's failure doesn't block others
 
 #### Exit
@@ -90,10 +91,10 @@ Implement a **cookie-based interactive demo mode** with per-session tenant isola
 
 ### Negative
 - Demo data accumulates between cleanup cycles (bounded by TTL)
-- Each demo session adds ~25 rows to the database (cleaned up within 5h)
+- Each demo session adds ~62 rows to the database (cleaned up within 5h)
 - No real federation data in demo mode (only CRM entities are seeded)
 
 ### Risks
-- **High demo volume**: Many concurrent visitors each create ~25 rows. At 1000 concurrent visitors, that's ~25K rows — well within Postgres capacity. Cleanup runs hourly.
+- **High demo volume**: Many concurrent visitors each create ~62 rows. At 1000 concurrent visitors, that's ~25K rows — well within Postgres capacity. Cleanup runs hourly.
 - **Cleanup failure**: If the cleanup job fails, stale demo data persists but is harmless (isolated tenant). Next hourly run picks it up.
 - **Cookie replay**: A stolen demo cookie only grants access to demo-scoped data with a 4h expiry. No access to real production data.

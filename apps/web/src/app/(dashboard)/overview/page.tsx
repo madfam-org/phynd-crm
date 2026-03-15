@@ -6,23 +6,34 @@ import { getServerCaller } from '@/lib/trpc/server'
 
 export default async function DashboardPage() {
   const caller = await getServerCaller()
-  const [contacts, leads, opportunities, conversions, revenueByStatus, activities, weighted, quotesData, ordersData] =
-    await Promise.all([
-      caller.contacts.list(),
-      caller.leads.list(),
-      caller.opportunities.list(),
-      caller.analytics.conversionMetrics(),
-      caller.analytics.revenueByStatus(),
-      caller.activities.list({ limit: 5 }),
-      caller.analytics.weightedPipelineValue(),
-      caller.quotes.list(),
-      caller.orders.list(),
-    ])
+  const [
+    contacts,
+    leads,
+    opportunities,
+    conversions,
+    revenueByStatus,
+    activities,
+    weighted,
+    quotesData,
+    ordersData,
+  ] = await Promise.all([
+    caller.contacts.list(),
+    caller.leads.list(),
+    caller.opportunities.list(),
+    caller.analytics.conversionMetrics(),
+    caller.analytics.revenueByStatus(),
+    caller.activities.list({ limit: 5 }),
+    caller.analytics.weightedPipelineValue(),
+    caller.quotes.list(),
+    caller.orders.list(),
+  ])
 
   const openOpps = opportunities.items.filter((o) => o.status === 'open')
   const pipelineValue = openOpps.reduce((sum, o) => sum + Number(o.value ?? 0), 0)
   const openQuotes = quotesData.items.filter((q) => q.status === 'draft' || q.status === 'sent')
-  const activeOrders = ordersData.items.filter((o) => o.status !== 'fulfilled' && o.status !== 'cancelled')
+  const activeOrders = ordersData.items.filter(
+    (o) => o.status !== 'fulfilled' && o.status !== 'cancelled',
+  )
 
   return (
     <div className="space-y-6">

@@ -99,30 +99,18 @@ describe('ConversionsService', () => {
         status: 'active',
       })
 
+      const responses: unknown[][] = [
+        [conversion], // 1: recordConversion insert().returning()
+        [campaign], // 2: campaign lookup
+        [offer], // 3: offer lookup inside transaction
+        [{ ...offer, currentRedemptions: 6 }], // 4: offer update (increment redemptions)
+        [makeConversion({ type: 'offer_redemption' })], // 5: offer_redemption conversion insert
+      ]
       let callCount = 0
       mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
         callCount++
-        if (callCount === 1) {
-          // recordConversion insert().returning()
-          return Promise.resolve([conversion]).then(resolve)
-        }
-        if (callCount === 2) {
-          // campaign lookup
-          return Promise.resolve([campaign]).then(resolve)
-        }
-        if (callCount === 3) {
-          // offer lookup inside transaction
-          return Promise.resolve([offer]).then(resolve)
-        }
-        if (callCount === 4) {
-          // offer update (increment redemptions)
-          return Promise.resolve([{ ...offer, currentRedemptions: 6 }]).then(resolve)
-        }
-        if (callCount === 5) {
-          // offer_redemption conversion insert
-          return Promise.resolve([makeConversion({ type: 'offer_redemption' })]).then(resolve)
-        }
-        return Promise.resolve([]).then(resolve)
+        const result = responses[callCount - 1] ?? []
+        return Promise.resolve(result).then(resolve)
       })
 
       const result = await service.recordConversion({

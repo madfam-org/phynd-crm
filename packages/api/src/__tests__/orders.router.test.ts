@@ -150,9 +150,7 @@ describe('orders router', () => {
     const qb = (ctx.db as unknown as { insert: ReturnType<typeof vi.fn> }).insert()
     qb._result = [{ id: 'ord-001', orderNumber: 'ORD-001' }]
     const caller = createCaller(ctx)
-    await expect(
-      caller.orders.create({ orderNumber: 'ORD-001' }),
-    ).resolves.not.toThrow()
+    await expect(caller.orders.create({ orderNumber: 'ORD-001' })).resolves.not.toThrow()
   })
 
   it('update validates status enum', async () => {

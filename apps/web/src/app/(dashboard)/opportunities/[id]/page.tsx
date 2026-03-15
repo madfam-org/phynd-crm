@@ -91,10 +91,16 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
               <h3 className="mb-4 text-lg font-semibold">Related Quotes</h3>
               <div className="space-y-2">
                 {relatedQuotes.items.map((quote) => (
-                  <div key={quote.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={quote.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <Link href={`/quotes/${quote.id}`} className="text-sm font-medium text-primary hover:underline">
+                        <Link
+                          href={`/quotes/${quote.id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
                           {quote.quoteNumber}
                         </Link>
                         {quote.totalAmount && (
@@ -104,7 +110,9 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
                         )}
                       </div>
                     </div>
-                    <Badge variant={quote.status === 'accepted' ? 'success' : 'default'}>{quote.status}</Badge>
+                    <Badge variant={quote.status === 'accepted' ? 'success' : 'default'}>
+                      {quote.status}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -115,10 +123,16 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
               <h3 className="mb-4 text-lg font-semibold">Related Orders</h3>
               <div className="space-y-2">
                 {relatedOrders.items.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <Link href={`/orders/${order.id}`} className="text-sm font-medium text-primary hover:underline">
+                        <Link
+                          href={`/orders/${order.id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
                           {order.orderNumber}
                         </Link>
                         {order.totalAmount && (

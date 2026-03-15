@@ -13,6 +13,7 @@ import type {
 import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
 import { NotFoundError } from '../errors'
+import { getDemoFederationData } from './demo-federation-data'
 
 interface ProfileDeps {
   januaClient: FederationClient<unknown, JanuaIdentity>
@@ -24,10 +25,12 @@ interface ProfileDeps {
 }
 
 export class UnifiedProfileService {
+  private readonly ctx: ServiceContext
   private readonly contactsService: ContactsService
   private readonly deps: ProfileDeps
 
   constructor(ctx: ServiceContext, deps: ProfileDeps) {
+    this.ctx = ctx
     this.contactsService = new ContactsService(ctx)
     this.deps = deps
   }
@@ -36,6 +39,11 @@ export class UnifiedProfileService {
     const contact = await this.contactsService.getById(contactId)
     if (!contact) {
       throw new NotFoundError('Contact', contactId)
+    }
+
+    // Demo mode: return mock federation data (providers are unreachable)
+    if (this.ctx.tenantId.startsWith('demo-')) {
+      return getDemoFederationData(contact)
     }
 
     const externalId = contact.externalJanuaId ?? contactId

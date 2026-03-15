@@ -66,40 +66,46 @@ export class JanuaTelemetryProvider
 
   map(raw: JanuaRawTelemetry): JanuaTelemetry {
     return {
-      sessions: raw.sessions.map((s) => ({
-        sessionId: s.session_id,
-        fingerprint: s.fingerprint,
-        contactId: s.contact_id ?? null,
-        identified: s.identified,
-        ipCity: s.ip_city ?? null,
-        ipCountry: s.ip_country ?? null,
-        deviceType: s.device_type ?? null,
-        browser: s.browser ?? null,
-        os: s.os ?? null,
-        referrer: s.referrer ?? null,
-        utm:
-          s.utm_source || s.utm_medium || s.utm_campaign
-            ? {
-                source: s.utm_source ?? null,
-                medium: s.utm_medium ?? null,
-                campaign: s.utm_campaign ?? null,
-                term: s.utm_term ?? null,
-                content: s.utm_content ?? null,
-              }
-            : null,
-        pageViews: s.page_views.map((pv) => ({
-          url: pv.url,
-          title: pv.title ?? null,
-          duration: pv.duration ?? null,
-          timestamp: pv.timestamp,
-        })),
-        startedAt: s.started_at,
-        endedAt: s.ended_at ?? null,
-        duration: s.duration ?? null,
-      })),
+      sessions: raw.sessions.map((s) => this.mapSession(s)),
       totalSessions: raw.total_sessions,
       uniqueDevices: raw.unique_devices,
       topSources: raw.top_sources,
+    }
+  }
+
+  private mapSession(s: JanuaRawTelemetry['sessions'][number]): JanuaTelemetry['sessions'][number] {
+    return {
+      sessionId: s.session_id,
+      fingerprint: s.fingerprint,
+      contactId: s.contact_id ?? null,
+      identified: s.identified,
+      ipCity: s.ip_city ?? null,
+      ipCountry: s.ip_country ?? null,
+      deviceType: s.device_type ?? null,
+      browser: s.browser ?? null,
+      os: s.os ?? null,
+      referrer: s.referrer ?? null,
+      utm: this.mapUtm(s),
+      pageViews: s.page_views.map((pv) => ({
+        url: pv.url,
+        title: pv.title ?? null,
+        duration: pv.duration ?? null,
+        timestamp: pv.timestamp,
+      })),
+      startedAt: s.started_at,
+      endedAt: s.ended_at ?? null,
+      duration: s.duration ?? null,
+    }
+  }
+
+  private mapUtm(s: JanuaRawTelemetry['sessions'][number]) {
+    if (!s.utm_source && !s.utm_medium && !s.utm_campaign) return null
+    return {
+      source: s.utm_source ?? null,
+      medium: s.utm_medium ?? null,
+      campaign: s.utm_campaign ?? null,
+      term: s.utm_term ?? null,
+      content: s.utm_content ?? null,
     }
   }
 

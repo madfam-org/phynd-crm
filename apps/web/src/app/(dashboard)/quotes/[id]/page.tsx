@@ -10,7 +10,10 @@ interface QuoteDetailPageProps {
   params: Promise<{ id: string }>
 }
 
-const statusVariant: Record<string, 'default' | 'success' | 'destructive' | 'secondary' | 'warning'> = {
+const statusVariant: Record<
+  string,
+  'default' | 'success' | 'destructive' | 'secondary' | 'warning'
+> = {
   accepted: 'success',
   declined: 'destructive',
   draft: 'secondary',
@@ -66,7 +69,10 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
             <div>
               <span className="text-sm text-muted-foreground">Opportunity</span>
               <p className="font-medium">
-                <Link href={`/opportunities/${opportunity.id}`} className="text-primary hover:underline">
+                <Link
+                  href={`/opportunities/${opportunity.id}`}
+                  className="text-primary hover:underline"
+                >
                   {opportunity.name}
                 </Link>
               </p>
@@ -94,10 +100,16 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
           <h3 className="mb-4 text-lg font-semibold">Related Orders</h3>
           <div className="space-y-2">
             {relatedOrders.items.map((order) => (
-              <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
+              <div
+                key={order.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <Link href={`/orders/${order.id}`} className="text-sm font-medium text-primary hover:underline">
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
                       {order.orderNumber}
                     </Link>
                     {order.totalAmount && (

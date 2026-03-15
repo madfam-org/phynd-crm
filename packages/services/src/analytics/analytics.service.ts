@@ -266,7 +266,6 @@ export class AnalyticsService {
   }
 
   async getAtRiskDeals(staleThresholdDays = 14) {
-    // Get open, non-deleted opportunities
     const openOpps = await this.ctx.db
       .select({
         id: opportunities.id,
@@ -280,7 +279,6 @@ export class AnalyticsService {
 
     if (openOpps.length === 0) return []
 
-    // Get latest stage transition per entity to compute days-in-stage
     const transitions = await this.ctx.db
       .select({
         entityId: stageTransitions.entityId,
@@ -291,27 +289,43 @@ export class AnalyticsService {
       .where(eq(stageTransitions.entityType, 'opportunity'))
       .orderBy(desc(stageTransitions.transitionedAt))
 
-    // Get stage names
     const allStages = await this.ctx.db.select().from(pipelineStages)
     const stageMap = new Map(allStages.map((s) => [s.id, s.name]))
 
-    // Compute avg days per stage
-    const stageDurations: Record<string, number[]> = {}
+    const { latestTransitionByOpp, stageAvgDays } = this.computeTransitionMetrics(transitions)
+
+    return this.identifyAtRiskDeals(
+      openOpps,
+      latestTransitionByOpp,
+      stageAvgDays,
+      stageMap,
+      staleThresholdDays,
+    )
+  }
+
+  private computeTransitionMetrics(
+    transitions: { entityId: string; toStageId: string; transitionedAt: Date }[],
+  ) {
     const latestTransitionByOpp = new Map<string, Date>()
+    const transitionsByEntity = new Map<string, typeof transitions>()
 
     for (const t of transitions) {
       if (!latestTransitionByOpp.has(t.entityId)) {
         latestTransitionByOpp.set(t.entityId, t.transitionedAt)
       }
-    }
-
-    // Compute average stage velocity from all transitions
-    const transitionsByEntity = new Map<string, typeof transitions>()
-    for (const t of transitions) {
       const existing = transitionsByEntity.get(t.entityId) ?? []
       existing.push(t)
       transitionsByEntity.set(t.entityId, existing)
     }
+
+    const stageAvgDays = this.computeStageAverages(transitionsByEntity)
+    return { latestTransitionByOpp, stageAvgDays }
+  }
+
+  private computeStageAverages(
+    transitionsByEntity: Map<string, { toStageId: string; transitionedAt: Date }[]>,
+  ) {
+    const stageDurations: Record<string, number[]> = {}
 
     for (const [, entityTransitions] of transitionsByEntity) {
       for (let i = 0; i < entityTransitions.length - 1; i++) {
@@ -328,10 +342,18 @@ export class AnalyticsService {
 
     const stageAvgDays = new Map<string, number>()
     for (const [stageId, durations] of Object.entries(stageDurations)) {
-      const avg = durations.reduce((a, b) => a + b, 0) / durations.length
-      stageAvgDays.set(stageId, avg)
+      stageAvgDays.set(stageId, durations.reduce((a, b) => a + b, 0) / durations.length)
     }
+    return stageAvgDays
+  }
 
+  private identifyAtRiskDeals(
+    openOpps: { id: string; name: string; value: string | null; stageId: string }[],
+    latestTransitionByOpp: Map<string, Date>,
+    stageAvgDays: Map<string, number>,
+    stageMap: Map<string, string>,
+    staleThresholdDays: number,
+  ) {
     const now = new Date()
     const atRisk: {
       opportunityId: string
@@ -353,20 +375,20 @@ export class AnalyticsService {
       const avgDays = stageAvgDays.get(opp.stageId) ?? staleThresholdDays
       const isStale = daysInStage > staleThresholdDays || daysInStage > avgDays * 1.5
 
-      if (isStale) {
-        atRisk.push({
-          opportunityId: opp.id,
-          name: opp.name,
-          value: Number(opp.value ?? 0),
-          stageName: stageMap.get(opp.stageId) ?? 'Unknown',
-          daysInStage,
-          averageDays: Math.round(avgDays),
-          riskLevel:
-            daysInStage > avgDays * 2 || daysInStage > staleThresholdDays * 2
-              ? 'critical'
-              : 'warning',
-        })
-      }
+      if (!isStale) continue
+
+      atRisk.push({
+        opportunityId: opp.id,
+        name: opp.name,
+        value: Number(opp.value ?? 0),
+        stageName: stageMap.get(opp.stageId) ?? 'Unknown',
+        daysInStage,
+        averageDays: Math.round(avgDays),
+        riskLevel:
+          daysInStage > avgDays * 2 || daysInStage > staleThresholdDays * 2
+            ? 'critical'
+            : 'warning',
+      })
     }
 
     return atRisk.sort((a, b) => b.daysInStage - a.daysInStage)

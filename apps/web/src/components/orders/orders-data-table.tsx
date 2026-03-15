@@ -35,7 +35,10 @@ interface OrdersDataTableProps {
   initialData: OrdersListOutput
 }
 
-const statusVariant: Record<string, 'default' | 'success' | 'destructive' | 'secondary' | 'warning'> = {
+const statusVariant: Record<
+  string,
+  'default' | 'success' | 'destructive' | 'secondary' | 'warning'
+> = {
   cancelled: 'destructive',
   confirmed: 'default',
   fulfilled: 'success',
@@ -89,10 +92,7 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
       id: 'orderNumber',
       header: 'Order #',
       cell: (row) => (
-        <Link
-          href={`/orders/${row.id}`}
-          className="font-medium text-primary hover:underline"
-        >
+        <Link href={`/orders/${row.id}`} className="font-medium text-primary hover:underline">
           {row.orderNumber}
         </Link>
       ),
@@ -144,10 +144,7 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
               <Link href={`/orders/${row.id}`}>View</Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditOrder(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteOrder(row)}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteOrder(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -198,11 +195,7 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
         </div>
         <CreateOrderDialog />
       </div>
-      <DataTable
-        columns={columns}
-        data={orders?.items ?? []}
-        getRowKey={(row) => row.id}
-      />
+      <DataTable columns={columns} data={orders?.items ?? []} getRowKey={(row) => row.id} />
       {editOrder && (
         <EditOrderDialog
           order={editOrder}
@@ -215,8 +208,8 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
           <DialogHeader>
             <DialogTitle>Delete Order</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete order &quot;{deleteOrder?.orderNumber}&quot;? This action
-              cannot be undone.
+              Are you sure you want to delete order &quot;{deleteOrder?.orderNumber}&quot;? This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

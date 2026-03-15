@@ -154,10 +154,7 @@ export function CreateQuoteDialog() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={createMutation.isPending || !quoteNumber}
-            >
+            <Button type="submit" disabled={createMutation.isPending || !quoteNumber}>
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>

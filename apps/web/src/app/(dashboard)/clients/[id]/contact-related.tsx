@@ -125,7 +125,10 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
         ) : (
           <div className="space-y-2">
             {quotes.map((quote) => (
-              <div key={quote.id} className="flex items-center justify-between rounded-lg border p-3">
+              <div
+                key={quote.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{quote.quoteNumber}</span>
@@ -136,7 +139,9 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
                     )}
                   </div>
                 </div>
-                <Badge variant={QUOTE_STATUS_VARIANT[quote.status] ?? 'secondary'}>{quote.status}</Badge>
+                <Badge variant={QUOTE_STATUS_VARIANT[quote.status] ?? 'secondary'}>
+                  {quote.status}
+                </Badge>
               </div>
             ))}
           </div>
@@ -151,7 +156,10 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
         ) : (
           <div className="space-y-2">
             {orders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
+              <div
+                key={order.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{order.orderNumber}</span>

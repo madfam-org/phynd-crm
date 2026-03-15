@@ -134,17 +134,13 @@ describe('quotes router', () => {
     const qb = (ctx.db as unknown as { insert: ReturnType<typeof vi.fn> }).insert()
     qb._result = [{ id: 'q-001', quoteNumber: 'Q-001' }]
     const caller = createCaller(ctx)
-    await expect(
-      caller.quotes.create({ quoteNumber: 'Q-001' }),
-    ).resolves.not.toThrow()
+    await expect(caller.quotes.create({ quoteNumber: 'Q-001' })).resolves.not.toThrow()
   })
 
   it('create rejects empty quoteNumber', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)
-    await expect(
-      caller.quotes.create({ quoteNumber: '' }),
-    ).rejects.toThrow()
+    await expect(caller.quotes.create({ quoteNumber: '' })).rejects.toThrow()
   })
 
   it('update validates status enum', async () => {

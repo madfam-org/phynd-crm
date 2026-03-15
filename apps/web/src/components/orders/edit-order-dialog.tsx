@@ -45,7 +45,9 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
   const [currency, setCurrency] = useState(order.currency)
   const [status, setStatus] = useState(order.status)
   const [estimatedCompletion, setEstimatedCompletion] = useState(
-    order.estimatedCompletion ? new Date(order.estimatedCompletion).toISOString().split('T')[0] : '',
+    order.estimatedCompletion
+      ? new Date(order.estimatedCompletion).toISOString().split('T')[0]
+      : '',
   )
   const [actualCompletion, setActualCompletion] = useState(
     order.actualCompletion ? new Date(order.actualCompletion).toISOString().split('T')[0] : '',

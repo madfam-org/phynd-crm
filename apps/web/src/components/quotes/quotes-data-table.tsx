@@ -35,7 +35,10 @@ interface QuotesDataTableProps {
   initialData: QuotesListOutput
 }
 
-const statusVariant: Record<string, 'default' | 'success' | 'destructive' | 'secondary' | 'warning'> = {
+const statusVariant: Record<
+  string,
+  'default' | 'success' | 'destructive' | 'secondary' | 'warning'
+> = {
   accepted: 'success',
   declined: 'destructive',
   draft: 'secondary',
@@ -89,10 +92,7 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
       id: 'quoteNumber',
       header: 'Quote #',
       cell: (row) => (
-        <Link
-          href={`/quotes/${row.id}`}
-          className="font-medium text-primary hover:underline"
-        >
+        <Link href={`/quotes/${row.id}`} className="font-medium text-primary hover:underline">
           {row.quoteNumber}
         </Link>
       ),
@@ -138,10 +138,7 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
               <Link href={`/quotes/${row.id}`}>View</Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditQuote(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteQuote(row)}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteQuote(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -193,11 +190,7 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
         </div>
         <CreateQuoteDialog />
       </div>
-      <DataTable
-        columns={columns}
-        data={quotes?.items ?? []}
-        getRowKey={(row) => row.id}
-      />
+      <DataTable columns={columns} data={quotes?.items ?? []} getRowKey={(row) => row.id} />
       {editQuote && (
         <EditQuoteDialog
           quote={editQuote}
@@ -210,8 +203,8 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
           <DialogHeader>
             <DialogTitle>Delete Quote</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete quote &quot;{deleteQuote?.quoteNumber}&quot;? This action
-              cannot be undone.
+              Are you sure you want to delete quote &quot;{deleteQuote?.quoteNumber}&quot;? This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

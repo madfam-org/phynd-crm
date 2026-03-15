@@ -56,13 +56,24 @@ packages/logging  → (standalone, pino structured logging)
 - **Optional chaining** (`?.`) over non-null assertion (`!.`)
 - **Decorative SVGs**: Must have `aria-hidden="true"`
 - **Generated files**: Drizzle migration files (`**/migrations/**`) are excluded from Biome checks
+- **File size limits**: Source files should stay under 600 lines (soft warning); pre-commit hook blocks files over 800 lines. Test files, migrations, and generated files are excluded from the check.
+
+## Pre-commit Hooks
+
+husky runs a pre-commit hook (`.husky/pre-commit`) that checks staged `.ts`/`.tsx` files:
+- **Warning** at 600 lines (soft limit — commit proceeds)
+- **Error** at 800 lines (commit blocked — split the file)
+- **Excluded**: test files (`__tests__`, `.test.`, `.spec.`), migrations, `.d.ts`, `.gen.ts`
+
+Hooks auto-install via `pnpm install` (`prepare` script).
 
 ## Testing
 
 ### Service Tests
 - Located in `packages/services/src/__tests__/`
 - Use mock query builder from `helpers.ts` (`createTestContext()`, `createMockDb()`)
-- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, `makeActivity()`, `makeStageTransition()`, `makeNotification()`, `makeOffer()`, `makeCampaign()`, `makeConversion()`, `makeScoringRule()`, `makePipeline()`, `makePipelineStage()`, `makeVisitorSession()`, `makePageView()`, `makePreference()`
+- Factory helpers: `makeLead()`, `makeOpportunity()`, `makeNote()`, `makeTag()`, `makeUser()`, `makeActivity()`, `makeStageTransition()`, `makeNotification()`, `makeOffer()`, `makeCampaign()`, `makeConversion()`, `makeScoringRule()`, `makePipeline()`, `makePipelineStage()`, `makeVisitorSession()`, `makePageView()`, `makePreference()`, `makeQuote()`, `makeOrder()`
+- Large test files should be split by concern (e.g. `analytics-core.service.test.ts` + `analytics-trends.service.test.ts`, `lead-scoring-evaluation.test.ts` + `lead-scoring-crud.test.ts`)
 - Every new service must have a corresponding test file
 
 ### Router Tests
@@ -88,9 +99,9 @@ packages/logging  → (standalone, pino structured logging)
 8. Add E2E test specs for new UI features
 9. Update `CLAUDE.md` if adding new patterns, schemas, or routers
 
-## tRPC Routers (20 total)
+## tRPC Routers (24 total)
 
-`activities`, `analytics`, `campaigns`, `contacts`, `conversions`, `federationHealth`, `leadScoring`, `leads`, `notes`, `notifications`, `offers`, `opportunities`, `pipelines`, `preferences`, `search`, `tags`, `timeline`, `unifiedProfile`, `users`, `visitorTracking`
+`activities`, `analytics`, `campaigns`, `contacts`, `conversions`, `federationHealth`, `leadScoring`, `leads`, `notes`, `notifications`, `offers`, `opportunities`, `orders`, `pipelines`, `preferences`, `quotes`, `search`, `tags`, `timeline`, `unifiedProfile`, `users`, `visitorTracking`
 
 Admin-gated routers use `requireRole('admin')` middleware (e.g. `users`).
 
@@ -150,6 +161,12 @@ Visitors can try the full CRM via `/demo` without signing up. Architecture:
 7. **Exit**: `GET /demo/exit` clears cookie and redirects to `/`.
 
 To test demo mode locally: navigate to `http://localhost:3000/demo`.
+
+### Demo Federation Data
+Demo tenants (tenantId starting with `demo-`) bypass real federation providers. `UnifiedProfileService` detects demo tenants and returns mock data from `demo-federation-data.ts` — realistic provider responses for Janua identity, Dhanam billing, Cotiza orders, PravaraMES fabrication, and Forj 3D assets.
+
+### Seed Architecture
+The database seed script (`packages/db/src/seed.ts`) is a thin entry point (prod guard + import). The 13 sub-seeders live in `packages/db/src/seed/` with a shared `SeedIds` interface in `types.ts` and an orchestrator in `index.ts`. Similarly, `apps/web/src/lib/demo-seed.ts` is a transaction orchestrator (~80 lines) importing pure data builder functions from `demo-seed/data-builders.ts`.
 
 ## Architecture Decisions
 

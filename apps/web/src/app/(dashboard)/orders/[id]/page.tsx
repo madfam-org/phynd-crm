@@ -10,7 +10,10 @@ interface OrderDetailPageProps {
   params: Promise<{ id: string }>
 }
 
-const statusVariant: Record<string, 'default' | 'success' | 'destructive' | 'secondary' | 'warning'> = {
+const statusVariant: Record<
+  string,
+  'default' | 'success' | 'destructive' | 'secondary' | 'warning'
+> = {
   cancelled: 'destructive',
   confirmed: 'default',
   fulfilled: 'success',
@@ -69,9 +72,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <div>
             <span className="text-sm text-muted-foreground">Actual Completion</span>
             <p className="font-medium">
-              {order.actualCompletion
-                ? new Date(order.actualCompletion).toLocaleDateString()
-                : '—'}
+              {order.actualCompletion ? new Date(order.actualCompletion).toLocaleDateString() : '—'}
             </p>
           </div>
           {quote && (
@@ -88,7 +89,10 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <div>
               <span className="text-sm text-muted-foreground">Opportunity</span>
               <p className="font-medium">
-                <Link href={`/opportunities/${opportunity.id}`} className="text-primary hover:underline">
+                <Link
+                  href={`/opportunities/${opportunity.id}`}
+                  className="text-primary hover:underline"
+                >
                   {opportunity.name}
                 </Link>
               </p>

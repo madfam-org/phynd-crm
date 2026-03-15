@@ -84,105 +84,136 @@ export class LeadScoringService {
       .from(leadScoringRules)
       .where(eq(leadScoringRules.isActive, true))
 
-    let demographicScore = 0
-    let behaviorScore = 0
-    let engagementScore = 0
-    const breakdown: Record<string, number> = {}
+    const visitorData = await this.fetchVisitorData(lead.contactId)
+    const scores = this.computeCategoryScores(rules, lead, visitorData)
 
-    // Get visitor session data for behavior scoring
-    let sessionCount = 0
-    let totalPageViews = 0
-    let pageUrls: string[] = []
-    if (lead.contactId) {
-      const sessions = await this.ctx.db
-        .select({
-          count: sql<number>`count(*)::int`,
-          pageViews: sql<number>`coalesce(sum(${visitorSessions.pageViewCount}), 0)::int`,
-        })
-        .from(visitorSessions)
-        .where(eq(visitorSessions.contactId, lead.contactId))
-      if (sessions[0]) {
-        sessionCount = sessions[0].count
-        totalPageViews = sessions[0].pageViews
-      }
+    return this.upsertScore(leadId, scores)
+  }
 
-      // Get page-level URLs for URL-based scoring conditions
-      const sessionIds = await this.ctx.db
-        .select({ id: visitorSessions.id })
-        .from(visitorSessions)
-        .where(eq(visitorSessions.contactId, lead.contactId))
-      if (sessionIds.length > 0) {
-        const pages = await this.ctx.db
-          .select({ url: visitorPageViews.url })
-          .from(visitorPageViews)
-          .where(
-            sql`${visitorPageViews.sessionId} in (${sql.join(
-              sessionIds.map((s) => sql`${s.id}`),
-              sql`, `,
-            )})`,
-          )
-        pageUrls = pages.map((p) => p.url)
+  private async fetchVisitorData(contactId: string | null) {
+    const empty = { sessionCount: 0, totalPageViews: 0, pageUrls: [] as string[] }
+    if (!contactId) return empty
+
+    const sessions = await this.ctx.db
+      .select({
+        count: sql<number>`count(*)::int`,
+        pageViews: sql<number>`coalesce(sum(${visitorSessions.pageViewCount}), 0)::int`,
+      })
+      .from(visitorSessions)
+      .where(eq(visitorSessions.contactId, contactId))
+
+    const sessionCount = sessions[0]?.count ?? 0
+    const totalPageViews = sessions[0]?.pageViews ?? 0
+
+    const sessionIds = await this.ctx.db
+      .select({ id: visitorSessions.id })
+      .from(visitorSessions)
+      .where(eq(visitorSessions.contactId, contactId))
+
+    if (sessionIds.length === 0) return { sessionCount, totalPageViews, pageUrls: [] as string[] }
+
+    const pages = await this.ctx.db
+      .select({ url: visitorPageViews.url })
+      .from(visitorPageViews)
+      .where(
+        sql`${visitorPageViews.sessionId} in (${sql.join(
+          sessionIds.map((s) => sql`${s.id}`),
+          sql`, `,
+        )})`,
+      )
+
+    return { sessionCount, totalPageViews, pageUrls: pages.map((p) => p.url) }
+  }
+
+  private matchCondition(
+    condition: ScoringCondition,
+    lead: { source: string | null; status: string; contactId: string | null },
+    visitorData: { sessionCount: number; totalPageViews: number; pageUrls: string[] },
+  ): boolean {
+    switch (condition.field) {
+      case 'source':
+        return this.evaluateCondition(lead.source, condition)
+      case 'status':
+        return this.evaluateCondition(lead.status, condition)
+      case 'session_count':
+        return this.evaluateCondition(visitorData.sessionCount, condition)
+      case 'page_view_count':
+        return this.evaluateCondition(visitorData.totalPageViews, condition)
+      case 'has_contact':
+        return condition.operator === 'exists' ? lead.contactId != null : false
+      case 'page_url':
+        return this.matchPageUrl(condition, visitorData.pageUrls)
+      case '3d_asset_views': {
+        const count = visitorData.pageUrls.filter((url) => url.startsWith('forj://')).length
+        return this.evaluateCondition(count, condition)
       }
+      default:
+        return false
     }
+  }
+
+  private matchPageUrl(condition: ScoringCondition, pageUrls: string[]): boolean {
+    if (condition.operator === 'contains' && typeof condition.value === 'string') {
+      return pageUrls.some((url) => url.includes(condition.value as string))
+    }
+    if (condition.operator === 'eq' && typeof condition.value === 'string') {
+      return pageUrls.some((url) => url === condition.value)
+    }
+    return false
+  }
+
+  private addToCategory(
+    category: string,
+    points: number,
+    scores: { demographic: number; behavior: number; engagement: number },
+  ) {
+    switch (category) {
+      case 'demographic':
+        scores.demographic += points
+        break
+      case 'behavior':
+        scores.behavior += points
+        break
+      default:
+        scores.engagement += points
+    }
+  }
+
+  private computeCategoryScores(
+    rules: { id: string; points: number; category: string; condition: unknown }[],
+    lead: { source: string | null; status: string; contactId: string | null },
+    visitorData: { sessionCount: number; totalPageViews: number; pageUrls: string[] },
+  ) {
+    const scores = { demographic: 0, behavior: 0, engagement: 0 }
+    const breakdown: Record<string, number> = {}
 
     for (const rule of rules) {
       const condition = rule.condition as ScoringCondition
-      let matches = false
-
-      switch (condition.field) {
-        case 'source':
-          matches = this.evaluateCondition(lead.source, condition)
-          break
-        case 'status':
-          matches = this.evaluateCondition(lead.status, condition)
-          break
-        case 'session_count':
-          matches = this.evaluateCondition(sessionCount, condition)
-          break
-        case 'page_view_count':
-          matches = this.evaluateCondition(totalPageViews, condition)
-          break
-        case 'has_contact':
-          matches = condition.operator === 'exists' ? lead.contactId != null : false
-          break
-        case 'page_url':
-          // Check if any visited page URL matches the condition
-          if (condition.operator === 'contains' && typeof condition.value === 'string') {
-            matches = pageUrls.some((url) => url.includes(condition.value as string))
-          } else if (condition.operator === 'eq' && typeof condition.value === 'string') {
-            matches = pageUrls.some((url) => url === condition.value)
-          }
-          break
-        case '3d_asset_views': {
-          // Count 3D asset interaction events (forj:// URLs)
-          const assetViewCount = pageUrls.filter((url) => url.startsWith('forj://')).length
-          matches = this.evaluateCondition(assetViewCount, condition)
-          break
-        }
-      }
-
-      if (matches) {
+      if (this.matchCondition(condition, lead, visitorData)) {
         breakdown[rule.id] = rule.points
-
-        switch (rule.category) {
-          case 'demographic':
-            demographicScore += rule.points
-            break
-          case 'behavior':
-            behaviorScore += rule.points
-            break
-          case 'engagement':
-            engagementScore += rule.points
-            break
-          default:
-            engagementScore += rule.points
-        }
+        this.addToCategory(rule.category, rule.points, scores)
       }
     }
 
-    const totalScore = demographicScore + behaviorScore + engagementScore
+    return {
+      demographicScore: scores.demographic,
+      behaviorScore: scores.behavior,
+      engagementScore: scores.engagement,
+      totalScore: scores.demographic + scores.behavior + scores.engagement,
+      breakdown,
+    }
+  }
 
-    // Upsert the score
+  private async upsertScore(
+    leadId: string,
+    scores: {
+      totalScore: number
+      demographicScore: number
+      behaviorScore: number
+      engagementScore: number
+      breakdown: Record<string, number>
+    },
+  ) {
     const existing = await this.ctx.db
       .select()
       .from(leadScores)
@@ -192,14 +223,7 @@ export class LeadScoringService {
     if (existing.length > 0) {
       const [updated] = await this.ctx.db
         .update(leadScores)
-        .set({
-          totalScore,
-          demographicScore,
-          behaviorScore,
-          engagementScore,
-          breakdown,
-          computedAt: new Date(),
-        })
+        .set({ ...scores, computedAt: new Date() })
         .where(eq(leadScores.leadId, leadId))
         .returning()
       return updated ?? null
@@ -207,14 +231,7 @@ export class LeadScoringService {
 
     const [created] = await this.ctx.db
       .insert(leadScores)
-      .values({
-        leadId,
-        totalScore,
-        demographicScore,
-        behaviorScore,
-        engagementScore,
-        breakdown,
-      })
+      .values({ leadId, ...scores })
       .returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
     return created!

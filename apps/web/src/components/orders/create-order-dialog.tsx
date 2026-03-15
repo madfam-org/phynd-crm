@@ -174,10 +174,7 @@ export function CreateOrderDialog() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={createMutation.isPending || !orderNumber}
-            >
+            <Button type="submit" disabled={createMutation.isPending || !orderNumber}>
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>

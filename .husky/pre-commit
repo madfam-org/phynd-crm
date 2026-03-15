@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+WARN=600
+ERROR=800
+EXCLUDE="(__tests__|\.test\.|\.spec\.|\.e2e\.|/tests/|/migrations/|\.gen\.ts|node_modules|\.d\.ts)"
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -vE "$EXCLUDE")
+[ -z "$STAGED" ] && exit 0
+
+HAS_ERROR=0
+for FILE in $STAGED; do
+  [ ! -f "$FILE" ] && continue
+  LINES=$(wc -l < "$FILE" | tr -d ' ')
+  if [ "$LINES" -ge "$ERROR" ]; then
+    echo "ERROR: $FILE has $LINES lines (limit: $ERROR)"
+    HAS_ERROR=1
+  elif [ "$LINES" -ge "$WARN" ]; then
+    echo "WARNING: $FILE has $LINES lines (soft limit: $WARN)"
+  fi
+done
+
+[ "$HAS_ERROR" -eq 1 ] && echo "" && echo "Commit blocked. Split files exceeding $ERROR lines." && exit 1
+exit 0

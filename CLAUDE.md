@@ -11,7 +11,7 @@ Phyne is a phygital CRM — "Synthetic Single Pane of Glass" that federates data
 - **Cache/Queue**: Redis (ioredis) + BullMQ
 - **Auth**: Auth.js v5 with Janua as OIDC provider
 - **Theming**: next-themes (dark mode via `.dark` class)
-- **Tooling**: Biome (lint/format), Vitest + Playwright (test)
+- **Tooling**: Biome (lint/format), Vitest + Playwright (test), husky (pre-commit hooks)
 
 ## Project Structure
 ```
@@ -26,6 +26,7 @@ packages/logging  — Structured logging (pino)
 packages/types    — Shared TypeScript types
 packages/ui       — Shared UI primitives
 tooling/          — Shared tsconfig, biome config
+.husky/           — Pre-commit hooks (file size enforcement)
 .github/workflows — CI/CD (ci.yml, e2e.yml)
 docker/           — Dockerfile.web, Dockerfile.worker, docker-compose.yml, docker-compose.prod.yml
 ```
@@ -59,7 +60,7 @@ pnpm db:seed          # Seed database
 - **Fabrication activities**: PravaraMES webhook auto-creates CRM activities on fabrication status changes
 - **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` and `/demo` unauthenticated
 - **Demo mode**: Cookie-based (`phyne-demo={sessionId}`, httpOnly, 4h expiry). `/demo` route generates session, seeds per-session tenant (`demo-{sessionId}`), redirects to `/overview`. Demo users get admin role, isolated tenant. `/demo/exit` clears cookie. Dashboard layout shows DemoBanner + DEMO badge in sidebar. Cleanup via BullMQ job (every 1h, removes data > 4h old)
-- **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — creates user, pipeline, 6 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification (~62 rows). Leads/opps/quotes/orders backdated across 25 days for analytics trends. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
+- **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — transaction orchestrator importing data builders from `demo-seed/data-builders.ts`; creates user, pipeline, 6 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification (~62 rows). Leads/opps/quotes/orders backdated across 25 days for analytics trends. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
@@ -77,6 +78,11 @@ pnpm db:seed          # Seed database
 - **Feature flag enforcement**: 5 gated routers (lead-scoring, visitor-tracking, analytics, offers, campaigns) check `isFeatureEnabled()` at the top of each procedure; throw `TRPCError({ code: 'PRECONDITION_FAILED' })` when disabled
 - **Bulk array caps**: `bulkUpdateStatus` on leads/opportunities capped at `.max(100)` items via Zod
 - **Seed guard**: `seed.ts` exits with error when `NODE_ENV=production`
+- **Seed architecture**: `packages/db/src/seed.ts` is a thin entry point; 13 sub-seeders live in `packages/db/src/seed/` (types, users-pipeline, contacts, leads-opps, quotes-orders, activities-notes, offers-campaigns, conversions, visitor-data, scoring-rules, external-refs, stage-transitions, preferences, tags-notifications); orchestrator in `seed/index.ts`
+- **Demo seed architecture**: `apps/web/src/lib/demo-seed.ts` is a transaction orchestrator (~80 lines); 19 pure data builder functions live in `demo-seed/data-builders.ts`
+- **Demo federation data**: `UnifiedProfileService` returns mock federation data for demo tenants (`demo-*` tenantId) via `demo-federation-data.ts` — no external API calls in demo mode
+- **Pre-commit hook**: husky pre-commit checks staged `.ts`/`.tsx` files (excludes tests, migrations, generated files); warns at 600 lines, blocks at 800 lines
+- **File size limits**: Source files should stay under 600 lines; pre-commit blocks commits with files over 800 lines
 - **Delete confirmations**: Offers, campaigns, and scoring rules use confirmation dialogs (no direct inline mutation)
 - **Scoring rules CRUD UI**: Full create/edit/delete dialogs in `components/scoring/`
 - **Pipeline CRUD**: Full create/update/delete for pipelines and stages; delete rejects default pipeline (`ValidationError`) and pipelines/stages with FK references (`ConflictError`); reorder stages via transaction
@@ -87,6 +93,8 @@ pnpm db:seed          # Seed database
 - **EntityType**: `'contact' | 'lead' | 'opportunity' | 'order' | 'quote'` — timeline, notes, tags, activities all support quotes and orders; DB columns are varchar (not enum)
 - **Quote/order analytics**: `getQuoteFunnel()`, `getOrderFunnel()`, `getQuoteToOrderRate()` — aggregate by status with soft-delete filtering
 - **Landing page**: Hero with CSS-only dashboard mockup (browser frame + KPI cards + chart + table), "Try Live Demo" CTA. Social proof section with factual metrics. 11 marketing sections total
+- **Lead scoring refactoring**: `computeScore()` decomposed into private methods (`fetchVisitorData`, `matchCondition`, `matchPageUrl`, `addToCategory`, `computeCategoryScores`, `upsertScore`)
+- **At-risk deals refactoring**: `getAtRiskDeals()` decomposed into `computeTransitionMetrics`, `computeStageAverages`, `identifyAtRiskDeals`
 
 ## DB Schema
 users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores

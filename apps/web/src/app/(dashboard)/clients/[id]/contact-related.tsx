@@ -27,12 +27,38 @@ const OPP_STATUS_VARIANT: Record<
   lost: 'error',
 }
 
+const QUOTE_STATUS_VARIANT: Record<
+  string,
+  'default' | 'secondary' | 'success' | 'warning' | 'error'
+> = {
+  accepted: 'success',
+  declined: 'error',
+  draft: 'secondary',
+  expired: 'warning',
+  sent: 'default',
+}
+
+const ORDER_STATUS_VARIANT: Record<
+  string,
+  'default' | 'secondary' | 'success' | 'warning' | 'error'
+> = {
+  cancelled: 'error',
+  confirmed: 'default',
+  fulfilled: 'success',
+  in_production: 'warning',
+  pending: 'secondary',
+}
+
 export function ContactRelated({ contactId }: ContactRelatedProps) {
   const { data: leadsData } = trpc.leads.listByContactId.useQuery({ contactId })
   const { data: oppsData } = trpc.opportunities.listByContactId.useQuery({ contactId })
+  const { data: quotesData } = trpc.quotes.listByContactId.useQuery({ contactId })
+  const { data: ordersData } = trpc.orders.listByContactId.useQuery({ contactId })
 
   const leads = leadsData?.items ?? []
   const opportunities = oppsData?.items ?? []
+  const quotes = quotesData?.items ?? []
+  const orders = ordersData?.items ?? []
 
   return (
     <div className="space-y-6">
@@ -85,6 +111,60 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
                   </div>
                 </div>
                 <Badge variant={OPP_STATUS_VARIANT[opp.status] ?? 'secondary'}>{opp.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Related Quotes */}
+      <section>
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Related Quotes</h3>
+        {quotes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No related quotes.</p>
+        ) : (
+          <div className="space-y-2">
+            {quotes.map((quote) => (
+              <div key={quote.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{quote.quoteNumber}</span>
+                    {quote.totalAmount && (
+                      <span className="text-xs text-muted-foreground">
+                        ${Number(quote.totalAmount).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Badge variant={QUOTE_STATUS_VARIANT[quote.status] ?? 'secondary'}>{quote.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Related Orders */}
+      <section>
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Related Orders</h3>
+        {orders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No related orders.</p>
+        ) : (
+          <div className="space-y-2">
+            {orders.map((order) => (
+              <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{order.orderNumber}</span>
+                    {order.totalAmount && (
+                      <span className="text-xs text-muted-foreground">
+                        ${Number(order.totalAmount).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? 'secondary'}>
+                  {order.status.replace('_', ' ')}
+                </Badge>
               </div>
             ))}
           </div>

@@ -34,7 +34,7 @@ export const activitiesRouter = router({
   listForEntity: protectedProcedure
     .input(
       z.object({
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )
@@ -50,7 +50,7 @@ export const activitiesRouter = router({
         title: z.string().min(1).max(255),
         description: z.string().optional(),
         dueAt: z.date().optional(),
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )

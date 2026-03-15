@@ -196,4 +196,22 @@ export const analyticsRouter = router({
     const service = new AnalyticsService(ctx)
     return service.getDashboardSummary(toDateRange(input ?? undefined))
   }),
+
+  quoteFunnel: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getQuoteFunnel()
+  }),
+
+  orderFunnel: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getOrderFunnel()
+  }),
+
+  quoteToOrderRate: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getQuoteToOrderRate()
+  }),
 })

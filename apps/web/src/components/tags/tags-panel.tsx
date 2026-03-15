@@ -3,12 +3,13 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { trpc } from '@/lib/trpc/client'
+import type { EntityType } from '@phyne/types/crm'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AddTagDialog } from './add-tag-dialog'
 
 interface TagsPanelProps {
-  entityType: 'contact' | 'lead' | 'opportunity'
+  entityType: EntityType
   entityId: string
 }
 

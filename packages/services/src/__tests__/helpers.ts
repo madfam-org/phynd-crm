@@ -217,6 +217,26 @@ export function makeLead(overrides: Record<string, unknown> = {}) {
   }
 }
 
+export function makeOrder(overrides: Record<string, unknown> = {}) {
+  return {
+    actualCompletion: null,
+    contactId: null,
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    currency: 'USD',
+    deletedAt: null,
+    estimatedCompletion: null,
+    id: 'order-001',
+    opportunityId: null,
+    orderNumber: 'ORD-2025-001',
+    ownerId: null,
+    quoteId: null,
+    status: 'pending',
+    totalAmount: '15000.00',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
 export function makeNote(overrides: Record<string, unknown> = {}) {
   return {
     authorId: 'test-user',
@@ -446,6 +466,24 @@ export function makePageView(overrides: Record<string, unknown> = {}) {
     title: 'Home',
     url: 'https://example.com/',
     viewedAt: new Date('2025-01-15T10:00:00Z'),
+    ...overrides,
+  }
+}
+
+export function makeQuote(overrides: Record<string, unknown> = {}) {
+  return {
+    contactId: null,
+    createdAt: new Date('2025-01-15T10:00:00Z'),
+    currency: 'USD',
+    deletedAt: null,
+    id: 'quote-001',
+    opportunityId: null,
+    ownerId: null,
+    quoteNumber: 'Q-2025-001',
+    status: 'draft',
+    totalAmount: '5000.00',
+    updatedAt: new Date('2025-01-15T10:00:00Z'),
+    validUntil: null,
     ...overrides,
   }
 }

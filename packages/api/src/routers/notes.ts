@@ -6,7 +6,7 @@ export const notesRouter = router({
   listForEntity: protectedProcedure
     .input(
       z.object({
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )
@@ -19,7 +19,7 @@ export const notesRouter = router({
     .input(
       z.object({
         content: z.string().min(1),
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
         isPinned: z.boolean().optional(),
       }),

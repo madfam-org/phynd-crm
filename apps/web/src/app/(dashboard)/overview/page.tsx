@@ -6,7 +6,7 @@ import { getServerCaller } from '@/lib/trpc/server'
 
 export default async function DashboardPage() {
   const caller = await getServerCaller()
-  const [contacts, leads, opportunities, conversions, revenueByStatus, activities, weighted] =
+  const [contacts, leads, opportunities, conversions, revenueByStatus, activities, weighted, quotesData, ordersData] =
     await Promise.all([
       caller.contacts.list(),
       caller.leads.list(),
@@ -15,10 +15,14 @@ export default async function DashboardPage() {
       caller.analytics.revenueByStatus(),
       caller.activities.list({ limit: 5 }),
       caller.analytics.weightedPipelineValue(),
+      caller.quotes.list(),
+      caller.orders.list(),
     ])
 
   const openOpps = opportunities.items.filter((o) => o.status === 'open')
   const pipelineValue = openOpps.reduce((sum, o) => sum + Number(o.value ?? 0), 0)
+  const openQuotes = quotesData.items.filter((q) => q.status === 'draft' || q.status === 'sent')
+  const activeOrders = ordersData.items.filter((o) => o.status !== 'fulfilled' && o.status !== 'cancelled')
 
   return (
     <div className="space-y-6">
@@ -46,6 +50,16 @@ export default async function DashboardPage() {
           title="Pipeline Value"
           value={`$${pipelineValue.toLocaleString()}`}
           description={`Weighted: $${weighted.weightedValue.toLocaleString()}`}
+        />
+        <DashboardCard
+          title="Open Quotes"
+          value={String(openQuotes.length)}
+          description={`${quotesData.items.length} total quotes`}
+        />
+        <DashboardCard
+          title="Active Orders"
+          value={String(activeOrders.length)}
+          description={`${ordersData.items.length} total orders`}
         />
       </div>
 

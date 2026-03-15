@@ -2,10 +2,11 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { EntityType } from '@phyne/types/crm'
 import { Activity, ArrowRight, FileText } from 'lucide-react'
 
 interface EntityTimelineProps {
-  entityType: 'contact' | 'lead' | 'opportunity'
+  entityType: EntityType
   entityId: string
 }
 

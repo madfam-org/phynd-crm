@@ -4,7 +4,9 @@ import {
   healthSnapshots,
   leads,
   opportunities,
+  orders,
   pipelineStages,
+  quotes,
   stageTransitions,
   visitorSessions,
 } from '@phyne/db/schema'
@@ -494,6 +496,62 @@ export class AnalyticsService {
       weightedPipelineValue: weighted.weightedValue,
       recentVisitors: recentVisitors?.count ?? 0,
       winRate: winRate.winRate,
+    }
+  }
+
+  async getQuoteFunnel() {
+    const rows = await this.ctx.db
+      .select({
+        count: sql<number>`count(*)::int`,
+        status: quotes.status,
+        totalValue: sql<number>`coalesce(sum(${quotes.totalAmount}::numeric), 0)::numeric`,
+      })
+      .from(quotes)
+      .where(isNull(quotes.deletedAt))
+      .groupBy(quotes.status)
+
+    return rows
+  }
+
+  async getOrderFunnel() {
+    const rows = await this.ctx.db
+      .select({
+        count: sql<number>`count(*)::int`,
+        status: orders.status,
+        totalValue: sql<number>`coalesce(sum(${orders.totalAmount}::numeric), 0)::numeric`,
+      })
+      .from(orders)
+      .where(isNull(orders.deletedAt))
+      .groupBy(orders.status)
+
+    return rows
+  }
+
+  async getQuoteToOrderRate() {
+    const [quoteResult] = await this.ctx.db
+      .select({
+        accepted: sql<number>`count(*) filter (where ${quotes.status} = 'accepted')::int`,
+        total: sql<number>`count(*)::int`,
+      })
+      .from(quotes)
+      .where(isNull(quotes.deletedAt))
+
+    const [orderResult] = await this.ctx.db
+      .select({
+        total: sql<number>`count(*)::int`,
+      })
+      .from(orders)
+      .where(isNull(orders.deletedAt))
+
+    const acceptedQuotes = quoteResult?.accepted ?? 0
+    const totalOrders = orderResult?.total ?? 0
+    const rate = acceptedQuotes > 0 ? Number(((totalOrders / acceptedQuotes) * 100).toFixed(1)) : 0
+
+    return {
+      acceptedQuotes,
+      rate,
+      totalOrders,
+      totalQuotes: quoteResult?.total ?? 0,
     }
   }
 }

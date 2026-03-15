@@ -38,7 +38,7 @@ export const tagsRouter = router({
     .input(
       z.object({
         tagId: z.string().uuid(),
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )
@@ -51,7 +51,7 @@ export const tagsRouter = router({
     .input(
       z.object({
         tagId: z.string().uuid(),
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )
@@ -63,7 +63,7 @@ export const tagsRouter = router({
   getForEntity: protectedProcedure
     .input(
       z.object({
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )

@@ -6,7 +6,7 @@ export const timelineRouter = router({
   getTimeline: protectedProcedure
     .input(
       z.object({
-        entityType: z.enum(['contact', 'lead', 'opportunity']),
+        entityType: z.enum(['contact', 'lead', 'opportunity', 'order', 'quote']),
         entityId: z.string().uuid(),
       }),
     )

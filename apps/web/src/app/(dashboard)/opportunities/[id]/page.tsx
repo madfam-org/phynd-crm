@@ -23,9 +23,11 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
   const opp = await caller.opportunities.getById({ id })
   if (!opp) notFound()
 
-  const [contact, stages] = await Promise.all([
+  const [contact, stages, relatedQuotes, relatedOrders] = await Promise.all([
     opp.contactId ? caller.contacts.getById({ id: opp.contactId }) : null,
     opp.pipelineId ? caller.pipelines.getStages({ pipelineId: opp.pipelineId }) : [],
+    caller.quotes.listByOpportunityId({ opportunityId: id }),
+    caller.orders.listByOpportunityId({ opportunityId: id }),
   ])
 
   const stageName = stages.find((s) => s.id === opp.stageId)?.name ?? null
@@ -81,6 +83,61 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
           </div>
         </div>
       </div>
+
+      {(relatedQuotes.items.length > 0 || relatedOrders.items.length > 0) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {relatedQuotes.items.length > 0 && (
+            <div className="rounded-lg border bg-card p-6">
+              <h3 className="mb-4 text-lg font-semibold">Related Quotes</h3>
+              <div className="space-y-2">
+                {relatedQuotes.items.map((quote) => (
+                  <div key={quote.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/quotes/${quote.id}`} className="text-sm font-medium text-primary hover:underline">
+                          {quote.quoteNumber}
+                        </Link>
+                        {quote.totalAmount && (
+                          <span className="text-xs text-muted-foreground">
+                            ${Number(quote.totalAmount).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={quote.status === 'accepted' ? 'success' : 'default'}>{quote.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {relatedOrders.items.length > 0 && (
+            <div className="rounded-lg border bg-card p-6">
+              <h3 className="mb-4 text-lg font-semibold">Related Orders</h3>
+              <div className="space-y-2">
+                {relatedOrders.items.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/orders/${order.id}`} className="text-sm font-medium text-primary hover:underline">
+                          {order.orderNumber}
+                        </Link>
+                        {order.totalAmount && (
+                          <span className="text-xs text-muted-foreground">
+                            ${Number(order.totalAmount).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={order.status === 'fulfilled' ? 'success' : 'default'}>
+                      {order.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">

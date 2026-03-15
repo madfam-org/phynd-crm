@@ -110,4 +110,28 @@ describe('activities router', () => {
     })
     expect(result).toHaveProperty('items')
   })
+
+  it('create accepts quote entityType', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    await expect(
+      caller.activities.create({
+        entityId: '00000000-0000-0000-0000-000000000001',
+        entityType: 'quote',
+        title: 'Review quote pricing',
+        type: 'task',
+      }),
+    ).resolves.not.toThrow()
+  })
+
+  it('listForEntity accepts order entityType', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.activities.listForEntity({
+      entityId: '00000000-0000-0000-0000-000000000001',
+      entityType: 'order',
+    })
+    expect(result).toBeDefined()
+  })
 })

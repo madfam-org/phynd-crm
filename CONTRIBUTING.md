@@ -118,6 +118,13 @@ Contacts support bulk import via `bulkCreate()` (max 500 per call). The CSV pars
 ### Task Reminders
 A repeatable BullMQ job (`task-reminders`) scans every 4 hours for activities due within 24 hours and creates notifications. See ADR-006 for design rationale. Deduplication prevents notification spam (checks for existing `task_reminder` notification per activity within 24h).
 
+### Quotes & Orders (Post-Opportunity Lifecycle)
+CRM-native quotes and orders bridge opportunities to Cotiza/PravaraMES federation data. Both entities follow the opportunities pattern: soft deletes, owner notifications, cursor pagination, owner-scoped `listMine`.
+
+**Key behavior**: When an order's status changes to `fulfilled` and it has a linked `opportunityId`, the service auto-marks the opportunity as `won` and records an `opportunity_to_won` conversion. This uses a non-blocking try/catch pattern (same as owner assignment notifications).
+
+**EntityType extension**: `EntityType` now includes `'quote' | 'order'`. Timeline, notes, tags, and activities all work with these entities — DB columns are varchar, not enum. When adding new entity types in the future, update the Zod enum in tags, notes, activities, and timeline routers.
+
 ### Bulk Operation Caps
 `bulkUpdateStatus` on leads/opportunities is capped at 100 items via Zod `.max(100)`. Router tests verify both the happy path (<=100 ids) and the rejection (>100 ids).
 

@@ -1,4 +1,7 @@
-export type EntityType = 'contact' | 'lead' | 'opportunity'
+export type EntityType = 'contact' | 'lead' | 'opportunity' | 'order' | 'quote'
+
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
+export type OrderStatus = 'pending' | 'confirmed' | 'in_production' | 'fulfilled' | 'cancelled'
 
 export interface Contact {
   id: string

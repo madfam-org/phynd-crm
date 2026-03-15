@@ -15,6 +15,13 @@
       "when": 1773523305544,
       "tag": "0001_next_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773534116009,
+      "tag": "0002_fancy_vindicator",
+      "breakpoints": true
     }
   ]
 }

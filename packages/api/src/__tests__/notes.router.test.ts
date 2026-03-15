@@ -126,4 +126,28 @@ describe('notes router', () => {
     // togglePin reads then updates; mock returns [] so existing is undefined, returns null
     expect(result).toBeNull()
   })
+
+  it('listForEntity accepts quote entityType', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.notes.listForEntity({
+      entityId: '00000000-0000-0000-0000-000000000001',
+      entityType: 'quote',
+    })
+    expect(result).toBeDefined()
+    expect(Array.isArray(result)).toBe(true)
+  })
+
+  it('create accepts order entityType', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    await expect(
+      caller.notes.create({
+        content: 'Order fulfillment note',
+        entityId: '00000000-0000-0000-0000-000000000001',
+        entityType: 'order',
+      }),
+    ).resolves.not.toThrow()
+  })
 })

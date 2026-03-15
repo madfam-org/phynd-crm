@@ -144,4 +144,30 @@ describe('tags router', () => {
     expect(result).toBeDefined()
     expect(Array.isArray(result)).toBe(true)
   })
+
+  it('addToEntity accepts quote entityType', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    await expect(
+      caller.tags.addToEntity({
+        entityId: '00000000-0000-0000-0000-000000000002',
+        entityType: 'quote',
+        tagId: '00000000-0000-0000-0000-000000000001',
+      }),
+    ).resolves.not.toThrow()
+  })
+
+  it('addToEntity accepts order entityType', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    await expect(
+      caller.tags.addToEntity({
+        entityId: '00000000-0000-0000-0000-000000000002',
+        entityType: 'order',
+        tagId: '00000000-0000-0000-0000-000000000001',
+      }),
+    ).resolves.not.toThrow()
+  })
 })

@@ -10,7 +10,9 @@ import { notes } from './schema/notes'
 import { notifications } from './schema/notifications'
 import { offers } from './schema/offers'
 import { opportunities } from './schema/opportunities'
+import { orders } from './schema/orders'
 import { pipelineStages, pipelines } from './schema/pipelines'
+import { quotes } from './schema/quotes'
 import { roleViewPreferences } from './schema/role-preferences'
 import { stageTransitions } from './schema/stage-transitions'
 import { taggables, tags } from './schema/tags'
@@ -194,7 +196,79 @@ async function seed() {
     ])
     .returning()
 
-  // 7. Create sample activities
+  // 7. Create sample quotes
+  const sampleQuotes = await db
+    .insert(quotes)
+    .values([
+      {
+        quoteNumber: 'Q-2025-001',
+        opportunityId: sampleOpps[0]?.id,
+        contactId: sampleContacts[0]?.id,
+        status: 'sent',
+        totalAmount: '48000.00',
+        currency: 'USD',
+        validUntil: new Date('2025-06-30'),
+        ownerId: adminId,
+      },
+      {
+        quoteNumber: 'Q-2025-002',
+        opportunityId: sampleOpps[1]?.id,
+        contactId: sampleContacts[1]?.id,
+        status: 'accepted',
+        totalAmount: '25000.00',
+        currency: 'USD',
+        validUntil: new Date('2025-04-30'),
+        ownerId: adminId,
+      },
+      {
+        quoteNumber: 'Q-2025-003',
+        opportunityId: sampleOpps[2]?.id,
+        contactId: sampleContacts[2]?.id,
+        status: 'accepted',
+        totalAmount: '80000.00',
+        currency: 'USD',
+        ownerId: adminId,
+      },
+    ])
+    .returning()
+
+  // 8. Create sample orders
+  await db.insert(orders).values([
+    {
+      orderNumber: 'ORD-2025-001',
+      opportunityId: sampleOpps[1]?.id,
+      quoteId: sampleQuotes[1]?.id,
+      contactId: sampleContacts[1]?.id,
+      status: 'confirmed',
+      totalAmount: '25000.00',
+      currency: 'USD',
+      estimatedCompletion: new Date('2025-05-15'),
+      ownerId: adminId,
+    },
+    {
+      orderNumber: 'ORD-2025-002',
+      opportunityId: sampleOpps[2]?.id,
+      quoteId: sampleQuotes[2]?.id,
+      contactId: sampleContacts[2]?.id,
+      status: 'fulfilled',
+      totalAmount: '80000.00',
+      currency: 'USD',
+      estimatedCompletion: new Date('2025-03-01'),
+      actualCompletion: new Date('2025-02-28'),
+      ownerId: adminId,
+    },
+    {
+      orderNumber: 'ORD-2025-003',
+      contactId: sampleContacts[3]?.id,
+      status: 'in_production',
+      totalAmount: '12000.00',
+      currency: 'USD',
+      estimatedCompletion: new Date('2025-07-01'),
+      ownerId: adminId,
+    },
+  ])
+
+  // 9. Create sample activities
   await db.insert(activities).values([
     {
       type: 'call',

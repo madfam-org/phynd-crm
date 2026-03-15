@@ -80,9 +80,12 @@ pnpm db:seed          # Seed database
 - **Time-series analytics**: 4 trend methods (`getLeadTrend`, `getOpportunityTrend`, `getConversionTrend`, `getVisitorTrend`) using `date_trunc()` + GROUP BY with required date range and `day`/`week`/`month` bucketing
 - **CSV import**: `ContactsService.bulkCreate()` (max 500, wrapped in transaction); CSV parser handles RFC 4180 (quoted commas, BOM)
 - **Task reminders**: Repeatable BullMQ job (`task-reminders`, every 4h) scans activities due within 24h, creates notifications with 24h dedup; see ADR-006
+- **Order fulfillment → opp won**: When order status changes to `fulfilled` and `opportunityId` is set, auto-marks linked opportunity as `won` + records `opportunity_to_won` conversion in transaction; non-blocking try/catch pattern
+- **EntityType**: `'contact' | 'lead' | 'opportunity' | 'order' | 'quote'` — timeline, notes, tags, activities all support quotes and orders; DB columns are varchar (not enum)
+- **Quote/order analytics**: `getQuoteFunnel()`, `getOrderFunnel()`, `getQuoteToOrderRate()` — aggregate by status with soft-delete filtering
 
 ## DB Schema
-users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
+users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
 
 ### Indexes
 - leads: `contact_id`, composite `(pipeline_id, stage_id)`
@@ -95,14 +98,16 @@ users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, n
 - visitor_page_views: `session_id`
 - conversions: `campaign_id`, `contact_id`, `lead_id`, `visitor_session_id`, partial unique `(type, lead_id)`, partial unique `(type, opportunity_id)`
 - stage_transitions: composite `(entity_type, entity_id)`, composite `(to_stage_id, from_stage_id)`
+- quotes: `opportunity_id`, `contact_id`
+- orders: `opportunity_id`, `contact_id`, `quote_id`
 - lead_scores: unique `lead_id`
 - notifications: `user_id`, composite `(user_id, is_read)`
 
 ### Soft Delete Columns
-- contacts, leads, opportunities: `deleted_at` (nullable timestamp)
+- contacts, leads, opportunities, quotes, orders: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead)
+contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead)
 
 ## Feature Flags (12 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
@@ -151,8 +156,16 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - **Offers CRUD**: Full create/edit/delete with enhanced create form (value, currency, dates, max redemptions); delete uses confirmation dialog
 - **Campaigns page**: Full CRUD data table with create/edit/delete, channel badges, UTM tracking, linked offers, budget/spend; delete uses confirmation dialog
 - **Scoring rules CRUD**: Full create/edit/delete UI at `/settings/scoring` with edit-scoring-rule-dialog, delete-scoring-rule-dialog
-- **Navigation**: 12 entries (Clients removed — redirects to /contacts; Campaigns added with Megaphone icon)
-- **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`; notifications migration generated
+- **Quotes page**: Full CRUD data table at `/quotes` with My/All toggle, CSV export, delete confirmation dialog, status badges (draft/sent/accepted/declined/expired)
+- **Quotes detail**: `/quotes/[id]` — info card + related orders + timeline + notes + tags
+- **Orders page**: Full CRUD data table at `/orders` with My/All toggle, CSV export, delete confirmation dialog, status badges (pending/confirmed/in_production/fulfilled/cancelled)
+- **Orders detail**: `/orders/[id]` — info card (linked quote, opportunity, contact) + timeline + notes + tags
+- **Opportunity detail**: Shows related quotes and orders sections with links to detail pages
+- **Contact detail**: Shows related quotes and orders sections alongside existing leads/opportunities
+- **Dashboard KPIs**: Open Quotes and Active Orders cards on overview page
+- **Quote/order funnel chart**: Recharts BarChart on analytics page showing quote/order status breakdown
+- **Navigation**: 14 entries (Clients removed — redirects to /contacts; Campaigns with Megaphone icon; Quotes with FileText icon; Orders with Package icon)
+- **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`; quotes + orders migration generated (25 tables)
 
 ## Worker Processors
 - `health-check`: Calls `checkAll()` and persists results to `healthSnapshots` table

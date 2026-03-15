@@ -88,6 +88,26 @@ describe('timeline router', () => {
     expect(result).toEqual([])
   })
 
+  it('getTimeline returns timeline entries for a quote', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.timeline.getTimeline({
+      entityType: 'quote',
+      entityId: '00000000-0000-0000-0000-000000000001',
+    })
+    expect(result).toEqual([])
+  })
+
+  it('getTimeline returns timeline entries for an order', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const result = await caller.timeline.getTimeline({
+      entityType: 'order',
+      entityId: '00000000-0000-0000-0000-000000000001',
+    })
+    expect(result).toEqual([])
+  })
+
   it('getTimeline rejects invalid entityId', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)

@@ -14,11 +14,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { trpc } from '@/lib/trpc/client'
+import type { EntityType } from '@phyne/types/crm'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 interface AddTagDialogProps {
-  entityType: 'contact' | 'lead' | 'opportunity'
+  entityType: EntityType
   entityId: string
 }
 

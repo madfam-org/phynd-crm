@@ -10,8 +10,10 @@ import { notesRouter } from './routers/notes'
 import { notificationsRouter } from './routers/notifications'
 import { offersRouter } from './routers/offers'
 import { opportunitiesRouter } from './routers/opportunities'
+import { ordersRouter } from './routers/orders'
 import { pipelinesRouter } from './routers/pipelines'
 import { preferencesRouter } from './routers/preferences'
+import { quotesRouter } from './routers/quotes'
 import { searchRouter } from './routers/search'
 import { tagsRouter } from './routers/tags'
 import { timelineRouter } from './routers/timeline'
@@ -33,8 +35,10 @@ export const appRouter = router({
   notifications: notificationsRouter,
   offers: offersRouter,
   opportunities: opportunitiesRouter,
+  orders: ordersRouter,
   pipelines: pipelinesRouter,
   preferences: preferencesRouter,
+  quotes: quotesRouter,
   search: searchRouter,
   tags: tagsRouter,
   timeline: timelineRouter,

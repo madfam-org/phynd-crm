@@ -14,7 +14,7 @@ We chose **data virtualization** (federation) — querying upstream providers at
 
 ## Rationale
 - **No data duplication**: Upstream systems remain the single source of truth. Eliminates sync drift, stale data, and consistency bugs.
-- **Reduced storage**: CRM only stores CRM-specific data (contacts, leads, opportunities, notes). Provider data lives in provider databases.
+- **Reduced storage**: CRM only stores CRM-specific data (contacts, leads, opportunities, quotes, orders, notes). Provider data lives in provider databases.
 - **Compliance**: No PII duplication across systems. GDPR "right to be forgotten" is handled at the source.
 - **Partial failure tolerance**: `Promise.allSettled()` allows the SPOG to render even when some providers are down.
 - **Simpler operations**: No ETL pipelines to monitor, no sync jobs to debug, no conflict resolution logic.

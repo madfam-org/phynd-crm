@@ -1,6 +1,7 @@
 import { createLogger } from '@phyne/logging'
 import { Worker } from 'bullmq'
 import { processCacheWarmup } from './processors/cache-warmup'
+import { processDemoCleanup } from './processors/demo-cleanup'
 import { processFederationSync } from './processors/federation-sync'
 import { processHealthCheck } from './processors/health-check'
 import { processLeadScoring } from './processors/lead-scoring'
@@ -51,16 +52,24 @@ async function main() {
     maxStalledCount: 2,
   })
 
-  // Schedule repeatable task reminder checks every 4 hours
+  const demoCleanupWorker = new Worker('demo-cleanup', processDemoCleanup, {
+    connection,
+    concurrency: 1,
+    maxStalledCount: 2,
+  })
+
+  // Schedule repeatable jobs
   const queues = createQueues(connection)
   await queues.taskReminders.add('check-due-tasks', {}, { repeat: { pattern: '0 */4 * * *' } })
+  await queues.demoCleanup.add('cleanup-expired-demos', {}, { repeat: { pattern: '0 * * * *' } })
 
   const workers = [
-    { name: 'federation-sync', worker: federationWorker },
     { name: 'cache-warmup', worker: cacheWorker },
+    { name: 'demo-cleanup', worker: demoCleanupWorker },
+    { name: 'federation-sync', worker: federationWorker },
     { name: 'health-check', worker: healthWorker },
-    { name: 'session-identify', worker: sessionIdentifyWorker },
     { name: 'lead-scoring', worker: leadScoringWorker },
+    { name: 'session-identify', worker: sessionIdentifyWorker },
     { name: 'task-reminders', worker: taskRemindersWorker },
   ]
 
@@ -79,11 +88,12 @@ async function main() {
   logger.info(
     {
       workers: [
-        { concurrency: 5, name: 'federation-sync' },
         { concurrency: 2, name: 'cache-warmup' },
+        { concurrency: 1, name: 'demo-cleanup' },
+        { concurrency: 5, name: 'federation-sync' },
         { concurrency: 1, name: 'health-check' },
-        { concurrency: 3, name: 'session-identify' },
         { concurrency: 1, name: 'lead-scoring' },
+        { concurrency: 3, name: 'session-identify' },
         { concurrency: 1, name: 'task-reminders' },
       ],
     },
@@ -93,12 +103,14 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down workers...')
     await Promise.all([
-      federationWorker.close(),
       cacheWorker.close(),
+      demoCleanupWorker.close(),
+      federationWorker.close(),
       healthWorker.close(),
-      sessionIdentifyWorker.close(),
       leadScoringWorker.close(),
+      sessionIdentifyWorker.close(),
       taskRemindersWorker.close(),
+      queues.demoCleanup.close(),
       queues.taskReminders.close(),
     ])
     process.exit(0)

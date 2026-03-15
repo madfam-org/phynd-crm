@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { NotificationBell } from '../notifications/notification-bell'
 import { GlobalSearch } from './global-search'
 import { MobileSidebar } from './mobile-sidebar'
@@ -10,9 +12,10 @@ interface HeaderProps {
     email?: string | null
     image?: string | null
   }
+  isDemo?: boolean
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, isDemo }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b px-4 sm:px-6">
       <div className="flex items-center gap-3">
@@ -26,10 +29,16 @@ export function Header({ user }: HeaderProps) {
         <NotificationBell />
         <div className="hidden text-sm sm:block">
           <span className="font-medium">{user?.name ?? 'User'}</span>
-          <span className="ml-2 text-muted-foreground">{user?.email}</span>
+          {!isDemo && <span className="ml-2 text-muted-foreground">{user?.email}</span>}
         </div>
         <ThemeToggle />
-        <SignOutButton />
+        {isDemo ? (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/demo/exit">Exit Demo</Link>
+          </Button>
+        ) : (
+          <SignOutButton />
+        )}
       </div>
     </header>
   )

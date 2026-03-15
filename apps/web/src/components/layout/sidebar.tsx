@@ -5,15 +5,24 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { navigation } from './navigation'
 
-export function Sidebar() {
+interface SidebarProps {
+  isDemo?: boolean
+}
+
+export function Sidebar({ isDemo }: SidebarProps) {
   const pathname = usePathname()
 
   return (
     <aside className="hidden w-64 flex-shrink-0 border-r bg-sidebar lg:block">
-      <div className="flex h-16 items-center border-b px-6">
+      <div className="flex h-16 items-center gap-2 border-b px-6">
         <Link href="/overview" className="text-xl font-bold">
           Phyne
         </Link>
+        {isDemo && (
+          <span className="rounded-full bg-accent-violet/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-violet">
+            Demo
+          </span>
+        )}
       </div>
       <nav className="space-y-1 p-4">
         {navigation.map((item) => {

@@ -69,5 +69,22 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
-  return { cacheWarmup, federationSync, healthCheck, leadScoring, sessionIdentify, taskReminders }
+  const demoCleanup = new Queue('demo-cleanup', {
+    connection,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 100 },
+    },
+  })
+
+  return {
+    cacheWarmup,
+    demoCleanup,
+    federationSync,
+    healthCheck,
+    leadScoring,
+    sessionIdentify,
+    taskReminders,
+  }
 }

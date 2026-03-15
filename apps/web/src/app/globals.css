@@ -110,4 +110,13 @@
 		stroke-dasharray: 8 4;
 		animation: flow-line 1.5s linear infinite;
 	}
+
+	@keyframes float {
+		0%, 100% { transform: translateY(0) rotate3d(0.5, 1, 0, 2deg); }
+		50% { transform: translateY(-8px) rotate3d(0.5, 1, 0, -2deg); }
+	}
+	.dashboard-preview-wrapper {
+		animation: float 6s ease-in-out infinite;
+		perspective: 1000px;
+	}
 }

@@ -1,11 +1,13 @@
 import 'server-only'
 import { auth } from '@/lib/auth'
+import { createDemoAuth, isDemoSession } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
 import { createCallerFactory } from '@phyne/api'
 import { appRouter } from '@phyne/api/router'
 import { getDb } from '@phyne/db'
 import { createServiceContext } from '@phyne/services/context'
 import type { AuthContext } from '@phyne/types/auth'
+import { cookies } from 'next/headers'
 
 export const createCaller = createCallerFactory(appRouter)
 
@@ -21,6 +23,8 @@ const DEV_AUTH: AuthContext = {
 
 export async function getServerCaller() {
   const session = await auth()
+  const cookieStore = await cookies()
+  const demoSessionId = isDemoSession(cookieStore)
 
   let authCtx: AuthContext
   if (session?.user) {
@@ -33,6 +37,8 @@ export async function getServerCaller() {
     }
   } else if (DEV_BYPASS) {
     authCtx = DEV_AUTH
+  } else if (demoSessionId) {
+    authCtx = createDemoAuth(demoSessionId)
   } else {
     authCtx = {
       userId: '',

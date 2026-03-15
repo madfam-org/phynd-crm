@@ -1,0 +1,25 @@
+import { DEMO_COOKIE_MAX_AGE, DEMO_COOKIE_NAME } from '@/lib/demo'
+import { seedDemoTenant } from '@/lib/demo-seed'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+  const sessionId = crypto.randomUUID()
+  const cookieStore = await cookies()
+
+  cookieStore.set(DEMO_COOKIE_NAME, sessionId, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: DEMO_COOKIE_MAX_AGE,
+    path: '/',
+  })
+
+  // Seed demo data — non-blocking, dashboard handles empty state gracefully
+  seedDemoTenant(sessionId).catch(() => {
+    // Seed failure is non-fatal — visitor sees empty pages
+  })
+
+  return NextResponse.redirect(
+    new URL('/overview', process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
+  )
+}

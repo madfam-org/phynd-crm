@@ -8,6 +8,7 @@ import { HowItWorksSection } from '@/components/marketing/how-it-works-section'
 import { Navbar } from '@/components/marketing/navbar'
 import { PainPointsSection } from '@/components/marketing/pain-points-section'
 import { PricingSection } from '@/components/marketing/pricing-section'
+import { SocialProofSection } from '@/components/marketing/social-proof-section'
 
 export const dynamic = 'force-static'
 
@@ -20,6 +21,7 @@ export default function MarketingPage() {
       <FeaturesSection />
       <EcosystemDiagram />
       <HowItWorksSection />
+      <SocialProofSection />
       <ComparisonTable />
       <PricingSection />
       <CtaSection />

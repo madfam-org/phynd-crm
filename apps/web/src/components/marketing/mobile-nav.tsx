@@ -86,14 +86,14 @@ export function MobileNav({ links }: MobileNavProps) {
               </a>
             ))}
             <div className="flex flex-col gap-3 pt-4">
+              <Button asChild>
+                <Link href="/demo" onClick={close}>
+                  Try Demo
+                </Link>
+              </Button>
               <Button variant="outline" asChild>
                 <Link href="/login" onClick={close}>
                   Sign In
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link href="/login" onClick={close}>
-                  Get Started
                 </Link>
               </Button>
             </div>

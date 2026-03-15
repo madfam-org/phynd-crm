@@ -1,7 +1,8 @@
 import { auth } from '@/lib/auth'
+import { DEMO_COOKIE_NAME } from '@/lib/demo'
 import { NextResponse } from 'next/server'
 
-const publicPaths = ['/', '/login', '/callback']
+const publicPaths = ['/', '/login', '/callback', '/demo']
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth
@@ -9,6 +10,12 @@ export default auth((req) => {
   const isPublic =
     publicPaths.includes(pathname) || pathname.startsWith('/api') || pathname.startsWith('/_next')
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/callback')
+  const hasDemoCookie = !!req.cookies.get(DEMO_COOKIE_NAME)?.value
+
+  // Demo users can access dashboard pages without auth
+  if (!isPublic && !isLoggedIn && hasDemoCookie) {
+    return NextResponse.next()
+  }
 
   if (!isPublic && !isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.nextUrl))

@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth'
+import { DEMO_COOKIE_NAME, createDemoAuth } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { appRouter } from '@phyne/api/router'
@@ -17,6 +18,12 @@ const DEV_AUTH: AuthContext = {
   accessToken: 'dev-token',
 }
 
+function getDemoSessionId(req: Request): string | null {
+  const cookieHeader = req.headers.get('cookie') ?? ''
+  const match = cookieHeader.match(new RegExp(`${DEMO_COOKIE_NAME}=([^;]+)`))
+  return match?.[1] ?? null
+}
+
 const handler = async (req: Request) => {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
   const { allowed } = await checkApiRateLimit(ip)
@@ -26,6 +33,8 @@ const handler = async (req: Request) => {
       headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
     })
   }
+
+  const demoSessionId = getDemoSessionId(req)
 
   return fetchRequestHandler({
     endpoint: '/api/trpc',
@@ -45,6 +54,8 @@ const handler = async (req: Request) => {
         }
       } else if (DEV_BYPASS) {
         authCtx = DEV_AUTH
+      } else if (demoSessionId) {
+        authCtx = createDemoAuth(demoSessionId)
       } else {
         authCtx = {
           userId: '',

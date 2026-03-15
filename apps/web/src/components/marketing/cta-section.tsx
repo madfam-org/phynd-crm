@@ -25,9 +25,7 @@ export function CtaSection() {
             className="border-background/30 text-background hover:bg-background/10"
             asChild
           >
-            <a href="https://github.com/madfam/phyne" target="_blank" rel="noopener noreferrer">
-              Read the Docs
-            </a>
+            <Link href="/demo">Try Live Demo</Link>
           </Button>
         </div>
       </div>

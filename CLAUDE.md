@@ -57,7 +57,10 @@ pnpm db:seed          # Seed database
 - **Lead scoring**: Configurable rules engine evaluating conditions against lead + visitor session + page view data; auto-recomputes on lead create, status change, and visitor identify; breakdown keyed by rule ID (not name)
 - **Scoring conditions**: source, status, session_count, page_view_count, has_contact, page_url (contains/eq), 3d_asset_views (forj:// URL scheme)
 - **Fabrication activities**: PravaraMES webhook auto-creates CRM activities on fabrication status changes
-- **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` unauthenticated
+- **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` and `/demo` unauthenticated
+- **Demo mode**: Cookie-based (`phyne-demo={sessionId}`, httpOnly, 4h expiry). `/demo` route generates session, seeds per-session tenant (`demo-{sessionId}`), redirects to `/overview`. Demo users get admin role, isolated tenant. `/demo/exit` clears cookie. Dashboard layout shows DemoBanner + DEMO badge in sidebar. Cleanup via BullMQ job (every 1h, removes data > 4h old)
+- **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — creates user, pipeline, 5 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 4 activities, 2 notes, 3 tags, 1 notification. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
+- **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
@@ -83,6 +86,7 @@ pnpm db:seed          # Seed database
 - **Order fulfillment → opp won**: When order status changes to `fulfilled` and `opportunityId` is set, auto-marks linked opportunity as `won` + records `opportunity_to_won` conversion in transaction; non-blocking try/catch pattern
 - **EntityType**: `'contact' | 'lead' | 'opportunity' | 'order' | 'quote'` — timeline, notes, tags, activities all support quotes and orders; DB columns are varchar (not enum)
 - **Quote/order analytics**: `getQuoteFunnel()`, `getOrderFunnel()`, `getQuoteToOrderRate()` — aggregate by status with soft-delete filtering
+- **Landing page**: Hero with CSS-only dashboard mockup (browser frame + KPI cards + chart + table), "Try Live Demo" CTA. Social proof section with factual metrics. 11 marketing sections total
 
 ## DB Schema
 users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
@@ -164,6 +168,8 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - **Contact detail**: Shows related quotes and orders sections alongside existing leads/opportunities
 - **Dashboard KPIs**: Open Quotes and Active Orders cards on overview page
 - **Quote/order funnel chart**: Recharts BarChart on analytics page showing quote/order status breakdown
+- **Demo mode UX**: DemoBanner (gradient bar with Sign Up/Exit Demo), DEMO badge in sidebar, "Demo Visitor" in header, "Exit Demo" replaces sign-out button
+- **Landing page**: 11 marketing sections: Navbar, Hero (CSS-only DashboardPreview + "Try Live Demo" CTA), PainPoints, Features, EcosystemDiagram, HowItWorks, SocialProof (factual metrics), ComparisonTable, Pricing, CTA ("Try Live Demo"), Footer ("Live Demo" link)
 - **Navigation**: 14 entries (Clients removed — redirects to /contacts; Campaigns with Megaphone icon; Quotes with FileText icon; Orders with Package icon)
 - **DB migrations**: Generated via `pnpm db:generate`, stored in `packages/db/src/migrations/`; quotes + orders migration generated (25 tables)
 
@@ -174,6 +180,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `cache-warmup`: Pre-fetches federation data for given external IDs
 - `federation-sync`: Handles cache invalidation and refresh
 - `task-reminders`: Repeatable job (every 4h) scanning activities due within 24h, creates notifications with dedup
+- `demo-cleanup`: Repeatable job (every 1h) deleting expired demo tenant data > 4h old; deletes in dependency order within transaction
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
 - All processors use structured logging via `@phyne/logging` (pino JSON output)
 

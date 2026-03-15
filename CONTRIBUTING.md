@@ -137,6 +137,19 @@ tRPC API requests are rate-limited at 200 req/min per IP via Redis sliding windo
 ### Security Headers
 Security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`) are set via `next.config.ts` `headers()`. No CSP yet (shadcn/recharts inline styles need audit).
 
+### Demo Mode
+
+Visitors can try the full CRM via `/demo` without signing up. Architecture:
+
+1. **Entry**: `GET /demo` → generates UUID session, sets `phyne-demo` cookie (httpOnly, 4h), seeds demo tenant, redirects to `/overview`
+2. **Isolation**: Each demo session gets `tenantId = demo-{sessionId}`. All seeded entity IDs are prefixed with the session ID. Demo writes only affect the demo sandbox.
+3. **Auth injection**: Middleware allows demo cookie holders through without real auth. Both `getServerCaller()` and the tRPC route handler check for the demo cookie and inject `createDemoAuth(sessionId)` as auth context.
+4. **UX**: DemoBanner component (gradient bar with Sign Up / Exit Demo). DEMO badge in sidebar. Header shows "Demo Visitor" instead of user email.
+5. **Cleanup**: `demo-cleanup` BullMQ processor runs hourly, deletes demo tenant data older than 4h in dependency order within a transaction.
+6. **Exit**: `GET /demo/exit` clears cookie and redirects to `/`.
+
+To test demo mode locally: navigate to `http://localhost:3000/demo`.
+
 ## Architecture Decisions
 
 See `docs/adr/` for Architecture Decision Records:
@@ -146,3 +159,4 @@ See `docs/adr/` for Architecture Decision Records:
 - ADR-004: Circuit breaker pattern
 - ADR-005: Rate limiting strategy
 - ADR-006: Task reminders strategy
+- ADR-007: Demo mode strategy

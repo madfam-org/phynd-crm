@@ -11,6 +11,7 @@ const navLinks = [
   { label: 'Ecosystem', href: '#ecosystem' },
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'Pricing', href: '#pricing' },
+  { label: 'Demo', href: '/demo' },
 ]
 
 export function Navbar() {
@@ -51,7 +52,7 @@ export function Navbar() {
             <Link href="/login">Sign In</Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/login">Get Started</Link>
+            <Link href="/demo">Try Demo</Link>
           </Button>
         </div>
 

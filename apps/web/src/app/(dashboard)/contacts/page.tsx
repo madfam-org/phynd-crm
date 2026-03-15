@@ -1,4 +1,5 @@
 import { ContactsDataTable } from '@/components/contacts/contacts-data-table'
+import { CsvImportDialog } from '@/components/contacts/csv-import-dialog'
 import { getServerCaller } from '@/lib/trpc/server'
 
 export default async function ContactsPage() {
@@ -7,9 +8,12 @@ export default async function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Contacts</h1>
-        <p className="text-muted-foreground">View and manage contacts</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Contacts</h1>
+          <p className="text-muted-foreground">View and manage contacts</p>
+        </div>
+        <CsvImportDialog />
       </div>
       <ContactsDataTable initialData={contacts} />
     </div>

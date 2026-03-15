@@ -51,6 +51,25 @@ export const contactsRouter = router({
       return service.create(input)
     }),
 
+  bulkCreate: protectedProcedure
+    .input(
+      z
+        .array(
+          z.object({
+            company: z.string().max(255).optional(),
+            email: z.string().email().optional(),
+            name: z.string().min(1).max(255),
+            phone: z.string().max(50).optional(),
+          }),
+        )
+        .min(1)
+        .max(500),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new ContactsService(ctx)
+      return service.bulkCreate(input.map((row) => ({ ...row, ownerId: ctx.auth.userId })))
+    }),
+
   update: protectedProcedure
     .input(
       z.object({

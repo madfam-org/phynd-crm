@@ -171,4 +171,65 @@ describe('ContactsService', () => {
       expect(result).toBeNull()
     })
   })
+
+  // -------------------------------------------------------------------------
+  // bulkCreate()
+  // -------------------------------------------------------------------------
+  describe('bulkCreate()', () => {
+    it('creates multiple contacts', async () => {
+      const contacts = [
+        makeContact({ id: 'c1', name: 'Alice' }),
+        makeContact({ id: 'c2', name: 'Bob' }),
+      ]
+      mockDb._qb._result = contacts
+
+      const result = await service.bulkCreate([
+        { email: 'alice@example.com', name: 'Alice' },
+        { email: 'bob@example.com', name: 'Bob' },
+      ])
+
+      expect(result).toHaveLength(2)
+      expect(result[0]?.name).toBe('Alice')
+      expect(result[1]?.name).toBe('Bob')
+    })
+
+    it('returns empty array for empty input', async () => {
+      const result = await service.bulkCreate([])
+
+      expect(result).toEqual([])
+      expect(mockDb.transaction).not.toHaveBeenCalled()
+    })
+
+    it('creates with optional fields', async () => {
+      const contact = makeContact({
+        company: 'Acme',
+        id: 'c3',
+        name: 'Carol',
+        ownerId: 'user-1',
+        phone: '+1234567890',
+      })
+      mockDb._qb._result = [contact]
+
+      const result = await service.bulkCreate([
+        {
+          company: 'Acme',
+          name: 'Carol',
+          ownerId: 'user-1',
+          phone: '+1234567890',
+        },
+      ])
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.company).toBe('Acme')
+      expect(result[0]?.ownerId).toBe('user-1')
+    })
+
+    it('calls transaction for non-empty input', async () => {
+      mockDb._qb._result = [makeContact()]
+
+      await service.bulkCreate([{ name: 'Test' }])
+
+      expect(mockDb.transaction).toHaveBeenCalledTimes(1)
+    })
+  })
 })

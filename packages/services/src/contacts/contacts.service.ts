@@ -81,6 +81,22 @@ export class ContactsService {
     return contact ?? null
   }
 
+  async bulkCreate(
+    data: Array<{
+      name: string
+      email?: string
+      phone?: string
+      company?: string
+      ownerId?: string
+    }>,
+  ) {
+    if (data.length === 0) return []
+
+    return this.ctx.db.transaction(async (tx) => {
+      return tx.insert(contacts).values(data).returning()
+    })
+  }
+
   async delete(id: string) {
     const [deleted] = await this.ctx.db
       .update(contacts)

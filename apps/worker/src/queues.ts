@@ -60,5 +60,14 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
-  return { federationSync, cacheWarmup, healthCheck, sessionIdentify, leadScoring }
+  const taskReminders = new Queue('task-reminders', {
+    connection,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 100 },
+    },
+  })
+
+  return { cacheWarmup, federationSync, healthCheck, leadScoring, sessionIdentify, taskReminders }
 }

@@ -135,6 +135,62 @@ export const analyticsRouter = router({
       return service.getAtRiskDeals(input?.staleThresholdDays)
     }),
 
+  leadTrend: protectedProcedure
+    .input(
+      z.object({
+        bucket: z.enum(['day', 'week', 'month']),
+        dateFrom: z.date(),
+        dateTo: z.date(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      assertAnalytics()
+      const service = new AnalyticsService(ctx)
+      return service.getLeadTrend({ from: input.dateFrom, to: input.dateTo }, input.bucket)
+    }),
+
+  opportunityTrend: protectedProcedure
+    .input(
+      z.object({
+        bucket: z.enum(['day', 'week', 'month']),
+        dateFrom: z.date(),
+        dateTo: z.date(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      assertAnalytics()
+      const service = new AnalyticsService(ctx)
+      return service.getOpportunityTrend({ from: input.dateFrom, to: input.dateTo }, input.bucket)
+    }),
+
+  conversionTrend: protectedProcedure
+    .input(
+      z.object({
+        bucket: z.enum(['day', 'week', 'month']),
+        dateFrom: z.date(),
+        dateTo: z.date(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      assertAnalytics()
+      const service = new AnalyticsService(ctx)
+      return service.getConversionTrend({ from: input.dateFrom, to: input.dateTo }, input.bucket)
+    }),
+
+  visitorTrend: protectedProcedure
+    .input(
+      z.object({
+        bucket: z.enum(['day', 'week', 'month']),
+        dateFrom: z.date(),
+        dateTo: z.date(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      assertAnalytics()
+      const service = new AnalyticsService(ctx)
+      return service.getVisitorTrend({ from: input.dateFrom, to: input.dateTo }, input.bucket)
+    }),
+
   dashboardSummary: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
     assertAnalytics()
     const service = new AnalyticsService(ctx)

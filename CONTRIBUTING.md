@@ -106,6 +106,18 @@ Services accept optional `filters?: { ownerId?: string }` parameter. Router `lis
 ### Feature Flag Enforcement
 Feature-gated routers (`leadScoring`, `visitorTracking`, `analytics`, `offers`, `campaigns`) check `isFeatureEnabled()` at the top of each procedure body. When disabled, they throw `TRPCError({ code: 'PRECONDITION_FAILED' })`. All flags default to `true`, so existing tests pass unchanged. When adding tests for gated routers, mock `@phyne/config/features` with `isFeatureEnabled` returning `true`.
 
+### Pipeline Management
+Pipelines and stages support full CRUD via `PipelinesService` methods (`create`, `update`, `delete`, `createStage`, `updateStage`, `deleteStage`, `reorderStages`). Pipeline delete rejects if `isDefault` (`ValidationError`) or if leads/opportunities reference it (`ConflictError`). Stage delete similarly checks for FK references. Reorder uses a transaction to update all positions atomically. The settings UI at `/settings/pipelines` uses `@hello-pangea/dnd` for drag-to-reorder stages.
+
+### Time-Series Analytics
+`AnalyticsService` provides 4 trend methods (`getLeadTrend`, `getOpportunityTrend`, `getConversionTrend`, `getVisitorTrend`) that accept a required date range and bucket (`day`/`week`/`month`). They use `date_trunc()` + GROUP BY for time bucketing. All require bounded date ranges (no unbounded table scans).
+
+### CSV Import
+Contacts support bulk import via `bulkCreate()` (max 500 per call). The CSV parser (`apps/web/src/lib/csv-import.ts`) handles RFC 4180 basics (quoted commas, escaped quotes, BOM). Known limitation: multi-line quoted fields are supported but complex encodings beyond UTF-8 are not.
+
+### Task Reminders
+A repeatable BullMQ job (`task-reminders`) scans every 4 hours for activities due within 24 hours and creates notifications. See ADR-006 for design rationale. Deduplication prevents notification spam (checks for existing `task_reminder` notification per activity within 24h).
+
 ### Bulk Operation Caps
 `bulkUpdateStatus` on leads/opportunities is capped at 100 items via Zod `.max(100)`. Router tests verify both the happy path (<=100 ids) and the rejection (>100 ids).
 
@@ -126,3 +138,4 @@ See `docs/adr/` for Architecture Decision Records:
 - ADR-003: Single-tenant first
 - ADR-004: Circuit breaker pattern
 - ADR-005: Rate limiting strategy
+- ADR-006: Task reminders strategy

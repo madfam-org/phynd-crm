@@ -99,4 +99,31 @@ describe('contacts router', () => {
     })
     expect(result).toHaveProperty('items')
   })
+
+  it('bulkCreate creates contacts with valid input', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const input = [
+      { email: 'alice@example.com', name: 'Alice' },
+      { email: 'bob@example.com', name: 'Bob' },
+    ]
+    const result = await caller.contacts.bulkCreate(input)
+    expect(Array.isArray(result)).toBe(true)
+    expect(ctx.db.transaction).toHaveBeenCalled()
+  })
+
+  it('bulkCreate rejects empty array', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    await expect(caller.contacts.bulkCreate([])).rejects.toThrow()
+  })
+
+  it('bulkCreate accepts up to 500 items', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    const input = Array.from({ length: 500 }, (_, i) => ({
+      name: `Contact ${i}`,
+    }))
+    await expect(caller.contacts.bulkCreate(input)).resolves.not.toThrow()
+  })
 })

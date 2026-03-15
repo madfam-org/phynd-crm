@@ -1,4 +1,5 @@
 import { AnalyticsDashboard } from '@/components/analytics/analytics-dashboard'
+import { AnalyticsTrends } from '@/components/analytics/analytics-trends'
 import { getServerCaller } from '@/lib/trpc/server'
 
 export default async function AnalyticsPage() {
@@ -31,6 +32,10 @@ export default async function AnalyticsPage() {
         revenueByStatus={revenueByStatus}
         stageVelocity={stageVelocity}
       />
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Trends</h2>
+        <AnalyticsTrends />
+      </div>
     </div>
   )
 }

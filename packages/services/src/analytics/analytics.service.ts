@@ -17,6 +17,13 @@ interface DateRange {
   to?: Date
 }
 
+interface RequiredDateRange {
+  from: Date
+  to: Date
+}
+
+type Bucket = 'day' | 'month' | 'week'
+
 export class AnalyticsService {
   constructor(private readonly ctx: ServiceContext) {}
 
@@ -361,6 +368,73 @@ export class AnalyticsService {
     }
 
     return atRisk.sort((a, b) => b.daysInStage - a.daysInStage)
+  }
+
+  async getLeadTrend(dateRange: RequiredDateRange, bucket: Bucket) {
+    return this.ctx.db
+      .select({
+        count: sql<number>`count(*)::int`,
+        period: sql<string>`date_trunc(${sql.raw(`'${bucket}'`)}, ${leads.createdAt})::text`,
+      })
+      .from(leads)
+      .where(and(gte(leads.createdAt, dateRange.from), lte(leads.createdAt, dateRange.to)))
+      .groupBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${leads.createdAt})`)
+      .orderBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${leads.createdAt})`)
+  }
+
+  async getOpportunityTrend(dateRange: RequiredDateRange, bucket: Bucket) {
+    return this.ctx.db
+      .select({
+        count: sql<number>`count(*)::int`,
+        period: sql<string>`date_trunc(${sql.raw(`'${bucket}'`)}, ${opportunities.createdAt})::text`,
+        totalValue: sql<number>`coalesce(sum(${opportunities.value}::numeric), 0)::numeric`,
+      })
+      .from(opportunities)
+      .where(
+        and(
+          gte(opportunities.createdAt, dateRange.from),
+          lte(opportunities.createdAt, dateRange.to),
+        ),
+      )
+      .groupBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${opportunities.createdAt})`)
+      .orderBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${opportunities.createdAt})`)
+  }
+
+  async getConversionTrend(dateRange: RequiredDateRange, bucket: Bucket) {
+    return this.ctx.db
+      .select({
+        leadToOpp: sql<number>`count(*) filter (where ${conversions.type} = 'lead_to_opportunity')::int`,
+        oppToWon: sql<number>`count(*) filter (where ${conversions.type} = 'opportunity_to_won')::int`,
+        period: sql<string>`date_trunc(${sql.raw(`'${bucket}'`)}, ${conversions.convertedAt})::text`,
+        visitorToLead: sql<number>`count(*) filter (where ${conversions.type} = 'visitor_to_lead')::int`,
+      })
+      .from(conversions)
+      .where(
+        and(
+          gte(conversions.convertedAt, dateRange.from),
+          lte(conversions.convertedAt, dateRange.to),
+        ),
+      )
+      .groupBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${conversions.convertedAt})`)
+      .orderBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${conversions.convertedAt})`)
+  }
+
+  async getVisitorTrend(dateRange: RequiredDateRange, bucket: Bucket) {
+    return this.ctx.db
+      .select({
+        identified: sql<number>`count(*) filter (where ${visitorSessions.identified} = true)::int`,
+        period: sql<string>`date_trunc(${sql.raw(`'${bucket}'`)}, ${visitorSessions.createdAt})::text`,
+        total: sql<number>`count(*)::int`,
+      })
+      .from(visitorSessions)
+      .where(
+        and(
+          gte(visitorSessions.createdAt, dateRange.from),
+          lte(visitorSessions.createdAt, dateRange.to),
+        ),
+      )
+      .groupBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${visitorSessions.createdAt})`)
+      .orderBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${visitorSessions.createdAt})`)
   }
 
   async getDashboardSummary(dateRange?: DateRange) {

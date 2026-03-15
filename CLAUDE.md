@@ -76,6 +76,10 @@ pnpm db:seed          # Seed database
 - **Seed guard**: `seed.ts` exits with error when `NODE_ENV=production`
 - **Delete confirmations**: Offers, campaigns, and scoring rules use confirmation dialogs (no direct inline mutation)
 - **Scoring rules CRUD UI**: Full create/edit/delete dialogs in `components/scoring/`
+- **Pipeline CRUD**: Full create/update/delete for pipelines and stages; delete rejects default pipeline (`ValidationError`) and pipelines/stages with FK references (`ConflictError`); reorder stages via transaction
+- **Time-series analytics**: 4 trend methods (`getLeadTrend`, `getOpportunityTrend`, `getConversionTrend`, `getVisitorTrend`) using `date_trunc()` + GROUP BY with required date range and `day`/`week`/`month` bucketing
+- **CSV import**: `ContactsService.bulkCreate()` (max 500, wrapped in transaction); CSV parser handles RFC 4180 (quoted commas, BOM)
+- **Task reminders**: Repeatable BullMQ job (`task-reminders`, every 4h) scans activities due within 24h, creates notifications with 24h dedup; see ADR-006
 
 ## DB Schema
 users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
@@ -98,7 +102,7 @@ users, contacts, leads, opportunities, pipelines, pipeline_stages, activities, n
 - contacts, leads, opportunities: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), pipelines, activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead)
+contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead)
 
 ## Feature Flags (12 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
@@ -118,12 +122,13 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - **Dark mode**: next-themes with `.dark` class selector (globals.css); ThemeToggle in header
 - **Mobile nav**: Sheet-based sidebar (slides from left, auto-close on route change)
 - **Sidebar icons**: Lucide icons via shared `navigation.ts` module
-- **Loading skeletons**: `TableSkeleton`, `CardSkeleton` + Next.js `loading.tsx` files for all 14 dashboard pages (contacts, leads, opportunities, pipeline, activities, visitors, funnel, offers, campaigns, settings, settings/scoring, settings/users, clients/[id], overview/analytics)
+- **Loading skeletons**: `TableSkeleton`, `CardSkeleton` + Next.js `loading.tsx` files for all 15 dashboard pages (contacts, leads, opportunities, pipeline, activities, visitors, funnel, offers, campaigns, settings, settings/scoring, settings/users, settings/pipelines, clients/[id], overview/analytics)
 - **Error pages**: Global `error.tsx`, `not-found.tsx`, dashboard-scoped `error.tsx`/`loading.tsx`
 - **Data table search/filter**: Client-side search + status filter on contacts, leads, opportunities, visitors, offers, campaigns
 - **Radix Select**: All dropdowns use `@radix-ui/react-select` (not native `<select>`)
 - **Polling**: `refetchInterval` on data tables (60s leads/opps/activities, 120s contacts)
-- **Analytics charts**: recharts (ConversionFunnelChart, PipelineVelocityChart, RevenueByStatusChart)
+- **Analytics charts**: recharts (ConversionFunnelChart, PipelineVelocityChart, RevenueByStatusChart, TrendLineChart)
+- **Analytics trends**: Time-series trend charts (leads, opps, conversions, visitors) with date range picker and day/week/month bucketing at `/analytics`
 - **Activities page**: Server-rendered with full `ActivitiesDataTable` (create/edit/delete/complete via dialogs)
 - **Notes panel**: Per-entity notes (contact/lead/opportunity) with create/edit/delete/pin toggle
 - **Tags panel**: Per-entity tags with add/remove, badge display, create new tags with color
@@ -134,6 +139,8 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - **Dashboard charts**: ConversionFunnelChart + RevenueByStatusChart on overview page, plus recent activities
 - **Bulk operations**: Row selection checkboxes on data tables, bulk status change for leads/opportunities
 - **CSV export**: Export contacts/leads/opportunities to CSV (all or selected rows)
+- **CSV import**: Import contacts from CSV with column mapping UI (`/contacts` page, max 500 per import)
+- **Pipeline settings**: Full pipeline and stage CRUD at `/settings/pipelines` with drag-to-reorder stages via `@hello-pangea/dnd`
 - **Owner column**: Leads and opportunities tables show owner name, edit dialogs have owner select
 - **Health endpoint**: `GET /api/health` returns `{ status: 'ok', timestamp }` for Docker health checks
 - **Lead detail page**: `/leads/[id]` — info card + timeline + notes + tags
@@ -153,6 +160,7 @@ contacts (+ listMine), leads (+ listMine, listByContactId, bulkUpdateStatus), op
 - `lead-scoring`: Wired with real DB + `LeadScoringService.batchCompute()`
 - `cache-warmup`: Pre-fetches federation data for given external IDs
 - `federation-sync`: Handles cache invalidation and refresh
+- `task-reminders`: Repeatable job (every 4h) scanning activities due within 24h, creates notifications with dedup
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
 - All processors use structured logging via `@phyne/logging` (pino JSON output)
 

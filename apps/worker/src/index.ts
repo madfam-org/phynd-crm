@@ -5,7 +5,8 @@ import { processFederationSync } from './processors/federation-sync'
 import { processHealthCheck } from './processors/health-check'
 import { processLeadScoring } from './processors/lead-scoring'
 import { processSessionIdentify } from './processors/session-identify'
-import { createRedisConnection } from './queues'
+import { processTaskReminders } from './processors/task-reminders'
+import { createQueues, createRedisConnection } from './queues'
 
 const logger = createLogger('worker:main')
 
@@ -44,34 +45,46 @@ async function main() {
     maxStalledCount: 2,
   })
 
+  const taskRemindersWorker = new Worker('task-reminders', processTaskReminders, {
+    connection,
+    concurrency: 1,
+    maxStalledCount: 2,
+  })
+
+  // Schedule repeatable task reminder checks every 4 hours
+  const queues = createQueues(connection)
+  await queues.taskReminders.add('check-due-tasks', {}, { repeat: { pattern: '0 */4 * * *' } })
+
   const workers = [
     { name: 'federation-sync', worker: federationWorker },
     { name: 'cache-warmup', worker: cacheWorker },
     { name: 'health-check', worker: healthWorker },
     { name: 'session-identify', worker: sessionIdentifyWorker },
     { name: 'lead-scoring', worker: leadScoringWorker },
+    { name: 'task-reminders', worker: taskRemindersWorker },
   ]
 
   for (const { name, worker } of workers) {
     worker.on('completed', (job) => {
-      logger.info({ worker: name, jobId: job.id }, `Job ${job.id} completed`)
+      logger.info({ jobId: job.id, worker: name }, `Job ${job.id} completed`)
     })
     worker.on('failed', (job, err) => {
-      logger.error({ worker: name, jobId: job?.id, err: err.message }, `Job ${job?.id} failed`)
+      logger.error({ err: err.message, jobId: job?.id, worker: name }, `Job ${job?.id} failed`)
     })
     worker.on('stalled', (jobId) => {
-      logger.warn({ worker: name, jobId }, `Job ${jobId} stalled`)
+      logger.warn({ jobId, worker: name }, `Job ${jobId} stalled`)
     })
   }
 
   logger.info(
     {
       workers: [
-        { name: 'federation-sync', concurrency: 5 },
-        { name: 'cache-warmup', concurrency: 2 },
-        { name: 'health-check', concurrency: 1 },
-        { name: 'session-identify', concurrency: 3 },
-        { name: 'lead-scoring', concurrency: 1 },
+        { concurrency: 5, name: 'federation-sync' },
+        { concurrency: 2, name: 'cache-warmup' },
+        { concurrency: 1, name: 'health-check' },
+        { concurrency: 3, name: 'session-identify' },
+        { concurrency: 1, name: 'lead-scoring' },
+        { concurrency: 1, name: 'task-reminders' },
       ],
     },
     'Workers started',
@@ -85,6 +98,8 @@ async function main() {
       healthWorker.close(),
       sessionIdentifyWorker.close(),
       leadScoringWorker.close(),
+      taskRemindersWorker.close(),
+      queues.taskReminders.close(),
     ])
     process.exit(0)
   }

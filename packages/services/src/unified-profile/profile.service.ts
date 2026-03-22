@@ -14,6 +14,7 @@ import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
 import { NotFoundError } from '../errors'
 import { getDemoFederationData } from './demo-federation-data'
+import { tryGetMockFederationData } from './mock-federation-registry'
 
 interface ProfileDeps {
   januaClient: FederationClient<unknown, JanuaIdentity>
@@ -94,6 +95,18 @@ export class UnifiedProfileService {
       pravara: fabrication.status,
       forj: assets?.status ?? 'unavailable',
       'janua-telemetry': telemetry?.status ?? 'unavailable',
+    }
+
+    // Fallback: if all providers are unavailable and we have mock data, use it
+    // This makes federation tabs work in local dev without running external services
+    const allUnavailable =
+      identity.status === 'unavailable' &&
+      billing.status === 'unavailable' &&
+      manufacturing.status === 'unavailable' &&
+      fabrication.status === 'unavailable'
+    if (allUnavailable && contact.externalJanuaId) {
+      const mockData = tryGetMockFederationData(contact)
+      if (mockData) return mockData
     }
 
     return {

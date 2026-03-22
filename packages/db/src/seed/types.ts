@@ -6,6 +6,8 @@ export interface SeedIds {
   adminId: string
   pipelineId: string
   stages: { id: string }[]
+  deliveryPipelineId: string
+  deliveryStages: { id: string }[]
   contacts: { id: string }[]
   leads: { id: string }[]
   opps: { id: string }[]

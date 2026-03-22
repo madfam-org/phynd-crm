@@ -28,7 +28,7 @@ test.describe('Pipeline Kanban Board', () => {
       const subtitle = page.locator('p.text-muted-foreground')
       await expect(subtitle).toBeVisible()
       // Should not show "No default pipeline configured."
-      await expect(subtitle).not.toContainText('No default pipeline')
+      await expect(subtitle).not.toContainText('No pipeline configured')
     },
   )
 
@@ -155,7 +155,7 @@ test.describe('Pipeline Kanban Board', () => {
       // Requires: authenticated session + no default pipeline in DB
       await page.goto('/pipeline')
       await expect(
-        page.getByText('No default pipeline configured.'),
+        page.getByText('No pipeline configured.'),
       ).toBeVisible()
     },
   )

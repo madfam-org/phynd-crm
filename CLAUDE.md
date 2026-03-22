@@ -78,14 +78,18 @@ pnpm db:seed          # Seed database
 - **Feature flag enforcement**: 5 gated routers (lead-scoring, visitor-tracking, analytics, offers, campaigns) check `isFeatureEnabled()` at the top of each procedure; throw `TRPCError({ code: 'PRECONDITION_FAILED' })` when disabled
 - **Bulk array caps**: `bulkUpdateStatus` on leads/opportunities capped at `.max(100)` items via Zod
 - **Seed guard**: `seed.ts` exits with error when `NODE_ENV=production`
-- **Seed architecture**: `packages/db/src/seed.ts` is a thin entry point; 13 sub-seeders live in `packages/db/src/seed/` (types, users-pipeline, contacts, leads-opps, quotes-orders, activities-notes, offers-campaigns, conversions, visitor-data, scoring-rules, external-refs, stage-transitions, preferences, tags-notifications); orchestrator in `seed/index.ts`
+- **Seed architecture**: `packages/db/src/seed.ts` is a thin entry point; 14 sub-seeders live in `packages/db/src/seed/` (types, users-pipeline, contacts, leads-opps, quotes-orders, activities-notes, offers-campaigns, conversions, visitor-data, scoring-rules, external-refs, stage-transitions, preferences, tags-notifications, tablaco); orchestrator in `seed/index.ts`
 - **Demo seed architecture**: `apps/web/src/lib/demo-seed.ts` is a transaction orchestrator (~80 lines); 19 pure data builder functions live in `demo-seed/data-builders.ts`
 - **Demo federation data**: `UnifiedProfileService` returns mock federation data for demo tenants (`demo-*` tenantId) via `demo-federation-data.ts` — no external API calls in demo mode
+- **Mock federation fallback**: When all 6 providers return `unavailable` and the contact has a known `externalJanuaId`, `UnifiedProfileService` falls back to mock data via `mock-federation-registry.ts` — makes federation tabs work in local dev without external services
+- **Tablaco federation data**: `tablaco-federation-data.ts` provides Tablaco-specific mock data for all 6 providers; dispatched from both `demo-federation-data.ts` (by `externalJanuaId`) and `mock-federation-registry.ts` (dev fallback)
 - **Pre-commit hook**: husky pre-commit checks staged `.ts`/`.tsx` files (excludes tests, migrations, generated files); warns at 600 lines, blocks at 800 lines
 - **File size limits**: Source files should stay under 600 lines; pre-commit blocks commits with files over 800 lines
 - **Delete confirmations**: Offers, campaigns, and scoring rules use confirmation dialogs (no direct inline mutation)
 - **Scoring rules CRUD UI**: Full create/edit/delete dialogs in `components/scoring/`
 - **Pipeline CRUD**: Full create/update/delete for pipelines and stages; delete rejects default pipeline (`ValidationError`) and pipelines/stages with FK references (`ConflictError`); reorder stages via transaction
+- **Multiple pipelines**: Seed creates "Default Sales Pipeline" (6 stages) + "Project Delivery" pipeline (Proposal → Scoping → Development → QA → Delivery → Support); Kanban page fetches all pipelines via `list()` and selects by `searchParams.pipelineId` or defaults to `isDefault: true`
+- **Tablaco seed data**: `seed-tablaco.ts` seeds a full project lifecycle: contact (Rodrigo Tablaco, `externalJanuaId: janua-tablaco-001`), converted lead, $45k opportunity on Delivery pipeline, 3 installment quotes, 3 orders (2 fulfilled, 1 confirmed), 6 activities, 4 notes, 4 tags, 6 external refs (all 6 providers), 2 conversions, 5 stage transitions, 2 visitor sessions, 4 page views
 - **Time-series analytics**: 4 trend methods (`getLeadTrend`, `getOpportunityTrend`, `getConversionTrend`, `getVisitorTrend`) using `date_trunc()` + GROUP BY with required date range and `day`/`week`/`month` bucketing
 - **CSV import**: `ContactsService.bulkCreate()` (max 500, wrapped in transaction); CSV parser handles RFC 4180 (quoted commas, BOM)
 - **Task reminders**: Repeatable BullMQ job (`task-reminders`, every 4h) scans activities due within 24h, creates notifications with 24h dedup; see ADR-006
@@ -154,7 +158,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - **Tags panel**: Per-entity tags with add/remove, badge display, create new tags with color
 - **User management**: Admin-gated CRUD at `/settings/users`
 - **Global search**: Cmd+K searchbar in header, searches contacts/leads/opportunities with debounced query
-- **Kanban pipeline**: Drag-and-drop pipeline board using `@hello-pangea/dnd`, moves leads/opps between stages
+- **Kanban pipeline**: Drag-and-drop pipeline board using `@hello-pangea/dnd`, moves leads/opps between stages; pipeline selector dropdown (`PipelineSelector`) switches between pipelines via `?pipelineId=` search param
 - **Contact detail**: Federation tabs + activities + notes + tags + related leads/opportunities
 - **Dashboard charts**: ConversionFunnelChart + RevenueByStatusChart on overview page, plus recent activities
 - **Bulk operations**: Row selection checkboxes on data tables, bulk status change for leads/opportunities

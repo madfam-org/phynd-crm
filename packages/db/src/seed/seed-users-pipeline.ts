@@ -49,5 +49,34 @@ export async function seedUsersAndPipeline(db: Db) {
     .values(stageData.map((s) => ({ ...s, pipelineId })))
     .returning()
 
-  return { adminId, pipelineId, stages: stageRows }
+  // Project Delivery pipeline
+  const [deliveryPipeline] = await db
+    .insert(pipelines)
+    .values({ name: 'Project Delivery', isDefault: false })
+    .returning()
+
+  const deliveryPipelineId = deliveryPipeline?.id
+  if (!deliveryPipelineId) throw new Error('Failed to create delivery pipeline')
+
+  const deliveryStageData = [
+    { name: 'Proposal', position: 0, probability: 10 },
+    { name: 'Scoping', position: 1, probability: 20 },
+    { name: 'Development', position: 2, probability: 40 },
+    { name: 'QA', position: 3, probability: 60 },
+    { name: 'Delivery', position: 4, probability: 90 },
+    { name: 'Support', position: 5, probability: 100 },
+  ]
+
+  const deliveryStageRows = await db
+    .insert(pipelineStages)
+    .values(deliveryStageData.map((s) => ({ ...s, pipelineId: deliveryPipelineId })))
+    .returning()
+
+  return {
+    adminId,
+    pipelineId,
+    stages: stageRows,
+    deliveryPipelineId,
+    deliveryStages: deliveryStageRows,
+  }
 }

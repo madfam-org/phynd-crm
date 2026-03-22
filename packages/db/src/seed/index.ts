@@ -9,6 +9,7 @@ import { seedPreferences } from './seed-preferences'
 import { seedQuotesAndOrders } from './seed-quotes-orders'
 import { seedScoringRules } from './seed-scoring-rules'
 import { seedStageTransitions } from './seed-stage-transitions'
+import { seedTablaco } from './seed-tablaco'
 import { seedTagsAndNotifications } from './seed-tags-notifications'
 import { seedUsersAndPipeline } from './seed-users-pipeline'
 import { seedVisitorData } from './seed-visitor-data'
@@ -18,13 +19,16 @@ export async function seed() {
   const db = getDb()
   console.log('Seeding database...')
 
-  const { adminId, pipelineId, stages } = await seedUsersAndPipeline(db)
+  const { adminId, pipelineId, stages, deliveryPipelineId, deliveryStages } =
+    await seedUsersAndPipeline(db)
   const sampleContacts = await seedContacts(db, adminId)
 
   const ids: SeedIds = {
     adminId,
     pipelineId,
     stages,
+    deliveryPipelineId,
+    deliveryStages,
     contacts: sampleContacts,
     leads: [],
     opps: [],
@@ -55,6 +59,7 @@ export async function seed() {
   await seedStageTransitions(db, ids)
   await seedPreferences(db)
   await seedTagsAndNotifications(db, ids)
+  await seedTablaco(db, ids)
 
   console.log('Seed complete!')
 }

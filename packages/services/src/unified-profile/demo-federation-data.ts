@@ -7,6 +7,7 @@ import type {
   PravaraFabrication,
   ProviderStatus,
 } from '@phyne/types/federation'
+import { getTablacoFederationData } from './tablaco-federation-data'
 
 type FederationEntry<T> = {
   data: T
@@ -23,6 +24,10 @@ function entry<T>(data: T, provider: string): FederationEntry<T> {
 export function getDemoFederationData<
   C extends { id: string; name: string; email: string | null; externalJanuaId: string | null },
 >(contact: C) {
+  if (contact.externalJanuaId === 'janua-tablaco-001') {
+    return getTablacoFederationData(contact)
+  }
+
   const now = new Date()
   const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)

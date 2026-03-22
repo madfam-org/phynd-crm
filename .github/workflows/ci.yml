@@ -71,9 +71,4 @@ jobs:
           PRAVARA_BASE_URL: http://localhost:4004
           FORJ_API_URL: http://localhost:4005
           PRAVARA_API_KEY: ci-pravara-key
-          JANUA_WEBHOOK_SECRET: ci-webhook-secret
-          DHANAM_WEBHOOK_SECRET: ci-webhook-secret
-          COTIZA_WEBHOOK_SECRET: ci-webhook-secret
-          PRAVARA_WEBHOOK_SECRET: ci-webhook-secret
-          FORJ_WEBHOOK_SECRET: ci-webhook-secret
           JANUA_TELEMETRY_API_URL: http://localhost:4006

@@ -3,6 +3,7 @@ import { DEMO_COOKIE_NAME } from '@/lib/demo'
 import { NextResponse } from 'next/server'
 
 const publicPaths = ['/', '/login', '/callback', '/demo']
+const devBypass = process.env.NODE_ENV !== 'production' && process.env.AUTH_BYPASS === 'true'
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth
@@ -17,7 +18,7 @@ export default auth((req) => {
     return NextResponse.next()
   }
 
-  if (!isPublic && !isLoggedIn) {
+  if (!isPublic && !isLoggedIn && !devBypass) {
     return NextResponse.redirect(new URL('/login', req.nextUrl))
   }
 

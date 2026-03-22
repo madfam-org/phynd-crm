@@ -23,12 +23,12 @@ const envSchemaBase = z.object({
   // Federation - API Keys
   PRAVARA_API_KEY: z.string().min(1),
 
-  // Federation - Webhook Secrets
-  JANUA_WEBHOOK_SECRET: z.string().min(1),
-  DHANAM_WEBHOOK_SECRET: z.string().min(1),
-  COTIZA_WEBHOOK_SECRET: z.string().min(1),
-  PRAVARA_WEBHOOK_SECRET: z.string().min(1),
-  FORJ_WEBHOOK_SECRET: z.string().min(1),
+  // Federation - Webhook Secrets (optional — routes return 503 when unconfigured)
+  JANUA_WEBHOOK_SECRET: z.string().min(1).optional(),
+  DHANAM_WEBHOOK_SECRET: z.string().min(1).optional(),
+  COTIZA_WEBHOOK_SECRET: z.string().min(1).optional(),
+  PRAVARA_WEBHOOK_SECRET: z.string().min(1).optional(),
+  FORJ_WEBHOOK_SECRET: z.string().min(1).optional(),
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),

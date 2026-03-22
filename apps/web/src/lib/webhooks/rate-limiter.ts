@@ -1,4 +1,7 @@
+import { createLogger } from '@phyne/logging'
 import Redis from 'ioredis'
+
+const logger = createLogger('webhook-rate-limiter')
 
 const WINDOW_MS = 60_000 // 1 minute
 const MAX_REQUESTS = 100
@@ -27,8 +30,8 @@ export async function checkRateLimit(ip: string): Promise<{ allowed: boolean; re
 
     const remaining = Math.max(0, MAX_REQUESTS - current)
     return { allowed: current <= MAX_REQUESTS, remaining }
-  } catch {
-    // If Redis is down, allow the request (fail open for webhooks)
-    return { allowed: true, remaining: MAX_REQUESTS }
+  } catch (err) {
+    logger.warn({ err, ip }, 'Redis webhook rate limiter error — failing closed')
+    return { allowed: false, remaining: 0 }
   }
 }

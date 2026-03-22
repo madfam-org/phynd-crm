@@ -95,6 +95,9 @@ pnpm db:seed          # Seed database
 - **Landing page**: Hero with CSS-only dashboard mockup (browser frame + KPI cards + chart + table), "Try Live Demo" CTA. Social proof section with factual metrics. 11 marketing sections total
 - **Lead scoring refactoring**: `computeScore()` decomposed into private methods (`fetchVisitorData`, `matchCondition`, `matchPageUrl`, `addToCategory`, `computeCategoryScores`, `upsertScore`)
 - **At-risk deals refactoring**: `getAtRiskDeals()` decomposed into `computeTransitionMetrics`, `computeStageAverages`, `identifyAtRiskDeals`
+- **ServiceError mapping**: tRPC middleware auto-maps `ServiceError` subclasses to proper tRPC error codes (NOT_FOUND→NOT_FOUND, VALIDATION_ERROR→BAD_REQUEST, CONFLICT→CONFLICT, FEDERATION_ERROR→INTERNAL_SERVER_ERROR)
+- **Fail-closed rate limiting**: Both API and webhook rate limiters deny requests when Redis is unavailable (fail closed, not fail open)
+- **CI TODO**: Configure GitHub branch protection to require `e2e` workflow as required status check, or merge E2E into `ci.yml` as a dependent job
 
 ## DB Schema
 users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores

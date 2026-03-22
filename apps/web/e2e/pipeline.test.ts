@@ -4,11 +4,12 @@ test.describe('Pipeline Kanban Board', () => {
   test('unauthenticated users are redirected from pipeline to login', async ({
     page,
   }) => {
+    test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirect')
     await page.goto('/pipeline')
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test.fixme(
+  test(
     'pipeline page renders with heading',
     async ({ page }) => {
       // Requires: authenticated session + default pipeline configured in DB
@@ -18,7 +19,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'pipeline page displays pipeline name as subtitle',
     async ({ page }) => {
       // Requires: authenticated session + default pipeline configured in DB
@@ -31,7 +32,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'pipeline page shows stage columns',
     async ({ page }) => {
       // Requires: authenticated session + default pipeline with stages seeded
@@ -42,7 +43,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'stage columns show card count badges',
     async ({ page }) => {
       // Requires: authenticated session + default pipeline with stages seeded
@@ -63,7 +64,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'empty stages show "Empty" placeholder text',
     async ({ page }) => {
       // Requires: authenticated session + at least one empty stage in the pipeline
@@ -75,7 +76,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'lead cards display in their assigned stages',
     async ({ page }) => {
       // Requires: authenticated session + leads assigned to pipeline stages
@@ -86,7 +87,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'opportunity cards display in their assigned stages',
     async ({ page }) => {
       // Requires: authenticated session + opportunities assigned to pipeline stages
@@ -97,7 +98,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'stage droppable areas have accessible labels',
     async ({ page }) => {
       // Requires: authenticated session + default pipeline with stages
@@ -108,7 +109,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'drag and drop moves a lead card between stages',
     async ({ page }) => {
       // Requires: authenticated session + pipeline with at least 2 stages + lead in first stage
@@ -148,7 +149,7 @@ test.describe('Pipeline Kanban Board', () => {
     },
   )
 
-  test.fixme(
+  test(
     'shows fallback when no default pipeline is configured',
     async ({ page }) => {
       // Requires: authenticated session + no default pipeline in DB

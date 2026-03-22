@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 export async function POST(req: Request) {
   const secret = process.env.JANUA_WEBHOOK_SECRET
   if (!secret) {
-    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
   }
 
   return handleWebhook(req, {

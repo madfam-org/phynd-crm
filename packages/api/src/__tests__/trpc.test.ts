@@ -1,4 +1,11 @@
 import type { ServiceContext } from '@phyne/services/context'
+import {
+  ConflictError,
+  FederationError,
+  NotFoundError,
+  ServiceError,
+  ValidationError,
+} from '@phyne/services/errors'
 import type { AuthContext } from '@phyne/types/auth'
 import { TRPCError } from '@trpc/server'
 import { describe, expect, it } from 'vitest'
@@ -209,6 +216,108 @@ describe('requireRole middleware', () => {
     // The auth middleware runs first, so it should be UNAUTHORIZED
     await expect(caller.adminOnly()).rejects.toMatchObject({
       code: 'UNAUTHORIZED',
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ServiceError → tRPC error mapping
+// ---------------------------------------------------------------------------
+
+describe('ServiceError → tRPC error mapping', () => {
+  it('maps NotFoundError to NOT_FOUND', async () => {
+    const errorRouter = router({
+      failing: publicProcedure.query(() => {
+        throw new NotFoundError('Contact', 'c-123')
+      }),
+    })
+    const caller = createCallerFactory(errorRouter)(createMockServiceContext())
+
+    await expect(caller.failing()).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Contact not found: c-123',
+    })
+  })
+
+  it('maps ValidationError to BAD_REQUEST', async () => {
+    const errorRouter = router({
+      failing: publicProcedure.query(() => {
+        throw new ValidationError('Email is required')
+      }),
+    })
+    const caller = createCallerFactory(errorRouter)(createMockServiceContext())
+
+    await expect(caller.failing()).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'Email is required',
+    })
+  })
+
+  it('maps ConflictError to CONFLICT', async () => {
+    const errorRouter = router({
+      failing: publicProcedure.query(() => {
+        throw new ConflictError('Duplicate entry')
+      }),
+    })
+    const caller = createCallerFactory(errorRouter)(createMockServiceContext())
+
+    await expect(caller.failing()).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Duplicate entry',
+    })
+  })
+
+  it('maps FederationError to INTERNAL_SERVER_ERROR', async () => {
+    const errorRouter = router({
+      failing: publicProcedure.query(() => {
+        throw new FederationError('janua', 'Connection refused')
+      }),
+    })
+    const caller = createCallerFactory(errorRouter)(createMockServiceContext())
+
+    await expect(caller.failing()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Federation error (janua): Connection refused',
+    })
+  })
+
+  it('maps generic ServiceError to INTERNAL_SERVER_ERROR', async () => {
+    const errorRouter = router({
+      failing: publicProcedure.query(() => {
+        throw new ServiceError('Unknown service error', 'UNKNOWN_CODE', 500)
+      }),
+    })
+    const caller = createCallerFactory(errorRouter)(createMockServiceContext())
+
+    await expect(caller.failing()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Unknown service error',
+    })
+  })
+
+  it('passes non-ServiceError through unchanged', async () => {
+    const errorRouter = router({
+      failing: publicProcedure.query(() => {
+        throw new Error('plain error')
+      }),
+    })
+    const caller = createCallerFactory(errorRouter)(createMockServiceContext())
+
+    await expect(caller.failing()).rejects.toThrow('plain error')
+  })
+
+  it('works on protectedProcedure too', async () => {
+    const errorRouter = router({
+      failing: protectedProcedure.query(() => {
+        throw new NotFoundError('Lead', 'l-456')
+      }),
+    })
+    const ctx = createMockServiceContext({ userId: 'user-1' })
+    const caller = createCallerFactory(errorRouter)(ctx)
+
+    await expect(caller.failing()).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Lead not found: l-456',
     })
   })
 })

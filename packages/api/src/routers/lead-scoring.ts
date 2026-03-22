@@ -1,5 +1,6 @@
 import { isFeatureEnabled } from '@phyne/config/features'
 import { LeadScoringService } from '@phyne/services'
+import type { ScoringCondition } from '@phyne/types/crm'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
@@ -46,8 +47,10 @@ export const leadScoringRouter = router({
     .mutation(({ ctx, input }) => {
       assertLeadScoring()
       const service = new LeadScoringService(ctx)
-      // biome-ignore lint/suspicious/noExplicitAny: zod infers narrower operator type than ScoringCondition
-      return service.createRule(input as any)
+      return service.createRule({
+        ...input,
+        condition: input.condition as ScoringCondition,
+      })
     }),
 
   updateRule: protectedProcedure
@@ -65,7 +68,10 @@ export const leadScoringRouter = router({
       assertLeadScoring()
       const { id, ...data } = input
       const service = new LeadScoringService(ctx)
-      return service.updateRule(id, data as Parameters<typeof service.updateRule>[1])
+      return service.updateRule(id, {
+        ...data,
+        ...(data.condition ? { condition: data.condition as ScoringCondition } : {}),
+      })
     }),
 
   deleteRule: protectedProcedure

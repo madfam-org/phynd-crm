@@ -5,11 +5,12 @@ test.describe('Bulk Operations', () => {
     test('unauthenticated users are redirected from contacts to login', async ({
       page,
     }) => {
+      test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirect')
       await page.goto('/contacts')
       await expect(page).toHaveURL(/\/login/)
     })
 
-    test.fixme(
+    test(
       'contacts table renders with selectable checkboxes',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts
@@ -20,7 +21,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'individual row checkboxes are visible in contacts table',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts
@@ -33,7 +34,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'selecting a contact row shows bulk actions toolbar',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts
@@ -50,7 +51,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'select all checkbox selects all visible contact rows',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts
@@ -68,7 +69,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'contacts export CSV button is visible when rows are selected',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts
@@ -86,7 +87,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'CSV export triggers a file download',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts
@@ -114,11 +115,12 @@ test.describe('Bulk Operations', () => {
     test('unauthenticated users are redirected from leads to login', async ({
       page,
     }) => {
+      test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirect')
       await page.goto('/leads')
       await expect(page).toHaveURL(/\/login/)
     })
 
-    test.fixme(
+    test(
       'leads table renders with selectable checkboxes',
       async ({ page }) => {
         // Requires: authenticated session + seeded leads
@@ -128,7 +130,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'selecting lead rows shows bulk actions toolbar with status change option',
       async ({ page }) => {
         // Requires: authenticated session + seeded leads
@@ -151,7 +153,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'selecting lead rows shows status selector dropdown',
       async ({ page }) => {
         // Requires: authenticated session + seeded leads
@@ -168,7 +170,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'bulk status change updates selected leads',
       async ({ page }) => {
         // Requires: authenticated session + seeded leads with "new" status
@@ -198,11 +200,12 @@ test.describe('Bulk Operations', () => {
     test('unauthenticated users are redirected from opportunities to login', async ({
       page,
     }) => {
+      test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirect')
       await page.goto('/opportunities')
       await expect(page).toHaveURL(/\/login/)
     })
 
-    test.fixme(
+    test(
       'opportunities table renders with selectable checkboxes',
       async ({ page }) => {
         // Requires: authenticated session + seeded opportunities
@@ -212,7 +215,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'selecting opportunity rows shows bulk actions toolbar',
       async ({ page }) => {
         // Requires: authenticated session + seeded opportunities
@@ -231,7 +234,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'deselecting all rows hides bulk actions toolbar',
       async ({ page }) => {
         // Requires: authenticated session + seeded opportunities
@@ -252,7 +255,7 @@ test.describe('Bulk Operations', () => {
   })
 
   test.describe('data table interaction patterns', () => {
-    test.fixme(
+    test(
       'select-all with search filter only selects visible rows',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts with varied data
@@ -273,7 +276,7 @@ test.describe('Bulk Operations', () => {
       },
     )
 
-    test.fixme(
+    test(
       'selected rows have data-state="selected" attribute',
       async ({ page }) => {
         // Requires: authenticated session + seeded contacts

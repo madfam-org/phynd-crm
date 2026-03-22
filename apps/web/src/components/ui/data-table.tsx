@@ -42,6 +42,7 @@ interface DataTableProps<T> {
   searchKey?: keyof T & string
   searchPlaceholder?: string
   selectable?: boolean
+  tableLabel?: string
 }
 
 export function DataTable<T>({
@@ -55,6 +56,7 @@ export function DataTable<T>({
   searchKey,
   searchPlaceholder,
   selectable = false,
+  tableLabel,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
@@ -154,6 +156,7 @@ export function DataTable<T>({
         <div className="flex items-center gap-4">
           {searchKey && (
             <Input
+              aria-label={searchPlaceholder ?? 'Search table'}
               placeholder={searchPlaceholder ?? 'Search...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -162,7 +165,7 @@ export function DataTable<T>({
           )}
           {filterOptions && filterKey && (
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px]" aria-label="Filter by status">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
@@ -178,7 +181,7 @@ export function DataTable<T>({
         </div>
       )}
       <div className="rounded-md border">
-        <Table>
+        <Table aria-label={tableLabel}>
           <TableHeader>
             <TableRow>
               {selectable && (
@@ -202,7 +205,7 @@ export function DataTable<T>({
           <TableBody>
             {filteredData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={colSpan} className="h-24 text-center">
+                <TableCell colSpan={colSpan} className="h-24 text-center" aria-live="polite">
                   No results.
                 </TableCell>
               </TableRow>

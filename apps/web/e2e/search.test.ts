@@ -39,7 +39,7 @@ test.describe('Global Search', () => {
     await expect(kbdHint).toBeVisible()
   })
 
-  test.fixme(
+  test(
     'Cmd+K focuses search input',
     async ({ page }) => {
       // Requires authenticated session to access dashboard layout where GlobalSearch is rendered
@@ -52,7 +52,7 @@ test.describe('Global Search', () => {
     },
   )
 
-  test.fixme(
+  test(
     'Ctrl+K focuses search input on non-Mac platforms',
     async ({ page }) => {
       // Requires authenticated session
@@ -65,7 +65,7 @@ test.describe('Global Search', () => {
     },
   )
 
-  test.fixme(
+  test(
     'typing in search shows results dropdown',
     async ({ page }) => {
       // Requires: authenticated session + seeded DB with contacts/leads/opportunities
@@ -82,7 +82,7 @@ test.describe('Global Search', () => {
     },
   )
 
-  test.fixme(
+  test(
     'empty search query shows no dropdown',
     async ({ page }) => {
       // Requires authenticated session
@@ -96,7 +96,7 @@ test.describe('Global Search', () => {
     },
   )
 
-  test.fixme(
+  test(
     'search with no matches shows "No results found" message',
     async ({ page }) => {
       // Requires: authenticated session + seeded DB
@@ -110,7 +110,7 @@ test.describe('Global Search', () => {
     },
   )
 
-  test.fixme(
+  test(
     'clicking a search result navigates to entity page',
     async ({ page }) => {
       // Requires: authenticated session + seeded DB with at least one contact
@@ -130,7 +130,7 @@ test.describe('Global Search', () => {
     },
   )
 
-  test.fixme(
+  test(
     'search results show entity type badges (Contact, Lead, Opportunity)',
     async ({ page }) => {
       // Requires: authenticated session + seeded DB with mixed entity types

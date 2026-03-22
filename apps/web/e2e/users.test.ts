@@ -4,11 +4,12 @@ test.describe('User Management', () => {
   test('unauthenticated users are redirected from users page to login', async ({
     page,
   }) => {
+    test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirect')
     await page.goto('/settings/users')
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test.fixme(
+  test(
     'users page renders with heading',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -18,7 +19,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'users page shows subtitle text',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -29,7 +30,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'create user button is visible',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -41,7 +42,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'clicking create user button opens dialog',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -60,7 +61,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'create user dialog has email, name, and role fields',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -82,7 +83,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'create user dialog has cancel and submit buttons',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -102,7 +103,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'create user submit button enables when email is provided',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -119,7 +120,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'users data table displays with columns',
     async ({ page }) => {
       // Requires: authenticated session with admin role + seeded users
@@ -132,7 +133,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'users table has search by email filter',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -142,7 +143,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'users table has role filter dropdown',
     async ({ page }) => {
       // Requires: authenticated session with admin role
@@ -155,7 +156,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'user row actions menu has Edit and Delete options',
     async ({ page }) => {
       // Requires: authenticated session with admin role + at least one user seeded
@@ -170,7 +171,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'user roles display with correct badges',
     async ({ page }) => {
       // Requires: authenticated session with admin role + users with different roles
@@ -181,7 +182,7 @@ test.describe('User Management', () => {
     },
   )
 
-  test.fixme(
+  test(
     'CRUD operations require admin role',
     async ({ page }) => {
       // Requires: authenticated session with a non-admin role (e.g., viewer)

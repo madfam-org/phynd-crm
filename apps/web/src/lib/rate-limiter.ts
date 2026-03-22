@@ -1,4 +1,7 @@
+import { createLogger } from '@phyne/logging'
 import Redis from 'ioredis'
+
+const logger = createLogger('rate-limiter')
 
 const DEFAULT_WINDOW_MS = 60_000 // 1 minute
 const DEFAULT_MAX_REQUESTS = 200
@@ -32,8 +35,8 @@ export async function checkApiRateLimit(
 
     const remaining = Math.max(0, maxRequests - current)
     return { allowed: current <= maxRequests, remaining }
-  } catch {
-    // If Redis is down, allow the request (fail open)
-    return { allowed: true, remaining: maxRequests }
+  } catch (err) {
+    logger.warn({ err, ip }, 'Redis rate limiter error — failing closed')
+    return { allowed: false, remaining: 0 }
   }
 }

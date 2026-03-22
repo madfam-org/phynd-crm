@@ -69,6 +69,16 @@ export function buildContactData(prefix: string, userId: string) {
       status: 'active' as const,
       ownerId: userId,
     },
+    {
+      id: `${prefix}-c5`,
+      name: 'Rodrigo Tablaco',
+      email: 'rodrigo@tablaco.mx',
+      company: 'Tablaco',
+      phone: '+52-55-1234-5678',
+      status: 'active' as const,
+      ownerId: userId,
+      externalJanuaId: 'janua-tablaco-001',
+    },
   ]
 }
 

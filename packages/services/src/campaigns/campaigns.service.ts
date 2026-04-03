@@ -40,6 +40,7 @@ export class CampaignsService {
     name: string
     description?: string
     channel?: string
+    status?: string
     utmSource?: string
     utmMedium?: string
     utmCampaign?: string

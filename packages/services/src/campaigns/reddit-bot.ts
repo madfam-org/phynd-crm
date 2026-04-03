@@ -64,12 +64,14 @@ export class RedditBotService {
         return "Legal framework unverified.";
       }
       
-      const data = await res.json();
+      interface TezcaHit { law_title?: string; number?: string; id?: string; text?: string }
+      interface TezcaResponse { results?: TezcaHit[] }
+      const data = await res.json() as TezcaResponse;
       
       // Assume Elasticsearch hits array format
       if (data.results && data.results.length > 0) {
-          // Flatten top 3 matched articles
-          const topHits = data.results.slice(0, 3).map((hit: any) => `Source: ${hit.law_title || 'Ley'}, Ley Art: ${hit.number || hit.id}\nContext: ${hit.text}`).join("\n\n");
+          // Flatten top 3 matched articles, capped at 500 chars each to stay within OpenAI context budget
+          const topHits = data.results.slice(0, 3).map((hit: TezcaHit) => `Source: ${hit.law_title ?? 'Ley'}, Art: ${hit.number ?? hit.id ?? '?'}\nContext: ${(hit.text ?? '').slice(0, 500)}`).join("\n\n");
           return topHits;
       }
       
@@ -100,7 +102,7 @@ Advise the user to seek official counsel always.`
         temperature: 0.1,
       });
 
-      return response.choices[0].message.content || "Drafting Error";
+      return response.choices[0]?.message?.content ?? "Drafting Error";
     } catch(e) {
       console.error("OpenAI mapping failed:", e);
       return "LLM integration failed.";
@@ -112,8 +114,8 @@ Advise the user to seek official counsel always.`
         name: `Reddit Sync: r/${payload.outreach_target.author} - ${payload.legal_context.domain}`,
         description: `DRAFT PENDING APPROVAL:\n\n${draftResponse}\n\n---\nTezca Evidence:\n${tezcaContext}`,
         channel: "reddit_bot",
-        status: "draft"
-      } as any); // Casting since status isn't exposed in base create but usually maps locally
+        status: "draft",
+      });
 
       return campaign.id;
   }

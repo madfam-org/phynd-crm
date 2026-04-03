@@ -1,6 +1,7 @@
 export { ActivitiesService } from './activities/activities.service'
 export { AnalyticsService } from './analytics/analytics.service'
 export { CampaignsService } from './campaigns/campaigns.service'
+export { RedditBotService } from './campaigns/reddit-bot'
 export { ContactsService } from './contacts/contacts.service'
 export { ConversionsService } from './conversions/conversions.service'
 export { createServiceContext, type ServiceContext } from './context'

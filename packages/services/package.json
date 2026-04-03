@@ -17,15 +17,16 @@
     "format": "biome format --write src/"
   },
   "dependencies": {
+    "@phyne/config": "workspace:*",
     "@phyne/db": "workspace:*",
     "@phyne/federation": "workspace:*",
     "@phyne/types": "workspace:*",
-    "@phyne/config": "workspace:*",
-    "drizzle-orm": "^0.39.3"
+    "drizzle-orm": "^0.39.3",
+    "openai": "^6.33.0"
   },
   "devDependencies": {
-    "vitest": "^3.0.5",
+    "@biomejs/biome": "^1.9.4",
     "typescript": "^5.7.3",
-    "@biomejs/biome": "^1.9.4"
+    "vitest": "^3.0.5"
   }
 }

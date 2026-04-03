@@ -115,6 +115,10 @@ Advise the user to seek official counsel always.`
         description: `DRAFT PENDING APPROVAL:\n\n${draftResponse}\n\n---\nTezca Evidence:\n${tezcaContext}`,
         channel: "reddit_bot",
         status: "draft",
+        // Store the Reddit post URL in utmSource for retrieval at approval time
+        utmSource: payload.outreach_target.url,
+        utmMedium: "reddit",
+        utmCampaign: payload.legal_context.domain,
       });
 
       return campaign.id;

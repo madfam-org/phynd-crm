@@ -125,14 +125,21 @@ function DraftReviewCard({ campaign, onApprove, onDiscard }: DraftReviewCardProp
 export function DraftCampaignList({ initialDrafts }: { initialDrafts: DraftCampaign[] }) {
   const [drafts, setDrafts] = useState(initialDrafts)
 
+  const [posted, setPosted] = useState<string | null>(null)
+
   const removeDraft = (id: string) => setDrafts((prev) => prev.filter((d) => d.id !== id))
 
   const handleApprove = async (id: string) => {
-    await fetch('/api/campaigns/drafts/action', {
+    const res = await fetch('/api/campaigns/drafts/action', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, action: 'approved' }),
     })
+    const data = await res.json() as { status: string; commentUrl?: string }
+
+    if (data.status === 'posted' && data.commentUrl) {
+      setPosted(data.commentUrl)
+    }
     removeDraft(id)
   }
 
@@ -145,7 +152,7 @@ export function DraftCampaignList({ initialDrafts }: { initialDrafts: DraftCampa
     removeDraft(id)
   }
 
-  if (drafts.length === 0) {
+  if (drafts.length === 0 && !posted) {
     return (
       <div className="py-16 text-center text-muted-foreground">
         <Bot className="mx-auto mb-3 h-10 w-10 opacity-30" />
@@ -155,15 +162,32 @@ export function DraftCampaignList({ initialDrafts }: { initialDrafts: DraftCampa
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {drafts.map((campaign) => (
-        <DraftReviewCard
-          key={campaign.id}
-          campaign={campaign}
-          onApprove={handleApprove}
-          onDiscard={handleDiscard}
-        />
-      ))}
+    <div className="space-y-4">
+      {posted && (
+        <div className="flex items-center gap-3 rounded-md border border-green-700/40 bg-green-950/20 px-4 py-3 text-sm text-green-400">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>Reply posted successfully as <span className="font-mono">u/madfam-bot</span>.</span>
+          <a
+            href={posted}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto flex items-center gap-1 text-xs underline underline-offset-2 hover:text-green-300"
+          >
+            <ExternalLink className="h-3 w-3" />
+            View on Reddit
+          </a>
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {drafts.map((campaign) => (
+          <DraftReviewCard
+            key={campaign.id}
+            campaign={campaign}
+            onApprove={handleApprove}
+            onDiscard={handleDiscard}
+          />
+        ))}
+      </div>
     </div>
   )
 }

@@ -201,9 +201,48 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation API Keys    | `PRAVARA_API_KEY`                                    |
 | Webhook Secrets        | `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET` |
 | App                    | `NEXT_PUBLIC_APP_URL`, `NODE_ENV`                    |
+| AI Pipeline (Fortuna)  | `OPENAI_API_KEY`, `PHYNE_WEBHOOK_SECRET`             |
+| Tezca Oracle           | `INTERNAL_TEZCA_KEY`, `TEZCA_API_URL`               |
+| Reddit Bot             | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_REFRESH_TOKEN`, `REDDIT_BOT_USERNAME` |
 
 All environment variables are validated at startup using Zod schemas in `packages/config`.
+
+## Fortuna AI Pipeline Integration
+
+Phyne CRM is the campaign orchestration layer for the autonomous legal scouting pipeline:
+
+```
+fortuna-jobs  ──► madfam-crawler  ──► fortuna-nlp
+                                           │ (confidence ≥ 0.85)
+                                    POST /api/campaigns/trigger
+                                           │
+                                     RedditBotService
+                                           ├── Tezca oracle query
+                                           ├── OpenAI GPT-4 draft
+                                           └── Campaign saved as status="draft"
+                                           │
+                                  /campaigns/drafts  (review UI)
+                                           │
+                               [Approve] → postRedditComment()
+                                           │
+                                  u/madfam-bot posts reply ✓
+```
+
+### Key Files
+
+| File | Purpose |
+|---|---|
+| `apps/web/src/app/api/campaigns/trigger/route.ts` | Inbound webhook — receives high-confidence signals from Fortuna |
+| `packages/services/src/campaigns/reddit-bot.ts` | Orchestrates Tezca query + OpenAI draft + CRM staging |
+| `packages/services/src/campaigns/reddit-poster.ts` | Reddit OAuth2 client — posts approved replies as `u/madfam-bot` |
+| `apps/web/src/app/(dashboard)/campaigns/drafts/page.tsx` | Human-in-the-loop review UI |
+| `apps/web/src/app/api/campaigns/drafts/action/route.ts` | Approve/Reject handler that triggers Reddit posting |
+
+### Reddit Bot Setup
+
+See the [walkthrough artifact](https://github.com/madfam-org/phyne-crm) for the one-time Reddit OAuth refresh token setup required to activate live posting.
 
 ## License
 
 TBD
+

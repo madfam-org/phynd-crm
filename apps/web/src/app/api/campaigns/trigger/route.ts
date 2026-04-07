@@ -6,9 +6,19 @@ import { RedditBotService } from '@phyne/services';
 
 export async function POST(req: Request) {
   try {
-    // 1. Validate authorization secret (Fortuna to Phyne CRM)
+    // 0. Fail-closed: reject requests when the shared secret is not configured
+    const expectedSecret = process.env.FORTUNA_WEBHOOK_SECRET;
+    if (!expectedSecret) {
+      console.error('FORTUNA_WEBHOOK_SECRET is not configured — refusing to serve webhook');
+      return NextResponse.json(
+        { error: 'Service unavailable: webhook secret not configured' },
+        { status: 503 },
+      );
+    }
+
+    // 1. Validate authorization secret (Fortuna → Phyne CRM)
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader || authHeader !== 'Bearer internal-secret-token') {
+    if (!authHeader || authHeader !== `Bearer ${expectedSecret}`) {
       return NextResponse.json({ error: 'Unauthorized webhook trigger' }, { status: 401 });
     }
 
@@ -24,14 +34,14 @@ export async function POST(req: Request) {
       scopes: ['*'],
       accessToken: ''
     };
-    
+
     // We import createServiceContext from '@phyne/services' directly per the monorepo structure
     const ctx = createServiceContext(db, cache, mockAuthCtx);
-    
+
     // 3. Dispatch payload to Reddit Bot Campaign Service
     const botService = new RedditBotService(ctx);
     const result = await botService.processWebhook(payload);
-    
+
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("Campaign Webhook Failed:", error);

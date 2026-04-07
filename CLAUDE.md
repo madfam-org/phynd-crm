@@ -104,7 +104,7 @@ pnpm db:seed          # Seed database
 - **CI TODO**: Configure GitHub branch protection to require `e2e` workflow as required status check, or merge E2E into `ci.yml` as a dependent job
 
 ## DB Schema
-users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores
+users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit
 
 ### Indexes
 - leads: `contact_id`, composite `(pipeline_id, stage_id)`
@@ -126,15 +126,16 @@ users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stage
 - contacts, leads, opportunities, quotes, orders: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead)
+contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag)
 
-## Feature Flags (12 total)
+## Feature Flags (13 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG
 - `forjEnabled: true` — Forj 3D digital assets provider
 - `visitorTracking: true` — Anonymous visitor tracking via Janua telemetry
 - `funnelManagement: true` — Funnel and offer management
 - `analytics: true` — Analytics dashboard
 - `leadScoring: true` — Configurable lead scoring with auto-recomputation
+- `treasuryHunter: false` — ACCA Treasury Hunter grant lifecycle management (Fortuna → PhyneCRM → Karafiel pipeline)
 - 6 others (bidirectionalSync, aiKanban, multiTenancy, piiMasking, observability, realtimeUpdates) — all `false`
 
 ## Phasing
@@ -196,8 +197,16 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `federation-sync`: Handles cache invalidation and refresh
 - `task-reminders`: Repeatable job (every 4h) scanning activities due within 24h, creates notifications with dedup
 - `demo-cleanup`: Repeatable job (every 1h) deleting expired demo tenant data > 4h old; deletes all 20 entity types in dependency order within transaction (5 phases: leaf entities → referencing entities → core entities → campaigns/offers → pipeline/user)
+- `grant-compliance-check`: Calls Karafiel `/api/v1/grants/compliance-status/{rfc}/` to verify 32-D, RFC status, blacklist; updates `complianceChecks` JSON on grant_application (ACCA Treasury Hunter)
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
 - All processors use structured logging via `@phyne/logging` (pino JSON output)
+
+## ACCA Treasury Hunter Integration
+- **Fortuna webhook**: `POST /api/webhooks/fortuna` — receives `grant.discovered` events, upserts grant_opportunities, creates grant_application at "Discovered" stage, enqueues `grant-compliance-check` job
+- **Karafiel webhook dispatch**: `grant.awarded` event sent when application reaches "Awarded" status (HMAC-SHA256, `X-PhyneCRM-Signature`)
+- **HITL gate**: `approveSubmission` requires real `userId` + passing compliance checks (`rfc_active`, `opinion_32d_positive`, `!blacklisted`)
+- **Pipeline**: "Treasury Hunter" pipeline with 8 stages: Discovered (5%) → Evaluating (15%) → Preparing (30%) → HITL Review (50%) → Submitted (65%) → Under Evaluation (75%) → Awarded (95%) → Rejected (0%)
+- **Audit trail**: `grant_signal_audit` table records all lifecycle events with actor + details
 
 ## Docker
 - `docker/docker-compose.yml` — Local dev (Postgres + Redis)

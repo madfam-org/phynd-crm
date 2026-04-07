@@ -78,10 +78,21 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
+  const grantComplianceCheck = new Queue('grant-compliance-check', {
+    connection,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 5000 },
+    },
+  })
+
   return {
     cacheWarmup,
     demoCleanup,
     federationSync,
+    grantComplianceCheck,
     healthCheck,
     leadScoring,
     sessionIdentify,

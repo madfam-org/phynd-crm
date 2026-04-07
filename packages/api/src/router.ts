@@ -4,6 +4,7 @@ import { campaignsRouter } from './routers/campaigns'
 import { contactsRouter } from './routers/contacts'
 import { conversionsRouter } from './routers/conversions'
 import { federationHealthRouter } from './routers/federation-health'
+import { grantsRouter } from './routers/grants'
 import { leadScoringRouter } from './routers/lead-scoring'
 import { leadsRouter } from './routers/leads'
 import { notesRouter } from './routers/notes'
@@ -29,6 +30,7 @@ export const appRouter = router({
   contacts: contactsRouter,
   conversions: conversionsRouter,
   federationHealth: federationHealthRouter,
+  grants: grantsRouter,
   leadScoring: leadScoringRouter,
   leads: leadsRouter,
   notes: notesRouter,

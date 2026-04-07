@@ -129,6 +129,7 @@ export type FederationProviderName =
   | 'cotiza'
   | 'pravara'
   | 'forj'
+  | 'tezca'
   | 'janua-telemetry'
 
 export interface Offer {

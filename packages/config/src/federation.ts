@@ -6,6 +6,7 @@ export function getFederationConfig(baseUrls: {
   cotiza: string
   pravara: string
   forj: string
+  tezca?: string
   'janua-telemetry'?: string
 }): Record<FederationProviderName, ProviderConfig> {
   return {
@@ -101,6 +102,26 @@ export function getFederationConfig(baseUrls: {
         maxRetries: 3,
         baseDelayMs: 500,
         maxDelayMs: 30000,
+        jitterFactor: 0.5,
+      },
+      circuitBreaker: {
+        failureThreshold: 5,
+        resetTimeoutMs: 30000,
+        halfOpenSuccessThreshold: 3,
+      },
+    },
+    tezca: {
+      name: 'tezca',
+      baseUrl: baseUrls.tezca ?? 'http://tezca:8000',
+      timeout: 8000,
+      cache: {
+        ttlSeconds: 3600,
+        keyPrefix: 'fed:tezca',
+      },
+      retry: {
+        maxRetries: 2,
+        baseDelayMs: 500,
+        maxDelayMs: 15000,
         jitterFactor: 0.5,
       },
       circuitBreaker: {

@@ -65,6 +65,16 @@ const INVALIDATION_RULES: Record<FederationProviderName, Record<string, Invalida
       extractId: (p) => (p.owner_id as string) ?? null,
     },
   },
+  tezca: {
+    'interest.created': {
+      cachePrefix: 'fed:tezca',
+      extractId: (p) => {
+        const data = p.data as Record<string, unknown> | undefined
+        const target = data?.outreach_target as Record<string, unknown> | undefined
+        return (target?.author as string) ?? null
+      },
+    },
+  },
   'janua-telemetry': {
     'session.identified': {
       cachePrefix: 'fed:janua-telemetry',

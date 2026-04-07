@@ -44,6 +44,7 @@ function getBaseUrls() {
     cotiza: process.env.COTIZA_API_URL ?? 'http://localhost:4003',
     pravara: process.env.PRAVARA_BASE_URL ?? 'http://localhost:4004',
     forj: process.env.FORJ_API_URL ?? 'http://localhost:4005',
+    tezca: process.env.TEZCA_API_URL ?? 'http://tezca:8000',
     'janua-telemetry':
       process.env.JANUA_TELEMETRY_API_URL ?? process.env.JANUA_API_URL ?? 'http://localhost:4001',
   }
@@ -71,6 +72,7 @@ function getCircuitBreakers(): Record<FederationProviderName, CircuitBreaker> {
     cotiza: new CircuitBreaker(configs.cotiza.circuitBreaker),
     pravara: new CircuitBreaker(configs.pravara.circuitBreaker),
     forj: new CircuitBreaker(configs.forj.circuitBreaker),
+    tezca: new CircuitBreaker(configs.tezca.circuitBreaker),
     'janua-telemetry': new CircuitBreaker(configs['janua-telemetry'].circuitBreaker),
   }
   return sharedCircuitBreakers
@@ -140,6 +142,7 @@ export function getFederationClient(
     cotiza: clients.cotizaClient,
     pravara: clients.pravaraClient,
     forj: clients.forjClient,
+    tezca: clients.januaClient, // Tezca uses direct REST calls, not a federation client — placeholder to satisfy type
     'janua-telemetry': clients.januaTelemetryClient,
   }
   return map[provider]
@@ -156,6 +159,7 @@ export function getHealthChecker(): ProviderHealthChecker {
     { provider: 'cotiza', baseUrl: urls.cotiza, circuitBreaker: cbs.cotiza },
     { provider: 'pravara', baseUrl: urls.pravara, circuitBreaker: cbs.pravara },
     { provider: 'forj', baseUrl: urls.forj, circuitBreaker: cbs.forj },
+    { provider: 'tezca', baseUrl: urls.tezca, circuitBreaker: cbs.tezca },
     {
       provider: 'janua-telemetry',
       baseUrl: urls['janua-telemetry'],

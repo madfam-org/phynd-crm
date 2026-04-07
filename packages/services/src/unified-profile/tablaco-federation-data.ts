@@ -246,6 +246,7 @@ export function getTablacoFederationData<
       cotiza: 'ok' as const,
       pravara: 'ok' as const,
       forj: 'ok' as const,
+      tezca: 'ok' as const,
       'janua-telemetry': 'ok' as const,
     },
   }

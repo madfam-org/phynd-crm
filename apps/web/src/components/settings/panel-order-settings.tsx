@@ -7,7 +7,7 @@ import { trpc } from '@/lib/trpc/client'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-const DEFAULT_PANELS = ['janua', 'dhanam', 'cotiza', 'pravara', 'forj', 'janua-telemetry']
+const DEFAULT_PANELS = ['janua', 'dhanam', 'cotiza', 'pravara', 'forj', 'tezca', 'janua-telemetry']
 
 export function PanelOrderSettings() {
   const { data: prefs, isLoading } = trpc.preferences.getForRole.useQuery({ role: 'admin' })

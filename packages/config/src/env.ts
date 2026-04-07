@@ -23,6 +23,10 @@ const envSchemaBase = z.object({
   // Federation - API Keys
   PRAVARA_API_KEY: z.string().min(1),
 
+  // Federation - Tezca (Legal Oracle)
+  TEZCA_API_URL: z.string().url().optional(),
+  TEZCA_WEBHOOK_SECRET: z.string().min(1).optional(),
+
   // Federation - Webhook Secrets (optional — routes return 503 when unconfigured)
   JANUA_WEBHOOK_SECRET: z.string().min(1).optional(),
   DHANAM_WEBHOOK_SECRET: z.string().min(1).optional(),

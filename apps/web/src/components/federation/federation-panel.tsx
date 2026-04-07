@@ -25,6 +25,7 @@ const providerLabels: Record<FederationProviderName, string> = {
   cotiza: 'Cotiza Studio',
   pravara: 'PravaraMES',
   forj: 'Forj Digital Assets',
+  tezca: 'Tezca Legal Oracle',
   'janua-telemetry': 'Visitor Telemetry',
 }
 

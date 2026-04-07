@@ -94,6 +94,7 @@ export class UnifiedProfileService {
       cotiza: manufacturing.status,
       pravara: fabrication.status,
       forj: assets?.status ?? 'unavailable',
+      tezca: 'ok', // Tezca is queried on-demand by RedditBotService, not per-profile
       'janua-telemetry': telemetry?.status ?? 'unavailable',
     }
 

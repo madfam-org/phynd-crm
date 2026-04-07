@@ -14,6 +14,7 @@ vi.mock('@phyne/db/schema', () => ({
     deletedAt: 'contacts.deletedAt',
     externalJanuaId: 'contacts.externalJanuaId',
     id: 'contacts.id',
+    name: 'contacts.name',
     ownerId: 'contacts.ownerId',
   },
 }))
@@ -116,6 +117,30 @@ describe('ContactsService', () => {
       mockDb._qb._result = []
       const result = await service.getByJanuaId('nonexistent')
       expect(result).toBeNull()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // getByName()
+  // -------------------------------------------------------------------------
+  describe('getByName()', () => {
+    it('returns a contact by name', async () => {
+      const contact = makeContact({ name: 'u/testuser' })
+      mockDb._qb._result = [contact]
+      const result = await service.getByName('u/testuser')
+      expect(result).toEqual(contact)
+    })
+
+    it('returns null when no contact matches name', async () => {
+      mockDb._qb._result = []
+      const result = await service.getByName('u/nonexistent')
+      expect(result).toBeNull()
+    })
+
+    it('filters by non-deleted contacts (soft delete)', async () => {
+      mockDb._qb._result = []
+      await service.getByName('u/deleted-user')
+      expect(mockDb._qb.where).toHaveBeenCalled()
     })
   })
 

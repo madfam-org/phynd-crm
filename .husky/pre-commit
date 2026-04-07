@@ -3,7 +3,7 @@ WARN=600
 ERROR=800
 EXCLUDE="(__tests__|\.test\.|\.spec\.|\.e2e\.|/tests/|/migrations/|\.gen\.ts|node_modules|\.d\.ts)"
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -vE "$EXCLUDE")
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -vE "$EXCLUDE" || true)
 [ -z "$STAGED" ] && exit 0
 
 HAS_ERROR=0

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://madfam.io/contracts/dhanam-raw-customer.json",
+  "title": "DhanamRawCustomer",
+  "description": "Contract schema for the Dhanam federation endpoint response. This is the shape returned by GET /v1/customers/:externalId and consumed by PhyneCRM's DhanamProvider. Both sides MUST validate against this schema. Any breaking change requires updating this file and both contract tests.",
+  "type": "object",
+  "required": ["id", "subscription", "balance", "invoices", "payment_methods"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Dhanam user ID (maps to PhyneCRM's externalId)"
+    },
+    "subscription": {
+      "type": "object",
+      "required": ["plan", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "plan": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Subscription tier name (e.g. community, pro, enterprise)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "trialing", "expired", "free"],
+          "description": "Current subscription status"
+        }
+      }
+    },
+    "balance": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Outstanding balance amount (0 when no pending payments)"
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3,
+          "description": "ISO 4217 currency code (e.g. MXN, USD)"
+        }
+      }
+    },
+    "invoices": {
+      "type": "array",
+      "maxItems": 20,
+      "description": "Recent billing events mapped to invoice format (max 20, newest first)",
+      "items": {
+        "type": "object",
+        "required": ["id", "amount", "currency", "status", "created_at", "paid_at"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Billing event ID"
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Invoice amount in the specified currency"
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "ISO 4217 currency code"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["paid", "open", "failed", "refunded"],
+            "description": "Invoice payment status (mapped from billing event status)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of when the billing event was created"
+          },
+          "paid_at": {
+            "type": ["string", "null"],
+            "description": "ISO 8601 timestamp of payment, or null if unpaid. For succeeded events, falls back to created_at if metadata.paidAt is absent."
+          }
+        }
+      }
+    },
+    "payment_methods": {
+      "type": "array",
+      "description": "Payment method references (provider-level, no raw card data)",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "last_four", "is_default"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Provider customer ID (e.g. cus_xxx for Stripe, ctm_xxx for Paddle)"
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Billing provider type (stripe, paddle, janua, etc.)"
+          },
+          "last_four": {
+            "type": "string",
+            "description": "Last four digits of payment method or masked value (****)"
+          },
+          "is_default": {
+            "type": "boolean",
+            "description": "Whether this is the active/default payment method"
+          }
+        }
+      }
+    }
+  }
+}

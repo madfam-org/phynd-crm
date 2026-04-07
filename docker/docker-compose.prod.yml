@@ -52,6 +52,11 @@ services:
       COTIZA_WEBHOOK_SECRET: ${COTIZA_WEBHOOK_SECRET}
       PRAVARA_WEBHOOK_SECRET: ${PRAVARA_WEBHOOK_SECRET}
       FORJ_WEBHOOK_SECRET: ${FORJ_WEBHOOK_SECRET}
+      # ACCA Treasury Hunter (Phase 3)
+      FORTUNA_WEBHOOK_SECRET: ${FORTUNA_WEBHOOK_SECRET}
+      KARAFIEL_API_URL: ${KARAFIEL_API_URL}
+      KARAFIEL_API_KEY: ${KARAFIEL_API_KEY}
+      KARAFIEL_WEBHOOK_SECRET: ${KARAFIEL_WEBHOOK_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,6 +84,10 @@ services:
       PRAVARA_BASE_URL: ${PRAVARA_BASE_URL}
       FORJ_API_URL: ${FORJ_API_URL}
       PRAVARA_API_KEY: ${PRAVARA_API_KEY}
+      # ACCA Treasury Hunter (Phase 3)
+      KARAFIEL_API_URL: ${KARAFIEL_API_URL}
+      KARAFIEL_API_KEY: ${KARAFIEL_API_KEY}
+      KARAFIEL_WEBHOOK_SECRET: ${KARAFIEL_WEBHOOK_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

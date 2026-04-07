@@ -37,6 +37,11 @@ const envSchemaBase = z.object({
   // Service-to-service auth — Fortuna → Phyne campaign trigger webhook
   FORTUNA_WEBHOOK_SECRET: z.string().min(16).optional(),
 
+  // ACCA Treasury Hunter — Karafiel compliance integration
+  KARAFIEL_API_URL: z.string().url().optional(),
+  KARAFIEL_API_KEY: z.string().min(1).optional(),
+  KARAFIEL_WEBHOOK_SECRET: z.string().min(1).optional(),
+
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

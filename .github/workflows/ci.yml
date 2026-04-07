@@ -72,3 +72,5 @@ jobs:
           FORJ_API_URL: http://localhost:4005
           PRAVARA_API_KEY: ci-pravara-key
           JANUA_TELEMETRY_API_URL: http://localhost:4006
+          KARAFIEL_API_URL: http://localhost:4007
+          KARAFIEL_API_KEY: ci-karafiel-key

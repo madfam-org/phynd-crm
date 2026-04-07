@@ -72,3 +72,7 @@ jobs:
           COTIZA_WEBHOOK_SECRET: e2e-webhook-secret
           PRAVARA_WEBHOOK_SECRET: e2e-webhook-secret
           FORJ_WEBHOOK_SECRET: e2e-webhook-secret
+          FORTUNA_WEBHOOK_SECRET: e2e-fortuna-webhook-secret-min16
+          KARAFIEL_API_URL: http://localhost:4007
+          KARAFIEL_API_KEY: e2e-karafiel-key
+          KARAFIEL_WEBHOOK_SECRET: e2e-karafiel-webhook-secret

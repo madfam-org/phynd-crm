@@ -58,6 +58,20 @@ export async function POST(req: Request) {
           return
         }
 
+        // Check if a contact already exists by email (e.g. from newsletter/interest)
+        // and link it to the Janua ID instead of creating a duplicate
+        if (data.email) {
+          const emailContact = await contactsService.getByEmail(data.email)
+          if (emailContact) {
+            await contactsService.update(emailContact.id, { externalJanuaId: data.id })
+            logger.info(
+              { contactId: emailContact.id, januaId: data.id },
+              'Linked existing email contact to Janua user',
+            )
+            return
+          }
+        }
+
         const name =
           [data.first_name, data.last_name].filter(Boolean).join(' ') ||
           data.username ||

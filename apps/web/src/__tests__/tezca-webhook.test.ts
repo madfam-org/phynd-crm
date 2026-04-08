@@ -25,6 +25,15 @@ vi.mock('@phyne/logging', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }))
 
+const mockQueueAdd = vi.fn()
+const mockQueueClose = vi.fn()
+vi.mock('bullmq', () => ({
+  Queue: class MockQueue {
+    add = (...args: unknown[]) => mockQueueAdd(...args)
+    close = (...args: unknown[]) => mockQueueClose(...args)
+  },
+}))
+
 const mockProcessWebhook = vi.fn()
 const mockGetByEmail = vi.fn()
 const mockContactCreate = vi.fn()
@@ -84,6 +93,8 @@ describe('POST /api/webhooks/tezca', () => {
     mockLeadCreate.mockReset()
     mockGetDefault.mockReset()
     mockGetStages.mockReset()
+    mockQueueAdd.mockReset()
+    mockQueueClose.mockReset()
   })
 
   it('returns 503 when TEZCA_WEBHOOK_SECRET is not configured', async () => {
@@ -134,6 +145,102 @@ describe('POST /api/webhooks/tezca', () => {
   })
 
   // -------------------------------------------------------------------------
+  // Branch 0: Newsletter subscription (newsletter.subscribed)
+  // -------------------------------------------------------------------------
+  describe('Newsletter subscription payload', () => {
+    const newsletterPayload = {
+      type: 'newsletter.subscribed',
+      data: {
+        email: 'subscriber@example.com',
+        topics: ['labor'],
+        source_page: 'bienvenida',
+      },
+    }
+
+    it('creates contact and lead for newsletter subscription', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      mockGetByEmail.mockResolvedValueOnce(null)
+      mockContactCreate.mockResolvedValueOnce({ id: 'contact-news', name: 'subscriber', email: 'subscriber@example.com' })
+      mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
+      mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
+      mockLeadCreate.mockResolvedValueOnce({ id: 'lead-news' })
+      mockQueueAdd.mockResolvedValueOnce({})
+      mockQueueClose.mockResolvedValueOnce(undefined)
+
+      await getCapturedOnEvent()(newsletterPayload)
+
+      expect(mockGetByEmail).toHaveBeenCalledWith('subscriber@example.com')
+      expect(mockContactCreate).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'subscriber',
+        email: 'subscriber@example.com',
+      }))
+      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
+        contactId: 'contact-news',
+        source: 'tezca_newsletter',
+        pipelineId: 'pipeline-001',
+        stageId: 'stage-001',
+      }))
+      // Should NOT call RedditBotService
+      expect(mockProcessWebhook).not.toHaveBeenCalled()
+    })
+
+    it('enqueues email drip after lead creation', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      mockGetByEmail.mockResolvedValueOnce(null)
+      mockContactCreate.mockResolvedValueOnce({ id: 'contact-news', name: 'subscriber', email: 'subscriber@example.com' })
+      mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
+      mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
+      mockLeadCreate.mockResolvedValueOnce({ id: 'lead-drip-test' })
+      mockQueueAdd.mockResolvedValueOnce({})
+      mockQueueClose.mockResolvedValueOnce(undefined)
+
+      await getCapturedOnEvent()(newsletterPayload)
+
+      expect(mockQueueAdd).toHaveBeenCalledWith(
+        'drip',
+        { leadId: 'lead-drip-test', step: 0 },
+        expect.objectContaining({ delay: 0 }),
+      )
+    })
+
+    it('reuses existing contact for newsletter subscription', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      mockGetByEmail.mockResolvedValueOnce({ id: 'contact-existing', name: 'subscriber', email: 'subscriber@example.com' })
+      mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
+      mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
+      mockLeadCreate.mockResolvedValueOnce({ id: 'lead-reuse' })
+      mockQueueAdd.mockResolvedValueOnce({})
+      mockQueueClose.mockResolvedValueOnce(undefined)
+
+      await getCapturedOnEvent()(newsletterPayload)
+
+      expect(mockContactCreate).not.toHaveBeenCalled()
+      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
+        contactId: 'contact-existing',
+        source: 'tezca_newsletter',
+      }))
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // Branch 1: Tezca interest payloads (email + feature_key)
   // -------------------------------------------------------------------------
   describe('Tezca interest payload (email + feature_key)', () => {
@@ -163,6 +270,8 @@ describe('POST /api/webhooks/tezca', () => {
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
       mockLeadCreate.mockResolvedValueOnce({ id: 'lead-001' })
+      mockQueueAdd.mockResolvedValueOnce({})
+      mockQueueClose.mockResolvedValueOnce(undefined)
 
       await getCapturedOnEvent()(tezcaInterestPayload)
 
@@ -199,6 +308,8 @@ describe('POST /api/webhooks/tezca', () => {
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
       mockLeadCreate.mockResolvedValueOnce({ id: 'lead-002' })
+      mockQueueAdd.mockResolvedValueOnce({})
+      mockQueueClose.mockResolvedValueOnce(undefined)
 
       await getCapturedOnEvent()(tezcaInterestPayload)
 

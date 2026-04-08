@@ -199,6 +199,14 @@ describe('ContactsService', () => {
       const result = await service.update('nonexistent', { name: 'Updated' })
       expect(result).toBeNull()
     })
+
+    it('updates externalJanuaId', async () => {
+      const updated = makeContact({ externalJanuaId: 'janua-linked' })
+      mockDb._qb._result = [updated]
+      const result = await service.update('contact-001', { externalJanuaId: 'janua-linked' })
+      expect(result).toEqual(updated)
+      expect(mockDb.update).toHaveBeenCalled()
+    })
   })
 
   // -------------------------------------------------------------------------

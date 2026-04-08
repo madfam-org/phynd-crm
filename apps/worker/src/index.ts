@@ -2,6 +2,7 @@ import { createLogger } from '@phyne/logging'
 import { Worker } from 'bullmq'
 import { processCacheWarmup } from './processors/cache-warmup'
 import { processDemoCleanup } from './processors/demo-cleanup'
+import { processEmailDrip } from './processors/email-drip'
 import { processFederationSync } from './processors/federation-sync'
 import { processGrantComplianceCheck } from './processors/grant-compliance-check'
 import { processHealthCheck } from './processors/health-check'
@@ -63,6 +64,12 @@ async function main() {
     },
   )
 
+  const emailDripWorker = new Worker('email-drip', processEmailDrip, {
+    connection,
+    concurrency: 2,
+    maxStalledCount: 2,
+  })
+
   const demoCleanupWorker = new Worker('demo-cleanup', processDemoCleanup, {
     connection,
     concurrency: 1,
@@ -77,6 +84,7 @@ async function main() {
   const workers = [
     { name: 'cache-warmup', worker: cacheWorker },
     { name: 'demo-cleanup', worker: demoCleanupWorker },
+    { name: 'email-drip', worker: emailDripWorker },
     { name: 'federation-sync', worker: federationWorker },
     { name: 'grant-compliance-check', worker: grantComplianceCheckWorker },
     { name: 'health-check', worker: healthWorker },
@@ -102,6 +110,7 @@ async function main() {
       workers: [
         { concurrency: 2, name: 'cache-warmup' },
         { concurrency: 1, name: 'demo-cleanup' },
+        { concurrency: 2, name: 'email-drip' },
         { concurrency: 5, name: 'federation-sync' },
         { concurrency: 2, name: 'grant-compliance-check' },
         { concurrency: 1, name: 'health-check' },
@@ -118,6 +127,7 @@ async function main() {
     await Promise.all([
       cacheWorker.close(),
       demoCleanupWorker.close(),
+      emailDripWorker.close(),
       federationWorker.close(),
       grantComplianceCheckWorker.close(),
       healthWorker.close(),
@@ -125,6 +135,7 @@ async function main() {
       sessionIdentifyWorker.close(),
       taskRemindersWorker.close(),
       queues.demoCleanup.close(),
+      queues.emailDrip.close(),
       queues.grantComplianceCheck.close(),
       queues.taskReminders.close(),
     ])

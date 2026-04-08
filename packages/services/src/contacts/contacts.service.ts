@@ -87,6 +87,7 @@ export class ContactsService {
       phone: string | null
       company: string | null
       status: string
+      externalJanuaId: string | null
     }>,
   ) {
     const [contact] = await this.ctx.db

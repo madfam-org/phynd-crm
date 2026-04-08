@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./context": "./src/context.ts",
-    "./errors": "./src/errors.ts"
+    "./errors": "./src/errors.ts",
+    "./email": "./src/email/email.service.ts",
+    "./email/templates/*": "./src/email/templates/*.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -22,7 +24,8 @@
     "@phyne/federation": "workspace:*",
     "@phyne/types": "workspace:*",
     "drizzle-orm": "^0.39.3",
-    "openai": "^6.33.0"
+    "openai": "^6.33.0",
+    "resend": "^4.1.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

@@ -9,6 +9,7 @@ import {
   RedditBotService,
   createServiceContext,
 } from '@phyne/services'
+import { Queue } from 'bullmq'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:webhook:tezca')
@@ -58,9 +59,41 @@ function isRedditBotPayload(data: unknown): data is RedditBotPayload {
   )
 }
 
+/**
+ * Tezca newsletter subscription payload — has email + topics.
+ */
+interface TezcaNewsletterPayload {
+  email: string
+  topics: string[]
+  source_page?: string
+}
+
 function isTezcaInterestPayload(data: unknown): data is TezcaInterestPayload {
   const d = data as Record<string, unknown>
   return typeof d?.email === 'string' && typeof d?.feature_key === 'string'
+}
+
+function isTezcaNewsletterPayload(data: unknown): data is TezcaNewsletterPayload {
+  const d = data as Record<string, unknown>
+  return typeof d?.email === 'string' && !('feature_key' in (d ?? {}))
+}
+
+/** Enqueue the first drip email for a newly created lead (non-blocking). */
+async function enqueueDrip(leadId: string): Promise<void> {
+  try {
+    const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+    const url = new URL(redisUrl)
+    const connection = {
+      host: url.hostname,
+      port: Number(url.port) || 6379,
+      password: url.password || undefined,
+    }
+    const queue = new Queue('email-drip', { connection })
+    await queue.add('drip', { leadId, step: 0 }, { delay: 0, jobId: `drip-${leadId}-step-0` })
+    await queue.close()
+  } catch (err) {
+    logger.warn({ err, leadId }, 'Failed to enqueue drip — non-blocking')
+  }
 }
 
 export async function POST(req: Request) {
@@ -75,14 +108,9 @@ export async function POST(req: Request) {
       const payload = raw as { type?: string; event?: string; data?: unknown }
       const eventType = (payload.type ?? payload.event ?? 'unknown') as string
 
-      if (eventType !== 'interest.created') {
-        logger.info({ eventType }, 'Ignoring non-interest.created event')
-        return
-      }
-
       const data = payload.data
       if (!data) {
-        logger.warn({ payload: raw }, 'interest.created event has no data — skipping')
+        logger.warn({ payload: raw }, 'Tezca event has no data — skipping')
         return
       }
 
@@ -96,6 +124,50 @@ export async function POST(req: Request) {
         accessToken: 'internal:tezca-webhook',
       }
       const ctx = createServiceContext(db, cache, botAuth)
+
+      // ── Branch 0: Newsletter subscription ──
+      if (eventType === 'newsletter.subscribed' && isTezcaNewsletterPayload(data)) {
+        logger.info({ email: data.email }, 'Processing Tezca newsletter subscription')
+
+        const contactsService = new ContactsService(ctx)
+        const leadsService = new LeadsService(ctx)
+        const pipelinesService = new PipelinesService(ctx)
+
+        let contact = await contactsService.getByEmail(data.email)
+        if (!contact) {
+          contact = await contactsService.create({
+            name: data.email.split('@')[0] ?? data.email,
+            email: data.email,
+          })
+          logger.info({ contactId: contact.id }, 'Created contact from Tezca newsletter')
+        }
+
+        const pipeline = await pipelinesService.getDefault()
+        if (pipeline) {
+          const stages = await pipelinesService.getStages(pipeline.id)
+          const firstStage = stages[0]
+          if (firstStage) {
+            const lead = await leadsService.create({
+              contactId: contact.id,
+              source: 'tezca_newsletter',
+              pipelineId: pipeline.id,
+              stageId: firstStage.id,
+            })
+            logger.info(
+              { contactId: contact.id, source: 'tezca_newsletter' },
+              'Created lead from Tezca newsletter subscription',
+            )
+            await enqueueDrip(lead.id)
+          }
+        }
+
+        return
+      }
+
+      if (eventType !== 'interest.created') {
+        logger.info({ eventType }, 'Ignoring unhandled event type')
+        return
+      }
 
       // ── Branch 1: Tezca landing page interest (email + feature_key) ──
       if (isTezcaInterestPayload(data)) {
@@ -125,7 +197,7 @@ export async function POST(req: Request) {
           const stages = await pipelinesService.getStages(pipeline.id)
           const firstStage = stages[0]
           if (firstStage) {
-            await leadsService.create({
+            const lead = await leadsService.create({
               contactId: contact.id,
               source: `tezca_interest:${data.feature_key}`,
               pipelineId: pipeline.id,
@@ -135,6 +207,7 @@ export async function POST(req: Request) {
               { contactId: contact.id, source: `tezca_interest:${data.feature_key}` },
               'Created lead from Tezca interest event',
             )
+            await enqueueDrip(lead.id)
           }
         }
 

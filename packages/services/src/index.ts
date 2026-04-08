@@ -23,3 +23,4 @@ export { TimelineService, type TimelineEntry } from './timeline/timeline.service
 export { UnifiedProfileService } from './unified-profile/profile.service'
 export { UsersService } from './users/users.service'
 export { VisitorTrackingService } from './visitor-tracking/visitor-tracking.service'
+export { EmailService } from './email/email.service'

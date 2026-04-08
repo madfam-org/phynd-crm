@@ -65,6 +65,8 @@ pnpm db:seed          # Seed database
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
+- **Tezca webhook events**: `interest.created` (feature interest → contact + lead + drip), `newsletter.subscribed` (newsletter signup → contact + lead + drip). Both enqueue `email-drip` BullMQ job on lead creation
+- **Janua webhook linking**: `user.created` checks for existing contact by email (from newsletter/interest) and links `externalJanuaId` instead of creating duplicate
 - **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`); all 6 webhook routes use the shared handler
 - **Structured logging**: `@phyne/logging` package (pino); all worker processors and webhook handler use structured JSON logging
 - **Signal propagation**: All 6 federation providers accept optional `signal?: AbortSignal` parameter, with config-driven fallback timeouts
@@ -198,6 +200,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `task-reminders`: Repeatable job (every 4h) scanning activities due within 24h, creates notifications with dedup
 - `demo-cleanup`: Repeatable job (every 1h) deleting expired demo tenant data > 4h old; deletes all 20 entity types in dependency order within transaction (5 phases: leaf entities → referencing entities → core entities → campaigns/offers → pipeline/user)
 - `grant-compliance-check`: Calls Karafiel `/api/v1/grants/compliance-status/{rfc}/` to verify 32-D, RFC status, blacklist; updates `complianceChecks` JSON on grant_application (ACCA Treasury Hunter)
+- `email-drip`: 4-step drip sequence via Resend (Day 0: welcome, Day 2: legal tip, Day 5: trial invite, Day 14: last chance). Triggered on lead creation from Tezca newsletter/interest events. Each step self-enqueues the next with BullMQ delayed jobs. Dedup by `drip-{leadId}-step-{N}` job ID
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
 - All processors use structured logging via `@phyne/logging` (pino JSON output)
 

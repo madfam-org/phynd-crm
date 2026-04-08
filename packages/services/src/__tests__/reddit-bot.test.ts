@@ -17,6 +17,7 @@ vi.mock('@phyne/db/schema', () => ({
   campaigns: { id: 'campaigns.id', status: 'campaigns.status' },
   contacts: {
     deletedAt: 'contacts.deletedAt',
+    email: 'contacts.email',
     externalJanuaId: 'contacts.externalJanuaId',
     id: 'contacts.id',
     name: 'contacts.name',
@@ -35,19 +36,19 @@ vi.mock('@phyne/db/schema', () => ({
 }))
 
 vi.mock('@phyne/config/features', () => ({
-  isFeatureEnabled: vi.fn().mockReturnValue(true),
+  isFeatureEnabled: vi.fn().mockReturnValue(false),
 }))
 
 // Mock OpenAI so the constructor does not throw on missing API key.
 // The service's draftResponse() catches errors gracefully, so even when
 // the mock doesn't perfectly replicate the OpenAI client shape, the
 // integration test still validates the full pipeline flow.
-vi.mock('openai', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    chat: { completions: { create: vi.fn() } },
-  })),
-}))
-
+vi.mock('openai', () => {
+  class MockOpenAI {
+    chat = { completions: { create: vi.fn() } }
+  }
+  return { default: MockOpenAI }
+})
 // ---------------------------------------------------------------------------
 // Import after mocks
 // ---------------------------------------------------------------------------
@@ -132,6 +133,148 @@ describe('mapDomainToMateria', () => {
     expect(mapDomainToMateria('  Tax  ')).toBe('administrativa')
     expect(mapDomainToMateria('Criminal')).toBe('penal')
     expect(mapDomainToMateria('CONSTITUTIONAL')).toBe('constitucional')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// queryTezcaArticles — semantic-first with keyword fallback
+// ---------------------------------------------------------------------------
+describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
+  let service: RedditBotService
+
+  beforeEach(() => {
+    vi.stubEnv('TEZCA_API_URL', 'http://tezca-test:8000')
+    vi.stubEnv('INTERNAL_TEZCA_KEY', 'test-key')
+    const ctx = createTestContext()
+    service = new RedditBotService(ctx)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('uses semantic search results when semantic endpoint returns 200 with hits', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    // queryTezcaArticles: semantic endpoint returns results
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          { law_title: 'LFT', number: '48', text: 'Indemnizacion constitucional...' },
+        ],
+      }),
+    } as Response)
+
+    // queryTezcaJudicial: standard judicial search
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: [] }),
+    } as Response)
+
+    // Access private method via bracket notation
+    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('despido injustificado')
+
+    expect(articlesResult).toContain('LFT')
+    expect(articlesResult).toContain('48')
+    // Should have only made ONE fetch call (semantic succeeded, no fallback needed)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/search/semantic/'),
+      expect.any(Object),
+    )
+  })
+
+  it('falls back to keyword search when semantic endpoint returns non-ok', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    // queryTezcaArticles: semantic endpoint returns 404
+    fetchSpy.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    } as Response)
+
+    // queryTezcaArticles: keyword endpoint returns results
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          { law_title: 'CPEUM', number: '123', text: 'Toda persona tiene derecho...' },
+        ],
+      }),
+    } as Response)
+
+    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('derechos laborales')
+
+    expect(articlesResult).toContain('CPEUM')
+    expect(articlesResult).toContain('123')
+    // Should have made TWO fetch calls (semantic failed, keyword succeeded)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('/api/v1/search/semantic/'),
+      expect.any(Object),
+    )
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('/api/v1/search/articles/'),
+      expect.any(Object),
+    )
+  })
+
+  it('falls back to keyword search when semantic returns empty results', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    // queryTezcaArticles: semantic endpoint returns 200 but empty results
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: [] }),
+    } as Response)
+
+    // queryTezcaArticles: keyword endpoint returns results
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          { law_title: 'LFT', number: '50', text: 'Las indemnizaciones...' },
+        ],
+      }),
+    } as Response)
+
+    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('indemnizacion')
+
+    expect(articlesResult).toContain('LFT')
+    expect(articlesResult).toContain('50')
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns fallback message when both endpoints fail', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    // queryTezcaArticles: semantic endpoint throws
+    fetchSpy.mockRejectedValueOnce(new Error('ECONNREFUSED'))
+    // queryTezcaArticles: keyword endpoint also throws
+    fetchSpy.mockRejectedValueOnce(new Error('ECONNREFUSED'))
+
+    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('query')
+
+    expect(articlesResult).toBe('No specific articles found. Consult general framework.')
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns fallback message when both endpoints return non-ok', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    // queryTezcaArticles: semantic returns 500
+    fetchSpy.mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+    // queryTezcaArticles: keyword returns 503
+    fetchSpy.mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+
+    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('query')
+
+    expect(articlesResult).toBe('No specific articles found. Consult general framework.')
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -319,7 +462,7 @@ describe('RedditBotService.processWebhook', () => {
   })
 
   it('orchestrates full pipeline: Tezca queries + contact upsert + lead + campaign', async () => {
-    // Mock Tezca articles fetch
+    // Mock Tezca articles fetch (semantic succeeds on first try)
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     fetchSpy
       .mockResolvedValueOnce({
@@ -328,6 +471,7 @@ describe('RedditBotService.processWebhook', () => {
           results: [{ law_title: 'LFT', number: '48', text: 'Indemnizacion...' }],
         }),
       } as Response)
+      // queryTezcaJudicial
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -361,8 +505,69 @@ describe('RedditBotService.processWebhook', () => {
     expect(result.status).toBe('success')
     expect(result.draft_stage_id).toBe('campaign-new')
     expect(result.contactId).toBe('contact-new')
-    // Verify Tezca was called twice (articles + judicial)
+    // Verify Tezca was called twice (articles semantic + judicial)
     expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('makes 3 fetch calls when semantic falls back to keyword', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    fetchSpy
+      // queryTezcaArticles: semantic endpoint fails
+      .mockResolvedValueOnce({ ok: false, status: 404 } as Response)
+      // queryTezcaArticles: keyword endpoint succeeds
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [{ law_title: 'LFT', number: '48', text: 'Indemnizacion...' }],
+        }),
+      } as Response)
+      // queryTezcaJudicial
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      } as Response)
+
+    const contact = makeContact({ id: 'contact-new', name: 'u/testuser' })
+    const lead = makeLead({ id: 'lead-new', contactId: 'contact-new' })
+    const pipeline = makePipeline({ id: 'pipeline-001', isDefault: true })
+    const stage = makePipelineStage({ id: 'stage-001', pipelineId: 'pipeline-001' })
+    const campaign = makeCampaign({ id: 'campaign-new' })
+
+    let callCount = 0
+    mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
+      callCount++
+      const results: Record<number, unknown> = {
+        1: [],         // getByName -> not found
+        2: [contact],  // insert contact
+        3: [pipeline], // getDefault pipeline
+        4: [stage],    // getStages
+        5: [lead],     // insert lead
+        6: [{ id: 'conv-001' }],
+        7: [campaign],
+      }
+      return Promise.resolve(results[callCount] ?? []).then(resolve)
+    })
+
+    const result = await service.processWebhook(payload)
+
+    expect(result.status).toBe('success')
+    // Verify 3 fetch calls: semantic (fail) + keyword (success) + judicial
+    expect(fetchSpy).toHaveBeenCalledTimes(3)
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('/api/v1/search/semantic/'),
+      expect.any(Object),
+    )
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('/api/v1/search/articles/'),
+      expect.any(Object),
+    )
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('/api/v1/judicial/search/'),
+      expect.any(Object),
+    )
   })
 
   it('reuses existing contact when found by name', async () => {

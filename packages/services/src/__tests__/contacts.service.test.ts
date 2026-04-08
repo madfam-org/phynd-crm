@@ -12,6 +12,7 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@phyne/db/schema', () => ({
   contacts: {
     deletedAt: 'contacts.deletedAt',
+    email: 'contacts.email',
     externalJanuaId: 'contacts.externalJanuaId',
     id: 'contacts.id',
     name: 'contacts.name',
@@ -117,6 +118,30 @@ describe('ContactsService', () => {
       mockDb._qb._result = []
       const result = await service.getByJanuaId('nonexistent')
       expect(result).toBeNull()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // getByEmail()
+  // -------------------------------------------------------------------------
+  describe('getByEmail()', () => {
+    it('returns a contact by email', async () => {
+      const contact = makeContact({ email: 'jane@example.com' })
+      mockDb._qb._result = [contact]
+      const result = await service.getByEmail('jane@example.com')
+      expect(result).toEqual(contact)
+    })
+
+    it('returns null when no contact matches email', async () => {
+      mockDb._qb._result = []
+      const result = await service.getByEmail('nobody@example.com')
+      expect(result).toBeNull()
+    })
+
+    it('filters by non-deleted contacts (soft delete)', async () => {
+      mockDb._qb._result = []
+      await service.getByEmail('deleted@example.com')
+      expect(mockDb._qb.where).toHaveBeenCalled()
     })
   })
 

@@ -51,6 +51,14 @@ export class ContactsService {
     return contact ?? null
   }
 
+  async getByEmail(email: string) {
+    const [contact] = await this.ctx.db
+      .select()
+      .from(contacts)
+      .where(and(eq(contacts.email, email), isNull(contacts.deletedAt)))
+    return contact ?? null
+  }
+
   async getByName(name: string) {
     const [contact] = await this.ctx.db
       .select()

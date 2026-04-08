@@ -26,16 +26,50 @@ vi.mock('@phyne/logging', () => ({
 }))
 
 const mockProcessWebhook = vi.fn()
+const mockGetByEmail = vi.fn()
+const mockContactCreate = vi.fn()
+const mockLeadCreate = vi.fn()
+const mockGetDefault = vi.fn()
+const mockGetStages = vi.fn()
+
 vi.mock('@phyne/services', () => {
   // Use a real class so `new RedditBotService()` returns an instance with methods
   class MockRedditBotService {
     processWebhook = mockProcessWebhook
   }
+  class MockContactsService {
+    getByEmail = mockGetByEmail
+    create = mockContactCreate
+  }
+  class MockLeadsService {
+    create = mockLeadCreate
+  }
+  class MockPipelinesService {
+    getDefault = mockGetDefault
+    getStages = mockGetStages
+  }
   return {
+    ContactsService: MockContactsService,
+    LeadsService: MockLeadsService,
+    PipelinesService: MockPipelinesService,
     RedditBotService: MockRedditBotService,
     createServiceContext: vi.fn(() => ({})),
   }
 })
+
+// ---------------------------------------------------------------------------
+// Helper: capture the onEvent callback from handleWebhook
+// ---------------------------------------------------------------------------
+function setupOnEventCapture() {
+  let capturedOnEvent: ((raw: unknown) => Promise<void>) | undefined
+  mockHandleWebhook.mockImplementationOnce((_req: unknown, options: { onEvent: (raw: unknown) => Promise<void> }) => {
+    capturedOnEvent = options.onEvent
+    return new Response(JSON.stringify({ received: true }), { status: 200 })
+  })
+  return {
+    getCapturedOnEvent: () => capturedOnEvent!,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -45,6 +79,11 @@ describe('POST /api/webhooks/tezca', () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
     mockProcessWebhook.mockReset()
+    mockGetByEmail.mockReset()
+    mockContactCreate.mockReset()
+    mockLeadCreate.mockReset()
+    mockGetDefault.mockReset()
+    mockGetStages.mockReset()
   })
 
   it('returns 503 when TEZCA_WEBHOOK_SECRET is not configured', async () => {
@@ -82,86 +121,259 @@ describe('POST /api/webhooks/tezca', () => {
   it('onEvent ignores non-interest.created events', async () => {
     vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
 
-    let capturedOnEvent: ((raw: unknown) => Promise<void>) | undefined
-    mockHandleWebhook.mockImplementationOnce((_req: unknown, options: { onEvent: (raw: unknown) => Promise<void> }) => {
-      capturedOnEvent = options.onEvent
-      return new Response(JSON.stringify({ received: true }), { status: 200 })
-    })
+    const { getCapturedOnEvent } = setupOnEventCapture()
 
     const { POST } = await import('@/app/api/webhooks/tezca/route')
     const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
     await POST(req)
 
-    await capturedOnEvent!({ type: 'other.event', data: {} })
+    await getCapturedOnEvent()({ type: 'other.event', data: {} })
 
     expect(mockProcessWebhook).not.toHaveBeenCalled()
+    expect(mockGetByEmail).not.toHaveBeenCalled()
   })
 
-  it('onEvent skips malformed payloads missing required fields', async () => {
-    vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
-
-    let capturedOnEvent: ((raw: unknown) => Promise<void>) | undefined
-    mockHandleWebhook.mockImplementationOnce((_req: unknown, options: { onEvent: (raw: unknown) => Promise<void> }) => {
-      capturedOnEvent = options.onEvent
-      return new Response(JSON.stringify({ received: true }), { status: 200 })
-    })
-
-    const { POST } = await import('@/app/api/webhooks/tezca/route')
-    const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
-    await POST(req)
-
-    // Missing outreach_target.url
-    await capturedOnEvent!({
+  // -------------------------------------------------------------------------
+  // Branch 1: Tezca interest payloads (email + feature_key)
+  // -------------------------------------------------------------------------
+  describe('Tezca interest payload (email + feature_key)', () => {
+    const tezcaInterestPayload = {
       type: 'interest.created',
       data: {
-        outreach_target: { author: 'test' },
-        legal_context: {},
-      },
-    })
-
-    expect(mockProcessWebhook).not.toHaveBeenCalled()
-  })
-
-  it('onEvent processes valid interest.created payloads', async () => {
-    vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
-
-    let capturedOnEvent: ((raw: unknown) => Promise<void>) | undefined
-    mockHandleWebhook.mockImplementationOnce((_req: unknown, options: { onEvent: (raw: unknown) => Promise<void> }) => {
-      capturedOnEvent = options.onEvent
-      return new Response(JSON.stringify({ received: true }), { status: 200 })
-    })
-
-    mockProcessWebhook.mockResolvedValueOnce({
-      status: 'success',
-      draft_stage_id: 'campaign-001',
-      contactId: 'contact-001',
-    })
-
-    const { POST } = await import('@/app/api/webhooks/tezca/route')
-    const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
-    await POST(req)
-
-    const validPayload = {
-      type: 'interest.created',
-      data: {
-        campaign_type: 'legal_outreach',
-        bot_identity: 'MadfamBot',
-        outreach_target: {
-          url: 'https://reddit.com/r/test/comments/abc/post/',
-          author: 'testuser',
-          original_post_content: 'Me despidieron...',
-        },
-        legal_context: {
-          distress_sentiment: 'high',
-          core_legal_problem: 'despido injustificado',
-          domain: 'labor',
-        },
-        orchestration: { instruction: 'Respond' },
+        email: 'prospect@example.com',
+        feature_key: 'semantic_search',
+        use_case: 'Legal research',
+        janua_user_id: 'janua-abc',
       },
     }
 
-    await capturedOnEvent!(validPayload)
+    it('creates contact and lead for new email', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
 
-    expect(mockProcessWebhook).toHaveBeenCalledWith(validPayload.data)
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      // No existing contact
+      mockGetByEmail.mockResolvedValueOnce(null)
+      // Contact created
+      mockContactCreate.mockResolvedValueOnce({ id: 'contact-new', name: 'prospect', email: 'prospect@example.com' })
+      // Pipeline + stages for lead creation
+      mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
+      mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
+      mockLeadCreate.mockResolvedValueOnce({ id: 'lead-001' })
+
+      await getCapturedOnEvent()(tezcaInterestPayload)
+
+      // Should look up contact by email
+      expect(mockGetByEmail).toHaveBeenCalledWith('prospect@example.com')
+      // Should create contact since none found
+      expect(mockContactCreate).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'prospect',
+        email: 'prospect@example.com',
+        externalJanuaId: 'janua-abc',
+      }))
+      // Should create lead in default pipeline
+      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
+        contactId: 'contact-new',
+        source: 'tezca_interest:semantic_search',
+        pipelineId: 'pipeline-001',
+        stageId: 'stage-001',
+      }))
+      // Should NOT call RedditBotService
+      expect(mockProcessWebhook).not.toHaveBeenCalled()
+    })
+
+    it('skips contact creation when existing contact found by email', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      // Existing contact found
+      mockGetByEmail.mockResolvedValueOnce({ id: 'contact-existing', name: 'prospect', email: 'prospect@example.com' })
+      // Pipeline + stages for lead creation
+      mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
+      mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
+      mockLeadCreate.mockResolvedValueOnce({ id: 'lead-002' })
+
+      await getCapturedOnEvent()(tezcaInterestPayload)
+
+      // Should look up contact by email
+      expect(mockGetByEmail).toHaveBeenCalledWith('prospect@example.com')
+      // Should NOT create a new contact
+      expect(mockContactCreate).not.toHaveBeenCalled()
+      // Should still create lead with existing contact
+      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
+        contactId: 'contact-existing',
+        source: 'tezca_interest:semantic_search',
+      }))
+    })
+
+    it('handles missing default pipeline gracefully (no lead created)', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      mockGetByEmail.mockResolvedValueOnce(null)
+      mockContactCreate.mockResolvedValueOnce({ id: 'contact-new', name: 'prospect', email: 'prospect@example.com' })
+      // No default pipeline
+      mockGetDefault.mockResolvedValueOnce(null)
+
+      // Should not throw — the route handles missing pipeline gracefully
+      await getCapturedOnEvent()(tezcaInterestPayload)
+
+      expect(mockContactCreate).toHaveBeenCalled()
+      expect(mockLeadCreate).not.toHaveBeenCalled()
+    })
+
+    it('derives contact name from email prefix when no janua_user_id', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      mockGetByEmail.mockResolvedValueOnce(null)
+      mockContactCreate.mockResolvedValueOnce({ id: 'contact-new', name: 'alice', email: 'alice@corp.com' })
+      mockGetDefault.mockResolvedValueOnce(null)
+
+      const payloadWithoutJanua = {
+        type: 'interest.created',
+        data: {
+          email: 'alice@corp.com',
+          feature_key: 'analytics',
+        },
+      }
+
+      await getCapturedOnEvent()(payloadWithoutJanua)
+
+      // Name derived from email prefix, no externalJanuaId set
+      expect(mockContactCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'alice',
+          email: 'alice@corp.com',
+        }),
+      )
+      // Should not include externalJanuaId key when janua_user_id is absent
+      const createArg = mockContactCreate.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(createArg).not.toHaveProperty('externalJanuaId')
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Branch 2: Reddit bot payloads (outreach_target + legal_context)
+  // -------------------------------------------------------------------------
+  describe('Reddit bot payload (outreach_target + legal_context)', () => {
+    it('routes valid Reddit payloads through RedditBotService', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      mockProcessWebhook.mockResolvedValueOnce({
+        status: 'success',
+        draft_stage_id: 'campaign-001',
+        contactId: 'contact-001',
+      })
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      const validPayload = {
+        type: 'interest.created',
+        data: {
+          campaign_type: 'legal_outreach',
+          bot_identity: 'MadfamBot',
+          outreach_target: {
+            url: 'https://reddit.com/r/test/comments/abc/post/',
+            author: 'testuser',
+            original_post_content: 'Me despidieron...',
+          },
+          legal_context: {
+            distress_sentiment: 'high',
+            core_legal_problem: 'despido injustificado',
+            domain: 'labor',
+          },
+          orchestration: { instruction: 'Respond' },
+        },
+      }
+
+      await getCapturedOnEvent()(validPayload)
+
+      expect(mockProcessWebhook).toHaveBeenCalledWith(validPayload.data)
+      // Should NOT use ContactsService directly (RedditBotService handles it)
+      expect(mockGetByEmail).not.toHaveBeenCalled()
+    })
+
+    it('skips malformed Reddit payloads missing outreach_target.url', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      await getCapturedOnEvent()({
+        type: 'interest.created',
+        data: {
+          outreach_target: { author: 'test', url: '' },
+          legal_context: { core_legal_problem: '', domain: 'labor' },
+        },
+      })
+
+      expect(mockProcessWebhook).not.toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Unrecognized payloads
+  // -------------------------------------------------------------------------
+  describe('unrecognized payload shape', () => {
+    it('logs and skips payloads that match neither branch', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      // Payload with neither email+feature_key nor outreach_target+legal_context
+      await getCapturedOnEvent()({
+        type: 'interest.created',
+        data: {
+          some_unknown_field: 'value',
+          another_field: 42,
+        },
+      })
+
+      // Neither branch should have been entered
+      expect(mockProcessWebhook).not.toHaveBeenCalled()
+      expect(mockGetByEmail).not.toHaveBeenCalled()
+      expect(mockContactCreate).not.toHaveBeenCalled()
+    })
+
+    it('skips when data is missing entirely', async () => {
+      vi.stubEnv('TEZCA_WEBHOOK_SECRET', 'test-secret-abc')
+      const { getCapturedOnEvent } = setupOnEventCapture()
+
+      const { POST } = await import('@/app/api/webhooks/tezca/route')
+      const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
+      await POST(req)
+
+      await getCapturedOnEvent()({
+        type: 'interest.created',
+        // no data field
+      })
+
+      expect(mockProcessWebhook).not.toHaveBeenCalled()
+      expect(mockGetByEmail).not.toHaveBeenCalled()
+    })
   })
 })

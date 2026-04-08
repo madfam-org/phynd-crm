@@ -126,40 +126,45 @@ export class RedditBotService {
    */
   private async queryTezcaArticles(query: string): Promise<string> {
     const tezcaUrl = process.env.TEZCA_API_URL ?? 'http://tezca:8000'
-    try {
-      const encodedQuery = encodeURIComponent(query)
-      const res = await fetch(`${tezcaUrl}/api/v1/search/articles/?q=${encodedQuery}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `ApiKey ${process.env.INTERNAL_TEZCA_KEY ?? 'test-key'}`,
-        },
-        signal: AbortSignal.timeout(8000),
-      })
-
-      if (!res.ok) {
-        console.error(`Tezca articles returned ${res.status}`)
-        return 'Legal framework unverified.'
-      }
-
-      const data = (await res.json()) as TezcaArticleResponse
-
-      if (data.results && data.results.length > 0) {
-        const topHits = data.results
-          .slice(0, 3)
-          .map(
-            (hit) =>
-              `Source: ${hit.law_title ?? 'Ley'}, Art: ${hit.number ?? hit.id ?? '?'}\nContext: ${(hit.text ?? '').slice(0, 500)}`,
-          )
-          .join('\n\n')
-        return topHits
-      }
-
-      return 'No specific articles found. Consult general framework.'
-    } catch (e) {
-      console.error('Tezca article search failed: ', e)
-      return 'Oracle offline.'
+    const encodedQuery = encodeURIComponent(query)
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `ApiKey ${process.env.INTERNAL_TEZCA_KEY ?? 'test-key'}`,
     }
+
+    // Try semantic search first, fall back to keyword search
+    for (const endpoint of [
+      `${tezcaUrl}/api/v1/search/semantic/?q=${encodedQuery}&limit=3`,
+      `${tezcaUrl}/api/v1/search/articles/?q=${encodedQuery}`,
+    ]) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers,
+          signal: AbortSignal.timeout(8000),
+        })
+
+        if (!res.ok) continue
+
+        const data = (await res.json()) as TezcaArticleResponse
+
+        if (data.results && data.results.length > 0) {
+          const topHits = data.results
+            .slice(0, 3)
+            .map(
+              (hit) =>
+                `Source: ${hit.law_title ?? 'Ley'}, Art: ${hit.number ?? hit.id ?? '?'}\nContext: ${(hit.text ?? '').slice(0, 500)}`,
+            )
+            .join('\n\n')
+          return topHits
+        }
+      } catch {
+        // Try next endpoint
+        continue
+      }
+    }
+
+    return 'No specific articles found. Consult general framework.'
   }
 
   /**

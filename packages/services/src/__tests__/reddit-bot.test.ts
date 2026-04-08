@@ -43,9 +43,13 @@ vi.mock('@phyne/config/features', () => ({
 // The service's draftResponse() catches errors gracefully, so even when
 // the mock doesn't perfectly replicate the OpenAI client shape, the
 // integration test still validates the full pipeline flow.
+const openaiConstructorSpy = vi.fn()
 vi.mock('openai', () => {
   class MockOpenAI {
     chat = { completions: { create: vi.fn() } }
+    constructor(opts?: Record<string, unknown>) {
+      openaiConstructorSpy(opts)
+    }
   }
   return { default: MockOpenAI }
 })
@@ -632,5 +636,45 @@ describe('RedditBotService.processWebhook', () => {
     await expect(service.processWebhook(payload)).rejects.toThrow(
       'No default pipeline configured',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// OpenAI baseURL routing — AutoSwarm integration
+// ---------------------------------------------------------------------------
+describe('RedditBotService OpenAI baseURL routing', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    openaiConstructorSpy.mockClear()
+  })
+
+  it('passes OPENAI_BASE_URL to OpenAI client when set', () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    vi.stubEnv('OPENAI_BASE_URL', 'http://nexus-api.autoswarm.svc.cluster.local/v1')
+    vi.stubEnv('TEZCA_API_URL', 'http://tezca-test:8000')
+    vi.stubEnv('INTERNAL_TEZCA_KEY', 'test-key')
+    const ctx = createTestContext()
+    new RedditBotService(ctx)
+    expect(openaiConstructorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: 'test-key',
+        baseURL: 'http://nexus-api.autoswarm.svc.cluster.local/v1',
+      }),
+    )
+  })
+
+  it('omits baseURL when OPENAI_BASE_URL is not set', () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    delete process.env.OPENAI_BASE_URL
+    vi.stubEnv('TEZCA_API_URL', 'http://tezca-test:8000')
+    vi.stubEnv('INTERNAL_TEZCA_KEY', 'test-key')
+    const ctx = createTestContext()
+    new RedditBotService(ctx)
+    expect(openaiConstructorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: 'test-key' }),
+    )
+    const opts = openaiConstructorSpy.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    expect(opts?.baseURL).toBeUndefined()
   })
 })

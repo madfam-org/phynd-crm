@@ -57,6 +57,7 @@ services:
       TEZCA_API_URL: ${TEZCA_API_URL:-https://api.tezca.mx}
       INTERNAL_TEZCA_KEY: ${INTERNAL_TEZCA_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://nexus-api.autoswarm.svc.cluster.local/v1}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       # Reddit bot (Fortuna signal → outreach)
       REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID:-}
@@ -98,6 +99,9 @@ services:
       # Email drip automation
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       TEZCA_PUBLIC_URL: ${TEZCA_API_URL:-https://tezca.mx}
+      # LLM routing (Reddit bot via AutoSwarm)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://nexus-api.autoswarm.svc.cluster.local/v1}
       # ACCA Treasury Hunter (Phase 3)
       KARAFIEL_API_URL: ${KARAFIEL_API_URL}
       KARAFIEL_API_KEY: ${KARAFIEL_API_KEY}

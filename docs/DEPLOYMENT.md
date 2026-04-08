@@ -27,6 +27,9 @@ All required environment variables are defined and validated in `packages/config
 | `PRAVARA_BASE_URL` | PravaraMES API | `https://api.pravara.example.com` |
 | `PRAVARA_API_KEY` | PravaraMES API key | `key` |
 | `FORJ_API_URL` | Forj Assets API | `https://api.forj.example.com` |
+| `OPENAI_API_KEY` | LLM API key (AutoSwarm or OpenAI) | `sk-...` or AutoSwarm worker token |
+| `OPENAI_BASE_URL` | LLM endpoint override (AutoSwarm Nexus) | `http://nexus-api.autoswarm.svc.cluster.local/v1` |
+| `RESEND_API_KEY` | Resend email API key | `re_...` |
 | `*_WEBHOOK_SECRET` | HMAC secrets for each provider | Unique per provider |
 
 **Safety**: `AUTH_BYPASS=true` is blocked in production by Zod validation. The seed script refuses to run when `NODE_ENV=production`.

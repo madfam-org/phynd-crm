@@ -85,6 +85,7 @@ export class RedditBotService {
   constructor(private readonly ctx: ServiceContext) {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      baseURL: process.env.OPENAI_BASE_URL || undefined,
     })
     this.campaignsService = new CampaignsService(ctx)
     this.contactsService = new ContactsService(ctx)

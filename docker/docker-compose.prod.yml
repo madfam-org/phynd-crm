@@ -52,6 +52,12 @@ services:
       COTIZA_WEBHOOK_SECRET: ${COTIZA_WEBHOOK_SECRET}
       PRAVARA_WEBHOOK_SECRET: ${PRAVARA_WEBHOOK_SECRET}
       FORJ_WEBHOOK_SECRET: ${FORJ_WEBHOOK_SECRET}
+      # Tezca CRM integration (newsletter + interest → contact/lead/drip)
+      TEZCA_WEBHOOK_SECRET: ${TEZCA_WEBHOOK_SECRET}
+      TEZCA_API_URL: ${TEZCA_API_URL:-https://tezca.mx}
+      INTERNAL_TEZCA_KEY: ${INTERNAL_TEZCA_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
       # ACCA Treasury Hunter (Phase 3)
       FORTUNA_WEBHOOK_SECRET: ${FORTUNA_WEBHOOK_SECRET}
       KARAFIEL_API_URL: ${KARAFIEL_API_URL}
@@ -84,6 +90,9 @@ services:
       PRAVARA_BASE_URL: ${PRAVARA_BASE_URL}
       FORJ_API_URL: ${FORJ_API_URL}
       PRAVARA_API_KEY: ${PRAVARA_API_KEY}
+      # Email drip automation
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      TEZCA_PUBLIC_URL: ${TEZCA_API_URL:-https://tezca.mx}
       # ACCA Treasury Hunter (Phase 3)
       KARAFIEL_API_URL: ${KARAFIEL_API_URL}
       KARAFIEL_API_KEY: ${KARAFIEL_API_KEY}

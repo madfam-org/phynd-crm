@@ -54,10 +54,15 @@ services:
       FORJ_WEBHOOK_SECRET: ${FORJ_WEBHOOK_SECRET}
       # Tezca CRM integration (newsletter + interest → contact/lead/drip)
       TEZCA_WEBHOOK_SECRET: ${TEZCA_WEBHOOK_SECRET}
-      TEZCA_API_URL: ${TEZCA_API_URL:-https://tezca.mx}
+      TEZCA_API_URL: ${TEZCA_API_URL:-https://api.tezca.mx}
       INTERNAL_TEZCA_KEY: ${INTERNAL_TEZCA_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # Reddit bot (Fortuna signal → outreach)
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID:-}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET:-}
+      REDDIT_REFRESH_TOKEN: ${REDDIT_REFRESH_TOKEN:-}
+      REDDIT_BOT_USERNAME: ${REDDIT_BOT_USERNAME:-madfam-bot}
       # ACCA Treasury Hunter (Phase 3)
       FORTUNA_WEBHOOK_SECRET: ${FORTUNA_WEBHOOK_SECRET}
       KARAFIEL_API_URL: ${KARAFIEL_API_URL}

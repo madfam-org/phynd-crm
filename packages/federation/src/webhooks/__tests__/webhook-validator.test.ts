@@ -77,6 +77,21 @@ describe('validateWebhookSignature', () => {
     expect(validateWebhookSignature(payload, signature, SECRET)).toBe(true)
   })
 
+  it('returns true for a valid signature with sha256= prefix (Tezca/Fortuna format)', () => {
+    const payload = JSON.stringify({ event: 'interest.created', email: 'test@example.com' })
+    const rawSignature = computeSignature(payload, SECRET)
+    const prefixedSignature = `sha256=${rawSignature}`
+
+    expect(validateWebhookSignature(payload, prefixedSignature, SECRET)).toBe(true)
+  })
+
+  it('returns false for an invalid signature with sha256= prefix', () => {
+    const payload = JSON.stringify({ event: 'interest.created', email: 'test@example.com' })
+    const wrongPrefixedSignature = `sha256=${'b'.repeat(64)}`
+
+    expect(validateWebhookSignature(payload, wrongPrefixedSignature, SECRET)).toBe(false)
+  })
+
   it('throws when signature length does not match expected HMAC length', () => {
     const payload = JSON.stringify({ event: 'test' })
     const signature = computeSignature(payload, SECRET)

@@ -2,10 +2,7 @@
   "extends": "../../tooling/typescript/tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "noEmit": false,
-    "skipLibCheck": true,
-    "module": "commonjs",
-    "moduleResolution": "node"
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

@@ -6,12 +6,16 @@ FROM base AS builder
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN npx turbo build --filter=@phyne/worker
+# pnpm deploy creates flat node_modules with resolved workspace deps
+RUN pnpm deploy --filter=@phyne/worker /deploy
+# tsup bundles to a single CJS file; copy it into the deploy output
+RUN cp apps/worker/dist/index.js /deploy/dist/index.js 2>/dev/null || \
+    mkdir -p /deploy/dist && cp apps/worker/dist/index.js /deploy/dist/index.js
 
 FROM base AS runner
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 worker
-# Copy entire built workspace — simpler than surgical copy
-COPY --from=builder /app /app
+COPY --from=builder /deploy /app
 USER worker
-WORKDIR /app/apps/worker
+WORKDIR /app
 CMD ["node", "dist/index.js"]

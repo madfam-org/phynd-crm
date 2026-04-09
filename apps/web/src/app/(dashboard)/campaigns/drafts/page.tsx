@@ -10,7 +10,7 @@ export default async function CampaignDraftsPage() {
 
   // Filter for reddit bot drafts server-side
   const drafts = all.items.filter(
-    (c) => c.channel === 'reddit_bot' && c.status === 'draft'
+    (c: (typeof all.items)[number]) => c.channel === 'reddit_bot' && c.status === 'draft'
   )
 
   return (

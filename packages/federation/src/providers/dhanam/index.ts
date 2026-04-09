@@ -74,4 +74,38 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
   getCacheKey(externalId: string, _tenantId: string): string {
     return externalId
   }
+
+  /**
+   * Create a Dhanam checkout session for a contact.
+   *
+   * Returns the checkout URL that the contact can be redirected to.
+   */
+  async createCheckout(
+    externalId: string,
+    planId: string,
+    token: string,
+    options?: { successUrl?: string; cancelUrl?: string }
+  ): Promise<{ checkoutUrl: string; sessionId: string }> {
+    const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}/checkout`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        planId,
+        successUrl: options?.successUrl,
+        cancelUrl: options?.cancelUrl,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      throw Object.assign(new Error(`Dhanam checkout error: ${response.statusText}`), {
+        status: response.status,
+      })
+    }
+
+    return response.json() as Promise<{ checkoutUrl: string; sessionId: string }>
+  }
 }

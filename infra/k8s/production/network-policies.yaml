@@ -13,7 +13,7 @@ spec:
     - Ingress
     - Egress
 ---
-# Allow ingress from cloudflare-tunnel namespace
+# Allow ingress from cloudflare-tunnel namespace (port 3000 = actual container port after DNAT)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -35,7 +35,7 @@ spec:
               app: cloudflared
       ports:
         - protocol: TCP
-          port: 80
+          port: 3000
 ---
 # Allow egress to data namespace (postgres 5432, pgbouncer 6432, redis 6379)
 apiVersion: networking.k8s.io/v1

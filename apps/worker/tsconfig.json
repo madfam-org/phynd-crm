@@ -3,7 +3,9 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "module": "commonjs",
+    "moduleResolution": "node"
   },
   "include": ["src"]
 }

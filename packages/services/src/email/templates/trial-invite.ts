@@ -2,7 +2,7 @@
  * Trial invitation email — sent on day 5 of drip sequence.
  * Links to pricing page with pre-filled trial start.
  */
-export function trialInviteEmail(): { subject: string; html: string } {
+export function trialInviteEmail(params?: { unsubscribeUrl?: string }): { subject: string; html: string } {
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
 
   return {
@@ -28,6 +28,12 @@ export function trialInviteEmail(): { subject: string; html: string } {
     <p style="color:#9ca3af;font-size:13px;margin-top:24px;">
       Sin compromiso. Cancela en cualquier momento.
     </p>
+    ${params?.unsubscribeUrl ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;">
+        Recibes este correo porque te registraste en tezca.mx.
+        <a href="${params.unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>
+      </p>
+    </div>` : ''}
   </div>
 </body>
 </html>`,

@@ -2,7 +2,7 @@
  * Welcome email — sent immediately when a lead is created from newsletter/interest.
  * Links to relevant Tezca legal content based on lead source domain.
  */
-export function welcomeEmail(params: { domain?: string }): { subject: string; html: string } {
+export function welcomeEmail(params: { domain?: string; unsubscribeUrl?: string }): { subject: string; html: string } {
   const domain = params.domain ?? ''
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
   const searchUrl = domain
@@ -27,6 +27,12 @@ export function welcomeEmail(params: { domain?: string }): { subject: string; ht
     <p style="color:#9ca3af;font-size:13px;margin-top:24px;">
       Si tienes preguntas, responde a este correo. Estamos para ayudarte.
     </p>
+    ${params.unsubscribeUrl ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;">
+        Recibes este correo porque te registraste en tezca.mx.
+        <a href="${params.unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>
+      </p>
+    </div>` : ''}
   </div>
 </body>
 </html>`,

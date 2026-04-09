@@ -17,6 +17,7 @@ export interface SendEmailParams {
   to: string
   subject: string
   html: string
+  unsubscribeUrl?: string
 }
 
 export class EmailService {
@@ -32,6 +33,12 @@ export class EmailService {
       to: params.to,
       subject: params.subject,
       html: params.html,
+      ...(params.unsubscribeUrl && {
+        headers: {
+          'List-Unsubscribe': `<${params.unsubscribeUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      }),
     })
 
     if (error) {

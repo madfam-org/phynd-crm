@@ -2,7 +2,7 @@
  * Legal tip email — sent on day 2 of drip sequence.
  * Pulls content context from the lead's legal domain.
  */
-export function legalTipEmail(params: { domain?: string }): { subject: string; html: string } {
+export function legalTipEmail(params: { domain?: string; unsubscribeUrl?: string }): { subject: string; html: string } {
   const domain = params.domain ?? ''
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
   const searchUrl = domain
@@ -50,6 +50,12 @@ export function legalTipEmail(params: { domain?: string }): { subject: string; h
     <p style="color:#9ca3af;font-size:13px;margin-top:24px;">
       Tezca — La plataforma abierta de leyes mexicanas
     </p>
+    ${params.unsubscribeUrl ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;">
+        Recibes este correo porque te registraste en tezca.mx.
+        <a href="${params.unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>
+      </p>
+    </div>` : ''}
   </div>
 </body>
 </html>`,

@@ -9,9 +9,11 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
 COPY packages/federation/package.json ./packages/federation/
+COPY packages/logging/package.json ./packages/logging/
 COPY packages/services/package.json ./packages/services/
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui/package.json ./packages/ui/
+ENV HUSKY=0
 RUN pnpm install --frozen-lockfile --prod
 
 FROM base AS builder

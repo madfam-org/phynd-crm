@@ -10,6 +10,7 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
 COPY packages/federation/package.json ./packages/federation/
+COPY packages/logging/package.json ./packages/logging/
 COPY packages/services/package.json ./packages/services/
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui/package.json ./packages/ui/
@@ -19,6 +20,10 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
+# Next.js needs NEXT_PUBLIC_* vars at build time for static optimization
+ARG NEXT_PUBLIC_APP_URL=https://crm.madfam.io
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV JANUA_TELEMETRY_API_URL=https://auth.madfam.io
 RUN pnpm --filter @phyne/web build
 
 FROM base AS runner

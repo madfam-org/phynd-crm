@@ -65,7 +65,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
   const contactRows = await db
     .select({ email: contacts.email })
     .from(contacts)
-    .where(eq(contacts.id, lead.contactId))
+    .where(eq(contacts.id, lead.contactId!))
     .limit(1)
 
   const contact = contactRows[0]

@@ -37,3 +37,7 @@ pnpm-debug.log*
 
 # Docker volumes
 docker/data/
+
+# K8s secrets (managed via kubectl, not committed)
+infra/k8s/**/secrets.yaml
+infra/k8s/**/*-secret.yaml

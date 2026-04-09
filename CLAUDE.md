@@ -27,8 +27,9 @@ packages/types    — Shared TypeScript types
 packages/ui       — Shared UI primitives
 tooling/          — Shared tsconfig, biome config
 .husky/           — Pre-commit hooks (file size enforcement)
-.github/workflows — CI/CD (ci.yml, e2e.yml)
+.github/workflows — CI/CD (ci.yml, e2e.yml, deploy-web.yml, deploy-worker.yml)
 docker/           — Dockerfile.web, Dockerfile.worker, docker-compose.yml, docker-compose.prod.yml
+infra/k8s/        — Kubernetes production manifests (Kustomize)
 ```
 
 ## Commands
@@ -220,9 +221,23 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `apps/web/next.config.ts` has `output: 'standalone'` + security headers
 - `.dockerignore` — Excludes `.git`, `node_modules`, test files, `.env*`, coverage from Docker build context
 
+## Kubernetes (Production)
+- `infra/k8s/production/kustomization.yaml` — Kustomize base; deploy pipelines update image digests via `kustomize edit set image`
+- `infra/k8s/production/web-deployment.yaml` — Next.js web (port 3000, replicas 1, health probes on `/api/health`)
+- `infra/k8s/production/worker-deployment.yaml` — BullMQ worker (no ports, replicas 1)
+- `infra/k8s/production/web-service.yaml` — ClusterIP service (port 80 → 3000)
+- `infra/k8s/production/network-policies.yaml` — Default-deny + allow cloudflared ingress, data namespace egress, HTTPS egress, internal MADFAM service egress
+- `infra/k8s/production/resource-quota.yaml` — Namespace limits (1 CPU/2Gi requests, 3 CPU/4Gi limits, 10 pods)
+- `infra/k8s/production/pdb.yaml` — Pod Disruption Budget (web minAvailable: 1)
+- `infra/k8s/production/secrets-template.yaml` — Template for all env vars (never commit with real values)
+- Secrets: `phyne-crm-secrets` (envFrom, required) + `phyne-acca-secrets` (envFrom, optional)
+- Images: `ghcr.io/madfam-org/phyne-crm/{web,worker}` with cosign-signed digests
+
 ## CI/CD
 - `.github/workflows/ci.yml` — lint + typecheck + test (parallel) → build; `JANUA_TELEMETRY_API_URL` in build env
 - `.github/workflows/e2e.yml` — Playwright with Postgres/Redis services
+- `.github/workflows/deploy-web.yml` — Build + cosign sign + push web image to GHCR; updates kustomization.yaml digest; Enclii lifecycle callback
+- `.github/workflows/deploy-worker.yml` — Build + cosign sign + push worker image to GHCR; updates kustomization.yaml digest; Enclii lifecycle callback
 
 ## Local Development
 ```bash

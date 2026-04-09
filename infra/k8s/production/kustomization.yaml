@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: phyne-crm
+
+resources:
+- namespace.yaml
+- web-deployment.yaml
+- web-service.yaml
+- worker-deployment.yaml
+- network-policies.yaml
+- resource-quota.yaml
+- pdb.yaml
+
+images:
+- name: ghcr.io/madfam-org/phyne-crm/web
+  newName: ghcr.io/madfam-org/phyne-crm/web
+- name: ghcr.io/madfam-org/phyne-crm/worker
+  newName: ghcr.io/madfam-org/phyne-crm/worker

@@ -1,0 +1,113 @@
+name: Deploy Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/worker/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "!infra/k8s/production/kustomization.yaml"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: madfam-org/phyne-crm/worker
+
+jobs:
+  build-and-push:
+    name: Build & Push Worker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MADFAM_BOT_PAT }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.MADFAM_BOT_PAT }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with cosign
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+
+      - name: Commit image digest
+        run: |
+          DIGEST="${{ steps.build.outputs.digest }}"
+          git config user.name "madfam-bot"
+          git config user.email "bot@madfam.dev"
+          for ATTEMPT in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cd infra/k8s/production
+            kustomize edit set image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+            cd ../../..
+            git add infra/k8s/production/kustomization.yaml
+            git diff --staged --quiet && echo "No changes to commit" && exit 0
+            git commit -m "deploy(worker): update digest to ${GITHUB_SHA::8}"
+            git push origin main && exit 0
+            echo "Retry $ATTEMPT..."
+            sleep $((ATTEMPT * 10))
+          done
+          echo "Failed after 3 attempts"
+          exit 1
+
+      - name: Report lifecycle event
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            EVENT_TYPE="image_pushed"
+          else
+            EVENT_TYPE="build_failed"
+          fi
+          curl -s -X POST "https://api.enclii.dev/v1/callbacks/lifecycle-event" \
+            -H "Authorization: Bearer ${{ secrets.ENCLII_CALLBACK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo_full_name\": \"madfam-org/phyne-crm\",
+              \"commit_sha\": \"${{ github.sha }}\",
+              \"branch\": \"${{ github.ref_name }}\",
+              \"ref\": \"${{ github.ref }}\",
+              \"event_type\": \"${EVENT_TYPE}\",
+              \"source\": \"ci_callback\",
+              \"message\": \"phyne-crm-worker ${STATUS} (digest: ${{ steps.build.outputs.digest }})\",
+              \"metadata\": {
+                \"service\": \"phyne-crm-worker\",
+                \"image\": \"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\",
+                \"digest\": \"${{ steps.build.outputs.digest }}\",
+                \"workflow\": \"deploy-worker\",
+                \"actor\": \"${{ github.actor }}\"
+              }
+            }" || true

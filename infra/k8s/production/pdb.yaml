@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: phyne-crm-web-pdb
+  namespace: phyne-crm
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: phyne-crm-web

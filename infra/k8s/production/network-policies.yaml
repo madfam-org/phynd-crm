@@ -1,0 +1,158 @@
+---
+# Default deny all ingress and egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow ingress from cloudflare-tunnel namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cloudflared-ingress
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel
+          podSelector:
+            matchLabels:
+              app: cloudflared
+      ports:
+        - protocol: TCP
+          port: 80
+---
+# Allow egress to data namespace (postgres 5432, pgbouncer 6432, redis 6379)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-data-egress
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 6432
+---
+# Allow egress to DNS (kube-system port 53 UDP/TCP)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow egress to HTTPS (443) for Resend, Reddit API, external federation services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-https-egress
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+---
+# Allow intra-namespace communication (web <-> worker via shared Redis)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+# Allow egress to internal MADFAM services (tezca, autoswarm, karafiel)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-egress
+  namespace: phyne-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: madfam-platform
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tezca
+      ports:
+        - protocol: TCP
+          port: 80
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: autoswarm
+      ports:
+        - protocol: TCP
+          port: 80
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: karafiel
+      ports:
+        - protocol: TCP
+          port: 80

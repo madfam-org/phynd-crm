@@ -17,7 +17,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN npx turbo build --filter=@phyne/worker
 # pnpm deploy creates a self-contained directory with resolved symlinks
-RUN pnpm deploy --filter=@phyne/worker --prod /deploy
+RUN pnpm deploy --filter=@phyne/worker /deploy
 
 FROM base AS runner
 ENV NODE_ENV=production

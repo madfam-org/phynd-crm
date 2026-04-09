@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
+import { boolean, pgTable, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
 import { users } from './users'
 import { createId } from './utils'
 
@@ -13,6 +13,8 @@ export const contacts = pgTable(
     company: varchar('company', { length: 255 }),
     status: varchar('status', { length: 20 }).notNull().default('active'),
     ownerId: text('owner_id').references(() => users.id),
+    marketingConsent: boolean('marketing_consent').notNull().default(false),
+    consentedAt: timestamp('consented_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

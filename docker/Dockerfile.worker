@@ -13,8 +13,7 @@ COPY packages/logging/package.json ./packages/logging/
 COPY packages/services/package.json ./packages/services/
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui/package.json ./packages/ui/
-ENV HUSKY=0
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules

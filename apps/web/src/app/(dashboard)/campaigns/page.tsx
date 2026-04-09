@@ -10,7 +10,7 @@ export default async function CampaignsPage() {
 
   // Count reddit bot drafts for the badge
   const draftCount = campaigns.items.filter(
-    (c) => c.channel === 'reddit_bot' && c.status === 'draft'
+    (c: (typeof campaigns.items)[number]) => c.channel === 'reddit_bot' && c.status === 'draft'
   ).length
 
   return (

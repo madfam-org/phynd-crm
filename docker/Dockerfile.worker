@@ -16,15 +16,15 @@ COPY packages/ui/package.json ./packages/ui/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN npx turbo build --filter=@phyne/worker
-# pnpm deploy creates a self-contained directory with resolved symlinks
+# Create self-contained deployment with resolved workspace deps
 RUN pnpm deploy --filter=@phyne/worker /deploy
+# Copy compiled dist from the build (pnpm deploy may not include build artifacts)
+RUN cp -r apps/worker/dist /deploy/dist
 
 FROM base AS runner
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 worker
-COPY --from=builder /deploy/node_modules /app/node_modules
-COPY --from=builder /deploy/dist /app/dist
-COPY --from=builder /deploy/package.json /app/package.json
+COPY --from=builder /deploy /app
 USER worker
 WORKDIR /app
 CMD ["node", "dist/index.js"]

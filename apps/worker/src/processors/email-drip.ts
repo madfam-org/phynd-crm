@@ -2,6 +2,7 @@ import { getDb } from '@phyne/db'
 import { contacts, leads } from '@phyne/db/schema'
 import { createLogger } from '@phyne/logging'
 import { EmailService } from '@phyne/services/email'
+import { buildUnsubscribeUrl } from '@phyne/services/email/unsubscribe-token'
 import { welcomeEmail } from '@phyne/services/email/templates/welcome'
 import { legalTipEmail } from '@phyne/services/email/templates/legal-tip'
 import { trialInviteEmail } from '@phyne/services/email/templates/trial-invite'
@@ -51,6 +52,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
     .select({
       contactId: leads.contactId,
       source: leads.source,
+      unsubscribed: leads.unsubscribed,
     })
     .from(leads)
     .where(eq(leads.id, leadId))
@@ -59,6 +61,11 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
   const lead = leadRows[0]
   if (!lead) {
     logger.warn({ leadId }, 'Lead not found — skipping drip')
+    return
+  }
+
+  if (lead.unsubscribed) {
+    logger.info({ leadId, step }, 'Lead unsubscribed — skipping drip')
     return
   }
 
@@ -75,21 +82,22 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
   }
 
   const domain = extractDomain(lead.source ?? '')
+  const unsubscribeUrl = buildUnsubscribeUrl(leadId)
 
   // Build email for this step
   let email: { subject: string; html: string }
   switch (step) {
     case 0:
-      email = welcomeEmail({ domain })
+      email = welcomeEmail({ domain, unsubscribeUrl })
       break
     case 1:
-      email = legalTipEmail({ domain })
+      email = legalTipEmail({ domain, unsubscribeUrl })
       break
     case 2:
-      email = trialInviteEmail()
+      email = trialInviteEmail({ unsubscribeUrl })
       break
     case 3:
-      email = lastChanceEmail()
+      email = lastChanceEmail({ unsubscribeUrl })
       break
     default:
       logger.warn({ step }, 'Unknown drip step — skipping')
@@ -103,6 +111,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
       to: contact.email,
       subject: email.subject,
       html: email.html,
+      unsubscribeUrl,
     })
     logger.info(
       { leadId, step, emailId: result?.id, to: contact.email },

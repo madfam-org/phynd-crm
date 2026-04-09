@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import { contacts } from './contacts'
 import { pipelineStages, pipelines } from './pipelines'
 import { users } from './users'
@@ -13,6 +13,8 @@ export const leads = pgTable(
     source: varchar('source', { length: 100 }),
     status: varchar('status', { length: 20 }).notNull().default('new'),
     score: integer('score'),
+    unsubscribed: boolean('unsubscribed').notNull().default(false),
+    unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
     pipelineId: text('pipeline_id')
       .notNull()
       .references(() => pipelines.id),

@@ -6,6 +6,7 @@ import { processEmailDrip } from './processors/email-drip'
 import { processFederationSync } from './processors/federation-sync'
 import { processGrantComplianceCheck } from './processors/grant-compliance-check'
 import { processHealthCheck } from './processors/health-check'
+import { processRedditBot } from './processors/reddit-bot'
 import { processLeadScoring } from './processors/lead-scoring'
 import { processSessionIdentify } from './processors/session-identify'
 import { processTaskReminders } from './processors/task-reminders'
@@ -70,6 +71,12 @@ async function main() {
     maxStalledCount: 2,
   })
 
+  const redditBotWorker = new Worker('reddit-bot', processRedditBot, {
+    connection,
+    concurrency: 1,
+    maxStalledCount: 2,
+  })
+
   const demoCleanupWorker = new Worker('demo-cleanup', processDemoCleanup, {
     connection,
     concurrency: 1,
@@ -81,6 +88,23 @@ async function main() {
   await queues.taskReminders.add('check-due-tasks', {}, { repeat: { pattern: '0 */4 * * *' } })
   await queues.demoCleanup.add('cleanup-expired-demos', {}, { repeat: { pattern: '0 * * * *' } })
 
+  // Reddit bot: poll every 15 minutes
+  const redditSubreddits = (process.env.REDDIT_TARGET_SUBREDDITS ?? 'DerechoMexicano,LegalAdviceMexico,mexico')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  if (process.env.REDDIT_CLIENT_ID) {
+    await queues.redditBot.add(
+      'poll-subreddits',
+      { subreddits: redditSubreddits },
+      { repeat: { pattern: '*/15 * * * *' } },
+    )
+    logger.info({ subreddits: redditSubreddits }, 'Reddit bot polling scheduled (every 15 min)')
+  } else {
+    logger.info('Reddit bot polling disabled — REDDIT_CLIENT_ID not set')
+  }
+
   const workers = [
     { name: 'cache-warmup', worker: cacheWorker },
     { name: 'demo-cleanup', worker: demoCleanupWorker },
@@ -89,6 +113,7 @@ async function main() {
     { name: 'grant-compliance-check', worker: grantComplianceCheckWorker },
     { name: 'health-check', worker: healthWorker },
     { name: 'lead-scoring', worker: leadScoringWorker },
+    { name: 'reddit-bot', worker: redditBotWorker },
     { name: 'session-identify', worker: sessionIdentifyWorker },
     { name: 'task-reminders', worker: taskRemindersWorker },
   ]
@@ -115,6 +140,7 @@ async function main() {
         { concurrency: 2, name: 'grant-compliance-check' },
         { concurrency: 1, name: 'health-check' },
         { concurrency: 1, name: 'lead-scoring' },
+        { concurrency: 1, name: 'reddit-bot' },
         { concurrency: 3, name: 'session-identify' },
         { concurrency: 1, name: 'task-reminders' },
       ],
@@ -132,11 +158,13 @@ async function main() {
       grantComplianceCheckWorker.close(),
       healthWorker.close(),
       leadScoringWorker.close(),
+      redditBotWorker.close(),
       sessionIdentifyWorker.close(),
       taskRemindersWorker.close(),
       queues.demoCleanup.close(),
       queues.emailDrip.close(),
       queues.grantComplianceCheck.close(),
+      queues.redditBot.close(),
       queues.taskReminders.close(),
     ])
     process.exit(0)

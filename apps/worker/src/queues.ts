@@ -98,6 +98,16 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
+  const redditBot = new Queue('reddit-bot', {
+    connection,
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 10_000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 500 },
+    },
+  })
+
   return {
     cacheWarmup,
     demoCleanup,
@@ -106,6 +116,7 @@ export function createQueues(connection: ConnectionOptions) {
     grantComplianceCheck,
     healthCheck,
     leadScoring,
+    redditBot,
     sessionIdentify,
     taskReminders,
   }

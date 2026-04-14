@@ -23,6 +23,9 @@ const BLOCK_MS = 5000
 const MAX_RETRIES = 3
 const STALE_MS = 60_000 // auto-claim messages idle > 60s
 
+// Canonical types live in @madfam/types — this interface mirrors ServiceEventEnvelope
+// TODO: Replace with `import type { ServiceEventEnvelope } from '@madfam/types'`
+// once the package is published to npm.madfam.io and added to phyne-crm deps.
 export interface BillingEvent {
   id: string // Redis Stream entry ID
   event_type: string

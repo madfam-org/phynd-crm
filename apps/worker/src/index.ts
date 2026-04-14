@@ -1,3 +1,15 @@
+import * as Sentry from '@sentry/node'
+
+const sentryDsn = process.env.SENTRY_DSN
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 0.1,
+  })
+}
+
+import http from 'node:http'
 import { createLogger } from '@phyne/logging'
 import { Worker } from 'bullmq'
 import { processCacheWarmup } from './processors/cache-warmup'
@@ -130,6 +142,23 @@ async function main() {
     })
   }
 
+  // HTTP health check server for Kubernetes/Docker probes
+  const HEALTH_PORT = parseInt(process.env.WORKER_HEALTH_PORT ?? '3001', 10)
+
+  const healthServer = http.createServer((req, res) => {
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ status: 'ok', service: 'phyne-crm-worker', version: '0.1.0' }))
+      return
+    }
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Not Found' }))
+  })
+
+  healthServer.listen(HEALTH_PORT, () => {
+    logger.info({ port: HEALTH_PORT }, 'Worker health server listening')
+  })
+
   logger.info(
     {
       workers: [
@@ -150,6 +179,7 @@ async function main() {
 
   const shutdown = async () => {
     logger.info('Shutting down workers...')
+    healthServer.close()
     await Promise.all([
       cacheWorker.close(),
       demoCleanupWorker.close(),

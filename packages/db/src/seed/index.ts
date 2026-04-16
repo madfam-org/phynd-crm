@@ -4,6 +4,7 @@ import { seedContacts } from './seed-contacts'
 import { seedConversions } from './seed-conversions'
 import { seedExternalRefs } from './seed-external-refs'
 import { seedGrantsPipeline } from './seed-grants-pipeline'
+import { seedReferralCampaign } from './seed-referral-campaign'
 import { seedLeadsAndOpps } from './seed-leads-opps'
 import { seedOffersAndCampaigns } from './seed-offers-campaigns'
 import { seedPreferences } from './seed-preferences'
@@ -62,6 +63,7 @@ export async function seed() {
   await seedTagsAndNotifications(db, ids)
   await seedTablaco(db, ids)
   await seedGrantsPipeline(db)
+  await seedReferralCampaign(db)
 
   console.log('Seed complete!')
 }

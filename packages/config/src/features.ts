@@ -25,6 +25,8 @@ export interface FeatureFlags {
   analytics: boolean
   /** ACCA Treasury Hunter grant management */
   treasuryHunter: boolean
+  /** Referral code management and tracking */
+  referralManagement: boolean
 }
 
 const defaults: FeatureFlags = {
@@ -41,6 +43,7 @@ const defaults: FeatureFlags = {
   funnelManagement: true,
   analytics: true,
   treasuryHunter: false,
+  referralManagement: true,
 }
 
 let flags: FeatureFlags = { ...defaults }

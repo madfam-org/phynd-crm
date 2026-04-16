@@ -98,6 +98,16 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
+  const referralRewardDispatch = new Queue('referral-reward-dispatch', {
+    connection,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 5000 },
+    },
+  })
+
   const redditBot = new Queue('reddit-bot', {
     connection,
     defaultJobOptions: {
@@ -117,6 +127,7 @@ export function createQueues(connection: ConnectionOptions) {
     healthCheck,
     leadScoring,
     redditBot,
+    referralRewardDispatch,
     sessionIdentify,
     taskReminders,
   }

@@ -19,6 +19,7 @@ import { processFederationSync } from './processors/federation-sync'
 import { processGrantComplianceCheck } from './processors/grant-compliance-check'
 import { processHealthCheck } from './processors/health-check'
 import { processRedditBot } from './processors/reddit-bot'
+import { processReferralRewardDispatch } from './processors/referral-reward-dispatch'
 import { processLeadScoring } from './processors/lead-scoring'
 import { processSessionIdentify } from './processors/session-identify'
 import { processTaskReminders } from './processors/task-reminders'
@@ -83,6 +84,16 @@ async function main() {
     maxStalledCount: 2,
   })
 
+  const referralRewardDispatchWorker = new Worker(
+    'referral-reward-dispatch',
+    processReferralRewardDispatch,
+    {
+      connection,
+      concurrency: 2,
+      maxStalledCount: 2,
+    },
+  )
+
   const redditBotWorker = new Worker('reddit-bot', processRedditBot, {
     connection,
     concurrency: 1,
@@ -126,6 +137,7 @@ async function main() {
     { name: 'health-check', worker: healthWorker },
     { name: 'lead-scoring', worker: leadScoringWorker },
     { name: 'reddit-bot', worker: redditBotWorker },
+    { name: 'referral-reward-dispatch', worker: referralRewardDispatchWorker },
     { name: 'session-identify', worker: sessionIdentifyWorker },
     { name: 'task-reminders', worker: taskRemindersWorker },
   ]
@@ -170,6 +182,7 @@ async function main() {
         { concurrency: 1, name: 'health-check' },
         { concurrency: 1, name: 'lead-scoring' },
         { concurrency: 1, name: 'reddit-bot' },
+        { concurrency: 2, name: 'referral-reward-dispatch' },
         { concurrency: 3, name: 'session-identify' },
         { concurrency: 1, name: 'task-reminders' },
       ],
@@ -189,6 +202,7 @@ async function main() {
       healthWorker.close(),
       leadScoringWorker.close(),
       redditBotWorker.close(),
+      referralRewardDispatchWorker.close(),
       sessionIdentifyWorker.close(),
       taskRemindersWorker.close(),
       queues.demoCleanup.close(),

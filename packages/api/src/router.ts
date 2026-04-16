@@ -15,6 +15,7 @@ import { ordersRouter } from './routers/orders'
 import { pipelinesRouter } from './routers/pipelines'
 import { preferencesRouter } from './routers/preferences'
 import { quotesRouter } from './routers/quotes'
+import { referralsRouter } from './routers/referrals'
 import { searchRouter } from './routers/search'
 import { tagsRouter } from './routers/tags'
 import { timelineRouter } from './routers/timeline'
@@ -41,6 +42,7 @@ export const appRouter = router({
   pipelines: pipelinesRouter,
   preferences: preferencesRouter,
   quotes: quotesRouter,
+  referrals: referralsRouter,
   search: searchRouter,
   tags: tagsRouter,
   timeline: timelineRouter,

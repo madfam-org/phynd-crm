@@ -8,6 +8,7 @@
     "./context": "./src/context.ts",
     "./errors": "./src/errors.ts",
     "./email": "./src/email/email.service.ts",
+    "./email/unsubscribe-token": "./src/email/unsubscribe-token.ts",
     "./email/templates/*": "./src/email/templates/*.ts"
   },
   "scripts": {

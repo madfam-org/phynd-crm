@@ -65,6 +65,7 @@ pnpm db:seed          # Seed database
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
+- **Federation token auth**: Service-to-service tRPC calls via `FEDERATION_API_TOKEN` env var. If request `Authorization: Bearer <token>` matches, creates `SERVICE_AUTH` context (`userId: 'service:autoswarm'`, `roles: ['service']`, `scopes: ['leads:read', 'activities:read']`) bypassing Auth.js session check. Rate limiting still applies. Empty/unset token disables the path
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
 - **Tezca webhook events**: `interest.created` (feature interest → contact + lead + drip), `newsletter.subscribed` (newsletter signup → contact + lead + drip). Both enqueue `email-drip` BullMQ job on lead creation
 - **Janua webhook linking**: `user.created` checks for existing contact by email (from newsletter/interest) and links `externalJanuaId` instead of creating duplicate

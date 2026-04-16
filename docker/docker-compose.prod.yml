@@ -69,6 +69,8 @@ services:
       KARAFIEL_API_URL: ${KARAFIEL_API_URL}
       KARAFIEL_API_KEY: ${KARAFIEL_API_KEY}
       KARAFIEL_WEBHOOK_SECRET: ${KARAFIEL_WEBHOOK_SECRET}
+      # Service-to-service federation token (optional, AutoSwarm → tRPC)
+      FEDERATION_API_TOKEN: ${FEDERATION_API_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -6,6 +6,7 @@
  */
 
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { ReferralService, createServiceContext } from '@phyne/services'
@@ -17,7 +18,7 @@ const logger = createLogger('api:referrals:validate')
 
 const SERVICE_AUTH: AuthContext = {
   userId: 'service:federation',
-  tenantId: 'madfam',
+  tenantId: DEFAULT_TENANT_ID,
   roles: ['service'],
   scopes: [],
   accessToken: '',

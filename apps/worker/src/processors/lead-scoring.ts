@@ -1,3 +1,4 @@
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { leads } from '@phyne/db/schema'
 import { createLogger } from '@phyne/logging'
@@ -26,12 +27,12 @@ export async function processLeadScoring(job: Job<LeadScoringData>): Promise<voi
     cache,
     auth: {
       userId: 'system',
-      tenantId: 'madfam',
+      tenantId: DEFAULT_TENANT_ID,
       roles: ['admin'],
       scopes: ['*'],
       accessToken: '',
     },
-    tenantId: 'madfam',
+    tenantId: DEFAULT_TENANT_ID,
   }
 
   const service = new LeadScoringService(ctx)

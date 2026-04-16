@@ -6,6 +6,7 @@
  */
 
 import { validateFederationAuth } from '../_lib/auth'
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { ReferralService, createServiceContext } from '@phyne/services'
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     const userId = body.referred_janua_id ?? 'service:federation'
     const serviceAuth: AuthContext = {
       userId,
-      tenantId: 'madfam',
+      tenantId: DEFAULT_TENANT_ID,
       roles: ['service'],
       scopes: [],
       accessToken: '',

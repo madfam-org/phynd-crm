@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { grantOpportunities, pipelineStages, pipelines } from '@phyne/db/schema'
 import { validateWebhookSignature } from '@phyne/federation/webhooks'
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
 
     const botAuth = {
       userId: 'system:fortuna-webhook',
-      tenantId: 'madfam',
+      tenantId: DEFAULT_TENANT_ID,
       roles: ['admin'],
       scopes: ['*'],
       accessToken: 'internal:fortuna-webhook',

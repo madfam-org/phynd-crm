@@ -1,27 +1,33 @@
+import crypto from 'node:crypto'
 import { auth } from '@/lib/auth'
 import { DEMO_COOKIE_NAME, createDemoAuth } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { appRouter } from '@phyne/api/router'
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createServiceContext } from '@phyne/services/context'
 import type { AuthContext } from '@phyne/types/auth'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
+
+if (process.env.NODE_ENV === 'production' && process.env.AUTH_BYPASS === 'true') {
+  throw new Error('AUTH_BYPASS must not be enabled in production');
+}
 
 const DEV_BYPASS = process.env.NODE_ENV === 'development' && process.env.AUTH_BYPASS === 'true'
 const FEDERATION_TOKEN = process.env.FEDERATION_API_TOKEN ?? ''
 
 const DEV_AUTH: AuthContext = {
   userId: 'dev-user',
-  tenantId: 'madfam',
+  tenantId: DEFAULT_TENANT_ID,
   roles: ['admin'],
   scopes: ['*'],
-  accessToken: 'dev-token',
+  accessToken: process.env.DEV_ACCESS_TOKEN || crypto.randomUUID(),
 }
 
 const SERVICE_AUTH: AuthContext = {
   userId: 'service:autoswarm',
-  tenantId: 'madfam',
+  tenantId: DEFAULT_TENANT_ID,
   roles: ['service'],
   scopes: ['leads:read', 'activities:read'],
   accessToken: '',
@@ -68,7 +74,7 @@ const handler = async (req: Request) => {
       if (session?.user) {
         authCtx = {
           userId: session.user.id ?? '',
-          tenantId: 'madfam',
+          tenantId: DEFAULT_TENANT_ID,
           roles: session.user.roles ?? [],
           scopes: session.user.scopes ?? [],
           accessToken: session.accessToken ?? '',
@@ -80,7 +86,7 @@ const handler = async (req: Request) => {
       } else {
         authCtx = {
           userId: '',
-          tenantId: 'madfam',
+          tenantId: DEFAULT_TENANT_ID,
           roles: [],
           scopes: [],
           accessToken: '',

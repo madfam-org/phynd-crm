@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { CacheInvalidator } from '@phyne/federation'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
         const db = getDb()
         const botAuth = {
           userId: 'system:janua-webhook',
-          tenantId: 'madfam',
+          tenantId: DEFAULT_TENANT_ID,
           roles: ['admin'] as string[],
           scopes: ['*'] as string[],
           accessToken: 'internal:janua-webhook',

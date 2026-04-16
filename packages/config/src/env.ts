@@ -42,6 +42,9 @@ const envSchemaBase = z.object({
   KARAFIEL_API_KEY: z.string().min(1).optional(),
   KARAFIEL_WEBHOOK_SECRET: z.string().min(1).optional(),
 
+  // Tenant
+  DEFAULT_TENANT_ID: z.string().default('madfam'),
+
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

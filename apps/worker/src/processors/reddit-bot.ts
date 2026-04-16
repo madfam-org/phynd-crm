@@ -1,3 +1,4 @@
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import {
@@ -289,12 +290,12 @@ export async function processRedditBot(job: Job<RedditBotData>): Promise<void> {
     cache,
     auth: {
       userId: 'system',
-      tenantId: 'madfam',
+      tenantId: DEFAULT_TENANT_ID,
       roles: ['admin'],
       scopes: ['*'],
       accessToken: '',
     },
-    tenantId: 'madfam',
+    tenantId: DEFAULT_TENANT_ID,
   }
 
   const botService = new RedditBotService(ctx)

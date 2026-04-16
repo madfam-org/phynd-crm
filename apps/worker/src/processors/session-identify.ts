@@ -1,3 +1,4 @@
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { VisitorTrackingService } from '@phyne/services'
@@ -41,12 +42,12 @@ export async function processSessionIdentify(job: Job<SessionIdentifyData>): Pro
     cache,
     auth: {
       userId: 'system',
-      tenantId: 'madfam',
+      tenantId: DEFAULT_TENANT_ID,
       roles: ['admin'],
       scopes: ['*'],
       accessToken: '',
     },
-    tenantId: 'madfam',
+    tenantId: DEFAULT_TENANT_ID,
   }
 
   const service = new VisitorTrackingService(ctx)

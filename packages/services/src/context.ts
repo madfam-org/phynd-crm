@@ -1,3 +1,4 @@
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import type { Database } from '@phyne/db'
 import type { CacheManager, FederationClient, ProviderHealthChecker } from '@phyne/federation'
 import type { AuthContext } from '@phyne/types/auth'
@@ -40,6 +41,6 @@ export function createServiceContext(
     cache,
     auth,
     // Single-tenant for MVP Phase 1, extracted from JWT/subdomain in Phase 3
-    tenantId: 'madfam',
+    tenantId: DEFAULT_TENANT_ID,
   }
 }

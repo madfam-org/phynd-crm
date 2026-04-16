@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants';
 import { getDb } from '@phyne/db';
 import { getCacheManager } from '@/lib/federation/clients';
 import { createServiceContext } from '@phyne/services';
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     const cache = getCacheManager();
     const mockAuthCtx = {
       userId: 'automation-bot',
-      tenantId: 'madfam',
+      tenantId: DEFAULT_TENANT_ID,
       roles: ['system'],
       scopes: ['*'],
       accessToken: ''

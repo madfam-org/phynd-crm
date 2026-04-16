@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
+import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import {
@@ -118,7 +119,7 @@ export async function POST(req: Request) {
       const cache = getCacheManager()
       const botAuth = {
         userId: 'system:tezca-bot',
-        tenantId: 'madfam',
+        tenantId: DEFAULT_TENANT_ID,
         roles: ['admin'] as string[],
         scopes: ['*'] as string[],
         accessToken: 'internal:tezca-webhook',

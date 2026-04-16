@@ -65,4 +65,44 @@ export const referralsRouter = router({
       const service = new ReferralService(ctx)
       return service.getById(input.id)
     }),
+
+  applyReferral: protectedProcedure
+    .input(
+      z.object({
+        code: z.string().min(1).max(20),
+        referredEmail: z.string().email(),
+        referredName: z.string().max(255).optional(),
+        sourceProduct: z.string().min(1).max(50),
+        targetProduct: z.string().min(1).max(50),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      assertReferralManagement()
+      const service = new ReferralService(ctx)
+      return service.applyReferral(
+        input.code,
+        input.referredEmail,
+        input.referredName ?? input.referredEmail.split('@')[0] ?? '',
+        input.sourceProduct,
+        input.targetProduct,
+      )
+    }),
+
+  convertReferral: protectedProcedure
+    .input(
+      z.object({
+        referralId: z.string(),
+        planId: z.string().max(100).optional(),
+        revenueCents: z.number().int().min(0).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      assertReferralManagement()
+      const service = new ReferralService(ctx)
+      return service.convertReferral(
+        input.referralId,
+        input.planId ?? '',
+        input.revenueCents ?? 0,
+      )
+    }),
 })

@@ -9,6 +9,7 @@ import type { AuthContext } from '@phyne/types/auth'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
 const DEV_BYPASS = process.env.NODE_ENV === 'development' && process.env.AUTH_BYPASS === 'true'
+const FEDERATION_TOKEN = process.env.FEDERATION_API_TOKEN ?? ''
 
 const DEV_AUTH: AuthContext = {
   userId: 'dev-user',
@@ -16,6 +17,14 @@ const DEV_AUTH: AuthContext = {
   roles: ['admin'],
   scopes: ['*'],
   accessToken: 'dev-token',
+}
+
+const SERVICE_AUTH: AuthContext = {
+  userId: 'service:autoswarm',
+  tenantId: 'madfam',
+  roles: ['service'],
+  scopes: ['leads:read', 'activities:read'],
+  accessToken: '',
 }
 
 function getDemoSessionId(req: Request): string | null {
@@ -41,6 +50,18 @@ const handler = async (req: Request) => {
     req,
     router: appRouter,
     createContext: async () => {
+      // Service-to-service auth via federation token
+      const authHeader = req.headers.get('authorization') ?? ''
+      if (FEDERATION_TOKEN && authHeader === `Bearer ${FEDERATION_TOKEN}`) {
+        const db = getDb()
+        const cache = getCacheManager()
+        const ctx = createServiceContext(db, cache, SERVICE_AUTH)
+        return {
+          ...ctx,
+          federation: { clients: getFederationClients(), healthChecker: getHealthChecker() },
+        }
+      }
+
       const session = await auth()
 
       let authCtx: AuthContext

@@ -1,6 +1,34 @@
 import type { ConnectionOptions } from 'bullmq'
 import { Queue } from 'bullmq'
 
+// ---------------------------------------------------------------------------
+// Queue job-retention defaults (shared across queue definitions)
+// ---------------------------------------------------------------------------
+
+/** High-throughput queues: federation-sync, session-identify, grants, email, referral */
+const HIGH_THROUGHPUT_RETENTION = {
+  removeOnComplete: { count: 1000 },
+  removeOnFail: { count: 5000 },
+} as const
+
+/** Medium-throughput queues: cache-warmup, lead-scoring, reddit-bot */
+const MEDIUM_THROUGHPUT_RETENTION = {
+  removeOnComplete: { count: 100 },
+  removeOnFail: { count: 500 },
+} as const
+
+/** Low-throughput queues: health-check, task-reminders, demo-cleanup */
+const LOW_THROUGHPUT_RETENTION = {
+  removeOnComplete: { count: 100 },
+  removeOnFail: { count: 100 },
+} as const
+
+// Backoff delay presets (milliseconds)
+const BACKOFF_DELAY_FAST = 1_000
+const BACKOFF_DELAY_NORMAL = 2_000
+const BACKOFF_DELAY_SLOW = 5_000
+const BACKOFF_DELAY_VERY_SLOW = 10_000
+
 export function createRedisConnection(redisUrl: string): ConnectionOptions {
   const url = new URL(redisUrl)
   return {
@@ -15,9 +43,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
-      removeOnComplete: { count: 1000 },
-      removeOnFail: { count: 5000 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_FAST },
+      ...HIGH_THROUGHPUT_RETENTION,
     },
   })
 
@@ -25,9 +52,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 2,
-      backoff: { type: 'exponential', delay: 2000 },
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 500 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_NORMAL },
+      ...MEDIUM_THROUGHPUT_RETENTION,
     },
   })
 
@@ -35,8 +61,7 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 1,
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 100 },
+      ...LOW_THROUGHPUT_RETENTION,
     },
   })
 
@@ -44,9 +69,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
-      removeOnComplete: { count: 1000 },
-      removeOnFail: { count: 5000 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_FAST },
+      ...HIGH_THROUGHPUT_RETENTION,
     },
   })
 
@@ -54,9 +78,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 2,
-      backoff: { type: 'exponential', delay: 2000 },
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 500 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_NORMAL },
+      ...MEDIUM_THROUGHPUT_RETENTION,
     },
   })
 
@@ -64,8 +87,7 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 1,
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 100 },
+      ...LOW_THROUGHPUT_RETENTION,
     },
   })
 
@@ -73,8 +95,7 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 1,
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 100 },
+      ...LOW_THROUGHPUT_RETENTION,
     },
   })
 
@@ -82,9 +103,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 2000 },
-      removeOnComplete: { count: 1000 },
-      removeOnFail: { count: 5000 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_NORMAL },
+      ...HIGH_THROUGHPUT_RETENTION,
     },
   })
 
@@ -92,9 +112,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: { count: 1000 },
-      removeOnFail: { count: 5000 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_SLOW },
+      ...HIGH_THROUGHPUT_RETENTION,
     },
   })
 
@@ -102,9 +121,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: { count: 1000 },
-      removeOnFail: { count: 5000 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_SLOW },
+      ...HIGH_THROUGHPUT_RETENTION,
     },
   })
 
@@ -112,9 +130,8 @@ export function createQueues(connection: ConnectionOptions) {
     connection,
     defaultJobOptions: {
       attempts: 2,
-      backoff: { type: 'exponential', delay: 10_000 },
-      removeOnComplete: { count: 100 },
-      removeOnFail: { count: 500 },
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_VERY_SLOW },
+      ...MEDIUM_THROUGHPUT_RETENTION,
     },
   })
 

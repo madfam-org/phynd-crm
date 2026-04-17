@@ -46,7 +46,7 @@ pnpm db:seed          # Seed database
 ```
 
 ## Key Patterns
-- **Federation**: `Promise.allSettled()` across 6 providers — partial failures don't block
+- **Federation**: `Promise.allSettled()` across 6 providers — partial failures don't block. Each provider has a dedicated contract test at `packages/federation/src/providers/<name>/__tests__/contract.test.ts` that asserts the raw response shape against a JSON Schema AND the `.map()` transformation. 115 tests total in the federation package (35 added 2026-04-17 to close ECOSYSTEM_AUDIT §6.6). Shared validator at `packages/federation/src/__tests__/contract-helpers.ts` (no ajv dep).
 - **Cache**: Redis with tenant-namespaced keys (`phyne:{tenantId}:fed:{provider}:{id}`)
 - **Circuit Breaker**: CLOSED → OPEN (5 failures/60s) → HALF_OPEN (30s) → CLOSED (3 successes); shared CB instances between FederationClient and HealthChecker
 - **Timeout**: Config-driven via `ProviderConfig.timeout` → `AbortSignal.timeout()` passed to provider `fetch()`; providers accept optional `signal` parameter

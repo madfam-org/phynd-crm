@@ -14,6 +14,8 @@ export { JanuaTelemetryProvider } from './providers/janua-telemetry/index'
 export { PravaraProvider } from './providers/pravara/index'
 export {
   CacheInvalidator,
+  type MadfamSignatureResult,
+  validateMadfamSignature,
   validateWebhookSignature,
   WebhookHandler,
 } from './webhooks/index'

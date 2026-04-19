@@ -46,3 +46,6 @@ infra/k8s/**/*-secret.yaml
 *.p12
 *.pfx
 .env.production
+
+# Serena MCP tool state (per-machine IDE-like cache)
+.serena/

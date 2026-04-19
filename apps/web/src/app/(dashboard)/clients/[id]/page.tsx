@@ -1,3 +1,4 @@
+import { ContactEngagementsPanel } from '@/components/engagements/contact-engagements-panel'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { TagsPanel } from '@/components/tags/tags-panel'
 import { Badge } from '@/components/ui/badge'
@@ -166,6 +167,11 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
       </div>
 
       <FederationTabs panels={panels} />
+
+      <div className="rounded-lg border bg-card p-6">
+        <h3 className="mb-4 text-lg font-semibold">Engagements</h3>
+        <ContactEngagementsPanel contactId={id} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">

@@ -10,6 +10,7 @@ export {
   EngagementsService,
   type EngagementTimelineEntry,
 } from './engagements/engagements.service'
+export { EngagementPortalMagicLinkService } from './engagement-portal/magic-link.service'
 export { createServiceContext, type ServiceContext } from './context'
 export { GrantsService } from './grants/grants.service'
 export { LeadScoringService } from './lead-scoring/lead-scoring.service'

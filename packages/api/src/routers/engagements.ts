@@ -1,4 +1,4 @@
-import { EngagementsService } from '@phyne/services'
+import { EngagementPortalMagicLinkService, EngagementsService } from '@phyne/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -114,5 +114,15 @@ export const engagementsRouter = router({
     .query(({ ctx, input }) => {
       const service = new EngagementsService(ctx)
       return service.getTimeline(input.engagementId, input.limit)
+    }),
+
+  // Staff-initiated. Fires Janua's magic-link email to the engagement's
+  // contact with a redirect_url pointing back at PhyneCRM's /portal/verify.
+  // Rate-limiting is handled by Janua (5/hour per email).
+  sendPortalLink: protectedProcedure
+    .input(z.object({ engagementId: z.string() }))
+    .mutation(({ ctx, input }) => {
+      const service = new EngagementPortalMagicLinkService(ctx)
+      return service.sendPortalLink(input.engagementId)
     }),
 })

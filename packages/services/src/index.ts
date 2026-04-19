@@ -7,9 +7,16 @@ export { postRedditComment, extractPostId } from './campaigns/reddit-poster'
 export { ContactsService } from './contacts/contacts.service'
 export { ConversionsService } from './conversions/conversions.service'
 export {
+  type CotizaEngagementEmitter,
   EngagementsService,
   type EngagementTimelineEntry,
 } from './engagements/engagements.service'
+export {
+  type CotizaEngagementEvent,
+  type CotizaEngagementEventType,
+  dispatchCotizaEngagementEvent,
+  emitCotizaEngagementEvent,
+} from './engagements/cotiza-engagement-emitter.service'
 export { EngagementPortalMagicLinkService } from './engagement-portal/magic-link.service'
 export { createServiceContext, type ServiceContext } from './context'
 export { GrantsService } from './grants/grants.service'

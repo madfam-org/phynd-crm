@@ -23,6 +23,7 @@
     "@phyne/config": "workspace:*",
     "@phyne/db": "workspace:*",
     "@phyne/federation": "workspace:*",
+    "@phyne/logging": "workspace:*",
     "@phyne/types": "workspace:*",
     "drizzle-orm": "^0.39.3",
     "openai": "^6.33.0",

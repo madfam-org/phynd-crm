@@ -132,20 +132,33 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
       queued: 'Fabrication job queued',
       in_progress: 'Fabrication started',
       quality_check: 'Quality check in progress',
-      shipped: 'Shipped',
-      delivered: 'Delivered',
+      shipped: 'Prototype shipped — in transit',
+      delivered: 'Prototype delivered',
       completed: 'Fabrication completed',
       cancelled: 'Fabrication cancelled',
     }
+    // Status drives the portal's UI badge. `milestone` is reserved for
+    // client-visible top-of-timeline events — shipped + delivered are
+    // both milestones for a physical build (the client experiences them
+    // as discrete "things happened to my prototype" moments).
     const portalStatusMap: Record<string, string> = {
       queued: 'pending',
       in_progress: 'in_progress',
       quality_check: 'in_progress',
-      shipped: 'in_progress',
+      shipped: 'milestone',
       delivered: 'completed',
       completed: 'completed',
       cancelled: 'failed',
     }
+    // Canonical event_type: `pravara:shipped` stays the wire format. The
+    // cross-source alias `prototype_shipped` is ALSO recorded (idempotent
+    // via a second dedup_key) so portal queries that filter on a
+    // source-agnostic milestone type work. Rule: any source emitting a
+    // physical-deliverable handoff uses `<source>:prototype_shipped` so
+    // we can group across Pravara / external fab shops / field install
+    // crews uniformly. See docs/ENGAGEMENT_EVENT_TAXONOMY.md.
+    const canonicalMilestoneEvent =
+      status === 'shipped' ? 'prototype_shipped' : status === 'delivered' ? 'deliverable_received' : null
 
     const service = new EngagementsService({
       db,
@@ -174,6 +187,29 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
       },
       dedupKey: `pravara:${orderId}:${status}`,
     })
+
+    // Cross-source milestone alias — source-agnostic filter target for
+    // portal queries. Same data, different event_type so timeline
+    // filters like "all physical-deliverable handoffs" work across
+    // Pravara + future field-install crews without enumerating sources.
+    if (canonicalMilestoneEvent) {
+      await service.recordEvent({
+        engagementId,
+        source: 'pravara',
+        eventType: `pravara:${canonicalMilestoneEvent}`,
+        status: 'milestone',
+        message: statusMessages[status] ?? `Fabrication status: ${status}`,
+        metadata: {
+          pravara_order_id: orderId,
+          pravara_status: status,
+          pravara_event: event,
+          canonical_milestone: canonicalMilestoneEvent,
+        },
+        // Separate dedup key so the canonical alias is idempotent
+        // independent of the raw status event.
+        dedupKey: `pravara:${orderId}:milestone:${canonicalMilestoneEvent}`,
+      })
+    }
 
     logger.info(
       { engagementId, orderId, status, deduplicated: result.deduplicated },

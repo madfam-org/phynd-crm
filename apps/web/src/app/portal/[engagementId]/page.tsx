@@ -1,4 +1,4 @@
-import { readPortalSession } from '@/lib/portal/session'
+import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phyne/db'
 import { contacts, engagements } from '@phyne/db/schema'
 import { EngagementsService } from '@phyne/services'
@@ -19,7 +19,7 @@ type PageProps = {
 
 export default async function EngagementPortalPage({ params }: PageProps) {
   const { engagementId } = await params
-  const session = await readPortalSession()
+  const session = await readAndVerifyPortalSession()
 
   if (!session || session.engagementId !== engagementId) {
     redirect(`/portal/expired?reason=no-session`)

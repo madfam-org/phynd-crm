@@ -200,10 +200,10 @@ pnpm db:seed                                         # seeds tablaco
 
 ## Hardening backlog (non-blocking)
 
-- JWKS-based RS256 verification on every portal page render (today trusts the freshly-minted Janua token at `/verify`)
+- ~~JWKS-based RS256 verification on every portal page render~~ — ✅ shipped in `apps/web/src/lib/portal/jwks.ts`. `readAndVerifyPortalSession()` validates the signature against Janua's published JWKS on every portal page render, enforces issuer + sub match, and rejects algorithm-confusion attacks (alg=HS256 payloads are rejected even when a matching kid is served from the JWKS).
 - Refresh-token rotation when the 14-min cookie expires (today client gets a new magic link)
 - Per-client branding / theming
-- Staff UI for all of the above (replace tRPC CLI calls)
-- Cotiza → Karafiel compliance hook (CFDI/NOM-151) on ORDERED
-- Cotiza → Dhanam milestone invoice creation from `servicesDetails.milestones`
-- Cotiza → Pravara dispatch for fab-line items on ORDERED
+- ~~Staff UI for all of the above (replace tRPC CLI calls)~~ — ✅ shipped (phyne-crm#12): `/engagements` list + detail pages, "Send portal link" button, "Add artifact" dialog, engagements section on `/clients/[id]`.
+- ~~Cotiza → Karafiel compliance hook (CFDI/NOM-151) on ORDERED~~ — ✅ shipped (digifab#8): `KarafielComplianceService`.
+- ~~Cotiza → Dhanam milestone invoice creation from `servicesDetails.milestones`~~ — ✅ shipped (digifab#8): `DhanamMilestoneService`.
+- ~~Cotiza → Pravara dispatch for fab-line items on ORDERED~~ — ✅ shipped (digifab#8): `PravaraDispatchService`.

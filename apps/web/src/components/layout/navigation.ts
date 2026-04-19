@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  Briefcase,
   Contact,
   Eye,
   FileText,
@@ -29,6 +30,7 @@ export const navigation: NavigationItem[] = [
   { name: 'Opportunities', href: '/opportunities', icon: TrendingUp },
   { name: 'Quotes', href: '/quotes', icon: FileText },
   { name: 'Orders', href: '/orders', icon: Package },
+  { name: 'Engagements', href: '/engagements', icon: Briefcase },
   { name: 'Pipeline', href: '/pipeline', icon: Kanban },
   { name: 'Activities', href: '/activities', icon: Activity },
   { name: 'Visitors', href: '/visitors', icon: Eye },

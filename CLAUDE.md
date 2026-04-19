@@ -144,6 +144,8 @@ PhyneCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 
 **Tablaco runbook:** see `docs/runbooks/TABLACO_ENGAGEMENT.md`.
 
+**Event taxonomy:** shared vocabulary for milestone events across producers (Cotiza, Pravara, Selva, Karafiel, Dhanam) is defined in [`docs/ENGAGEMENT_EVENT_TAXONOMY.md`](docs/ENGAGEMENT_EVENT_TAXONOMY.md). Canonical milestone names (e.g. `prototype_shipped`, `payment_received`, `cfdi_stamped`) let portal filters work source-agnostically. Producers SHOULD emit both a native `<source>:<native_name>` event and a canonical `<source>:<canonical_name>` alias (separate dedup keys) when a status transition represents a client-visible milestone. Pravara's `/api/webhooks/pravara` is the reference implementation — it writes `pravara:shipped` + `pravara:prototype_shipped` on a single `status=shipped` delivery.
+
 ## DB Schema
 users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit, engagements, engagement_artifacts, engagement_events
 

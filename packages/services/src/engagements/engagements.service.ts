@@ -9,6 +9,17 @@ import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
 import { and, desc, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError, NotFoundError } from '../errors'
+import {
+  type CotizaEngagementEvent,
+  dispatchCotizaEngagementEvent,
+} from './cotiza-engagement-emitter.service'
+
+/**
+ * Optional DI seam for the Cotiza emitter so tests can spy without
+ * patching a module import. Defaults to the real setImmediate-backed
+ * fire-and-forget dispatcher.
+ */
+export type CotizaEngagementEmitter = (event: CotizaEngagementEvent) => void
 
 export type EngagementTimelineEntry =
   | {
@@ -41,7 +52,14 @@ export type EngagementTimelineEntry =
     }
 
 export class EngagementsService {
-  constructor(private readonly ctx: ServiceContext) {}
+  private readonly emitCotiza: CotizaEngagementEmitter
+
+  constructor(
+    private readonly ctx: ServiceContext,
+    emitter: CotizaEngagementEmitter = dispatchCotizaEngagementEvent,
+  ) {
+    this.emitCotiza = emitter
+  }
 
   async list(
     pagination?: PaginationInput,
@@ -105,6 +123,16 @@ export class EngagementsService {
     if (!row) {
       throw new ConflictError('Failed to create engagement')
     }
+    this.emitCotiza({
+      engagementId: row.id,
+      eventType: 'engagement.created',
+      tenantId: this.ctx.tenantId,
+      data: {
+        project_name: row.projectName,
+        status: row.status,
+        contact_id: row.contactId,
+      },
+    })
     return row
   }
 
@@ -126,6 +154,18 @@ export class EngagementsService {
       .set({ ...data, updatedAt: new Date() })
       .where(eq(engagements.id, id))
       .returning()
+    if (row) {
+      this.emitCotiza({
+        engagementId: row.id,
+        eventType: 'engagement.updated',
+        tenantId: this.ctx.tenantId,
+        data: {
+          project_name: row.projectName,
+          status: row.status,
+          contact_id: row.contactId,
+        },
+      })
+    }
     return row
   }
 
@@ -138,6 +178,16 @@ export class EngagementsService {
       .update(engagements)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(engagements.id, id))
+    this.emitCotiza({
+      engagementId: id,
+      eventType: 'engagement.archived',
+      tenantId: this.ctx.tenantId,
+      data: {
+        project_name: existing.projectName,
+        status: existing.status,
+        contact_id: existing.contactId,
+      },
+    })
   }
 
   // ─── Artifacts ──────────────────────────────────────────────────────
@@ -248,10 +298,7 @@ export class EngagementsService {
       .select()
       .from(activities)
       .where(
-        and(
-          eq(activities.entityType, 'contact'),
-          eq(activities.entityId, engagement.contactId),
-        ),
+        and(eq(activities.entityType, 'contact'), eq(activities.entityId, engagement.contactId)),
       )
       .orderBy(desc(activities.createdAt))
       .limit(limit)

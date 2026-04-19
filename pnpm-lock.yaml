@@ -378,6 +378,9 @@ importers:
       '@phyne/federation':
         specifier: workspace:*
         version: link:../federation
+      '@phyne/logging':
+        specifier: workspace:*
+        version: link:../logging
       '@phyne/types':
         specifier: workspace:*
         version: link:../types

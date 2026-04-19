@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CotizaEngagementEvent } from '../engagements/cotiza-engagement-emitter.service'
 import { EngagementsService } from '../engagements/engagements.service'
 import { NotFoundError } from '../errors'
 import { createTestContext } from './helpers'
@@ -150,6 +151,104 @@ describe('EngagementsService', () => {
     })
   })
 
+  describe('Cotiza emitter wiring', () => {
+    it('fires engagement.created on create()', async () => {
+      const ctx = createTestContext()
+      const inserted = makeEngagement({ id: 'eng-new' })
+      ctx.mockDb.insert = (() => ({
+        values: () => ({ returning: async () => [inserted] }),
+      })) as unknown as typeof ctx.mockDb.insert
+
+      const emitter = vi.fn<(event: CotizaEngagementEvent) => void>()
+      const service = new EngagementsService(ctx, emitter)
+
+      await service.create({
+        contactId: 'contact-001',
+        projectName: 'Tablaco Prototype',
+      })
+
+      expect(emitter).toHaveBeenCalledTimes(1)
+      const event = emitter.mock.calls[0]?.[0]
+      expect(event?.eventType).toBe('engagement.created')
+      expect(event?.engagementId).toBe('eng-new')
+      expect(event?.tenantId).toBe('madfam')
+      expect(event?.data?.project_name).toBe('Tablaco Prototype')
+      expect(event?.data?.contact_id).toBe('contact-001')
+    })
+
+    it('fires engagement.updated on update()', async () => {
+      const ctx = createTestContext()
+      const existing = makeEngagement()
+      const updated = makeEngagement({ status: 'paused', projectName: 'Renamed' })
+
+      // getById → existing; update().returning() → updated
+      let selectCall = 0
+      ctx.mockDb.select = (() => {
+        selectCall += 1
+        ctx.mockDb._qb._result = selectCall === 1 ? [existing] : []
+        return ctx.mockDb._qb
+      }) as unknown as typeof ctx.mockDb.select
+      ctx.mockDb.update = (() => ({
+        set: () => ({
+          where: () => ({ returning: async () => [updated] }),
+        }),
+      })) as unknown as typeof ctx.mockDb.update
+
+      const emitter = vi.fn<(event: CotizaEngagementEvent) => void>()
+      const service = new EngagementsService(ctx, emitter)
+
+      await service.update('eng-001', { status: 'paused', projectName: 'Renamed' })
+
+      expect(emitter).toHaveBeenCalledTimes(1)
+      const event = emitter.mock.calls[0]?.[0]
+      expect(event?.eventType).toBe('engagement.updated')
+      expect(event?.engagementId).toBe('eng-001')
+      expect(event?.data?.status).toBe('paused')
+      expect(event?.data?.project_name).toBe('Renamed')
+    })
+
+    it('fires engagement.archived on delete()', async () => {
+      const ctx = createTestContext([makeEngagement()])
+      // Soft-delete uses .update().set().where() — no .returning(), resolve to undefined.
+      ctx.mockDb.update = (() => ({
+        set: () => ({ where: async () => undefined }),
+      })) as unknown as typeof ctx.mockDb.update
+
+      const emitter = vi.fn<(event: CotizaEngagementEvent) => void>()
+      const service = new EngagementsService(ctx, emitter)
+
+      await service.delete('eng-001')
+
+      expect(emitter).toHaveBeenCalledTimes(1)
+      const event = emitter.mock.calls[0]?.[0]
+      expect(event?.eventType).toBe('engagement.archived')
+      expect(event?.engagementId).toBe('eng-001')
+      expect(event?.data?.project_name).toBe('Tablaco Prototype')
+    })
+
+    it('does not fire when update() finds no engagement (throws first)', async () => {
+      const ctx = createTestContext([])
+      const emitter = vi.fn<(event: CotizaEngagementEvent) => void>()
+      const service = new EngagementsService(ctx, emitter)
+
+      await expect(service.update('missing', { status: 'paused' })).rejects.toBeInstanceOf(
+        NotFoundError,
+      )
+
+      expect(emitter).not.toHaveBeenCalled()
+    })
+
+    it('does not fire when delete() finds no engagement (throws first)', async () => {
+      const ctx = createTestContext([])
+      const emitter = vi.fn<(event: CotizaEngagementEvent) => void>()
+      const service = new EngagementsService(ctx, emitter)
+
+      await expect(service.delete('missing')).rejects.toBeInstanceOf(NotFoundError)
+
+      expect(emitter).not.toHaveBeenCalled()
+    })
+  })
+
   describe('getTimeline', () => {
     it('throws NotFoundError when engagement does not exist', async () => {
       const ctx = createTestContext([])
@@ -194,8 +293,7 @@ describe('EngagementsService', () => {
       ctx.mockDb.select = (() => {
         call += 1
         // 1st: engagement lookup; 2nd: events; 3rd: activities. No transitions (opportunityId null).
-        ctx.mockDb._qb._result =
-          call === 1 ? [engagement] : call === 2 ? events : activities
+        ctx.mockDb._qb._result = call === 1 ? [engagement] : call === 2 ? events : activities
         return ctx.mockDb._qb
       }) as unknown as typeof ctx.mockDb.select
 

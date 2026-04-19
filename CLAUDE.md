@@ -108,8 +108,44 @@ pnpm db:seed          # Seed database
 - **Fail-closed rate limiting**: Both API and webhook rate limiters deny requests when Redis is unavailable (fail closed, not fail open)
 - **CI TODO**: Configure GitHub branch protection to require `e2e` workflow as required status check, or merge E2E into `ci.yml` as a dependent job
 
+## Tablaco client-engagement flow (2026-04-19)
+
+PhyneCRM is the seam across the MADFAM ecosystem for a single client's cross-platform work (fab + digital). The engagement aggregate + portal shipped with phyne-crm#9 + #10 + #11.
+
+**Engagement aggregate** (3 new tables, migration `0005_medical_genesis.sql`):
+- `engagements` — aggregate root tying a client (`contact_id`) to a project family. Optional `opportunity_id` link. Status: active / completed / paused / cancelled.
+- `engagement_artifacts` — proposals, invoices, deliverables, NFT receipts. Polymorphic `entity_type/id` matches the existing pattern.
+- `engagement_events` — unified project-status stream with `source`, `event_type`, `status`, `message`, `metadata`, `dedup_key`. Ordered by `created_at`, merged with activities + stage_transitions by `EngagementsService.getTimeline()`.
+
+**Ecosystem writes:**
+- Cotiza → `POST /api/v1/engagements/events` on quote APPROVED; `POST /api/v1/engagements/artifacts` for the signed-proposal PDF.
+- Pravara → existing `/api/webhooks/pravara` also writes `engagement_events` when the payload ties to a contact with an active engagement.
+- Selva (future) → will POST milestone completion events the same way.
+- Karafiel (future) → will POST CFDI/NOM-151 stamping events.
+- All writes HMAC-signed, secret `PHYNE_ENGAGEMENT_EVENTS_SECRET`. Idempotent via `dedup_key`.
+
+**External-client portal via Janua magic link (Phase C):**
+- Staff calls `engagements.sendPortalLink(engagementId)` tRPC mutation → `EngagementPortalMagicLinkService` calls Janua's `/api/v1/auth/magic-link` with `redirect_url=<PORTAL_BASE_URL>/portal/verify?engagement=<id>`. Janua emails the client (5/hour rate limit, 15-min token expiry).
+- Client clicks → `GET /portal/verify?engagement=X&token=Y` exchanges the token via Janua's `/api/v1/auth/magic-link/verify`, double-checks the verified email matches `engagement.contact.email`, seals `phyne-portal-session` httpOnly cookie (14-min TTL, path-scoped to `/portal`), redirects to `/portal/[engagementId]`.
+- Portal page (`/portal/[engagementId]`) is server-rendered — reads the cookie, loads timeline + artifacts, renders read-only view with status badge. Fully isolated from the Auth.js v5 staff OIDC session.
+- Error / expiry paths redirect to `/portal/expired` with reason-keyed copy.
+- `/portal/*` added to middleware `publicPaths` — portal has its own cookie gating.
+
+**New env vars:**
+| Var | Purpose |
+|---|---|
+| `PHYNE_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for `/api/v1/engagements/events` + `/artifacts` webhooks (also shared with Cotiza + Pravara + others writing in) |
+| `PORTAL_BASE_URL` | Base URL for Janua magic-link `redirect_url`. Defaults to `NEXTAUTH_URL` |
+| `JANUA_API_URL` | Janua API base for magic-link calls. Defaults to `AUTH_JANUA_ISSUER` |
+
+**Tests:**
+- `packages/services/src/__tests__/engagements.service.test.ts` — 7 tests (recordEvent idempotency, addArtifact, getTimeline merge)
+- `packages/services/src/__tests__/engagement-portal-magic-link.service.test.ts` — 11 tests (sendPortalLink, verifyPortalLink, email-match enforcement, Janua response shape handling)
+
+**Tablaco runbook:** see `docs/runbooks/TABLACO_ENGAGEMENT.md`.
+
 ## DB Schema
-users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit
+users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit, engagements, engagement_artifacts, engagement_events
 
 ### Indexes
 - leads: `contact_id`, composite `(pipeline_id, stage_id)`
@@ -126,12 +162,15 @@ users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stage
 - orders: `opportunity_id`, `contact_id`, `quote_id`
 - lead_scores: unique `lead_id`
 - notifications: `user_id`, composite `(user_id, is_read)`
+- engagements: `contact_id`, `opportunity_id`, `status`
+- engagement_artifacts: `engagement_id`, `type`
+- engagement_events: `engagement_id`, `source`, `created_at`, composite `(engagement_id, dedup_key)` for idempotency
 
 ### Soft Delete Columns
-- contacts, leads, opportunities, quotes, orders: `deleted_at` (nullable timestamp)
+- contacts, leads, opportunities, quotes, orders, engagements: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag)
+contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag), engagements (list, listByContactId, getById, create, update, delete, listArtifacts, addArtifact, getTimeline, sendPortalLink)
 
 ## Feature Flags (13 total)
 - `federationReadOnly: true` — Phase 1 read-only SPOG

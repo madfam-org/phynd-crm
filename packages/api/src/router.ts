@@ -3,6 +3,7 @@ import { analyticsRouter } from './routers/analytics'
 import { campaignsRouter } from './routers/campaigns'
 import { contactsRouter } from './routers/contacts'
 import { conversionsRouter } from './routers/conversions'
+import { engagementsRouter } from './routers/engagements'
 import { federationHealthRouter } from './routers/federation-health'
 import { grantsRouter } from './routers/grants'
 import { leadScoringRouter } from './routers/lead-scoring'
@@ -30,6 +31,7 @@ export const appRouter = router({
   campaigns: campaignsRouter,
   contacts: contactsRouter,
   conversions: conversionsRouter,
+  engagements: engagementsRouter,
   federationHealth: federationHealthRouter,
   grants: grantsRouter,
   leadScoring: leadScoringRouter,

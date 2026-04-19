@@ -9,7 +9,14 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth
   const { pathname } = req.nextUrl
   const isPublic =
-    publicPaths.includes(pathname) || pathname.startsWith('/api') || pathname.startsWith('/_next')
+    publicPaths.includes(pathname) ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    // External-client portal: gated by its own signed cookie, not the
+    // Auth.js v5 staff session. /portal/verify exchanges the Janua
+    // magic-link token; /portal/[id] and /portal/expired read the
+    // resulting cookie themselves.
+    pathname.startsWith('/portal')
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/callback')
   const hasDemoCookie = !!req.cookies.get(DEMO_COOKIE_NAME)?.value
 

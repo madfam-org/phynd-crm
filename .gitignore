@@ -47,5 +47,8 @@ infra/k8s/**/*-secret.yaml
 *.pfx
 .env.production
 
+# Redis dump
+dump.rdb
+
 # Serena MCP tool state (per-machine IDE-like cache)
 .serena/

@@ -43,6 +43,13 @@
       "when": 1776572195479,
       "tag": "0005_medical_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777174590430,
+      "tag": "0006_complete_cammi",
+      "breakpoints": true
     }
   ]
 }

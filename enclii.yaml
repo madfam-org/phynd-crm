@@ -1,0 +1,24 @@
+apiVersion: enclii.dev/v1
+kind: Service
+metadata:
+  name: phyne-crm
+  project: phyne-crm
+spec:
+  # Status-only declaration. PhyneCRM's runtime + network sections will
+  # be added when the service is fully onboarded for deploy through the
+  # platform pipeline.
+  #
+  # Until then, the entries below are the zero-touch source-of-truth
+  # for status.madfam.io. The platform regenerate handler
+  # (`POST /v1/admin/status/regenerate`, enclii#162) projects them into
+  # `apps/status/k8s/madfam/configmap.yaml`. This replaces the manual
+  # configmap edit that landed in enclii#160 (zero-touch policy
+  # violation, see internal-devops/rfcs/0014 for the policy).
+  status:
+    enabled: true
+    entries:
+      - name: PhyneCRM
+        url: https://crm.madfam.io
+        group: PhyneCRM
+        family: MADFAM Platform
+        description: Customer relationship management

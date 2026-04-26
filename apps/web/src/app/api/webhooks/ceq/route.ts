@@ -4,7 +4,9 @@ import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import {
+  CampaignsService,
   ContactsService,
+  ConversionsService,
   LeadsService,
   PipelinesService,
   createServiceContext,
@@ -152,11 +154,49 @@ export async function POST(req: Request) {
 
       await enqueueDrip(lead.id)
 
-      // UTM-driven attribution to a campaign row is deferred to Phase 2 of the
-      // ceq hookup spec — needs the campaign-lookup-by-utm_campaign service
-      // method that doesn't exist yet (`CampaignsService.getByUtmCampaign`).
-      // For now, the source string carries the campaign signal and analytics
-      // can JOIN on it.
+      // UTM attribution: when ceq's landing page carried utm_campaign,
+      // look up the matching campaign row and write a conversion record
+      // linking the lead to it. The conversions table's partial unique
+      // index `conversions_type_lead_uniq` makes this idempotent — repeat
+      // webhooks for the same lead won't create duplicate conversions.
+      if (data.utm_campaign) {
+        try {
+          const campaignsService = new CampaignsService(ctx)
+          const campaign = await campaignsService.getByUtmCampaign(data.utm_campaign)
+          if (campaign) {
+            const conversionsService = new ConversionsService(ctx)
+            await conversionsService.recordConversion({
+              type: 'paid_lead',
+              contactId: contact.id,
+              leadId: lead.id,
+              campaignId: campaign.id,
+              metadata: {
+                utm_source: data.utm_source,
+                utm_medium: data.utm_medium,
+                utm_campaign: data.utm_campaign,
+                source_page: data.source_page,
+                feature_key: data.feature_key,
+              },
+            })
+            logger.info(
+              {
+                leadId: lead.id,
+                campaignId: campaign.id,
+                utm_campaign: data.utm_campaign,
+              },
+              'Attributed ceq lead to paid campaign',
+            )
+          } else {
+            logger.info(
+              { utm_campaign: data.utm_campaign },
+              'No matching campaign for utm_campaign — lead created without attribution',
+            )
+          }
+        } catch (err) {
+          // Conversion attribution must not fail the lead creation.
+          logger.warn({ err, leadId: lead.id }, 'UTM attribution failed — non-blocking')
+        }
+      }
     },
   })
 }

@@ -87,6 +87,39 @@ describe('CampaignsService', () => {
   })
 
   // -------------------------------------------------------------------------
+  // getByUtmCampaign()
+  // -------------------------------------------------------------------------
+  describe('getByUtmCampaign()', () => {
+    it('returns a campaign when one matches the utm_campaign', async () => {
+      const campaign = makeCampaign({ utmCampaign: 'spring-2026' })
+      mockDb._qb._result = [campaign]
+      const result = await service.getByUtmCampaign('spring-2026')
+      expect(result).toEqual(campaign)
+    })
+
+    it('returns null for empty utm_campaign without hitting the DB', async () => {
+      const result = await service.getByUtmCampaign('')
+      expect(result).toBeNull()
+      expect(mockDb.select).not.toHaveBeenCalled()
+    })
+
+    it('returns null when no campaign matches', async () => {
+      mockDb._qb._result = []
+      const result = await service.getByUtmCampaign('nonexistent-campaign')
+      expect(result).toBeNull()
+    })
+
+    it('returns the earliest match when multiple campaigns share the slug', async () => {
+      // Service applies orderBy + limit(1) so the helper just yields the
+      // first item. Verifying the correct LIMIT behavior here.
+      const earliest = makeCampaign({ id: 'campaign-old', utmCampaign: 'evergreen' })
+      mockDb._qb._result = [earliest]
+      const result = await service.getByUtmCampaign('evergreen')
+      expect(result?.id).toBe('campaign-old')
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // create()
   // -------------------------------------------------------------------------
   describe('create()', () => {

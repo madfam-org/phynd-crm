@@ -36,6 +36,28 @@ export class CampaignsService {
     return campaign ?? null
   }
 
+  /**
+   * Look up a campaign by its `utm_campaign` slug — used by inbound webhooks
+   * (ceq, cotiza, tezca landing pages) that carry UTM params from a paid
+   * marketing source. Caller is responsible for normalizing the slug
+   * casing; this method does an exact match.
+   *
+   * Returns the first active campaign whose `utm_campaign` matches, or
+   * null when no match is found. When multiple campaigns share the same
+   * utm_campaign value (e.g. seasonal re-runs), the earliest by `createdAt`
+   * wins to keep attribution stable across the campaign's lifetime.
+   */
+  async getByUtmCampaign(utmCampaign: string) {
+    if (!utmCampaign) return null
+    const [campaign] = await this.ctx.db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.utmCampaign, utmCampaign))
+      .orderBy(campaigns.createdAt)
+      .limit(1)
+    return campaign ?? null
+  }
+
   async create(data: {
     name: string
     description?: string

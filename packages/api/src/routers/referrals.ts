@@ -58,13 +58,11 @@ export const referralsRouter = router({
       return service.list(input ?? undefined)
     }),
 
-  getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => {
-      assertReferralManagement()
-      const service = new ReferralService(ctx)
-      return service.getById(input.id)
-    }),
+  getById: protectedProcedure.input(z.object({ id: z.string() })).query(({ ctx, input }) => {
+    assertReferralManagement()
+    const service = new ReferralService(ctx)
+    return service.getById(input.id)
+  }),
 
   applyReferral: protectedProcedure
     .input(
@@ -99,10 +97,6 @@ export const referralsRouter = router({
     .mutation(({ ctx, input }) => {
       assertReferralManagement()
       const service = new ReferralService(ctx)
-      return service.convertReferral(
-        input.referralId,
-        input.planId ?? '',
-        input.revenueCents ?? 0,
-      )
+      return service.convertReferral(input.referralId, input.planId ?? '', input.revenueCents ?? 0)
     }),
 })

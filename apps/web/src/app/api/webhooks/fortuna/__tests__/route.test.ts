@@ -2,50 +2,60 @@ import crypto from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
-// Mock modules
+// Mock modules — top-level mock state must be wrapped in vi.hoisted() because
+// vi.mock() factories are hoisted above all const declarations. Without
+// hoisted(), the factory runs before the const initializer, so referencing
+// mockDb / mockQb / etc. inside the factory throws ReferenceError.
 // ---------------------------------------------------------------------------
 
-const mockCheckRateLimit = vi.fn().mockResolvedValue({ allowed: true, remaining: 99 })
+const { mockCheckRateLimit, mockValidateWebhookSignature, mockQb, mockDb } = vi.hoisted(() => {
+  const mockCheckRateLimit = vi.fn().mockResolvedValue({ allowed: true, remaining: 99 })
+  const mockValidateWebhookSignature = vi.fn().mockReturnValue(true)
+
+  const mockQb = {
+    _result: [] as unknown[],
+    from: vi.fn(),
+    insert: vi.fn(),
+    limit: vi.fn(),
+    orderBy: vi.fn(),
+    returning: vi.fn(),
+    select: vi.fn(),
+    set: vi.fn(),
+    update: vi.fn(),
+    values: vi.fn(),
+    where: vi.fn(),
+  }
+
+  for (const method of Object.keys(mockQb).filter((k) => k !== '_result')) {
+    ;(mockQb as unknown as Record<string, ReturnType<typeof vi.fn>>)[method]?.mockReturnValue(
+      mockQb,
+    )
+  }
+
+  Object.defineProperty(mockQb, 'then', {
+    value: vi.fn((resolve: (v: unknown) => void) => Promise.resolve(mockQb._result).then(resolve)),
+    configurable: true,
+    enumerable: false,
+  })
+
+  const mockDb = {
+    delete: vi.fn().mockReturnValue(mockQb),
+    insert: vi.fn().mockReturnValue(mockQb),
+    select: vi.fn().mockReturnValue(mockQb),
+    transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => unknown) => cb(mockDb)),
+    update: vi.fn().mockReturnValue(mockQb),
+  }
+
+  return { mockCheckRateLimit, mockValidateWebhookSignature, mockQb, mockDb }
+})
+
 vi.mock('@/lib/webhooks/rate-limiter', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
 }))
 
-const mockValidateWebhookSignature = vi.fn().mockReturnValue(true)
 vi.mock('@phyne/federation/webhooks', () => ({
   validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
 }))
-
-const mockQb = {
-  _result: [] as unknown[],
-  from: vi.fn(),
-  insert: vi.fn(),
-  limit: vi.fn(),
-  orderBy: vi.fn(),
-  returning: vi.fn(),
-  select: vi.fn(),
-  set: vi.fn(),
-  update: vi.fn(),
-  values: vi.fn(),
-  where: vi.fn(),
-}
-
-for (const method of Object.keys(mockQb).filter((k) => k !== '_result')) {
-  ;(mockQb as unknown as Record<string, ReturnType<typeof vi.fn>>)[method]?.mockReturnValue(mockQb)
-}
-
-Object.defineProperty(mockQb, 'then', {
-  value: vi.fn((resolve: (v: unknown) => void) => Promise.resolve(mockQb._result).then(resolve)),
-  configurable: true,
-  enumerable: false,
-})
-
-const mockDb = {
-  delete: vi.fn().mockReturnValue(mockQb),
-  insert: vi.fn().mockReturnValue(mockQb),
-  select: vi.fn().mockReturnValue(mockQb),
-  transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => unknown) => cb(mockDb)),
-  update: vi.fn().mockReturnValue(mockQb),
-}
 
 vi.mock('@phyne/db', () => ({
   getDb: vi.fn(() => mockDb),

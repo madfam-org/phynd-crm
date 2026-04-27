@@ -62,26 +62,27 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(getFeatureFlags().analytics).toBe(true)
   })
 
-  it('has exactly 12 feature flags defined', () => {
+  it('has exactly 14 feature flags defined', () => {
     const flags = getFeatureFlags()
-    expect(Object.keys(flags)).toHaveLength(12)
+    expect(Object.keys(flags)).toHaveLength(14)
   })
 
-  it('6 flags are true in defaults; 6 are false', () => {
+  it('7 flags are true in defaults; 7 are false', () => {
     const flags = getFeatureFlags()
     const trueFlags = Object.entries(flags).filter(([, v]) => v === true)
     const falseFlags = Object.entries(flags).filter(([, v]) => v === false)
 
-    expect(trueFlags).toHaveLength(6)
+    expect(trueFlags).toHaveLength(7)
     expect(trueFlags.map(([k]) => k).sort()).toEqual([
       'analytics',
       'federationReadOnly',
       'forjEnabled',
       'funnelManagement',
       'leadScoring',
+      'referralManagement',
       'visitorTracking',
     ])
-    expect(falseFlags).toHaveLength(6)
+    expect(falseFlags).toHaveLength(7)
   })
 })
 
@@ -218,6 +219,8 @@ describe('resetFeatureFlags', () => {
       visitorTracking: false,
       funnelManagement: false,
       analytics: false,
+      treasuryHunter: true,
+      referralManagement: false,
     })
 
     resetFeatureFlags()
@@ -235,6 +238,8 @@ describe('resetFeatureFlags', () => {
     expect(flags.visitorTracking).toBe(true)
     expect(flags.funnelManagement).toBe(true)
     expect(flags.analytics).toBe(true)
+    expect(flags.treasuryHunter).toBe(false)
+    expect(flags.referralManagement).toBe(true)
   })
 
   it('is idempotent -- calling reset twice yields the same state', () => {
@@ -275,6 +280,8 @@ describe('getFeatureFlags', () => {
       'visitorTracking',
       'funnelManagement',
       'analytics',
+      'treasuryHunter',
+      'referralManagement',
     ]
     for (const key of keys) {
       expect(typeof flags[key]).toBe('boolean')

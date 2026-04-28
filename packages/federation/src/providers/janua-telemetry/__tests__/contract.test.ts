@@ -4,12 +4,12 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { JanuaTelemetryProvider } from '../index'
 import {
-  type JsonSchema,
+  JsonSchema,
   assertSchemaValid,
   validateAgainstSchema,
 } from '../../../__tests__/contract-helpers'
-import { JanuaTelemetryProvider } from '../index'
 
 const schema: JsonSchema = {
   type: 'object',
@@ -93,7 +93,9 @@ const fixture = {
       utm_campaign: 'launch',
       utm_term: null,
       utm_content: null,
-      page_views: [{ url: '/', title: 'Home', duration: 12, timestamp: '2026-04-17T10:00:00Z' }],
+      page_views: [
+        { url: '/', title: 'Home', duration: 12, timestamp: '2026-04-17T10:00:00Z' },
+      ],
       started_at: '2026-04-17T10:00:00Z',
       ended_at: '2026-04-17T10:05:00Z',
       duration: 300,

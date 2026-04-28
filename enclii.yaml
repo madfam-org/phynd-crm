@@ -24,6 +24,7 @@ spec:
       - name: PhyneCRM
         url: https://crm.madfam.io
         href: https://crm.madfam.io
+        assertNotContains: 'localhost:3000'
         group: PhyneCRM
         family: MADFAM Platform
         description: Marketing landing page (currently served by the Next.js app's `/` route)

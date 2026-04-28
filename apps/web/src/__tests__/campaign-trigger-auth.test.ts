@@ -38,7 +38,7 @@ describe('POST /api/campaigns/trigger — auth hardening', () => {
   })
 
   it('returns 503 when FORTUNA_WEBHOOK_SECRET is not configured', async () => {
-    delete process.env.FORTUNA_WEBHOOK_SECRET
+    process.env.FORTUNA_WEBHOOK_SECRET = undefined
 
     const { POST } = await import('@/app/api/campaigns/trigger/route')
     const req = new Request('http://localhost/api/campaigns/trigger', {
@@ -105,7 +105,11 @@ describe('POST /api/campaigns/trigger — auth hardening', () => {
     const payload = {
       campaign_type: 'legal_outreach',
       bot_identity: 'MadfamBot',
-      outreach_target: { url: 'https://reddit.com/r/test/abc', author: 'user1', original_post_content: 'Test' },
+      outreach_target: {
+        url: 'https://reddit.com/r/test/abc',
+        author: 'user1',
+        original_post_content: 'Test',
+      },
       legal_context: { distress_sentiment: 'medium', core_legal_problem: 'test', domain: 'civil' },
       orchestration: { instruction: 'Respond' },
     }

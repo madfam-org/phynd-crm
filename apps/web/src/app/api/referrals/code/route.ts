@@ -5,14 +5,14 @@
  * External products call this to create a referral code for a user.
  */
 
-import { validateFederationAuth } from '../_lib/auth'
+import { getCacheManager } from '@/lib/federation/clients'
 import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { ReferralService, createServiceContext } from '@phyne/services'
-import { getCacheManager } from '@/lib/federation/clients'
 import type { AuthContext } from '@phyne/types/auth'
 import { NextResponse } from 'next/server'
+import { validateFederationAuth } from '../_lib/auth'
 
 const logger = createLogger('api:referrals:code')
 

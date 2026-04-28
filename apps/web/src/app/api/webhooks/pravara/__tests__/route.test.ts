@@ -148,12 +148,12 @@ describe('Pravara webhook — engagement dual-write', () => {
   })
 
   afterEach(() => {
-    delete process.env.PRAVARA_WEBHOOK_SECRET
-    delete process.env.REDIS_URL
+    process.env.PRAVARA_WEBHOOK_SECRET = undefined
+    process.env.REDIS_URL = undefined
   })
 
   it('returns 503 when PRAVARA_WEBHOOK_SECRET is not configured', async () => {
-    delete process.env.PRAVARA_WEBHOOK_SECRET
+    process.env.PRAVARA_WEBHOOK_SECRET = undefined
     const req = createSignedRequest({
       event: 'status_changed',
       status: 'shipped',
@@ -219,9 +219,7 @@ describe('Pravara webhook — engagement dual-write', () => {
     const [, canonicalCall] = mockRecordEvent.mock.calls.map((c) => c[0])
     expect(canonicalCall.eventType).toBe('pravara:deliverable_received')
     expect(canonicalCall.status).toBe('milestone')
-    expect(canonicalCall.dedupKey).toBe(
-      'pravara:order_456:milestone:deliverable_received',
-    )
+    expect(canonicalCall.dedupKey).toBe('pravara:order_456:milestone:deliverable_received')
   })
 
   it('on non-milestone status (in_progress), writes ONLY the native row — no canonical alias', async () => {

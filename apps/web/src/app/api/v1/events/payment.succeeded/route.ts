@@ -15,12 +15,12 @@
  *   - Idempotent on `event.event_id` (dedupe against webhook_events table).
  */
 
+import { verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
 import { getDb } from '@phyne/db'
 import { conversions, leads, webhookEvents } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
 
 const logger = createLogger('api:v1:events:payment.succeeded')
 const PROBE_SOURCE = 'synthetic-probe'
@@ -47,10 +47,7 @@ export async function POST(request: Request) {
   const secret = process.env.PHYNE_CRM_EVENTS_SECRET
   if (!secret) {
     logger.warn('PHYNE_CRM_EVENTS_SECRET not configured')
-    return NextResponse.json(
-      { error: 'secret not configured' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: 'secret not configured' }, { status: 503 })
   }
 
   const rawBody = await request.text()
@@ -85,10 +82,7 @@ export async function POST(request: Request) {
   ] as const) {
     const v = event[required]
     if (v === undefined || v === null || v === '') {
-      return NextResponse.json(
-        { error: `missing required field: ${required}` },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: `missing required field: ${required}` }, { status: 400 })
     }
   }
 
@@ -146,11 +140,11 @@ export async function POST(request: Request) {
       .insert(conversions)
       .values({
         type: 'ecosystem_payment',
-        leadId: probeLead[0]!.id,
+        leadId: probeLead[0]?.id,
         value: amountMajor,
         metadata: {
           event_id: event.event_id,
-          webhook_event_id: wh[0]!.id,
+          webhook_event_id: wh[0]?.id,
           provider: event.provider,
           currency: event.currency,
           amount_minor: event.amount_minor,
@@ -162,11 +156,11 @@ export async function POST(request: Request) {
         },
       })
       .returning({ id: conversions.id })
-    conversionId = inserted[0]!.id
+    conversionId = inserted[0]?.id
     logger.info(
       {
         event_id: event.event_id,
-        lead_id: probeLead[0]!.id,
+        lead_id: probeLead[0]?.id,
         conversion_id: conversionId,
       },
       'ecosystem payment recorded as conversion',
@@ -182,7 +176,7 @@ export async function POST(request: Request) {
     {
       received: true,
       event_id: event.event_id,
-      webhook_event_id: wh[0]!.id,
+      webhook_event_id: wh[0]?.id,
       conversion_id: conversionId,
     },
     { status: 201 },

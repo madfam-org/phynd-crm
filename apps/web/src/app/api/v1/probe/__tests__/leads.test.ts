@@ -151,7 +151,7 @@ function probeRequest(body: unknown, authHeader?: string | null): Request {
 
 describe('POST /api/v1/probe/leads — auth', () => {
   it('returns 503 when PHYNE_CRM_PROBE_TOKEN is unset', async () => {
-    delete process.env.PHYNE_CRM_PROBE_TOKEN
+    process.env.PHYNE_CRM_PROBE_TOKEN = undefined
     const res = await POST(probeRequest({ correlation_id: 'c1' }))
     expect(res.status).toBe(503)
   })

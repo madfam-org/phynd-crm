@@ -18,9 +18,9 @@ import { processEmailDrip } from './processors/email-drip'
 import { processFederationSync } from './processors/federation-sync'
 import { processGrantComplianceCheck } from './processors/grant-compliance-check'
 import { processHealthCheck } from './processors/health-check'
+import { processLeadScoring } from './processors/lead-scoring'
 import { processRedditBot } from './processors/reddit-bot'
 import { processReferralRewardDispatch } from './processors/referral-reward-dispatch'
-import { processLeadScoring } from './processors/lead-scoring'
 import { processSessionIdentify } from './processors/session-identify'
 import { processTaskReminders } from './processors/task-reminders'
 import { createQueues, createRedisConnection } from './queues'
@@ -112,7 +112,9 @@ async function main() {
   await queues.demoCleanup.add('cleanup-expired-demos', {}, { repeat: { pattern: '0 * * * *' } })
 
   // Reddit bot: poll every 15 minutes
-  const redditSubreddits = (process.env.REDDIT_TARGET_SUBREDDITS ?? 'DerechoMexicano,LegalAdviceMexico,mexico')
+  const redditSubreddits = (
+    process.env.REDDIT_TARGET_SUBREDDITS ?? 'DerechoMexicano,LegalAdviceMexico,mexico'
+  )
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -155,7 +157,7 @@ async function main() {
   }
 
   // HTTP health check server for Kubernetes/Docker probes
-  const HEALTH_PORT = parseInt(process.env.WORKER_HEALTH_PORT ?? '3001', 10)
+  const HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT ?? '3001', 10)
 
   const healthServer = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') {

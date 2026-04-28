@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto'
+import { createHmac } from 'node:crypto'
 
 const SECRET = process.env.UNSUBSCRIBE_SECRET || process.env.AUTH_SECRET || 'dev-unsub-secret'
 

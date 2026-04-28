@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  buildUnsubscribeUrl,
   generateUnsubscribeToken,
   verifyUnsubscribeToken,
-  buildUnsubscribeUrl,
 } from '../email/unsubscribe-token'
 
 describe('unsubscribe-token', () => {
@@ -38,7 +38,7 @@ describe('unsubscribe-token', () => {
 
     it('returns null for tampered signature', () => {
       const token = generateUnsubscribeToken('lead-xyz')
-      const tampered = token.slice(0, -1) + 'X'
+      const tampered = `${token.slice(0, -1)}X`
       expect(verifyUnsubscribeToken(tampered)).toBeNull()
     })
 
@@ -71,7 +71,7 @@ describe('unsubscribe-token', () => {
 
     it('falls back to crm.madfam.io', () => {
       const original = process.env.NEXT_PUBLIC_APP_URL
-      delete process.env.NEXT_PUBLIC_APP_URL
+      process.env.NEXT_PUBLIC_APP_URL = undefined
       const url = buildUnsubscribeUrl('lead-000')
       expect(url).toStartWith('https://crm.madfam.io/api/unsubscribe')
       process.env.NEXT_PUBLIC_APP_URL = original

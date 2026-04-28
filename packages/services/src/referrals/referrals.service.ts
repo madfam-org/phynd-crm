@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { isFeatureEnabled } from '@phyne/config/features'
 import {
   campaigns,
@@ -11,7 +12,6 @@ import {
 } from '@phyne/db/schema'
 import { createLogger } from '@phyne/logging'
 import { and, eq, gt, isNull, lt, sql } from 'drizzle-orm'
-import { randomBytes } from 'node:crypto'
 import type { ServiceContext } from '../context'
 
 const logger = createLogger('services:referrals')

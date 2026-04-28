@@ -2,11 +2,11 @@ import { getDb } from '@phyne/db'
 import { contacts, leads } from '@phyne/db/schema'
 import { createLogger } from '@phyne/logging'
 import { EmailService } from '@phyne/services/email'
-import { buildUnsubscribeUrl } from '@phyne/services/email/unsubscribe-token'
-import { welcomeEmail } from '@phyne/services/email/templates/welcome'
+import { lastChanceEmail } from '@phyne/services/email/templates/last-chance'
 import { legalTipEmail } from '@phyne/services/email/templates/legal-tip'
 import { trialInviteEmail } from '@phyne/services/email/templates/trial-invite'
-import { lastChanceEmail } from '@phyne/services/email/templates/last-chance'
+import { welcomeEmail } from '@phyne/services/email/templates/welcome'
+import { buildUnsubscribeUrl } from '@phyne/services/email/unsubscribe-token'
 import type { Job } from 'bullmq'
 import { Queue } from 'bullmq'
 import { eq } from 'drizzle-orm'
@@ -141,9 +141,6 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
     )
     await queue.close()
 
-    logger.info(
-      { leadId, nextStep, delayMs: nextDelay },
-      `Enqueued drip step ${nextStep}`,
-    )
+    logger.info({ leadId, nextStep, delayMs: nextDelay }, `Enqueued drip step ${nextStep}`)
   }
 }

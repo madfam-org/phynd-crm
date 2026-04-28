@@ -72,7 +72,7 @@ function probeRequest(
 
 describe('GET /api/v1/probe/attribution — auth + input', () => {
   it('returns 503 when PHYNE_CRM_PROBE_TOKEN is unset', async () => {
-    delete process.env.PHYNE_CRM_PROBE_TOKEN
+    process.env.PHYNE_CRM_PROBE_TOKEN = undefined
     const res = await GET(probeRequest({ lead_id: 'l1', billing_id: 'b1' }))
     expect(res.status).toBe(503)
   })

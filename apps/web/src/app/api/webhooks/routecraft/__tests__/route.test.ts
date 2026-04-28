@@ -113,7 +113,7 @@ function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('POST /api/webhooks/routecraft', () => {
   it('returns 503 when PHYNE_CRM_EVENTS_SECRET is unset', async () => {
-    delete process.env.PHYNE_CRM_EVENTS_SECRET
+    process.env.PHYNE_CRM_EVENTS_SECRET = undefined
     const res = await POST(signedRequest(JSON.stringify(makeEvent())))
     expect(res.status).toBe(503)
   })

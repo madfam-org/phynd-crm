@@ -90,8 +90,8 @@ describe('processGrantComplianceCheck', () => {
   })
 
   afterEach(() => {
-    delete process.env.KARAFIEL_API_URL
-    delete process.env.KARAFIEL_API_KEY
+    process.env.KARAFIEL_API_URL = undefined
+    process.env.KARAFIEL_API_KEY = undefined
   })
 
   it('calls Karafiel compliance API and updates complianceChecks', async () => {
@@ -127,7 +127,7 @@ describe('processGrantComplianceCheck', () => {
   })
 
   it('throws when Karafiel API is not configured', async () => {
-    delete process.env.KARAFIEL_API_URL
+    process.env.KARAFIEL_API_URL = undefined
 
     await expect(processGrantComplianceCheck(baseJob as never)).rejects.toThrow(
       'Karafiel API not configured',

@@ -251,7 +251,7 @@ describe('tRPC route handler — federation token auth', () => {
   })
 
   it('falls through to normal auth when FEDERATION_API_TOKEN is not set', async () => {
-    delete process.env.FEDERATION_API_TOKEN
+    process.env.FEDERATION_API_TOKEN = undefined
 
     vi.resetModules()
 

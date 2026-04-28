@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
+import { type JWTPayload, createRemoteJWKSet, jwtVerify } from 'jose'
 
 // JWKS-backed RS256 verification for the Janua access token that lives
 // in the portal session cookie. Until this module was added, the
@@ -43,9 +43,7 @@ export interface VerifiedJanuaClaims extends JWTPayload {
 // NOT enforce audience/issuer explicitly here — Janua sets `iss` to the
 // issuer URL, which we compare to JANUA_API_URL. Returns the verified
 // claims or throws.
-export async function verifyJanuaAccessToken(
-  token: string,
-): Promise<VerifiedJanuaClaims> {
+export async function verifyJanuaAccessToken(token: string): Promise<VerifiedJanuaClaims> {
   const issuer = (process.env.JANUA_API_URL ?? process.env.AUTH_JANUA_ISSUER)?.replace(/\/$/, '')
   const { payload } = await jwtVerify(token, getJwks(), {
     algorithms: ['RS256'],

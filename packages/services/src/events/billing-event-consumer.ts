@@ -77,7 +77,9 @@ export class BillingEventConsumer {
     await this.reclaimStale()
 
     this.running = true
-    console.log(`[BillingEventConsumer] Started (group=${CONSUMER_GROUP}, consumer=${CONSUMER_NAME})`)
+    console.log(
+      `[BillingEventConsumer] Started (group=${CONSUMER_GROUP}, consumer=${CONSUMER_NAME})`,
+    )
 
     // Process loop
     while (this.running) {
@@ -104,10 +106,16 @@ export class BillingEventConsumer {
   private async processNextBatch(): Promise<void> {
     // XREADGROUP with blocking
     const results = await this.redis.xreadgroup(
-      'GROUP', CONSUMER_GROUP, CONSUMER_NAME,
-      'COUNT', '10',
-      'BLOCK', String(BLOCK_MS),
-      'STREAMS', STREAM_KEY, '>'
+      'GROUP',
+      CONSUMER_GROUP,
+      CONSUMER_NAME,
+      'COUNT',
+      '10',
+      'BLOCK',
+      String(BLOCK_MS),
+      'STREAMS',
+      STREAM_KEY,
+      '>',
     )
 
     if (!results) return // timeout, no new messages
@@ -131,7 +139,10 @@ export class BillingEventConsumer {
           await handler(event)
           await this.redis.xack(STREAM_KEY, CONSUMER_GROUP, id)
         } catch (err) {
-          console.error(`[BillingEventConsumer] Failed to process ${event.event_type} (${id}):`, err)
+          console.error(
+            `[BillingEventConsumer] Failed to process ${event.event_type} (${id}):`,
+            err,
+          )
           // Check retry count via XPENDING or just let it be re-delivered
           // After MAX_RETRIES, move to DLQ
           await this.maybeMoveToDlq(id, event)
@@ -143,8 +154,13 @@ export class BillingEventConsumer {
   private async reclaimStale(): Promise<void> {
     try {
       const result = await this.redis.xautoclaim(
-        STREAM_KEY, CONSUMER_GROUP, CONSUMER_NAME,
-        String(STALE_MS), '0-0', 'COUNT', '50'
+        STREAM_KEY,
+        CONSUMER_GROUP,
+        CONSUMER_NAME,
+        String(STALE_MS),
+        '0-0',
+        'COUNT',
+        '50',
       )
       const claimed = (result as unknown[])?.[1] as string[][] | undefined
       if (claimed?.length) {
@@ -158,22 +174,33 @@ export class BillingEventConsumer {
   private async maybeMoveToDlq(id: string, event: BillingEvent): Promise<void> {
     try {
       // Check how many times this message has been delivered
-      const pending = await this.redis.xpending(
-        STREAM_KEY, CONSUMER_GROUP, id, id, '1'
-      ) as unknown[][]
+      const pending = (await this.redis.xpending(
+        STREAM_KEY,
+        CONSUMER_GROUP,
+        id,
+        id,
+        '1',
+      )) as unknown[][]
 
       const deliveryCount = pending?.[0]?.[3] ?? 0
 
       if (Number(deliveryCount) >= MAX_RETRIES) {
         // Move to DLQ
         await this.redis.xadd(
-          DLQ_KEY, '*',
-          'original_id', id,
-          'event_type', event.event_type,
-          'source', event.source,
-          'payload', JSON.stringify(event.payload),
-          'failed_at', new Date().toISOString(),
-          'delivery_count', String(deliveryCount),
+          DLQ_KEY,
+          '*',
+          'original_id',
+          id,
+          'event_type',
+          event.event_type,
+          'source',
+          event.source,
+          'payload',
+          JSON.stringify(event.payload),
+          'failed_at',
+          new Date().toISOString(),
+          'delivery_count',
+          String(deliveryCount),
         )
         await this.redis.xack(STREAM_KEY, CONSUMER_GROUP, id)
         console.warn(`[BillingEventConsumer] Moved ${id} to DLQ after ${deliveryCount} attempts`)

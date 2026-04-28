@@ -106,8 +106,7 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
     // Future enhancement: Pravara payload carries `engagementId` directly
     // once Cotiza → Pravara dispatch is wired (Phase D-4).
     const explicitEngagementId =
-      (payload.engagementId as string | undefined) ??
-      (payload.engagement_id as string | undefined)
+      (payload.engagementId as string | undefined) ?? (payload.engagement_id as string | undefined)
 
     let engagementId = explicitEngagementId
     if (!engagementId) {
@@ -158,7 +157,11 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
     // we can group across Pravara / external fab shops / field install
     // crews uniformly. See docs/ENGAGEMENT_EVENT_TAXONOMY.md.
     const canonicalMilestoneEvent =
-      status === 'shipped' ? 'prototype_shipped' : status === 'delivered' ? 'deliverable_received' : null
+      status === 'shipped'
+        ? 'prototype_shipped'
+        : status === 'delivered'
+          ? 'deliverable_received'
+          : null
 
     const service = new EngagementsService({
       db,

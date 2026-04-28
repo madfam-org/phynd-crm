@@ -25,9 +25,9 @@
  *     receiver pattern.
  */
 
+import { getDb } from '@phyne/db'
 import { contacts, webhookEvents } from '@phyne/db/schema'
 import { validateMadfamSignature } from '@phyne/federation'
-import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -92,14 +92,13 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const rawBody = await req.text()
-  const sigResult = validateMadfamSignature(
-    rawBody,
-    req.headers.get('x-madfam-signature'),
-    secret,
-  )
+  const sigResult = validateMadfamSignature(rawBody, req.headers.get('x-madfam-signature'), secret)
   if (!sigResult.ok) {
     logger.warn({ reason: sigResult.reason }, 'rejected coforma webhook')
-    return NextResponse.json({ error: 'Invalid signature', reason: sigResult.reason }, { status: 401 })
+    return NextResponse.json(
+      { error: 'Invalid signature', reason: sigResult.reason },
+      { status: 401 },
+    )
   }
 
   let event: CoformaEvent

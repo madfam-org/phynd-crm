@@ -68,7 +68,7 @@ function validateAgainstSchema(
     if (Array.isArray(schema.type) && schema.type.includes('null')) {
       return errors
     }
-    errors.push({ path, message: `expected non-null value` })
+    errors.push({ path, message: 'expected non-null value' })
     return errors
   }
 
@@ -105,17 +105,26 @@ function validateAgainstSchema(
   // String constraints
   if (typeof value === 'string') {
     if (schema.minLength !== undefined && value.length < schema.minLength) {
-      errors.push({ path, message: `string length ${value.length} below minLength ${schema.minLength}` })
+      errors.push({
+        path,
+        message: `string length ${value.length} below minLength ${schema.minLength}`,
+      })
     }
     if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-      errors.push({ path, message: `string length ${value.length} above maxLength ${schema.maxLength}` })
+      errors.push({
+        path,
+        message: `string length ${value.length} above maxLength ${schema.maxLength}`,
+      })
     }
   }
 
   // Array validation
   if (Array.isArray(value)) {
     if (schema.maxItems !== undefined && value.length > schema.maxItems) {
-      errors.push({ path, message: `array length ${value.length} exceeds maxItems ${schema.maxItems}` })
+      errors.push({
+        path,
+        message: `array length ${value.length} exceeds maxItems ${schema.maxItems}`,
+      })
     }
     if (schema.items) {
       for (let i = 0; i < value.length; i++) {
@@ -132,7 +141,7 @@ function validateAgainstSchema(
     if (schema.required) {
       for (const key of schema.required) {
         if (!(key in obj)) {
-          errors.push({ path: `${path}.${key}`, message: `required property missing` })
+          errors.push({ path: `${path}.${key}`, message: 'required property missing' })
         }
       }
     }
@@ -144,7 +153,7 @@ function validateAgainstSchema(
         if (!allowed.has(key)) {
           errors.push({
             path: `${path}.${key}`,
-            message: `unexpected additional property`,
+            message: 'unexpected additional property',
           })
         }
       }
@@ -154,9 +163,7 @@ function validateAgainstSchema(
     if (schema.properties) {
       for (const [key, propSchema] of Object.entries(schema.properties)) {
         if (key in obj) {
-          errors.push(
-            ...validateAgainstSchema(obj[key], propSchema, `${path}.${key}`),
-          )
+          errors.push(...validateAgainstSchema(obj[key], propSchema, `${path}.${key}`))
         }
       }
     }
@@ -321,7 +328,7 @@ describe('DhanamRawCustomer contract schema validation', () => {
     it('rejects response missing required "id" field', () => {
       const invalid = { ...fixtures.activeSubscriber, id: undefined }
       // @ts-expect-error -- intentionally removing required field
-      delete invalid.id
+      invalid.id = undefined
       const errors = validateAgainstSchema(invalid, contractSchema)
       expect(errors.some((e) => e.path === '$.id')).toBe(true)
     })
@@ -400,33 +407,33 @@ describe('DhanamRawCustomer contract schema validation', () => {
     })
 
     it('contract schema defines all subscription properties', () => {
-      const subSchema = contractSchema.properties!.subscription
+      const subSchema = contractSchema.properties?.subscription
       expect(subSchema.required).toEqual(expect.arrayContaining(['plan', 'status']))
     })
 
     it('contract schema defines all balance properties', () => {
-      const balSchema = contractSchema.properties!.balance
+      const balSchema = contractSchema.properties?.balance
       expect(balSchema.required).toEqual(expect.arrayContaining(['amount', 'currency']))
     })
 
     it('contract schema defines all invoice properties', () => {
-      const invItemSchema = contractSchema.properties!.invoices.items!
+      const invItemSchema = contractSchema.properties?.invoices.items!
       const expectedFields = ['id', 'amount', 'currency', 'status', 'created_at', 'paid_at']
       expect(invItemSchema.required).toEqual(expect.arrayContaining(expectedFields))
     })
 
     it('contract schema defines all payment_method properties', () => {
-      const pmItemSchema = contractSchema.properties!.payment_methods.items!
+      const pmItemSchema = contractSchema.properties?.payment_methods.items!
       const expectedFields = ['id', 'type', 'last_four', 'is_default']
       expect(pmItemSchema.required).toEqual(expect.arrayContaining(expectedFields))
     })
 
     it('contract schema disallows additional properties at every level', () => {
       expect(contractSchema.additionalProperties).toBe(false)
-      expect(contractSchema.properties!.subscription.additionalProperties).toBe(false)
-      expect(contractSchema.properties!.balance.additionalProperties).toBe(false)
-      expect(contractSchema.properties!.invoices.items!.additionalProperties).toBe(false)
-      expect(contractSchema.properties!.payment_methods.items!.additionalProperties).toBe(false)
+      expect(contractSchema.properties?.subscription.additionalProperties).toBe(false)
+      expect(contractSchema.properties?.balance.additionalProperties).toBe(false)
+      expect(contractSchema.properties?.invoices.items?.additionalProperties).toBe(false)
+      expect(contractSchema.properties?.payment_methods.items?.additionalProperties).toBe(false)
     })
   })
 })

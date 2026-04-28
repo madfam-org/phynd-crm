@@ -22,7 +22,7 @@ export default async function EngagementPortalPage({ params }: PageProps) {
   const session = await readAndVerifyPortalSession()
 
   if (!session || session.engagementId !== engagementId) {
-    redirect(`/portal/expired?reason=no-session`)
+    redirect('/portal/expired?reason=no-session')
   }
 
   const db = getDb()
@@ -43,7 +43,7 @@ export default async function EngagementPortalPage({ params }: PageProps) {
   }
 
   if (row.contactEmail?.toLowerCase().trim() !== session.email.toLowerCase().trim()) {
-    redirect(`/portal/expired?reason=email-mismatch`)
+    redirect('/portal/expired?reason=email-mismatch')
   }
 
   const service = new EngagementsService({

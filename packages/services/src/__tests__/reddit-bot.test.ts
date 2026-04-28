@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type MockDatabase, createTestContext, makeCampaign, makeContact, makeLead, makePipeline, makePipelineStage } from './helpers'
+import {
+  type MockDatabase,
+  createTestContext,
+  makeCampaign,
+  makeContact,
+  makeLead,
+  makePipeline,
+  makePipelineStage,
+} from './helpers'
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before imports that use them
@@ -165,9 +173,7 @@ describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        results: [
-          { law_title: 'LFT', number: '48', text: 'Indemnizacion constitucional...' },
-        ],
+        results: [{ law_title: 'LFT', number: '48', text: 'Indemnizacion constitucional...' }],
       }),
     } as Response)
 
@@ -178,7 +184,9 @@ describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
     } as Response)
 
     // Access private method via bracket notation
-    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('despido injustificado')
+    const articlesResult = await (
+      service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }
+    ).queryTezcaArticles('despido injustificado')
 
     expect(articlesResult).toContain('LFT')
     expect(articlesResult).toContain('48')
@@ -203,13 +211,13 @@ describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        results: [
-          { law_title: 'CPEUM', number: '123', text: 'Toda persona tiene derecho...' },
-        ],
+        results: [{ law_title: 'CPEUM', number: '123', text: 'Toda persona tiene derecho...' }],
       }),
     } as Response)
 
-    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('derechos laborales')
+    const articlesResult = await (
+      service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }
+    ).queryTezcaArticles('derechos laborales')
 
     expect(articlesResult).toContain('CPEUM')
     expect(articlesResult).toContain('123')
@@ -240,13 +248,13 @@ describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        results: [
-          { law_title: 'LFT', number: '50', text: 'Las indemnizaciones...' },
-        ],
+        results: [{ law_title: 'LFT', number: '50', text: 'Las indemnizaciones...' }],
       }),
     } as Response)
 
-    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('indemnizacion')
+    const articlesResult = await (
+      service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }
+    ).queryTezcaArticles('indemnizacion')
 
     expect(articlesResult).toContain('LFT')
     expect(articlesResult).toContain('50')
@@ -261,7 +269,9 @@ describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
     // queryTezcaArticles: keyword endpoint also throws
     fetchSpy.mockRejectedValueOnce(new Error('ECONNREFUSED'))
 
-    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('query')
+    const articlesResult = await (
+      service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }
+    ).queryTezcaArticles('query')
 
     expect(articlesResult).toBe('No specific articles found. Consult general framework.')
     expect(fetchSpy).toHaveBeenCalledTimes(2)
@@ -275,7 +285,9 @@ describe('RedditBotService.queryTezcaArticles (via processWebhook)', () => {
     // queryTezcaArticles: keyword returns 503
     fetchSpy.mockResolvedValueOnce({ ok: false, status: 503 } as Response)
 
-    const articlesResult = await (service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }).queryTezcaArticles('query')
+    const articlesResult = await (
+      service as unknown as { queryTezcaArticles: (q: string) => Promise<string> }
+    ).queryTezcaArticles('query')
 
     expect(articlesResult).toBe('No specific articles found. Consult general framework.')
     expect(fetchSpy).toHaveBeenCalledTimes(2)
@@ -303,7 +315,11 @@ describe('RedditBotService.queryTezcaJudicial', () => {
   it('returns formatted judicial hits on success', async () => {
     const mockResponse = {
       results: [
-        { registro: 'REG-001', rubro: 'Despido injustificado', text: 'El trabajador tiene derecho...' },
+        {
+          registro: 'REG-001',
+          rubro: 'Despido injustificado',
+          text: 'El trabajador tiene derecho...',
+        },
         { registro: 'REG-002', rubro: 'Indemnizacion laboral', text: 'Corresponde al patron...' },
       ],
     }
@@ -493,11 +509,11 @@ describe('RedditBotService.processWebhook', () => {
     mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
       callCount++
       const results: Record<number, unknown> = {
-        1: [],         // getByName -> not found
-        2: [contact],  // insert contact
+        1: [], // getByName -> not found
+        2: [contact], // insert contact
         3: [pipeline], // getDefault pipeline
-        4: [stage],    // getStages
-        5: [lead],     // insert lead (inside transaction)
+        4: [stage], // getStages
+        5: [lead], // insert lead (inside transaction)
         6: [{ id: 'conv-001' }], // conversion insert
         7: [campaign], // insert campaign
       }
@@ -541,11 +557,11 @@ describe('RedditBotService.processWebhook', () => {
     mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
       callCount++
       const results: Record<number, unknown> = {
-        1: [],         // getByName -> not found
-        2: [contact],  // insert contact
+        1: [], // getByName -> not found
+        2: [contact], // insert contact
         3: [pipeline], // getDefault pipeline
-        4: [stage],    // getStages
-        5: [lead],     // insert lead
+        4: [stage], // getStages
+        5: [lead], // insert lead
         6: [{ id: 'conv-001' }],
         7: [campaign],
       }
@@ -596,11 +612,11 @@ describe('RedditBotService.processWebhook', () => {
       callCount++
       const results: Record<number, unknown> = {
         1: [existingContact], // getByName -> found!
-        2: [pipeline],        // getDefault pipeline
-        3: [stage],           // getStages
-        4: [lead],            // insert lead (inside transaction)
+        2: [pipeline], // getDefault pipeline
+        3: [stage], // getStages
+        4: [lead], // insert lead (inside transaction)
         5: [{ id: 'conv-001' }], // conversion insert
-        6: [campaign],        // insert campaign
+        6: [campaign], // insert campaign
       }
       return Promise.resolve(results[callCount] ?? []).then(resolve)
     })
@@ -626,16 +642,14 @@ describe('RedditBotService.processWebhook', () => {
     mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
       callCount++
       const results: Record<number, unknown> = {
-        1: [],  // getByName -> not found
+        1: [], // getByName -> not found
         2: [makeContact({ id: 'c1' })], // insert contact
-        3: [],  // getDefault -> null (no default pipeline!)
+        3: [], // getDefault -> null (no default pipeline!)
       }
       return Promise.resolve(results[callCount] ?? []).then(resolve)
     })
 
-    await expect(service.processWebhook(payload)).rejects.toThrow(
-      'No default pipeline configured',
-    )
+    await expect(service.processWebhook(payload)).rejects.toThrow('No default pipeline configured')
   })
 })
 
@@ -666,7 +680,7 @@ describe('RedditBotService OpenAI baseURL routing', () => {
 
   it('omits baseURL when OPENAI_BASE_URL is not set', () => {
     vi.stubEnv('OPENAI_API_KEY', 'test-key')
-    delete process.env.OPENAI_BASE_URL
+    process.env.OPENAI_BASE_URL = undefined
     vi.stubEnv('TEZCA_API_URL', 'http://tezca-test:8000')
     vi.stubEnv('INTERNAL_TEZCA_KEY', 'test-key')
     const ctx = createTestContext()

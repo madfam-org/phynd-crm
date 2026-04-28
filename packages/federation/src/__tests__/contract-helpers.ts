@@ -118,7 +118,9 @@ export function validateAgainstSchema(
     }
     if (schema.items) {
       value.forEach((item, i) => {
-        errors.push(...validateAgainstSchema(item, schema.items as JsonSchemaProperty, `${path}[${i}]`))
+        errors.push(
+          ...validateAgainstSchema(item, schema.items as JsonSchemaProperty, `${path}[${i}]`),
+        )
       })
     }
   }

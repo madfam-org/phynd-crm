@@ -76,12 +76,12 @@ describe('POST /api/v1/engagements/events', () => {
   })
 
   afterEach(() => {
-    delete process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
-    delete process.env.REDIS_URL
+    process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET = undefined
+    process.env.REDIS_URL = undefined
   })
 
   it('returns 503 when PHYNE_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)', async () => {
-    delete process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
+    process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET = undefined
     const req = createSignedRequest({
       engagement_id: 'eng_1',
       source: 'dhanam',

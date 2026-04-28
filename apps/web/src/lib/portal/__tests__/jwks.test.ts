@@ -113,8 +113,8 @@ describe('verifyJanuaAccessToken', () => {
   })
 
   it('throws when JANUA_API_URL is not configured', async () => {
-    delete process.env.JANUA_API_URL
-    delete process.env.AUTH_JANUA_ISSUER
+    process.env.JANUA_API_URL = undefined
+    process.env.AUTH_JANUA_ISSUER = undefined
     __resetJwksCacheForTesting()
     const token = await mintToken(privateKey)
     await expect(verifyJanuaAccessToken(token)).rejects.toThrow(/JANUA_API_URL/)

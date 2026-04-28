@@ -17,9 +17,9 @@
  */
 
 import { getDb } from '@phyne/db'
-import { contacts, leads, pipelines, pipelineStages } from '@phyne/db'
+import { contacts, leads, pipelineStages, pipelines } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
-import { eq, and } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('api:v1:probe:leads')
@@ -36,10 +36,7 @@ function unauthorized(reason: string) {
 export async function POST(request: Request) {
   const expectedToken = process.env.PHYNE_CRM_PROBE_TOKEN
   if (!expectedToken) {
-    return NextResponse.json(
-      { error: 'PHYNE_CRM_PROBE_TOKEN not configured' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: 'PHYNE_CRM_PROBE_TOKEN not configured' }, { status: 503 })
   }
 
   const auth = request.headers.get('authorization') ?? ''
@@ -56,14 +53,9 @@ export async function POST(request: Request) {
   }
 
   const correlationId =
-    (body.correlation_id as string) ||
-    request.headers.get('x-probe-correlation-id') ||
-    ''
+    (body.correlation_id as string) || request.headers.get('x-probe-correlation-id') || ''
   if (!correlationId) {
-    return NextResponse.json(
-      { error: 'correlation_id required' },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: 'correlation_id required' }, { status: 400 })
   }
 
   const db = getDb()
@@ -77,7 +69,7 @@ export async function POST(request: Request) {
 
   let contactId: string
   if (existingContact.length > 0) {
-    contactId = existingContact[0]!.id
+    contactId = existingContact[0]?.id
   } else {
     const inserted = await db
       .insert(contacts)
@@ -89,34 +81,26 @@ export async function POST(request: Request) {
         marketingConsent: false,
       })
       .returning({ id: contacts.id })
-    contactId = inserted[0]!.id
+    contactId = inserted[0]?.id
   }
 
   // Find any existing probe lead attached to that contact.
   const existingLead = await db
     .select({ id: leads.id })
     .from(leads)
-    .where(
-      and(
-        eq(leads.contactId, contactId),
-        eq(leads.source, PROBE_SOURCE),
-      ),
-    )
+    .where(and(eq(leads.contactId, contactId), eq(leads.source, PROBE_SOURCE)))
     .limit(1)
 
   if (existingLead.length > 0) {
     logger.info(
-      { lead_id: existingLead[0]!.id, correlation_id: correlationId },
+      { lead_id: existingLead[0]?.id, correlation_id: correlationId },
       'probe.leads reused existing',
     )
-    return NextResponse.json({ lead_id: existingLead[0]!.id, reused: true })
+    return NextResponse.json({ lead_id: existingLead[0]?.id, reused: true })
   }
 
   // No probe lead yet — we need a pipeline + stage to insert against.
-  const defaultPipeline = await db
-    .select({ id: pipelines.id })
-    .from(pipelines)
-    .limit(1)
+  const defaultPipeline = await db.select({ id: pipelines.id }).from(pipelines).limit(1)
   if (defaultPipeline.length === 0) {
     return NextResponse.json(
       {
@@ -126,7 +110,7 @@ export async function POST(request: Request) {
       { status: 503 },
     )
   }
-  const pipelineId = defaultPipeline[0]!.id
+  const pipelineId = defaultPipeline[0]?.id
 
   const firstStage = await db
     .select({ id: pipelineStages.id })
@@ -142,7 +126,7 @@ export async function POST(request: Request) {
       { status: 503 },
     )
   }
-  const stageId = firstStage[0]!.id
+  const stageId = firstStage[0]?.id
 
   const inserted = await db
     .insert(leads)
@@ -151,20 +135,13 @@ export async function POST(request: Request) {
       source: PROBE_SOURCE,
       status: 'new',
       score: Math.round(
-        Number((body.lead as Record<string, unknown> | undefined)?.score ?? 0.95) *
-          100,
+        Number((body.lead as Record<string, unknown> | undefined)?.score ?? 0.95) * 100,
       ),
       pipelineId,
       stageId,
     })
     .returning({ id: leads.id })
 
-  logger.info(
-    { lead_id: inserted[0]!.id, correlation_id: correlationId },
-    'probe.leads created',
-  )
-  return NextResponse.json(
-    { lead_id: inserted[0]!.id, created: true },
-    { status: 201 },
-  )
+  logger.info({ lead_id: inserted[0]?.id, correlation_id: correlationId }, 'probe.leads created')
+  return NextResponse.json({ lead_id: inserted[0]?.id, created: true }, { status: 201 })
 }

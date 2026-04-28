@@ -21,7 +21,7 @@ export default function Loading() {
           animation: 'route-loading-spin 0.8s linear infinite',
         }}
       />
-      <style>{`@keyframes route-loading-spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{'@keyframes route-loading-spin { to { transform: rotate(360deg); } }'}</style>
       <span
         style={{
           position: 'absolute',
@@ -38,5 +38,5 @@ export default function Loading() {
         Loading...
       </span>
     </div>
-  );
+  )
 }

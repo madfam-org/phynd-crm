@@ -4,7 +4,7 @@ type PageProps = {
 
 const REASON_COPY: Record<string, string> = {
   'no-session': 'Your portal session has expired. Please request a new link.',
-  'missing-params': "The link you clicked is incomplete. Please use the one from your email.",
+  'missing-params': 'The link you clicked is incomplete. Please use the one from your email.',
   'email-mismatch':
     "This link doesn't match the project you're trying to open. Please use the latest link we sent you.",
   JANUA_ERROR: 'The link could not be verified. It may have expired — please request a new one.',

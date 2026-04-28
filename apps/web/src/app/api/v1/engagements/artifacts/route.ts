@@ -27,10 +27,7 @@ const logger = createLogger('web:engagements-artifacts')
 export async function POST(req: Request) {
   const secret = process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
   if (!secret) {
-    return NextResponse.json(
-      { error: 'Engagement events secret not configured' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: 'Engagement events secret not configured' }, { status: 503 })
   }
 
   return handleWebhook(req, {

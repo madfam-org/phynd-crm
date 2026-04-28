@@ -10,9 +10,7 @@ import type { Metadata } from 'next'
 // The literal fallback covers local dev + any context where the build-arg isn't
 // set (e.g. preview environments).
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://crm.madfam.io',
-  ),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://crm.madfam.io'),
   title: 'Phyne — The CRM Built for Physical + Digital',
   description:
     'Phyne federates real-time data from your entire ecosystem into one unified CRM. No data duplication. No vendor lock-in. No per-seat pricing.',

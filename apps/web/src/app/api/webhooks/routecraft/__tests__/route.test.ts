@@ -33,6 +33,7 @@ const mockDb = {
   insert: vi.fn(() => ({
     values: vi.fn((v: Record<string, unknown>) => ({
       returning: vi.fn().mockImplementation(async () => [{ id: 'gen-id' }]),
+      // biome-ignore lint/suspicious/noThenProperty: drizzle's query builders are intentionally thenable
       then: (cb: (v: unknown) => unknown) => Promise.resolve([{ id: 'gen-id' }]).then(cb),
     })),
   })),

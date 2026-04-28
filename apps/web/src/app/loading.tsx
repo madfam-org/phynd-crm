@@ -1,7 +1,6 @@
 export default function Loading() {
   return (
-    <div
-      role="status"
+    <output
       aria-live="polite"
       aria-label="Loading"
       style={{
@@ -37,6 +36,6 @@ export default function Loading() {
       >
         Loading...
       </span>
-    </div>
+    </output>
   )
 }

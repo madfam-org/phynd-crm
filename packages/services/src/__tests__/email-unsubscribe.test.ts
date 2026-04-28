@@ -65,7 +65,7 @@ describe('unsubscribe-token', () => {
       const original = process.env.NEXT_PUBLIC_APP_URL
       process.env.NEXT_PUBLIC_APP_URL = 'https://test.example.com'
       const url = buildUnsubscribeUrl('lead-789')
-      expect(url).toStartWith('https://test.example.com/api/unsubscribe')
+      expect(url.startsWith('https://test.example.com/api/unsubscribe')).toBe(true)
       process.env.NEXT_PUBLIC_APP_URL = original
     })
 
@@ -73,7 +73,7 @@ describe('unsubscribe-token', () => {
       const original = process.env.NEXT_PUBLIC_APP_URL
       process.env.NEXT_PUBLIC_APP_URL = undefined
       const url = buildUnsubscribeUrl('lead-000')
-      expect(url).toStartWith('https://crm.madfam.io/api/unsubscribe')
+      expect(url.startsWith('https://crm.madfam.io/api/unsubscribe')).toBe(true)
       process.env.NEXT_PUBLIC_APP_URL = original
     })
   })

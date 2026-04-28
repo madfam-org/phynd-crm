@@ -43,5 +43,17 @@
       "*.css",
       "**/migrations/**"
     ]
-  }
+  },
+  "overrides": [
+    {
+      "include": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noDelete": "off"
+          }
+        }
+      }
+    }
+  ]
 }

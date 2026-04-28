@@ -5,9 +5,9 @@
  * so that Dhanam can apply the appropriate reward to the referrer.
  */
 
+import { createHmac } from 'node:crypto'
 import { createLogger } from '@phyne/logging'
 import type { Job } from 'bullmq'
-import { createHmac } from 'node:crypto'
 
 const logger = createLogger('worker:referral-reward-dispatch')
 
@@ -37,10 +37,7 @@ export async function processReferralRewardDispatch(
     revenueCents,
   } = job.data
 
-  logger.info(
-    { jobId: job.id, referralId, referralCode },
-    'Processing referral reward dispatch',
-  )
+  logger.info({ jobId: job.id, referralId, referralCode }, 'Processing referral reward dispatch')
 
   const dhanamApiUrl = process.env.DHANAM_API_URL
   if (!dhanamApiUrl) {

@@ -1,8 +1,8 @@
 import { CampaignsDataTable } from '@/components/campaigns/campaigns-data-table'
-import { getServerCaller } from '@/lib/trpc/server'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { getServerCaller } from '@/lib/trpc/server'
 import { Bot } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function CampaignsPage() {
   const caller = await getServerCaller()
@@ -10,7 +10,7 @@ export default async function CampaignsPage() {
 
   // Count reddit bot drafts for the badge
   const draftCount = campaigns.items.filter(
-    (c: (typeof campaigns.items)[number]) => c.channel === 'reddit_bot' && c.status === 'draft'
+    (c: (typeof campaigns.items)[number]) => c.channel === 'reddit_bot' && c.status === 'draft',
   ).length
 
   return (
@@ -21,7 +21,12 @@ export default async function CampaignsPage() {
           <p className="text-muted-foreground">Manage marketing campaigns and UTM tracking</p>
         </div>
         {draftCount > 0 && (
-          <Button variant="outline" size="sm" className="border-amber-700/50 text-amber-400 hover:bg-amber-950/20" asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-amber-700/50 text-amber-400 hover:bg-amber-950/20"
+            asChild
+          >
             <Link href="/campaigns/drafts">
               <Bot className="mr-1.5 h-3.5 w-3.5" />
               {draftCount} Reddit Draft{draftCount !== 1 ? 's' : ''} Pending Review

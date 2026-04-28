@@ -12,8 +12,8 @@
  */
 
 const REDDIT_TOKEN_URL = 'https://www.reddit.com/api/v1/access_token'
-const REDDIT_API_BASE  = 'https://oauth.reddit.com'
-const USER_AGENT       = 'madfam-bot/1.0 (by /u/madfam-bot; +https://madfam.io)'
+const REDDIT_API_BASE = 'https://oauth.reddit.com'
+const USER_AGENT = 'madfam-bot/1.0 (by /u/madfam-bot; +https://madfam.io)'
 
 interface RedditTokenResponse {
   access_token: string
@@ -32,12 +32,14 @@ export interface PostResult {
  * Fetch a short-lived access token using the stored refresh token.
  */
 async function getAccessToken(): Promise<string> {
-  const clientId     = process.env.REDDIT_CLIENT_ID
+  const clientId = process.env.REDDIT_CLIENT_ID
   const clientSecret = process.env.REDDIT_CLIENT_SECRET
   const refreshToken = process.env.REDDIT_REFRESH_TOKEN
 
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Reddit OAuth credentials not configured. Set REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_REFRESH_TOKEN.')
+    throw new Error(
+      'Reddit OAuth credentials not configured. Set REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_REFRESH_TOKEN.',
+    )
   }
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
@@ -45,12 +47,12 @@ async function getAccessToken(): Promise<string> {
   const res = await fetch(REDDIT_TOKEN_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${credentials}`,
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'User-Agent':    USER_AGENT,
+      Authorization: `Basic ${credentials}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
     },
     body: new URLSearchParams({
-      grant_type:    'refresh_token',
+      grant_type: 'refresh_token',
       refresh_token: refreshToken,
     }),
   })
@@ -60,7 +62,7 @@ async function getAccessToken(): Promise<string> {
     throw new Error(`Reddit token fetch failed (${res.status}): ${body}`)
   }
 
-  const data = await res.json() as RedditTokenResponse
+  const data = (await res.json()) as RedditTokenResponse
   return data.access_token
 }
 
@@ -73,7 +75,7 @@ async function getAccessToken(): Promise<string> {
 export function extractPostId(url: string): string | null {
   const match = url.match(/\/r\/[^/]+\/comments\/([a-z0-9]+)/i)
   if (!match || !match[1]) return null
-  return `t3_${match[1]}`  // Reddit "fullname" for a link/post
+  return `t3_${match[1]}` // Reddit "fullname" for a link/post
 }
 
 /**
@@ -82,7 +84,10 @@ export function extractPostId(url: string): string | null {
  * @param postUrl     - Full URL of the Reddit post to reply to
  * @param markdownText - Markdown content of the reply
  */
-export async function postRedditComment(postUrl: string, markdownText: string): Promise<PostResult> {
+export async function postRedditComment(
+  postUrl: string,
+  markdownText: string,
+): Promise<PostResult> {
   const thingId = extractPostId(postUrl)
   if (!thingId) {
     return { success: false, error: `Could not extract post ID from URL: ${postUrl}` }
@@ -98,14 +103,14 @@ export async function postRedditComment(postUrl: string, markdownText: string): 
   const res = await fetch(`${REDDIT_API_BASE}/api/comment`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'User-Agent':    USER_AGENT,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
     },
     body: new URLSearchParams({
       api_type: 'json',
       thing_id: thingId,
-      text:     markdownText,
+      text: markdownText,
     }),
   })
 
@@ -114,7 +119,9 @@ export async function postRedditComment(postUrl: string, markdownText: string): 
     return { success: false, error: `Reddit comment POST failed (${res.status}): ${body}` }
   }
 
-  const data = await res.json() as { json: { errors: string[][]; data?: { things: Array<{ data: { permalink: string } }> } } }
+  const data = (await res.json()) as {
+    json: { errors: string[][]; data?: { things: Array<{ data: { permalink: string } }> } }
+  }
 
   if (data.json.errors && data.json.errors.length > 0) {
     return { success: false, error: `Reddit API error: ${JSON.stringify(data.json.errors)}` }

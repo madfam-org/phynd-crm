@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
 import { db } from '@phyne/db'
 import { leads } from '@phyne/db/schema'
 import { verifyUnsubscribeToken } from '@phyne/services/email/unsubscribe-token'
+import { eq } from 'drizzle-orm'
+import { type NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token')

@@ -161,7 +161,6 @@ export class RedditBotService {
         }
       } catch {
         // Try next endpoint
-        continue
       }
     }
 

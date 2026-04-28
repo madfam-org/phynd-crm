@@ -71,10 +71,12 @@ vi.mock('@phyne/services', () => {
 // ---------------------------------------------------------------------------
 function setupOnEventCapture() {
   let capturedOnEvent: ((raw: unknown) => Promise<void>) | undefined
-  mockHandleWebhook.mockImplementationOnce((_req: unknown, options: { onEvent: (raw: unknown) => Promise<void> }) => {
-    capturedOnEvent = options.onEvent
-    return new Response(JSON.stringify({ received: true }), { status: 200 })
-  })
+  mockHandleWebhook.mockImplementationOnce(
+    (_req: unknown, options: { onEvent: (raw: unknown) => Promise<void> }) => {
+      capturedOnEvent = options.onEvent
+      return new Response(JSON.stringify({ received: true }), { status: 200 })
+    },
+  )
   return {
     getCapturedOnEvent: () => capturedOnEvent!,
   }
@@ -122,10 +124,13 @@ describe('POST /api/webhooks/tezca', () => {
     })
     const res = await POST(req)
 
-    expect(mockHandleWebhook).toHaveBeenCalledWith(req, expect.objectContaining({
-      secret: 'test-secret-abc',
-      onEvent: expect.any(Function),
-    }))
+    expect(mockHandleWebhook).toHaveBeenCalledWith(
+      req,
+      expect.objectContaining({
+        secret: 'test-secret-abc',
+        onEvent: expect.any(Function),
+      }),
+    )
     expect(res.status).toBe(200)
   })
 
@@ -166,7 +171,11 @@ describe('POST /api/webhooks/tezca', () => {
       await POST(req)
 
       mockGetByEmail.mockResolvedValueOnce(null)
-      mockContactCreate.mockResolvedValueOnce({ id: 'contact-news', name: 'subscriber', email: 'subscriber@example.com' })
+      mockContactCreate.mockResolvedValueOnce({
+        id: 'contact-news',
+        name: 'subscriber',
+        email: 'subscriber@example.com',
+      })
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
       mockLeadCreate.mockResolvedValueOnce({ id: 'lead-news' })
@@ -176,16 +185,20 @@ describe('POST /api/webhooks/tezca', () => {
       await getCapturedOnEvent()(newsletterPayload)
 
       expect(mockGetByEmail).toHaveBeenCalledWith('subscriber@example.com')
-      expect(mockContactCreate).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'subscriber',
-        email: 'subscriber@example.com',
-      }))
-      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
-        contactId: 'contact-news',
-        source: 'tezca_newsletter',
-        pipelineId: 'pipeline-001',
-        stageId: 'stage-001',
-      }))
+      expect(mockContactCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'subscriber',
+          email: 'subscriber@example.com',
+        }),
+      )
+      expect(mockLeadCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contactId: 'contact-news',
+          source: 'tezca_newsletter',
+          pipelineId: 'pipeline-001',
+          stageId: 'stage-001',
+        }),
+      )
       // Should NOT call RedditBotService
       expect(mockProcessWebhook).not.toHaveBeenCalled()
     })
@@ -199,7 +212,11 @@ describe('POST /api/webhooks/tezca', () => {
       await POST(req)
 
       mockGetByEmail.mockResolvedValueOnce(null)
-      mockContactCreate.mockResolvedValueOnce({ id: 'contact-news', name: 'subscriber', email: 'subscriber@example.com' })
+      mockContactCreate.mockResolvedValueOnce({
+        id: 'contact-news',
+        name: 'subscriber',
+        email: 'subscriber@example.com',
+      })
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
       mockLeadCreate.mockResolvedValueOnce({ id: 'lead-drip-test' })
@@ -223,7 +240,11 @@ describe('POST /api/webhooks/tezca', () => {
       const req = new Request('http://localhost/api/webhooks/tezca', { method: 'POST' })
       await POST(req)
 
-      mockGetByEmail.mockResolvedValueOnce({ id: 'contact-existing', name: 'subscriber', email: 'subscriber@example.com' })
+      mockGetByEmail.mockResolvedValueOnce({
+        id: 'contact-existing',
+        name: 'subscriber',
+        email: 'subscriber@example.com',
+      })
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
       mockLeadCreate.mockResolvedValueOnce({ id: 'lead-reuse' })
@@ -233,10 +254,12 @@ describe('POST /api/webhooks/tezca', () => {
       await getCapturedOnEvent()(newsletterPayload)
 
       expect(mockContactCreate).not.toHaveBeenCalled()
-      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
-        contactId: 'contact-existing',
-        source: 'tezca_newsletter',
-      }))
+      expect(mockLeadCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contactId: 'contact-existing',
+          source: 'tezca_newsletter',
+        }),
+      )
     })
   })
 
@@ -265,7 +288,11 @@ describe('POST /api/webhooks/tezca', () => {
       // No existing contact
       mockGetByEmail.mockResolvedValueOnce(null)
       // Contact created
-      mockContactCreate.mockResolvedValueOnce({ id: 'contact-new', name: 'prospect', email: 'prospect@example.com' })
+      mockContactCreate.mockResolvedValueOnce({
+        id: 'contact-new',
+        name: 'prospect',
+        email: 'prospect@example.com',
+      })
       // Pipeline + stages for lead creation
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
@@ -278,18 +305,22 @@ describe('POST /api/webhooks/tezca', () => {
       // Should look up contact by email
       expect(mockGetByEmail).toHaveBeenCalledWith('prospect@example.com')
       // Should create contact since none found
-      expect(mockContactCreate).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'prospect',
-        email: 'prospect@example.com',
-        externalJanuaId: 'janua-abc',
-      }))
+      expect(mockContactCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'prospect',
+          email: 'prospect@example.com',
+          externalJanuaId: 'janua-abc',
+        }),
+      )
       // Should create lead in default pipeline
-      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
-        contactId: 'contact-new',
-        source: 'tezca_interest:semantic_search',
-        pipelineId: 'pipeline-001',
-        stageId: 'stage-001',
-      }))
+      expect(mockLeadCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contactId: 'contact-new',
+          source: 'tezca_interest:semantic_search',
+          pipelineId: 'pipeline-001',
+          stageId: 'stage-001',
+        }),
+      )
       // Should NOT call RedditBotService
       expect(mockProcessWebhook).not.toHaveBeenCalled()
     })
@@ -303,7 +334,11 @@ describe('POST /api/webhooks/tezca', () => {
       await POST(req)
 
       // Existing contact found
-      mockGetByEmail.mockResolvedValueOnce({ id: 'contact-existing', name: 'prospect', email: 'prospect@example.com' })
+      mockGetByEmail.mockResolvedValueOnce({
+        id: 'contact-existing',
+        name: 'prospect',
+        email: 'prospect@example.com',
+      })
       // Pipeline + stages for lead creation
       mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-001' })
       mockGetStages.mockResolvedValueOnce([{ id: 'stage-001', position: 0 }])
@@ -318,10 +353,12 @@ describe('POST /api/webhooks/tezca', () => {
       // Should NOT create a new contact
       expect(mockContactCreate).not.toHaveBeenCalled()
       // Should still create lead with existing contact
-      expect(mockLeadCreate).toHaveBeenCalledWith(expect.objectContaining({
-        contactId: 'contact-existing',
-        source: 'tezca_interest:semantic_search',
-      }))
+      expect(mockLeadCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contactId: 'contact-existing',
+          source: 'tezca_interest:semantic_search',
+        }),
+      )
     })
 
     it('handles missing default pipeline gracefully (no lead created)', async () => {
@@ -333,7 +370,11 @@ describe('POST /api/webhooks/tezca', () => {
       await POST(req)
 
       mockGetByEmail.mockResolvedValueOnce(null)
-      mockContactCreate.mockResolvedValueOnce({ id: 'contact-new', name: 'prospect', email: 'prospect@example.com' })
+      mockContactCreate.mockResolvedValueOnce({
+        id: 'contact-new',
+        name: 'prospect',
+        email: 'prospect@example.com',
+      })
       // No default pipeline
       mockGetDefault.mockResolvedValueOnce(null)
 
@@ -353,7 +394,11 @@ describe('POST /api/webhooks/tezca', () => {
       await POST(req)
 
       mockGetByEmail.mockResolvedValueOnce(null)
-      mockContactCreate.mockResolvedValueOnce({ id: 'contact-new', name: 'alice', email: 'alice@corp.com' })
+      mockContactCreate.mockResolvedValueOnce({
+        id: 'contact-new',
+        name: 'alice',
+        email: 'alice@corp.com',
+      })
       mockGetDefault.mockResolvedValueOnce(null)
 
       const payloadWithoutJanua = {

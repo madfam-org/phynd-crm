@@ -2,11 +2,11 @@ import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
 import { getDb } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import {
-  RedditBotService,
-  createRedditClientFromEnv,
   type BotCampaignPayload,
+  RedditBotService,
   type RedditPost,
   type ServiceContext,
+  createRedditClientFromEnv,
 } from '@phyne/services'
 import type { Job } from 'bullmq'
 import { getCacheManager } from '../lib/federation'
@@ -313,10 +313,7 @@ export async function processRedditBot(job: Job<RedditBotData>): Promise<void> {
     try {
       posts = await redditClient.getNewPosts(subreddit, 25, 2)
     } catch (err) {
-      logger.error(
-        { err, subreddit },
-        `Failed to fetch posts from r/${subreddit} — skipping`,
-      )
+      logger.error({ err, subreddit }, `Failed to fetch posts from r/${subreddit} — skipping`)
       totalErrors++
       continue
     }

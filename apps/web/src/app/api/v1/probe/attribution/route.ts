@@ -28,10 +28,7 @@ function unauthorized(reason: string) {
 export async function GET(request: Request) {
   const expectedToken = process.env.PHYNE_CRM_PROBE_TOKEN
   if (!expectedToken) {
-    return NextResponse.json(
-      { error: 'PHYNE_CRM_PROBE_TOKEN not configured' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: 'PHYNE_CRM_PROBE_TOKEN not configured' }, { status: 503 })
   }
   const auth = request.headers.get('authorization') ?? ''
   const match = /^Bearer\s+(.+)$/i.exec(auth)

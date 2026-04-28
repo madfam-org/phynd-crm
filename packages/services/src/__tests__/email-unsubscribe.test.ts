@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  buildUnsubscribeUrl,
   generateUnsubscribeToken,
   verifyUnsubscribeToken,
-  buildUnsubscribeUrl,
 } from '../email/unsubscribe-token'
 
 describe('unsubscribe-token', () => {
@@ -38,7 +38,7 @@ describe('unsubscribe-token', () => {
 
     it('returns null for tampered signature', () => {
       const token = generateUnsubscribeToken('lead-xyz')
-      const tampered = token.slice(0, -1) + 'X'
+      const tampered = `${token.slice(0, -1)}X`
       expect(verifyUnsubscribeToken(tampered)).toBeNull()
     })
 

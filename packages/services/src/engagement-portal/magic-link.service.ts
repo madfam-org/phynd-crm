@@ -50,11 +50,7 @@ export class EngagementPortalMagicLinkService {
   private get januaApiUrl(): string {
     const url = process.env.JANUA_API_URL ?? process.env.AUTH_JANUA_ISSUER
     if (!url) {
-      throw new ServiceError(
-        'JANUA_API_URL not configured',
-        'CONFIGURATION_ERROR',
-        500,
-      )
+      throw new ServiceError('JANUA_API_URL not configured', 'CONFIGURATION_ERROR', 500)
     }
     return url.replace(/\/$/, '')
   }
@@ -171,11 +167,7 @@ export class EngagementPortalMagicLinkService {
     const expiresIn = data.tokens?.expires_in ?? data.expires_in ?? 900
 
     if (!accessToken || !refreshToken) {
-      throw new ServiceError(
-        'Janua did not return expected tokens',
-        'JANUA_ERROR',
-        502,
-      )
+      throw new ServiceError('Janua did not return expected tokens', 'JANUA_ERROR', 502)
     }
 
     return {

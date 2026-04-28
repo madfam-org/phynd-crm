@@ -1,7 +1,10 @@
 /**
  * Last chance re-engagement email — sent on day 14 if trial not started.
  */
-export function lastChanceEmail(params?: { unsubscribeUrl?: string }): { subject: string; html: string } {
+export function lastChanceEmail(params?: { unsubscribeUrl?: string }): {
+  subject: string
+  html: string
+} {
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
 
   return {
@@ -24,12 +27,16 @@ export function lastChanceEmail(params?: { unsubscribeUrl?: string }): { subject
     <p style="color:#9ca3af;font-size:13px;margin-top:24px;">
       Este es nuestro último recordatorio.
     </p>
-    ${params?.unsubscribeUrl ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
+    ${
+      params?.unsubscribeUrl
+        ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
       <p style="color:#9ca3af;font-size:11px;line-height:1.5;">
         No deseas recibir más correos?
         <a href="${params.unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>
       </p>
-    </div>` : ''}
+    </div>`
+        : ''
+    }
   </div>
 </body>
 </html>`,

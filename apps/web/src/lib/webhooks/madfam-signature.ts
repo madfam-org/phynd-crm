@@ -64,9 +64,7 @@ export function verifyMadfamSignature(
     return { ok: false, reason: 'signature_mismatch' }
   }
 
-  const expected = createHmac('sha256', secret)
-    .update(`${ts}.${rawBody}`)
-    .digest('hex')
+  const expected = createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')
 
   const expectedBuf = Buffer.from(expected, 'hex')
   const receivedBuf = Buffer.from(v1, 'hex')
@@ -84,8 +82,6 @@ export function signMadfamBody(
   secret: string,
   ts: number = Math.floor(Date.now() / 1000),
 ): string {
-  const hmac = createHmac('sha256', secret)
-    .update(`${ts}.${rawBody}`)
-    .digest('hex')
+  const hmac = createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')
   return `t=${ts},v1=${hmac}`
 }

@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server'
 import { getDb } from '@phyne/db'
 import { campaigns } from '@phyne/db/schema'
-import { eq } from 'drizzle-orm'
 import { postRedditComment } from '@phyne/services'
+import { eq } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { id, action } = await req.json() as { id: string; action: 'approved' | 'rejected' }
+    const { id, action } = (await req.json()) as { id: string; action: 'approved' | 'rejected' }
 
     if (!id || !action) {
       return NextResponse.json({ error: 'Missing id or action' }, { status: 400 })
@@ -64,7 +64,6 @@ export async function POST(req: Request) {
     // For 'rejected' — just update status, no posting
     await db.update(campaigns).set({ status: action }).where(eq(campaigns.id, id))
     return NextResponse.json({ success: true, id, status: action })
-
   } catch (error) {
     console.error('Draft action failed:', error)
     return NextResponse.json({ error: 'Failed to process campaign action' }, { status: 500 })

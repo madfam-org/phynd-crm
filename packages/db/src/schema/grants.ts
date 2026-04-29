@@ -1,4 +1,13 @@
-import { index, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
+import {
+  index,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core'
 import { contacts } from './contacts'
 import { pipelineStages, pipelines } from './pipelines'
 import { users } from './users'

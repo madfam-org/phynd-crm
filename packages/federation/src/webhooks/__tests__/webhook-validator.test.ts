@@ -106,10 +106,7 @@ describe('validateMadfamSignature', () => {
   const SECRET = 'whsec_madfam_test_secret_2026'
 
   function madfamHeader(body: string, secret: string, ts: number): string {
-    const hmac = crypto
-      .createHmac('sha256', secret)
-      .update(`${ts}.${body}`)
-      .digest('hex')
+    const hmac = crypto.createHmac('sha256', secret).update(`${ts}.${body}`).digest('hex')
     return `t=${ts},v1=${hmac}`
   }
 
@@ -185,9 +182,7 @@ describe('validateMadfamSignature', () => {
     // Truncated v1 — regression guard against crypto.timingSafeEqual throwing
     const header = `t=${ts},v1=${'deadbeef'}`
 
-    expect(() =>
-      validateMadfamSignature(body, header, SECRET),
-    ).not.toThrow()
+    expect(() => validateMadfamSignature(body, header, SECRET)).not.toThrow()
     expect(validateMadfamSignature(body, header, SECRET)).toEqual({
       ok: false,
       reason: 'signature_mismatch',
@@ -207,7 +202,10 @@ describe('validateMadfamSignature', () => {
 
     // Outside:
     expect(
-      validateMadfamSignature(body, header, SECRET, { now: now + 10 * 60 * 1000, maxAgeMs: 60 * 1000 }),
+      validateMadfamSignature(body, header, SECRET, {
+        now: now + 10 * 60 * 1000,
+        maxAgeMs: 60 * 1000,
+      }),
     ).toEqual({ ok: false, reason: 'replay_window_exceeded' })
   })
 })

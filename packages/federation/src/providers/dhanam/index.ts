@@ -84,7 +84,7 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
     externalId: string,
     planId: string,
     token: string,
-    options?: { successUrl?: string; cancelUrl?: string }
+    options?: { successUrl?: string; cancelUrl?: string },
   ): Promise<{ checkoutUrl: string; sessionId: string }> {
     const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}/checkout`, {
       method: 'POST',

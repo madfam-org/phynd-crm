@@ -1,8 +1,8 @@
-import { getServerCaller } from '@/lib/trpc/server'
 import { DraftCampaignList } from '@/components/campaigns/draft-campaign-list'
+import { Button } from '@/components/ui/button'
+import { getServerCaller } from '@/lib/trpc/server'
 import { Bot } from 'lucide-react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 
 export default async function CampaignDraftsPage() {
   const caller = await getServerCaller()
@@ -10,7 +10,7 @@ export default async function CampaignDraftsPage() {
 
   // Filter for reddit bot drafts server-side
   const drafts = all.items.filter(
-    (c: (typeof all.items)[number]) => c.channel === 'reddit_bot' && c.status === 'draft'
+    (c: (typeof all.items)[number]) => c.channel === 'reddit_bot' && c.status === 'draft',
   )
 
   return (
@@ -23,8 +23,8 @@ export default async function CampaignDraftsPage() {
           </div>
           <p className="mt-1 text-muted-foreground">
             Review AI-generated legal responses before they are eligible for publishing via{' '}
-            <span className="font-mono text-sm">u/madfam-bot</span>. Each draft cites verified
-            Tezca oracle evidence.
+            <span className="font-mono text-sm">u/madfam-bot</span>. Each draft cites verified Tezca
+            oracle evidence.
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>

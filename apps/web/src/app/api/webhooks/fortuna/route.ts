@@ -6,8 +6,8 @@ import { grantOpportunities, pipelineStages, pipelines } from '@phyne/db/schema'
 import { validateWebhookSignature } from '@phyne/federation/webhooks'
 import { createLogger } from '@phyne/logging'
 import { GrantsService, createServiceContext } from '@phyne/services'
-import { eq } from 'drizzle-orm'
 import { Queue } from 'bullmq'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:webhook:fortuna')

@@ -78,9 +78,7 @@ describe('EngagementPortalMagicLinkService', () => {
 
       const body = JSON.parse(init.body as string)
       expect(body.email).toBe('tablaco@example.com')
-      expect(body.redirect_url).toBe(
-        `${PORTAL_URL}/portal/verify?engagement=eng-tablaco-001`,
-      )
+      expect(body.redirect_url).toBe(`${PORTAL_URL}/portal/verify?engagement=eng-tablaco-001`)
 
       expect(result.sent).toBe(true)
       // Email is redacted to avoid leaking the address back to the caller
@@ -98,8 +96,7 @@ describe('EngagementPortalMagicLinkService', () => {
 
       const service = new EngagementPortalMagicLinkService(ctx)
       await expect(service.sendPortalLink('eng-tablaco-001')).rejects.toSatisfy(
-        (err: unknown) =>
-          err instanceof ServiceError && (err as ServiceError).statusCode === 429,
+        (err: unknown) => err instanceof ServiceError && (err as ServiceError).statusCode === 429,
       )
     })
   })
@@ -154,7 +151,10 @@ describe('EngagementPortalMagicLinkService', () => {
         ok: true,
         status: 200,
         text: async () => '',
-        json: async () => makeJanuaVerifyResponse({ user: { id: 'u', email: 'tablaco@example.com', email_verified: true } }),
+        json: async () =>
+          makeJanuaVerifyResponse({
+            user: { id: 'u', email: 'tablaco@example.com', email_verified: true },
+          }),
       } as unknown as Response)
 
       const service = new EngagementPortalMagicLinkService(ctx)
@@ -197,8 +197,7 @@ describe('EngagementPortalMagicLinkService', () => {
       await expect(
         service.verifyPortalLink({ token: 'x'.repeat(40), engagementId: 'eng-1' }),
       ).rejects.toSatisfy(
-        (err: unknown) =>
-          err instanceof ServiceError && (err as ServiceError).statusCode === 401,
+        (err: unknown) => err instanceof ServiceError && (err as ServiceError).statusCode === 401,
       )
     })
 

@@ -1,20 +1,20 @@
-'use client';
+'use client'
 
-import { useEffect } from 'react';
+import { useEffect } from 'react'
 
 export default function GlobalError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
-  reset: () => void;
+  error: Error & { digest?: string }
+  reset: () => void
 }) {
   useEffect(() => {
-    console.error('[GlobalError]', error);
-  }, [error]);
+    console.error('[GlobalError]', error)
+  }, [error])
 
   return (
-    <html>
+    <html lang="en">
       <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
         <div
           style={{
@@ -65,5 +65,5 @@ export default function GlobalError({
         </div>
       </body>
     </html>
-  );
+  )
 }

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle, XCircle, ExternalLink, Bot } from 'lucide-react'
+import { Bot, CheckCircle, ExternalLink, XCircle } from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
 
 // Server-side props are passed in from the parent page
 interface DraftCampaign {
@@ -67,7 +67,9 @@ function DraftReviewCard({ campaign, onApprove, onDiscard }: DraftReviewCardProp
             Drafted Reply (u/madfam-bot)
           </p>
           <div className="rounded-md border border-border bg-muted/40 p-3 text-sm whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">
-            {draftResponse || <span className="text-muted-foreground italic">No draft generated.</span>}
+            {draftResponse || (
+              <span className="text-muted-foreground italic">No draft generated.</span>
+            )}
           </div>
         </div>
 
@@ -85,13 +87,15 @@ function DraftReviewCard({ campaign, onApprove, onDiscard }: DraftReviewCardProp
       </CardContent>
 
       <CardFooter className="flex items-center justify-between gap-2 pt-3 border-t border-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground"
-          asChild
-        >
-          <Link href={campaign.name.includes('r/') ? `https://reddit.com/r/${campaign.name.split('r/')[1]?.split(' ')[0]}` : '#'} target="_blank">
+        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" asChild>
+          <Link
+            href={
+              campaign.name.includes('r/')
+                ? `https://reddit.com/r/${campaign.name.split('r/')[1]?.split(' ')[0]}`
+                : '#'
+            }
+            target="_blank"
+          >
             <ExternalLink className="mr-1.5 h-3 w-3" />
             View Subreddit
           </Link>
@@ -135,7 +139,7 @@ export function DraftCampaignList({ initialDrafts }: { initialDrafts: DraftCampa
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, action: 'approved' }),
     })
-    const data = await res.json() as { status: string; commentUrl?: string }
+    const data = (await res.json()) as { status: string; commentUrl?: string }
 
     if (data.status === 'posted' && data.commentUrl) {
       setPosted(data.commentUrl)
@@ -166,7 +170,9 @@ export function DraftCampaignList({ initialDrafts }: { initialDrafts: DraftCampa
       {posted && (
         <div className="flex items-center gap-3 rounded-md border border-green-700/40 bg-green-950/20 px-4 py-3 text-sm text-green-400">
           <CheckCircle className="h-4 w-4 shrink-0" />
-          <span>Reply posted successfully as <span className="font-mono">u/madfam-bot</span>.</span>
+          <span>
+            Reply posted successfully as <span className="font-mono">u/madfam-bot</span>.
+          </span>
           <a
             href={posted}
             target="_blank"

@@ -21,35 +21,32 @@ const NOW = 1_800_000_000
 describe('verifyMadfamSignature', () => {
   it('accepts a valid current-timestamp signature', () => {
     const header = signMadfamBody(BODY, SECRET, NOW)
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: true })
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({ ok: true })
   })
 
   it('rejects when secret is empty', () => {
     const header = signMadfamBody(BODY, SECRET, NOW)
-    expect(
-      verifyMadfamSignature(BODY, header, '', { nowSec: NOW }),
-    ).toEqual({ ok: false, reason: 'missing_secret' })
+    expect(verifyMadfamSignature(BODY, header, '', { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'missing_secret',
+    })
   })
 
   it('rejects when header is missing (undefined/null/empty)', () => {
     for (const empty of [undefined, null, '']) {
-      expect(
-        verifyMadfamSignature(BODY, empty, SECRET, { nowSec: NOW }),
-      ).toEqual({ ok: false, reason: 'missing_signature_header' })
+      expect(verifyMadfamSignature(BODY, empty, SECRET, { nowSec: NOW })).toEqual({
+        ok: false,
+        reason: 'missing_signature_header',
+      })
     }
   })
 
   it('rejects malformed headers (missing t or v1)', () => {
-    for (const bad of [
-      `t=${NOW}`,
-      'v1=abc',
-      'foo=bar,baz=qux',
-    ]) {
-      expect(
-        verifyMadfamSignature(BODY, bad, SECRET, { nowSec: NOW }),
-      ).toEqual({ ok: false, reason: 'malformed_signature_header' })
+    for (const bad of [`t=${NOW}`, 'v1=abc', 'foo=bar,baz=qux']) {
+      expect(verifyMadfamSignature(BODY, bad, SECRET, { nowSec: NOW })).toEqual({
+        ok: false,
+        reason: 'malformed_signature_header',
+      })
     }
   })
 
@@ -63,36 +60,24 @@ describe('verifyMadfamSignature', () => {
   })
 
   it('rejects timestamps outside the replay window (past)', () => {
-    const header = signMadfamBody(
-      BODY,
-      SECRET,
-      NOW - DEFAULT_REPLAY_WINDOW_SECONDS - 1,
-    )
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: false, reason: 'replay_out_of_window' })
+    const header = signMadfamBody(BODY, SECRET, NOW - DEFAULT_REPLAY_WINDOW_SECONDS - 1)
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'replay_out_of_window',
+    })
   })
 
   it('rejects timestamps outside the replay window (future)', () => {
-    const header = signMadfamBody(
-      BODY,
-      SECRET,
-      NOW + DEFAULT_REPLAY_WINDOW_SECONDS + 1,
-    )
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: false, reason: 'replay_out_of_window' })
+    const header = signMadfamBody(BODY, SECRET, NOW + DEFAULT_REPLAY_WINDOW_SECONDS + 1)
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'replay_out_of_window',
+    })
   })
 
   it('accepts timestamps exactly at the window edge', () => {
-    const header = signMadfamBody(
-      BODY,
-      SECRET,
-      NOW - DEFAULT_REPLAY_WINDOW_SECONDS,
-    )
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: true })
+    const header = signMadfamBody(BODY, SECRET, NOW - DEFAULT_REPLAY_WINDOW_SECONDS)
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({ ok: true })
   })
 
   it('rejects non-hex v1 (prevents Buffer.from truncation)', () => {
@@ -105,16 +90,18 @@ describe('verifyMadfamSignature', () => {
 
   it('rejects signed-with-wrong-secret', () => {
     const header = signMadfamBody(BODY, 'other-secret', NOW)
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: false, reason: 'signature_mismatch' })
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'signature_mismatch',
+    })
   })
 
   it('rejects signed-over-wrong-body', () => {
     const header = signMadfamBody('different body', SECRET, NOW)
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: false, reason: 'signature_mismatch' })
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'signature_mismatch',
+    })
   })
 
   it('handles length-mismatched v1 safely', () => {
@@ -126,10 +113,8 @@ describe('verifyMadfamSignature', () => {
   })
 
   it('tolerates extra unknown fields in the header', () => {
-    const header = signMadfamBody(BODY, SECRET, NOW) + ',kid=2026-01'
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: true })
+    const header = `${signMadfamBody(BODY, SECRET, NOW)},kid=2026-01`
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({ ok: true })
   })
 
   it('tolerates whitespace around segments', () => {
@@ -137,9 +122,7 @@ describe('verifyMadfamSignature', () => {
       .split(',')
       .map((s) => `  ${s}  `)
       .join(', ')
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: true })
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({ ok: true })
   })
 
   it('honours a custom replay window', () => {
@@ -166,15 +149,11 @@ describe('signMadfamBody', () => {
   })
 
   it('is deterministic', () => {
-    expect(signMadfamBody(BODY, SECRET, NOW)).toBe(
-      signMadfamBody(BODY, SECRET, NOW),
-    )
+    expect(signMadfamBody(BODY, SECRET, NOW)).toBe(signMadfamBody(BODY, SECRET, NOW))
   })
 
   it('round-trips cleanly through the verifier', () => {
     const header = signMadfamBody(BODY, SECRET, NOW)
-    expect(
-      verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW }),
-    ).toEqual({ ok: true })
+    expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({ ok: true })
   })
 })

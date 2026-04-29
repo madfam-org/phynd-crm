@@ -17,9 +17,9 @@
  */
 
 import { getDb } from '@phyne/db'
-import { contacts, leads, pipelines, pipelineStages } from '@phyne/db'
+import { contacts, leads, pipelineStages, pipelines } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
-import { eq, and } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('api:v1:probe:leads')
@@ -36,10 +36,7 @@ function unauthorized(reason: string) {
 export async function POST(request: Request) {
   const expectedToken = process.env.PHYNE_CRM_PROBE_TOKEN
   if (!expectedToken) {
-    return NextResponse.json(
-      { error: 'PHYNE_CRM_PROBE_TOKEN not configured' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: 'PHYNE_CRM_PROBE_TOKEN not configured' }, { status: 503 })
   }
 
   const auth = request.headers.get('authorization') ?? ''
@@ -56,14 +53,9 @@ export async function POST(request: Request) {
   }
 
   const correlationId =
-    (body.correlation_id as string) ||
-    request.headers.get('x-probe-correlation-id') ||
-    ''
+    (body.correlation_id as string) || request.headers.get('x-probe-correlation-id') || ''
   if (!correlationId) {
-    return NextResponse.json(
-      { error: 'correlation_id required' },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: 'correlation_id required' }, { status: 400 })
   }
 
   const db = getDb()
@@ -96,12 +88,7 @@ export async function POST(request: Request) {
   const existingLead = await db
     .select({ id: leads.id })
     .from(leads)
-    .where(
-      and(
-        eq(leads.contactId, contactId),
-        eq(leads.source, PROBE_SOURCE),
-      ),
-    )
+    .where(and(eq(leads.contactId, contactId), eq(leads.source, PROBE_SOURCE)))
     .limit(1)
 
   if (existingLead.length > 0) {
@@ -113,10 +100,7 @@ export async function POST(request: Request) {
   }
 
   // No probe lead yet — we need a pipeline + stage to insert against.
-  const defaultPipeline = await db
-    .select({ id: pipelines.id })
-    .from(pipelines)
-    .limit(1)
+  const defaultPipeline = await db.select({ id: pipelines.id }).from(pipelines).limit(1)
   if (defaultPipeline.length === 0) {
     return NextResponse.json(
       {
@@ -151,20 +135,13 @@ export async function POST(request: Request) {
       source: PROBE_SOURCE,
       status: 'new',
       score: Math.round(
-        Number((body.lead as Record<string, unknown> | undefined)?.score ?? 0.95) *
-          100,
+        Number((body.lead as Record<string, unknown> | undefined)?.score ?? 0.95) * 100,
       ),
       pipelineId,
       stageId,
     })
     .returning({ id: leads.id })
 
-  logger.info(
-    { lead_id: inserted[0]!.id, correlation_id: correlationId },
-    'probe.leads created',
-  )
-  return NextResponse.json(
-    { lead_id: inserted[0]!.id, created: true },
-    { status: 201 },
-  )
+  logger.info({ lead_id: inserted[0]!.id, correlation_id: correlationId }, 'probe.leads created')
+  return NextResponse.json({ lead_id: inserted[0]!.id, created: true }, { status: 201 })
 }

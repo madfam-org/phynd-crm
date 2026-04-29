@@ -15,12 +15,12 @@
  *   - Idempotent on `event.event_id` (dedupe against webhook_events table).
  */
 
+import { verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
 import { getDb } from '@phyne/db'
 import { conversions, leads, webhookEvents } from '@phyne/db'
 import { createLogger } from '@phyne/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import { verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
 
 const logger = createLogger('api:v1:events:payment.succeeded')
 const PROBE_SOURCE = 'synthetic-probe'
@@ -47,10 +47,7 @@ export async function POST(request: Request) {
   const secret = process.env.PHYNE_CRM_EVENTS_SECRET
   if (!secret) {
     logger.warn('PHYNE_CRM_EVENTS_SECRET not configured')
-    return NextResponse.json(
-      { error: 'secret not configured' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: 'secret not configured' }, { status: 503 })
   }
 
   const rawBody = await request.text()
@@ -85,10 +82,7 @@ export async function POST(request: Request) {
   ] as const) {
     const v = event[required]
     if (v === undefined || v === null || v === '') {
-      return NextResponse.json(
-        { error: `missing required field: ${required}` },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: `missing required field: ${required}` }, { status: 400 })
     }
   }
 

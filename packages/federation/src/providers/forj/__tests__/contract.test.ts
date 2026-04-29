@@ -4,12 +4,12 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { ForjProvider } from '../index'
 import {
-  JsonSchema,
+  type JsonSchema,
   assertSchemaValid,
   validateAgainstSchema,
 } from '../../../__tests__/contract-helpers'
+import { ForjProvider } from '../index'
 
 const schema: JsonSchema = {
   type: 'object',

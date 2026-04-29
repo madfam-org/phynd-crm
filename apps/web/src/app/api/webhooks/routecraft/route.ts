@@ -1,7 +1,7 @@
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
-import { conversions, contacts, webhookEvents } from '@phyne/db/schema'
-import { validateMadfamSignature } from '@phyne/federation'
 import { getDb } from '@phyne/db'
+import { contacts, conversions, webhookEvents } from '@phyne/db/schema'
+import { validateMadfamSignature } from '@phyne/federation'
 import { createLogger } from '@phyne/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -71,11 +71,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const rawBody = await req.text()
-  const sigResult = validateMadfamSignature(
-    rawBody,
-    req.headers.get('x-madfam-signature'),
-    secret,
-  )
+  const sigResult = validateMadfamSignature(rawBody, req.headers.get('x-madfam-signature'), secret)
   if (!sigResult.ok) {
     logger.warn({ reason: sigResult.reason }, 'rejected routecraft webhook')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })

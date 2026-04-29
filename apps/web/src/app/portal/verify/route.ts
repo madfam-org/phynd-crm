@@ -48,15 +48,12 @@ export async function GET(req: Request) {
       expiresAt: session.expiresAt,
     })
 
-    return NextResponse.redirect(
-      new URL(`/portal/${encodeURIComponent(engagementId)}`, url),
-      302,
-    )
+    return NextResponse.redirect(new URL(`/portal/${encodeURIComponent(engagementId)}`, url), 302)
   } catch (err) {
     logger.warn({ err, engagementId }, 'portal verify failed')
     const reason =
       typeof err === 'object' && err !== null && 'code' in err
-        ? (err as { code?: string }).code ?? 'invalid'
+        ? ((err as { code?: string }).code ?? 'invalid')
         : 'invalid'
     return NextResponse.redirect(
       new URL(`/portal/expired?reason=${encodeURIComponent(String(reason))}`, url),

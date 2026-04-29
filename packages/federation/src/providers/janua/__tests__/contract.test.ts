@@ -10,12 +10,12 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { JanuaProvider } from '../index'
 import {
-  JsonSchema,
+  type JsonSchema,
   assertSchemaValid,
   validateAgainstSchema,
 } from '../../../__tests__/contract-helpers'
+import { JanuaProvider } from '../index'
 
 const januaRawProfileSchema: JsonSchema = {
   $id: 'janua-raw-profile.schema.json',

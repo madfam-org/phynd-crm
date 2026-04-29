@@ -125,7 +125,13 @@ vi.mock('@phyne/services', () => ({
   createServiceContext: vi.fn().mockReturnValue({
     db: mockDb,
     cache: {},
-    auth: { userId: 'system:fortuna-webhook', tenantId: 'madfam', roles: ['admin'], scopes: ['*'], accessToken: '' },
+    auth: {
+      userId: 'system:fortuna-webhook',
+      tenantId: 'madfam',
+      roles: ['admin'],
+      scopes: ['*'],
+      accessToken: '',
+    },
     tenantId: 'madfam',
   }),
 }))
@@ -144,7 +150,10 @@ import { POST } from '../route'
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createSignedRequest(body: object, options: { secret?: string; customHeaders?: Record<string, string> } = {}) {
+function createSignedRequest(
+  body: object,
+  options: { secret?: string; customHeaders?: Record<string, string> } = {},
+) {
   const secret = options.secret ?? 'test-secret'
   const bodyStr = JSON.stringify(body)
   const signature = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex')
@@ -195,7 +204,12 @@ describe('Fortuna webhook route', () => {
       }
       if (selectCallCount === 2) {
         return Promise.resolve([
-          { id: 'stage-discovered', name: 'Discovered', pipelineId: 'pipeline-treasury', position: 0 },
+          {
+            id: 'stage-discovered',
+            name: 'Discovered',
+            pipelineId: 'pipeline-treasury',
+            position: 0,
+          },
         ]).then(resolve)
       }
       return Promise.resolve([{ id: 'grant-opp-001' }]).then(resolve)

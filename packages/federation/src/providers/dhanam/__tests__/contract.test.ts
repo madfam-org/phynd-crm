@@ -68,7 +68,7 @@ function validateAgainstSchema(
     if (Array.isArray(schema.type) && schema.type.includes('null')) {
       return errors
     }
-    errors.push({ path, message: `expected non-null value` })
+    errors.push({ path, message: 'expected non-null value' })
     return errors
   }
 
@@ -105,17 +105,26 @@ function validateAgainstSchema(
   // String constraints
   if (typeof value === 'string') {
     if (schema.minLength !== undefined && value.length < schema.minLength) {
-      errors.push({ path, message: `string length ${value.length} below minLength ${schema.minLength}` })
+      errors.push({
+        path,
+        message: `string length ${value.length} below minLength ${schema.minLength}`,
+      })
     }
     if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-      errors.push({ path, message: `string length ${value.length} above maxLength ${schema.maxLength}` })
+      errors.push({
+        path,
+        message: `string length ${value.length} above maxLength ${schema.maxLength}`,
+      })
     }
   }
 
   // Array validation
   if (Array.isArray(value)) {
     if (schema.maxItems !== undefined && value.length > schema.maxItems) {
-      errors.push({ path, message: `array length ${value.length} exceeds maxItems ${schema.maxItems}` })
+      errors.push({
+        path,
+        message: `array length ${value.length} exceeds maxItems ${schema.maxItems}`,
+      })
     }
     if (schema.items) {
       for (let i = 0; i < value.length; i++) {
@@ -132,7 +141,7 @@ function validateAgainstSchema(
     if (schema.required) {
       for (const key of schema.required) {
         if (!(key in obj)) {
-          errors.push({ path: `${path}.${key}`, message: `required property missing` })
+          errors.push({ path: `${path}.${key}`, message: 'required property missing' })
         }
       }
     }
@@ -144,7 +153,7 @@ function validateAgainstSchema(
         if (!allowed.has(key)) {
           errors.push({
             path: `${path}.${key}`,
-            message: `unexpected additional property`,
+            message: 'unexpected additional property',
           })
         }
       }
@@ -154,9 +163,7 @@ function validateAgainstSchema(
     if (schema.properties) {
       for (const [key, propSchema] of Object.entries(schema.properties)) {
         if (key in obj) {
-          errors.push(
-            ...validateAgainstSchema(obj[key], propSchema, `${path}.${key}`),
-          )
+          errors.push(...validateAgainstSchema(obj[key], propSchema, `${path}.${key}`))
         }
       }
     }

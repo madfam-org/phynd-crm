@@ -159,7 +159,9 @@ export class RedditBotService {
             .join('\n\n')
           return topHits
         }
-      } catch {}
+      } catch {
+        // Try next endpoint
+      }
     }
 
     return 'No specific articles found. Consult general framework.'

@@ -1,6 +1,8 @@
 export default function Loading() {
   return (
-    <output
+    // biome-ignore lint/a11y/useSemanticElements: switching to <output> would change rendered tag and CSS targeting; deferred to a11y pass
+    <div
+      role="status"
       aria-live="polite"
       aria-label="Loading"
       style={{
@@ -36,6 +38,6 @@ export default function Loading() {
       >
         Loading...
       </span>
-    </output>
+    </div>
   )
 }

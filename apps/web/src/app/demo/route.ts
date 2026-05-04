@@ -1,9 +1,9 @@
 import { DEMO_COOKIE_MAX_AGE, DEMO_COOKIE_NAME } from '@/lib/demo'
 import { seedDemoTenant } from '@/lib/demo-seed'
 import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const sessionId = crypto.randomUUID()
   const cookieStore = await cookies()
 
@@ -19,7 +19,10 @@ export async function GET() {
     // Seed failure is non-fatal — visitor sees empty pages
   })
 
-  return NextResponse.redirect(
-    new URL('/overview', process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
-  )
+  // Redirect relative to the request URL. The previous fallback to
+  // process.env.NEXTAUTH_URL ?? 'http://localhost:3000' leaked
+  // localhost:3000 into the production redirect Location header on
+  // crm.madfam.io because NEXTAUTH_URL is no longer set after the
+  // Janua migration (NextAuth env var was retired).
+  return NextResponse.redirect(new URL('/overview', request.url))
 }

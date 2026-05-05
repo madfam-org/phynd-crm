@@ -388,3 +388,14 @@ pnpm db:migrate
 pnpm db:seed
 pnpm dev
 ```
+
+## Known Issues — Audit 2026-04-23
+
+Source: ecosystem audit dated 2026-04-23 (org-internal — see `internal-devops/audits/`).
+
+- **🟡 T: `/tests` directory exists but contains zero test files** — auth/CRM endpoints untested; 5 auth-related tests appear to be skipped per sweep. Needs a test foundation sprint.
+- **🟡 UI: Federation tabs render blank 1–3s** — Unified profile tabs fetching from Janua/Dhanam/Cotiza/Pravara/Forj/Tezca have no Suspense/skeleton. Wrap in `<Suspense>` + `<SkeletonCard />` per provider.
+- **🟡 UI: Bulk delete lacks confirmation dialog** — leads/opportunities tables can trigger destructive action on misclick. Add `<ConfirmationDialog>` with affected-row count.
+- **🟡 UI: Sidebar icon NavLinks missing `aria-label`** — screen reader users can't identify menu items.
+- **🟡 i18n: Monolingual English** — ("Sign Up", "Create", "Edit", "Delete" hardcoded). Adopt next-intl for Mexico market.
+- **🟢 positive**: Drizzle `sql<T>` template tags used throughout — zero SQL-injection surface.

@@ -3,7 +3,12 @@ import { ClientProjectOnboardingService } from '../onboarding/client-project-onb
 import { createTestContext, makeContact, makeOpportunity, makeOrder, makeQuote } from './helpers'
 
 vi.mock('@phyne/db/schema', () => ({
-  contacts: { id: 'contacts.id' },
+  contacts: {
+    deletedAt: 'contacts.deletedAt',
+    email: 'contacts.email',
+    externalJanuaId: 'contacts.externalJanuaId',
+    id: 'contacts.id',
+  },
   conversions: { id: 'conversions.id' },
   engagementArtifacts: { id: 'engagementArtifacts.id' },
   engagementEvents: { id: 'engagementEvents.id' },
@@ -11,6 +16,17 @@ vi.mock('@phyne/db/schema', () => ({
   opportunities: { id: 'opportunities.id' },
   orders: { id: 'orders.id' },
   quotes: { id: 'quotes.id' },
+}))
+
+vi.mock('drizzle-orm', () => ({
+  and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
+  eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
+  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
+  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    _tag: 'sql',
+    strings,
+    values,
+  })),
 }))
 
 function makeEngagement(overrides: Record<string, unknown> = {}) {
@@ -175,6 +191,81 @@ describe('ClientProjectOnboardingService', () => {
 
     expect(result.order).toBeNull()
     expect(insertCalls.some((call) => call.values.orderNumber === 'ORD-2026-0008')).toBe(false)
+  })
+
+  it('reuses an existing contact by email and fills missing profile fields', async () => {
+    const existingContact = makeContact({
+      id: 'contact-existing',
+      email: 'client@example.com',
+      phone: null,
+      company: null,
+      ownerId: null,
+    })
+    const updatedContact = makeContact({
+      ...existingContact,
+      phone: '+52 55 1234 5678',
+      company: 'Selva Buyer',
+      ownerId: 'test-user',
+    })
+
+    ctx.mockDb._qb._result = [existingContact]
+    ctx.mockDb.update = vi.fn(() => ({
+      set: vi.fn((values: Record<string, unknown>) => {
+        insertCalls.push({ table: 'contacts:update', values })
+        return {
+          where: vi.fn(() => ({
+            returning: vi.fn(async () => [updatedContact]),
+          })),
+        }
+      }),
+    })) as unknown as typeof ctx.mockDb.update
+
+    installInsertMock([
+      makeOpportunity({ id: 'opp-001', contactId: 'contact-existing' }),
+      makeEngagement({ contactId: 'contact-existing' }),
+      makeQuote({ id: 'quote-001', contactId: 'contact-existing' }),
+    ])
+
+    const service = new ClientProjectOnboardingService(ctx)
+    const result = await service.create({
+      client: {
+        name: 'Selva Office Client',
+        email: 'CLIENT@example.com',
+        phone: '+52 55 1234 5678',
+        company: 'Selva Buyer',
+      },
+      project: {
+        name: 'Digital Experience',
+        kind: 'digital',
+        deliveryTracks: ['digital_experience'],
+      },
+      commercial: {
+        pipelineId: 'pipeline-001',
+        stageId: 'stage-001',
+        quoteNumber: 'Q-2026-0009',
+      },
+      intakeSource: 'selva_office',
+    })
+
+    expect(result.contact.id).toBe('contact-existing')
+    expect(insertCalls.some((call) => call.values.email === 'client@example.com')).toBe(false)
+    expect(insertCalls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: 'contacts:update',
+          values: expect.objectContaining({
+            phone: '+52 55 1234 5678',
+            company: 'Selva Buyer',
+            ownerId: 'test-user',
+          }),
+        }),
+        expect.objectContaining({
+          values: expect.objectContaining({
+            contactId: 'contact-existing',
+          }),
+        }),
+      ]),
+    )
   })
 
   function installInsertMock(rows: Array<Record<string, unknown>>) {

@@ -68,7 +68,13 @@ function createMockCtx(): ServiceContext & {
         }
       }),
     })),
-    select: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn(async () => []),
+        })),
+      })),
+    })),
     transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => unknown) => cb(db)),
     update: vi.fn(),
   }

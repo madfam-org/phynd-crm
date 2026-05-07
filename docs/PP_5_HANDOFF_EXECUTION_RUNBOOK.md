@@ -82,6 +82,8 @@ https://staging-crm.madfam.io/engagements
 3. Verify for each engagement:
 
 - Contact exists.
+- Reusing the same synthetic client email does not create a duplicate contact;
+  the active contact is reused and missing profile fields are filled.
 - Opportunity is in the selected pipeline/stage.
 - Engagement detail page opens.
 - Quote artifact appears in the engagement artifact list.

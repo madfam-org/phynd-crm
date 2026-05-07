@@ -35,6 +35,9 @@ Repo-owned PP.5 guardrails are now in place:
   mutation, and CRM dialog for creating a contact, opportunity, engagement,
   quote, optional production order, quote artifact, conversion, and timeline
   events in one flow.
+- Client/project onboarding now reuses existing active contacts by external
+  Janua ID or case-insensitive normalized email and fills missing profile
+  fields instead of creating duplicate client records.
 
 Cluster-side progress:
 
@@ -78,7 +81,7 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Invokes Playwright install and E2E execution through the `@phyne/web` workspace so CI finds the package-local binary and avoids production-build auth-bypass conflicts. |
 | [`apps/web/e2e`](../apps/web/e2e) | Updated stale browser assertions for CI auth bypass, seeded pipeline data, accessible selectors, and current dashboard UI. |
 | [`apps/web/package.json`](../apps/web/package.json) | Declared `pino` for Next standalone/server externalization through `serverExternalPackages`. |
-| [`packages/services/src/onboarding/client-project-onboarding.service.ts`](../packages/services/src/onboarding/client-project-onboarding.service.ts) | Added transactional onboarding orchestration for contact, opportunity, engagement, quote, optional order, artifacts, conversion, and timeline events. |
+| [`packages/services/src/onboarding/client-project-onboarding.service.ts`](../packages/services/src/onboarding/client-project-onboarding.service.ts) | Added transactional onboarding orchestration for contact, opportunity, engagement, quote, optional order, artifacts, conversion, and timeline events; existing active contacts are reused by Janua ID or case-insensitive normalized email. |
 | [`packages/api/src/routers/engagements.ts`](../packages/api/src/routers/engagements.ts) | Added `engagements.onboardClientProject` protected mutation. |
 | [`apps/web/src/components/engagements/create-client-project-dialog.tsx`](../apps/web/src/components/engagements/create-client-project-dialog.tsx) | Added the CRM dashboard dialog for client/project onboarding. |
 | [`apps/web/src/components/engagements/engagements-data-table.tsx`](../apps/web/src/components/engagements/engagements-data-table.tsx) | Added the onboarding action to the Engagements page toolbar. |

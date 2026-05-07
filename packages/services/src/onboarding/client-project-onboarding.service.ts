@@ -8,6 +8,7 @@ import {
   orders,
   quotes,
 } from '@phyne/db/schema'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError } from '../errors'
 
@@ -69,7 +70,7 @@ export class ClientProjectOnboardingService {
     const prepared = prepareInput(input, this.ctx.auth.userId)
 
     return this.ctx.db.transaction(async (tx) => {
-      const contact = await createContact(tx, input, prepared.ownerId)
+      const contact = await resolveContact(tx, input, prepared.ownerId)
       const opportunity = await createOpportunity(tx, input, prepared, contact.id)
       await recordIntakeConversion(tx, input, prepared, contact.id, opportunity.id)
 
@@ -131,6 +132,68 @@ function prepareInput(input: ClientProjectOnboardingInput, fallbackOwnerId?: str
   } satisfies PreparedOnboardingInput
 }
 
+async function resolveContact(
+  tx: OnboardingTx,
+  input: ClientProjectOnboardingInput,
+  ownerId: string | undefined,
+) {
+  const existing = await findExistingContact(tx, input.client)
+  if (!existing) return createContact(tx, input, ownerId)
+
+  const patch = buildContactEnrichment(existing, input.client, ownerId)
+  if (!patch) return existing
+
+  const [updated] = await tx
+    .update(contacts)
+    .set(patch)
+    .where(eq(contacts.id, existing.id))
+    .returning()
+  return updated ?? existing
+}
+
+async function findExistingContact(
+  tx: OnboardingTx,
+  client: ClientProjectOnboardingInput['client'],
+) {
+  if (client.externalJanuaId) {
+    const [contact] = await tx
+      .select()
+      .from(contacts)
+      .where(and(eq(contacts.externalJanuaId, client.externalJanuaId), isNull(contacts.deletedAt)))
+      .limit(1)
+    if (contact) return contact
+  }
+
+  const normalizedEmail = normalizeEmail(client.email)
+  if (normalizedEmail) {
+    const [contact] = await tx
+      .select()
+      .from(contacts)
+      .where(and(sql`lower(${contacts.email}) = ${normalizedEmail}`, isNull(contacts.deletedAt)))
+      .limit(1)
+    if (contact) return contact
+  }
+
+  return null
+}
+
+function buildContactEnrichment(
+  contact: typeof contacts.$inferSelect,
+  client: ClientProjectOnboardingInput['client'],
+  ownerId: string | undefined,
+) {
+  const patch: Partial<typeof contacts.$inferInsert> = {}
+  const normalizedEmail = normalizeEmail(client.email)
+  if (!contact.email && normalizedEmail) patch.email = normalizedEmail
+  if (!contact.phone && client.phone) patch.phone = client.phone
+  if (!contact.company && client.company) patch.company = client.company
+  if (!contact.externalJanuaId && client.externalJanuaId) {
+    patch.externalJanuaId = client.externalJanuaId
+  }
+  if (!contact.ownerId && ownerId) patch.ownerId = ownerId
+  return Object.keys(patch).length > 0 ? patch : null
+}
+
 async function createContact(
   tx: OnboardingTx,
   input: ClientProjectOnboardingInput,
@@ -140,7 +203,7 @@ async function createContact(
     .insert(contacts)
     .values({
       name: input.client.name,
-      email: input.client.email,
+      email: normalizeEmail(input.client.email),
       phone: input.client.phone,
       company: input.client.company,
       externalJanuaId: input.client.externalJanuaId,
@@ -149,6 +212,11 @@ async function createContact(
     .returning()
   if (!contact) throw new ConflictError('Failed to create onboarding contact')
   return contact
+}
+
+function normalizeEmail(email: string | undefined) {
+  const normalized = email?.trim().toLowerCase()
+  return normalized || undefined
 }
 
 async function createOpportunity(

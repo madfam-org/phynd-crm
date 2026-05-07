@@ -9,7 +9,7 @@ project into PhyneCRM as a quote-ready engagement.
 
 PhyneCRM can now create a linked onboarding skeleton in one protected action:
 
-- `contact`
+- `contact`, created or reused from an existing active client profile
 - `opportunity`
 - `engagement`
 - `quote`
@@ -66,6 +66,14 @@ The onboarding mutation writes all records inside one database transaction.
 | Engagement artifact | Quote link with `type=quote`, `entityType=quote`. |
 | Order | Optional production order, default status `pending`. |
 | Engagement events | `system:intake_created` and, when an order is created, `system:production_order_created`. |
+
+## Contact Resolution
+
+The onboarding service avoids duplicate client records before creating the rest
+of the project chain. It first looks for an active contact by `externalJanuaId`,
+then by case-insensitive normalized email. When it finds an existing contact,
+it reuses that contact and only fills missing profile fields such as email,
+phone, company, external Janua ID, or owner.
 
 ## Input Contract
 

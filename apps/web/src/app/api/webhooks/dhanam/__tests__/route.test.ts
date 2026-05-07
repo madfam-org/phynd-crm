@@ -354,6 +354,7 @@ vi.mock('@phyne/db/schema', () => ({
     entityId: 'externalReferences.entityId',
     entityType: 'externalReferences.entityType',
     externalId: 'externalReferences.externalId',
+    externalType: 'externalReferences.externalType',
     id: 'externalReferences.id',
     provider: 'externalReferences.provider',
   }),
@@ -931,6 +932,75 @@ describe('POST /api/webhooks/dhanam — Janua-shape envelope (flat data.*)', () 
 })
 
 describe('POST /api/webhooks/dhanam — non-paid event types', () => {
+  it('applies a refund lifecycle event to the matched order without promoting the lead', async () => {
+    state.contactByEmail.set('tablaco@example.com', 'contact_tablaco')
+    state.leadByContactId.set('contact_tablaco', {
+      id: 'lead_tablaco',
+      pipelineId: 'pipe_default',
+    })
+    state.stagesByPipelineId.set('pipe_default', [{ id: 'stage_won', name: 'Closed Won' }])
+    state.engagementByContactId.set('contact_tablaco', 'eng_tablaco')
+    state.engagementById.set('eng_tablaco', {
+      id: 'eng_tablaco',
+      contactId: 'contact_tablaco',
+      opportunityId: 'opp_tablaco',
+    })
+    const order = orderRow({
+      paidAmount: '199.00',
+      paymentStatus: 'paid',
+      status: 'confirmed',
+    })
+    state.ordersByQuoteId.set('quote_tablaco', [order])
+    state.ordersByContactId.set('contact_tablaco', [order])
+    state.ordersByOpportunityId.set('opp_tablaco', [order])
+
+    const event = {
+      id: 'evt_refund_1',
+      type: 'payment.refunded',
+      data: {
+        amount_minor: 5000,
+        currency: 'MXN',
+        customer_email: 'tablaco@example.com',
+        payment_id: 're_001',
+        quote_id: 'quote_tablaco',
+      },
+    }
+
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as {
+      payment_reconciliation_status: string
+      order_id: string
+      quote_id: string
+    }
+    expect(json.payment_reconciliation_status).toBe('lifecycle_adjusted')
+    expect(json.order_id).toBe('order_tablaco')
+    expect(json.quote_id).toBe('quote_tablaco')
+
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(state.updates.leads).toHaveLength(0)
+    expect(state.updates.orders[0]).toMatchObject({
+      id: 'order_tablaco',
+      values: expect.objectContaining({
+        externalPaymentId: 're_001',
+        paidAmount: '149.00',
+        paymentProvider: 'dhanam',
+        paymentStatus: 'partial_refund',
+      }),
+    })
+
+    const lifecycle = state.inserts.engagementEvents.find(
+      (event) => event.eventType === 'system:payment_refunded',
+    )
+    expect(lifecycle).toMatchObject({
+      engagementId: 'eng_tablaco',
+      source: 'system',
+      status: 'blocked',
+      dedupKey: 'payment:evt_refund_1:refunded',
+    })
+  })
+
   it('records the conversion but does NOT promote the lead on customer.subscription.updated', async () => {
     state.contactByJanuaId.set('janua_tablaco_001', 'contact_tablaco')
     state.leadByContactId.set('contact_tablaco', {

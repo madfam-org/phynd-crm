@@ -124,13 +124,27 @@ https://staging-crm.madfam.io/engagements
 - If the payment cannot be matched, `system:payment_unmatched` appears with
   `blocked` status for operator recovery.
 
-10. Attach evidence to the PP.5 signoff packet:
+10. Send one staging-only Dhanam refund or failure lifecycle webhook for the
+    same quote/order.
+
+11. Verify:
+
+- Order `paymentStatus` changes to the expected lifecycle state, such as
+  `partial_refund`, `refunded`, `failed`, `disputed`, or `cancelled`.
+- Refund events reduce `paidAmount` when a refund amount is present.
+- A Dhanam lifecycle `external_references` row exists for the order.
+- The matching `system:payment_<state>` timeline event appears.
+- If the lifecycle event cannot be matched, `system:payment_<state>_unmatched`
+  appears with `blocked` status for operator recovery.
+
+12. Attach evidence to the PP.5 signoff packet:
 
 - Engagement IDs.
 - Quote IDs.
 - Order IDs where applicable.
 - Dhanam staging checkout session IDs.
 - Dhanam staging event IDs.
+- Dhanam staging lifecycle event IDs.
 - Screenshot or exported row evidence from staging only.
 
 Required outcome:

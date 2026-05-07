@@ -41,6 +41,11 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:checkout_created` — PhyneCRM created or exposed a Dhanam checkout session for a quote
 - `system:payment_reconciled` — Dhanam payment was matched to an order and the order payment state was updated
 - `system:payment_unmatched` — Dhanam payment was received for a known engagement, but no active order could be matched
+- `system:payment_failed` — Dhanam reported a failed payment attempt for a matched order
+- `system:payment_refunded` — Dhanam reported a refund for a matched order
+- `system:payment_disputed` — Dhanam reported a dispute or chargeback for a matched order
+- `system:payment_cancelled` — Dhanam reported payment cancellation for a matched order
+- `system:payment_<state>_unmatched` — Dhanam reported a lifecycle change for a known engagement, but no active order could be matched
 
 ## `status` field semantics
 

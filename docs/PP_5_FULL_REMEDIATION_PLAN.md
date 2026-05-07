@@ -36,6 +36,9 @@ Repo-owned PP.5 work is ready:
 - Dhanam paid webhooks now reconcile matched payments onto CRM orders, update
   order payment state, write Dhanam payment external references, and emit
   `system:payment_reconciled` or `system:payment_unmatched` timeline events.
+- Dhanam failed/refunded/disputed/cancelled webhooks now reconcile lifecycle
+  changes onto matched CRM orders, write lifecycle external references, update
+  order payment state, and emit operator-recoverable timeline events.
 - CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
   variables, including `DATABASE_URL`, are available inside Turbo tasks.
 - The worker package declares the Sentry runtime dependency used by its entry

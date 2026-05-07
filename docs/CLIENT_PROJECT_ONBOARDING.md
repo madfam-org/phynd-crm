@@ -204,6 +204,21 @@ When payment is received for a known engagement but no order can be matched,
 PhyneCRM writes `system:payment_unmatched` with `blocked` status so an operator
 can recover the lifecycle without database access.
 
+Dhanam failed, refunded, disputed, and cancelled events now use the same order
+matching chain. Matched lifecycle events:
+
+- set order `paymentStatus` to `failed`, `refunded`, `partial_refund`,
+  `disputed`, or `cancelled`
+- reduce `paidAmount` for refund events when Dhanam sends a refund amount
+- cancel still-pending or confirmed orders when the payment is cancelled
+- write a Dhanam lifecycle external reference on the order
+- write `system:payment_failed`, `system:payment_refunded`,
+  `system:payment_disputed`, or `system:payment_cancelled` timeline events
+
+When a lifecycle event is known to the engagement but cannot be matched to an
+order, PhyneCRM writes `system:payment_<state>_unmatched` with `blocked`
+status for operator recovery.
+
 ## Current Limits
 
 This is a quote-to-production flow with CRM-owned quote acceptance, not the full
@@ -212,7 +227,6 @@ autonomous lifecycle yet.
 Still required for 100% production flow:
 
 - Cotiza-originated quote approval webhook automation beyond the CRM action.
-- Full refund/dispute/payment reversal handling.
 - Pravara/Selva execution dispatch from the accepted order.
 - Client portal approval affordances beyond quote acceptance/payment, including
   delivery review and final signoff.

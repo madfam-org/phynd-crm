@@ -50,8 +50,12 @@ const paymentStatusVariant: Record<
   string,
   'default' | 'success' | 'destructive' | 'secondary' | 'warning'
 > = {
+  cancelled: 'destructive',
+  disputed: 'destructive',
+  failed: 'destructive',
   paid: 'success',
   partial: 'warning',
+  partial_refund: 'warning',
   refunded: 'destructive',
   unpaid: 'secondary',
 }

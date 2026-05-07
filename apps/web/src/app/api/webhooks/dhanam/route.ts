@@ -15,9 +15,16 @@ import {
 } from '@phyne/db/schema'
 import { CacheInvalidator, validateWebhookSignature } from '@phyne/federation'
 import { createLogger } from '@phyne/logging'
-import { reconcileDhanamPayment } from '@phyne/services/payments/payment-reconciliation'
+import { reconcileDhanamPaymentLifecycle } from '@phyne/services/payments/payment-reconciliation'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+import {
+  STRIPE_PAID_EVENT_TYPES,
+  buildEngagementMessage,
+  classifyPaymentLifecycle,
+  conversionValue,
+  engagementEventStatus,
+} from './payment-lifecycle'
 
 const logger = createLogger('web:webhook:dhanam')
 
@@ -71,9 +78,8 @@ const logger = createLogger('web:webhook:dhanam')
  *   - subscription tier upgrades (`customer.subscription.updated` with a
  *     plan change) — recorded as a generic conversion but the lead-stage
  *     promotion logic only fires for paid/created events.
- *   - refund / chargeback events — not handled here; the Stripe MX relay
- *     in dhanam already emits `payment.refunded` envelopes but the lead
- *     reversal logic is intentionally out of scope for this PR.
+ *   - refund / chargeback events — order payment state is reconciled, but
+ *     lead/referral reversals remain operator-reviewed.
  *   - multi-lead contacts — only the most recent active lead is promoted.
  */
 
@@ -115,14 +121,6 @@ interface NormalizedEvent {
   // The full original payload — written verbatim into webhook_events.
   raw: Record<string, unknown>
 }
-
-const STRIPE_PAID_EVENT_TYPES = new Set([
-  'checkout.session.completed',
-  'customer.subscription.created',
-  'invoice.payment_succeeded',
-  'payment.succeeded',
-  'subscription.created',
-])
 
 export async function POST(req: Request): Promise<NextResponse> {
   const secret = process.env.DHANAM_WEBHOOK_SECRET
@@ -363,6 +361,7 @@ function pickAmountMinor(
     stripeObject.amount_total,
     stripeObject.amount_paid,
     stripeObject.amount_due,
+    stripeObject.amount,
     dhanamData.amount_minor,
   ]
   for (const c of candidates) {
@@ -509,7 +508,7 @@ async function recordConversion(
       type: mapEventTypeToConversionType(event.eventType),
       contactId,
       leadId: leadInfo?.leadId ?? null,
-      value: event.amountMinor != null ? (event.amountMinor / 100).toFixed(2) : null,
+      value: conversionValue(event),
       metadata: buildConversionMetadata(event, webhookEventId),
     })
     .returning({ id: conversions.id })
@@ -548,6 +547,7 @@ async function maybeMarkReferralConverted(
   leadInfo: LeadStageInfo | null,
   conversionId: string | undefined,
 ) {
+  if (!STRIPE_PAID_EVENT_TYPES.has(event.eventType)) return null
   if (!event.referralCode) return null
   return markReferralConverted(
     tx,
@@ -576,8 +576,9 @@ async function maybeReconcilePayment(
   contactId: string,
   engagementId: string | null,
 ) {
-  if (!STRIPE_PAID_EVENT_TYPES.has(event.eventType)) return null
-  return reconcileDhanamPayment(tx, {
+  const lifecycle = classifyPaymentLifecycle(event.eventType)
+  if (!lifecycle) return null
+  return reconcileDhanamPaymentLifecycle(tx, {
     amountMinor: event.amountMinor,
     contactId,
     currency: event.currency,
@@ -585,6 +586,7 @@ async function maybeReconcilePayment(
     eventId: event.eventId,
     eventType: event.eventType,
     externalPaymentId: event.paymentId ?? event.invoiceId ?? event.eventId,
+    lifecycle,
     orderId: event.orderId,
     quoteId: event.quoteId,
   })
@@ -730,7 +732,7 @@ async function maybeRecordEngagementEvent(
     engagementId: eng.id,
     source: 'dhanam',
     eventType: portalEventType,
-    status: STRIPE_PAID_EVENT_TYPES.has(event.eventType) ? 'milestone' : null,
+    status: engagementEventStatus(event.eventType),
     message: buildEngagementMessage(event),
     metadata: {
       event_id: event.eventId,
@@ -754,17 +756,6 @@ async function maybeRecordEngagementEvent(
   })
 
   return eng.id
-}
-
-function buildEngagementMessage(event: NormalizedEvent): string {
-  if (STRIPE_PAID_EVENT_TYPES.has(event.eventType)) {
-    if (event.amountMinor != null && event.currency) {
-      const major = (event.amountMinor / 100).toFixed(2)
-      return `Payment received: ${event.currency} ${major}`
-    }
-    return 'Payment received'
-  }
-  return `Billing event: ${event.eventType}`
 }
 
 function mapEventTypeToConversionType(eventType: string): string {

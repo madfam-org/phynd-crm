@@ -18,13 +18,19 @@ export interface DhanamPaymentReconciliationInput {
   quoteId?: string | null
 }
 
+export type DhanamPaymentLifecycle = 'paid' | 'failed' | 'refunded' | 'disputed' | 'cancelled'
+
+export interface DhanamPaymentLifecycleInput extends DhanamPaymentReconciliationInput {
+  lifecycle: DhanamPaymentLifecycle
+}
+
 export interface PaymentReconciliationResult {
   engagementId: string | null
   orderId: string | null
   paidAmount: string | null
   paymentStatus: string | null
   quoteId: string | null
-  status: 'ignored' | 'reconciled' | 'unmatched'
+  status: 'ignored' | 'lifecycle_adjusted' | 'reconciled' | 'unmatched'
 }
 
 export async function reconcileDhanamPayment(
@@ -49,7 +55,12 @@ export async function reconcileDhanamPayment(
   const paymentStatus = calculatePaymentStatus(order, paidAmount)
   const occurredAt = input.occurredAt ?? new Date()
   const externalPaymentId = input.externalPaymentId ?? input.eventId
-  const alreadyReconciled = await hasExistingPaymentReference(tx, order.id, externalPaymentId)
+  const alreadyReconciled = await hasExistingOrderReference(
+    tx,
+    order.id,
+    externalPaymentId,
+    'payment',
+  )
   if (alreadyReconciled) {
     return {
       engagementId,
@@ -102,10 +113,79 @@ export async function reconcileDhanamPayment(
   }
 }
 
-async function hasExistingPaymentReference(
+export async function reconcileDhanamPaymentLifecycle(
+  tx: PaymentTx,
+  input: DhanamPaymentLifecycleInput,
+): Promise<PaymentReconciliationResult> {
+  if (input.lifecycle === 'paid') return reconcileDhanamPayment(tx, input)
+
+  const order = await resolveOrder(tx, input)
+  const engagementId = input.engagementId ?? (await findEngagementId(tx, input, order))
+
+  if (!order) {
+    if (engagementId) {
+      await recordUnmatchedLifecycleEvent(tx, engagementId, input)
+    }
+    return { ...emptyResult('unmatched'), engagementId }
+  }
+
+  const externalPaymentId = input.externalPaymentId ?? input.eventId
+  const externalType = `payment_${input.lifecycle}`
+  const alreadyAdjusted = await hasExistingOrderReference(
+    tx,
+    order.id,
+    externalPaymentId,
+    externalType,
+  )
+  if (alreadyAdjusted) {
+    return {
+      engagementId,
+      orderId: order.id,
+      paidAmount: order.paidAmount,
+      paymentStatus: order.paymentStatus,
+      quoteId: order.quoteId ?? input.quoteId ?? null,
+      status: 'lifecycle_adjusted',
+    }
+  }
+
+  const patch = buildLifecycleOrderPatch(order, input)
+  await tx.update(orders).set(patch).where(eq(orders.id, order.id))
+
+  await tx.insert(externalReferences).values({
+    entityType: 'order',
+    entityId: order.id,
+    provider: 'dhanam',
+    externalId: externalPaymentId,
+    externalType,
+    metadata: {
+      amount_minor: input.amountMinor,
+      currency: input.currency,
+      event_id: input.eventId,
+      event_type: input.eventType,
+      lifecycle: input.lifecycle,
+      quote_id: order.quoteId ?? input.quoteId ?? null,
+    },
+  })
+
+  if (engagementId) {
+    await recordLifecycleEvent(tx, engagementId, order, input, patch)
+  }
+
+  return {
+    engagementId,
+    orderId: order.id,
+    paidAmount: patch.paidAmount ?? order.paidAmount,
+    paymentStatus: patch.paymentStatus ?? order.paymentStatus,
+    quoteId: order.quoteId ?? input.quoteId ?? null,
+    status: 'lifecycle_adjusted',
+  }
+}
+
+async function hasExistingOrderReference(
   tx: PaymentTx,
   orderId: string,
   externalPaymentId: string,
+  externalType: string,
 ) {
   const [existing] = await tx
     .select({ id: externalReferences.id })
@@ -116,6 +196,7 @@ async function hasExistingPaymentReference(
         eq(externalReferences.entityId, orderId),
         eq(externalReferences.provider, 'dhanam'),
         eq(externalReferences.externalId, externalPaymentId),
+        eq(externalReferences.externalType, externalType),
       ),
     )
     .limit(1)
@@ -284,6 +365,118 @@ async function recordUnmatchedPaymentEvent(
     },
     dedupKey: `payment:${input.eventId}:unmatched`,
   })
+}
+
+async function recordUnmatchedLifecycleEvent(
+  tx: PaymentTx,
+  engagementId: string,
+  input: DhanamPaymentLifecycleInput,
+) {
+  await tx.insert(engagementEvents).values({
+    engagementId,
+    source: 'system',
+    eventType: `system:payment_${input.lifecycle}_unmatched`,
+    status: 'blocked',
+    message: `Payment ${input.lifecycle} event received but no matching order was found`,
+    metadata: {
+      amount_minor: input.amountMinor,
+      currency: input.currency,
+      event_id: input.eventId,
+      event_type: input.eventType,
+      external_payment_id: input.externalPaymentId ?? input.eventId,
+      lifecycle: input.lifecycle,
+      requested_order_id: input.orderId ?? null,
+      requested_quote_id: input.quoteId ?? null,
+    },
+    dedupKey: `payment:${input.eventId}:${input.lifecycle}:unmatched`,
+  })
+}
+
+function buildLifecycleOrderPatch(order: OrderRow, input: DhanamPaymentLifecycleInput) {
+  const patch: Partial<typeof orders.$inferInsert> = {
+    externalPaymentId: input.externalPaymentId ?? input.eventId,
+    paymentProvider: 'dhanam',
+  }
+
+  if (input.lifecycle === 'failed') {
+    patch.paymentStatus = order.paymentStatus === 'paid' ? order.paymentStatus : 'failed'
+    return patch
+  }
+
+  if (input.lifecycle === 'disputed') {
+    patch.paymentStatus = 'disputed'
+    return patch
+  }
+
+  if (input.lifecycle === 'cancelled') {
+    patch.paymentStatus = 'cancelled'
+    if (order.status === 'pending' || order.status === 'confirmed') {
+      patch.status = 'cancelled'
+    }
+    return patch
+  }
+
+  const paidMinor = majorToMinor(order.paidAmount) ?? 0
+  const refundMinor = input.amountMinor ?? paidMinor
+  const nextPaidMinor = Math.max(paidMinor - refundMinor, 0)
+  patch.paidAmount = (nextPaidMinor / 100).toFixed(2)
+  patch.paymentStatus = nextPaidMinor > 0 ? 'partial_refund' : 'refunded'
+  return patch
+}
+
+async function recordLifecycleEvent(
+  tx: PaymentTx,
+  engagementId: string,
+  order: OrderRow,
+  input: DhanamPaymentLifecycleInput,
+  patch: Partial<typeof orders.$inferInsert>,
+) {
+  const event = lifecycleEventCopy(order, input)
+  await tx.insert(engagementEvents).values({
+    engagementId,
+    source: 'system',
+    eventType: `system:payment_${input.lifecycle}`,
+    status: event.status,
+    message: event.message,
+    metadata: {
+      amount_minor: input.amountMinor,
+      currency: input.currency,
+      event_id: input.eventId,
+      event_type: input.eventType,
+      external_payment_id: input.externalPaymentId ?? input.eventId,
+      lifecycle: input.lifecycle,
+      order_id: order.id,
+      paid_amount: patch.paidAmount ?? order.paidAmount,
+      payment_status: patch.paymentStatus ?? order.paymentStatus,
+      quote_id: order.quoteId ?? input.quoteId ?? null,
+    },
+    dedupKey: `payment:${input.eventId}:${input.lifecycle}`,
+  })
+}
+
+function lifecycleEventCopy(order: OrderRow, input: DhanamPaymentLifecycleInput) {
+  if (input.lifecycle === 'failed') {
+    return {
+      status: 'failed',
+      message: `Payment failed for order ${order.orderNumber}`,
+    }
+  }
+  if (input.lifecycle === 'refunded') {
+    return {
+      status: 'blocked',
+      message: `Payment refunded for order ${order.orderNumber}`,
+    }
+  }
+  if (input.lifecycle === 'disputed') {
+    return {
+      status: 'blocked',
+      message: `Payment disputed for order ${order.orderNumber}`,
+    }
+  }
+  return {
+    status: 'failed',
+    message: `Payment cancelled for order ${order.orderNumber}`,
+  }
 }
 
 function calculatePaidAmount(order: OrderRow, amountMinor: number) {

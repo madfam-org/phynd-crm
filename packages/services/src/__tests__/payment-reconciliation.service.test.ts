@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { reconcileDhanamPayment } from '../payments/payment-reconciliation.service'
+import {
+  reconcileDhanamPayment,
+  reconcileDhanamPaymentLifecycle,
+} from '../payments/payment-reconciliation.service'
 import { type MockDatabase, createTestContext, makeOrder } from './helpers'
 
 vi.mock('drizzle-orm', () => ({
@@ -22,6 +25,7 @@ vi.mock('@phyne/db/schema', () => ({
     entityId: 'externalReferences.entityId',
     entityType: 'externalReferences.entityType',
     externalId: 'externalReferences.externalId',
+    externalType: 'externalReferences.externalType',
     id: 'externalReferences.id',
     provider: 'externalReferences.provider',
   },
@@ -200,6 +204,117 @@ describe('reconcileDhanamPayment', () => {
       quoteId: 'quote-001',
       status: 'reconciled',
     })
+    expect(mockDb._qb.set).not.toHaveBeenCalled()
+    expect(mockDb._qb.values).not.toHaveBeenCalled()
+  })
+
+  it('marks a matching order failed without promoting it as paid', async () => {
+    const order = makeOrder({
+      id: 'order-001',
+      contactId: 'contact-001',
+      opportunityId: 'opp-001',
+      quoteId: 'quote-001',
+      status: 'confirmed',
+      paymentStatus: 'unpaid',
+    })
+
+    installAwaitSequence([[order], [{ id: 'eng-001' }], [], [], []])
+
+    const result = await reconcileDhanamPaymentLifecycle(mockDb as never, {
+      amountMinor: null,
+      contactId: 'contact-001',
+      currency: 'MXN',
+      eventId: 'evt-payment-failed',
+      eventType: 'invoice.payment_failed',
+      externalPaymentId: 'pi-failed',
+      lifecycle: 'failed',
+      orderId: 'order-001',
+    })
+
+    expect(result).toEqual({
+      engagementId: 'eng-001',
+      orderId: 'order-001',
+      paidAmount: null,
+      paymentStatus: 'failed',
+      quoteId: 'quote-001',
+      status: 'lifecycle_adjusted',
+    })
+    expect(mockDb._qb.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalPaymentId: 'pi-failed',
+        paymentProvider: 'dhanam',
+        paymentStatus: 'failed',
+      }),
+    )
+    expect(mockDb._qb.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engagementId: 'eng-001',
+        source: 'system',
+        eventType: 'system:payment_failed',
+        status: 'failed',
+        dedupKey: 'payment:evt-payment-failed:failed',
+      }),
+    )
+  })
+
+  it('records a partial refund and reduces the paid amount', async () => {
+    const order = makeOrder({
+      id: 'order-001',
+      contactId: 'contact-001',
+      opportunityId: 'opp-001',
+      quoteId: 'quote-001',
+      paidAmount: '500.00',
+      paymentStatus: 'paid',
+      totalAmount: '500.00',
+    })
+
+    installAwaitSequence([[order], [{ id: 'eng-001' }], [], [], []])
+
+    const result = await reconcileDhanamPaymentLifecycle(mockDb as never, {
+      amountMinor: 12_500,
+      contactId: 'contact-001',
+      currency: 'USD',
+      eventId: 'evt-refund-001',
+      eventType: 'payment.refunded',
+      externalPaymentId: 're_001',
+      lifecycle: 'refunded',
+      quoteId: 'quote-001',
+    })
+
+    expect(result.paymentStatus).toBe('partial_refund')
+    expect(result.paidAmount).toBe('375.00')
+    expect(mockDb._qb.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paidAmount: '375.00',
+        paymentProvider: 'dhanam',
+        paymentStatus: 'partial_refund',
+      }),
+    )
+  })
+
+  it('does not reapply a lifecycle event when its provider reference already exists', async () => {
+    const order = makeOrder({
+      id: 'order-001',
+      contactId: 'contact-001',
+      opportunityId: 'opp-001',
+      paidAmount: '0.00',
+      paymentStatus: 'refunded',
+    })
+
+    installAwaitSequence([[order], [{ id: 'eng-001' }], [{ id: 'ref-existing' }]])
+
+    const result = await reconcileDhanamPaymentLifecycle(mockDb as never, {
+      amountMinor: 50_000,
+      contactId: 'contact-001',
+      currency: 'USD',
+      eventId: 'evt-refund-duplicate',
+      eventType: 'payment.refunded',
+      externalPaymentId: 're-existing',
+      lifecycle: 'refunded',
+    })
+
+    expect(result.status).toBe('lifecycle_adjusted')
+    expect(result.paymentStatus).toBe('refunded')
     expect(mockDb._qb.set).not.toHaveBeenCalled()
     expect(mockDb._qb.values).not.toHaveBeenCalled()
   })

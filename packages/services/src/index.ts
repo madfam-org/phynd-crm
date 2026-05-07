@@ -40,9 +40,12 @@ export {
   type DhanamCheckoutResult,
 } from './payments/dhanam-checkout.service'
 export {
+  type DhanamPaymentLifecycle,
+  type DhanamPaymentLifecycleInput,
   type DhanamPaymentReconciliationInput,
   type PaymentReconciliationResult,
   reconcileDhanamPayment,
+  reconcileDhanamPaymentLifecycle,
 } from './payments/payment-reconciliation.service'
 export { PipelinesService } from './pipelines/pipelines.service'
 export {

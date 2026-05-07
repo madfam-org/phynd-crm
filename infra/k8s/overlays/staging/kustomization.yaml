@@ -16,7 +16,7 @@ images:
 - digest: sha256:123c1350e51148cf4c5ed89fe8d26c5f2517fc12d91ae11f018520c12035941a
   name: ghcr.io/madfam-org/phyne-crm/web
   newName: ghcr.io/madfam-org/phyne-crm/web
-- digest: sha256:b0ba82b2adda40e5ed854338323ac9c741ce2b08b52acf72b0f0b2d3d5a171c7
+- digest: sha256:b7ff4e8616a0902984d0ea46eb431b9e35e7940888b92863189e873fc320951e
   name: ghcr.io/madfam-org/phyne-crm/worker
   newName: ghcr.io/madfam-org/phyne-crm/worker
 

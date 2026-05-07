@@ -54,6 +54,7 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md) | Wave 0-3 execution runbook with concrete commands. |
 | [`scripts/pp5-staging-audit.mjs`](../scripts/pp5-staging-audit.mjs) | Validates staging secret template coverage for split-sensitive env keys and observed webhook/event secrets. |
 | [`scripts/pp5-generate-staging-env.mjs`](../scripts/pp5-generate-staging-env.mjs) | Generates a staging env file scaffold with random split-sensitive secrets and `REPLACE_ME_*` operator values. |
+| [`scripts/pp5-validate-staging-env.mjs`](../scripts/pp5-validate-staging-env.mjs) | Rejects unresolved or unsafe staging env files before they are applied as Kubernetes secrets. |
 | [`scripts/pp5-webhook-probe.mjs`](../scripts/pp5-webhook-probe.mjs) | Generates signed `curl` probes or sends signed staging webhook probes for all active inbound lanes. |
 | [`scripts/pp5-wave0-check.mjs`](../scripts/pp5-wave0-check.mjs) | Consolidated Wave 0 readiness check for secret coverage, namespace, secret, ArgoCD app, and staging health. |
 
@@ -128,6 +129,7 @@ pnpm --filter @phyne/worker typecheck
 pnpm --filter @phyne/worker build
 node --check scripts/pp5-generate-staging-env.mjs
 node --check scripts/pp5-staging-audit.mjs
+node --check scripts/pp5-validate-staging-env.mjs
 node --check scripts/pp5-wave0-check.mjs
 node --check scripts/pp5-webhook-probe.mjs
 node scripts/pp5-staging-audit.mjs
@@ -216,6 +218,8 @@ Critical operator-owned values:
 3. Install the staging secret:
 
 ```bash
+node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
+
 kubectl -n phyne-crm-staging create secret generic phyne-crm-staging-secrets \
   --from-env-file=/secure/path/phyne-crm-staging.env \
   --dry-run=client -o yaml | kubectl apply -f -

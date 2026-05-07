@@ -12,6 +12,7 @@ Run these before provider teams send synthetic events.
 ```bash
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-generate-staging-env.mjs --output /secure/path/phyne-crm-staging.env
+node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
 node scripts/pp5-wave0-check.mjs
 curl -fsS https://staging-crm.madfam.io/api/health
 kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets
@@ -20,7 +21,7 @@ kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets
 Required outcome:
 
 - The audit script passes.
-- Generated env values have every `REPLACE_ME_*` value replaced by the secrets owner.
+- Generated env values have every `REPLACE_ME_*` value replaced by the secrets owner, and the validator passes before any Kubernetes secret apply.
 - `staging-crm.madfam.io` resolves to the staging PhyneCRM web service.
 - `phyne-crm-staging-secrets` exists and contains staging-only values.
 - ArgoCD app `phyne-crm-staging` is synced and healthy.
@@ -29,6 +30,7 @@ Observed from this workspace on 2026-05-07:
 
 - `node scripts/pp5-staging-audit.mjs`: passed.
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
+- `node scripts/pp5-validate-staging-env.mjs /private/tmp/phyne-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
 - `node scripts/pp5-wave0-check.mjs`: reports 3 blockers: staging secret, ArgoCD app, DNS/HTTP health.
 - `curl -fsS https://staging-crm.madfam.io/api/health`: failed; DNS does not resolve `staging-crm.madfam.io`.
 - `kubectl get ns phyne-crm-staging`: passed after namespace creation.

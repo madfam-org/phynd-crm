@@ -20,6 +20,7 @@ Repo-owned PP.5 work is ready:
 - Manual promote and rollback workflows exist.
 - Staging secret coverage guard exists: `node scripts/pp5-staging-audit.mjs`.
 - Staging env generator exists: `node scripts/pp5-generate-staging-env.mjs`.
+- Staging env validator exists: `node scripts/pp5-validate-staging-env.mjs`.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
 - CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
@@ -82,6 +83,7 @@ Actions:
 ```bash
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
+node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env
 node scripts/pp5-wave0-check.mjs
 pnpm lint
 pnpm typecheck
@@ -146,6 +148,8 @@ Use fresh values for every split-sensitive key:
 3. Install the staging secret from a secure env file:
 
 ```bash
+node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
+
 kubectl -n phyne-crm-staging create secret generic phyne-crm-staging-secrets \
   --from-env-file=/secure/path/phyne-crm-staging.env \
   --dry-run=client -o yaml | kubectl apply -f -

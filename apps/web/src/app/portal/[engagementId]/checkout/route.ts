@@ -2,6 +2,7 @@ import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phyne/db'
 import { contacts, engagements, quotes } from '@phyne/db/schema'
 import { createLogger } from '@phyne/logging'
+import { FederationError, NotFoundError, ValidationError } from '@phyne/services/errors'
 import { DhanamCheckoutService } from '@phyne/services/payments/dhanam-checkout'
 import { and, eq, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -25,12 +26,12 @@ export async function POST(req: Request, context: RouteContext) {
     return redirectToExpired(req, 'email-mismatch')
   }
 
-  const quoteId = await readQuoteId(req)
-  if (!quoteId) {
+  const form = await readCheckoutForm(req)
+  if (!form.quoteId) {
     return redirectToPortal(req, engagementId, { checkout_error: 'missing_quote' })
   }
 
-  const quote = await findPortalQuote(db, engagement, quoteId)
+  const quote = await findPortalQuote(db, engagement, form.quoteId)
   if (!quote) {
     return redirectToPortal(req, engagementId, { checkout_error: 'quote_not_found' })
   }
@@ -52,21 +53,30 @@ export async function POST(req: Request, context: RouteContext) {
       cancelUrl: buildPortalUrl(req, engagementId, { checkout: 'cancelled' }).toString(),
       engagementId,
       quoteId: quote.id,
+      reuseExistingCheckout: !form.freshCheckout,
       source: 'portal',
       successUrl: buildPortalUrl(req, engagementId, { checkout: 'success' }).toString(),
     })
 
     return NextResponse.redirect(checkout.checkoutUrl, 303)
   } catch (err) {
-    logger.error({ err, engagementId, quoteId }, 'portal checkout creation failed')
-    return redirectToPortal(req, engagementId, { checkout_error: 'checkout_failed' })
+    const checkoutError = classifyCheckoutError(err)
+    logger.error(
+      { err, checkoutError, engagementId, quoteId: form.quoteId },
+      'portal checkout creation failed',
+    )
+    return redirectToPortal(req, engagementId, { checkout_error: checkoutError })
   }
 }
 
-async function readQuoteId(req: Request) {
+async function readCheckoutForm(req: Request) {
   const form = await req.formData().catch(() => null)
-  const value = form?.get('quoteId')
-  return typeof value === 'string' && value.trim() ? value.trim() : null
+  const quoteId = form?.get('quoteId')
+  const checkoutMode = form?.get('checkoutMode')
+  return {
+    freshCheckout: checkoutMode === 'fresh',
+    quoteId: typeof quoteId === 'string' && quoteId.trim() ? quoteId.trim() : null,
+  }
 }
 
 async function verifyPortalEngagement(
@@ -124,4 +134,11 @@ function buildPortalUrl(req: Request, engagementId: string, params: Record<strin
     url.searchParams.set(key, value)
   }
   return url
+}
+
+function classifyCheckoutError(err: unknown) {
+  if (err instanceof FederationError) return 'provider_unavailable'
+  if (err instanceof ValidationError) return 'quote_not_payable'
+  if (err instanceof NotFoundError) return 'quote_not_found'
+  return 'checkout_failed'
 }

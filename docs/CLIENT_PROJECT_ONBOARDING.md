@@ -182,6 +182,11 @@ Checkout creation is idempotent at the quote level: if an open Dhanam checkout
 reference with a stored checkout URL already exists, PhyneCRM reuses it instead
 of creating a duplicate session.
 
+Checkout is now balance-aware. If an order already has a partial payment,
+PhyneCRM requests checkout only for the remaining balance. Failed or cancelled
+portal payment retries can force a fresh Dhanam checkout session so clients are
+not sent back to a stale payment URL.
+
 ## Payment Reconciliation
 
 Dhanam paid webhooks now reconcile payment events onto the CRM order lifecycle
@@ -219,6 +224,24 @@ When a lifecycle event is known to the engagement but cannot be matched to an
 order, PhyneCRM writes `system:payment_<state>_unmatched` with `blocked`
 status for operator recovery.
 
+## Production Dispatch Intent
+
+When a matched Dhanam payment moves an order to `paid`, PhyneCRM now records
+first-slice production dispatch intent from the onboarding delivery tracks:
+
+- `fabrication` and `fulfillment` tracks create `pravara` production dispatch
+  external references on the order
+- `digital_experience`, `digital_twin`, and `kiosk` tracks create `selva`
+  production dispatch external references on the order
+- each track writes `system:production_dispatch_requested` on the engagement
+  timeline
+
+These records are idempotent per order and delivery track. They are dispatch
+intent records, not yet live provider HTTP dispatch calls. If a paid order has
+no onboarding delivery metadata, PhyneCRM writes
+`system:production_dispatch_blocked` so an operator can recover the routing
+without database access.
+
 ## Current Limits
 
 This is a quote-to-production flow with CRM-owned quote acceptance, not the full
@@ -227,7 +250,8 @@ autonomous lifecycle yet.
 Still required for 100% production flow:
 
 - Cotiza-originated quote approval webhook automation beyond the CRM action.
-- Pravara/Selva execution dispatch from the accepted order.
+- Live Pravara/Selva execution dispatch HTTP calls from paid dispatch-intent
+  records.
 - Client portal approval affordances beyond quote acceptance/payment, including
   delivery review and final signoff.
 - Staging deployment and provider webhook split from PP.5 Wave 0-3.
@@ -243,6 +267,7 @@ pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
 pnpm --filter @phyne/api test -- engagements.router.test.ts
 pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
 pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'
+pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/__tests__/payment-state.test.ts'
 pnpm --filter @phyne/web typecheck
 pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 ```

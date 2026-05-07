@@ -6,6 +6,7 @@ import {
   engagementEvents,
   engagements,
   externalReferences,
+  type orders,
   type quotes,
 } from '@phyne/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
@@ -25,6 +26,7 @@ export interface CreateDhanamCheckoutInput {
   cancelUrl?: string
   engagementId?: string | null
   quoteId: string
+  reuseExistingCheckout?: boolean
   source?: 'api' | 'crm' | 'portal'
   successUrl?: string
 }
@@ -56,6 +58,7 @@ interface CheckoutReference {
 }
 
 interface AcceptedQuoteContext {
+  amountDueMinor: number
   contact: ContactRow
   engagement: EngagementRow | null
   orderId: string | null
@@ -81,7 +84,10 @@ export class DhanamCheckoutService {
   async createForQuote(input: CreateDhanamCheckoutInput): Promise<DhanamCheckoutResult> {
     const accepted = await this.acceptQuote(input)
     const context = await this.resolveAcceptedContext(input, accepted)
-    const existing = await findReusableCheckout(this.ctx.db, context.quote.id)
+    const existing =
+      input.reuseExistingCheckout === false
+        ? null
+        : await findReusableCheckout(this.ctx.db, context.quote.id, context.amountDueMinor)
     const urls = buildCheckoutUrls(this.appUrl, context.engagement?.id ?? input.engagementId, input)
 
     if (existing) {
@@ -142,8 +148,13 @@ export class DhanamCheckoutService {
       throw new ValidationError('Client email is required before checkout')
     }
     validateQuoteAmount(quote)
+    const amountDueMinor = calculateAmountDueMinor(quote, accepted.order)
+    if (amountDueMinor <= 0) {
+      throw new ValidationError('Quote has no remaining balance before checkout')
+    }
 
     return {
+      amountDueMinor,
       contact,
       engagement,
       orderId: accepted.order?.id ?? null,
@@ -233,14 +244,13 @@ function buildCheckoutUrls(
 }
 
 function buildCheckoutRequest(context: AcceptedQuoteContext, urls: CheckoutUrls) {
-  const amountMinor = amountToMinor(context.quote.totalAmount)
   const currency = normalizeCurrency(context.quote.currency)
 
   return {
     payload: {
       type: 'quote.checkout.requested',
       data: {
-        amount_minor: amountMinor,
+        amount_minor: context.amountDueMinor,
         cancel_url: urls.cancelUrl,
         contact: {
           company: context.contact.company,
@@ -270,6 +280,7 @@ function buildCheckoutRequest(context: AcceptedQuoteContext, urls: CheckoutUrls)
 async function findReusableCheckout(
   tx: CheckoutDb | CheckoutTx,
   quoteId: string,
+  amountDueMinor: number,
 ): Promise<CheckoutReference | null> {
   const [existing] = await tx
     .select({
@@ -290,7 +301,11 @@ async function findReusableCheckout(
 
   if (!existing) return null
   const metadata = asRecord(existing.metadata)
-  return metadata?.checkout_url ? { externalId: existing.externalId, metadata } : null
+  if (!metadata?.checkout_url) return null
+  if (!checkoutAmountMatches(metadata, amountDueMinor)) return null
+  if (!checkoutStatusReusable(metadata)) return null
+  if (!checkoutStillOpen(metadata)) return null
+  return { externalId: existing.externalId, metadata }
 }
 
 function buildResultFromReference(
@@ -340,9 +355,11 @@ async function recordCheckoutArtifacts(
         currency: payload.data.currency,
         engagement_id: context.engagement?.id ?? null,
         expires_at: session.expiresAt?.toISOString() ?? null,
+        original_quote_amount_minor: amountToMinor(context.quote.totalAmount),
         order_id: context.orderId,
         quote_id: context.quote.id,
         quote_number: context.quote.quoteNumber,
+        remaining_balance_minor: context.amountDueMinor,
         session_id: session.sessionId,
         status: 'open',
         success_url: urls.successUrl,
@@ -365,6 +382,7 @@ async function recordCheckoutArtifacts(
         order_id: context.orderId,
         provider: 'dhanam',
         quote_id: context.quote.id,
+        remaining_balance_minor: context.amountDueMinor,
       },
     })
 
@@ -381,6 +399,7 @@ async function recordCheckoutArtifacts(
         order_id: context.orderId,
         provider: 'dhanam',
         quote_id: context.quote.id,
+        remaining_balance_minor: context.amountDueMinor,
       },
       dedupKey: `checkout:${session.sessionId}:created`,
     })
@@ -447,6 +466,27 @@ function validateQuoteAmount(quote: QuoteRow) {
   if (amountToMinor(quote.totalAmount) <= 0) {
     throw new ValidationError('Quote total amount must be greater than zero before checkout')
   }
+}
+
+function calculateAmountDueMinor(quote: QuoteRow, order: typeof orders.$inferSelect | null) {
+  const totalMinor = amountToMinor(quote.totalAmount)
+  const paidMinor = amountToMinor(order?.paidAmount ?? null)
+  return Math.max(totalMinor - paidMinor, 0)
+}
+
+function checkoutAmountMatches(metadata: Record<string, unknown>, amountDueMinor: number) {
+  const checkoutAmount = pickNumber(metadata.amount_minor)
+  return checkoutAmount == null || checkoutAmount === amountDueMinor
+}
+
+function checkoutStatusReusable(metadata: Record<string, unknown>) {
+  const status = pickString(metadata.status)
+  return !status || status === 'open' || status === 'pending'
+}
+
+function checkoutStillOpen(metadata: Record<string, unknown>) {
+  const expiresAt = parseDate(pickString(metadata.expires_at))
+  return !expiresAt || expiresAt.getTime() > Date.now()
 }
 
 function parseDhanamSession(body: unknown): DhanamSession {

@@ -4,6 +4,7 @@ import { contacts, engagements, orders, quotes } from '@phyne/db/schema'
 import { EngagementsService } from '@phyne/services'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
+import { paymentStateMessage, portalPaymentAction } from './payment-state'
 
 // Server-rendered portal page. Gates on the phyne-portal-session cookie
 // (set by /portal/verify after the Janua magic-link exchange) and
@@ -15,10 +16,14 @@ import { notFound, redirect } from 'next/navigation'
 
 type PageProps = {
   params: Promise<{ engagementId: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default async function EngagementPortalPage({ params }: PageProps) {
+export default async function EngagementPortalPage({ params, searchParams }: PageProps) {
   const { engagementId } = await params
+  const query = await searchParams
+  const checkoutError = firstQueryValue(query?.checkout_error)
+  const checkoutNotice = firstQueryValue(query?.checkout)
   const session = await readAndVerifyPortalSession()
 
   if (!session || session.engagementId !== engagementId) {
@@ -117,10 +122,15 @@ export default async function EngagementPortalPage({ params }: PageProps) {
                       )}
                     </div>
                     <QuoteAction
+                      checkoutError={checkoutError}
+                      checkoutNotice={checkoutNotice}
+                      currency={card.quote.currency}
                       engagementId={engagementId}
+                      paidAmount={card.order?.paidAmount ?? null}
                       paymentStatus={card.order?.paymentStatus ?? 'unpaid'}
                       quoteId={card.quote.id}
                       quoteStatus={card.quote.status}
+                      totalAmount={card.quote.totalAmount}
                     />
                   </div>
                 </li>
@@ -242,43 +252,80 @@ async function buildQuoteCards(db: ReturnType<typeof getDb>, portalQuotes: Porta
 }
 
 function QuoteAction({
+  checkoutError,
+  checkoutNotice,
+  currency,
   engagementId,
+  paidAmount,
   paymentStatus,
   quoteId,
   quoteStatus,
+  totalAmount,
 }: {
+  checkoutError?: string | null
+  checkoutNotice?: string | null
+  currency: string
   engagementId: string
+  paidAmount?: string | null
   paymentStatus: string
   quoteId: string
   quoteStatus: string
+  totalAmount?: string | null
 }) {
-  if (paymentStatus === 'paid') {
+  const message = paymentStateMessage({
+    checkoutError,
+    checkoutNotice,
+    currency,
+    paidAmount,
+    paymentStatus,
+    quoteStatus,
+    totalAmount,
+  })
+  const action = portalPaymentAction({ paymentStatus, quoteStatus })
+
+  if (action === 'paid') {
     return (
-      <span className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
-        Paid
-      </span>
+      <div className="max-w-xs text-left sm:text-right">
+        <span className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
+          Paid
+        </span>
+        {message && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{message}</p>}
+      </div>
     )
   }
 
-  if (quoteStatus === 'sent' || quoteStatus === 'accepted') {
+  if (action === 'accept_and_pay' || action === 'pay_now' || action === 'retry') {
     return (
-      <form action={`/portal/${engagementId}/checkout`} method="post">
-        <input name="quoteId" type="hidden" value={quoteId} />
-        <button
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
-          type="submit"
-        >
-          {quoteStatus === 'accepted' ? 'Pay now' : 'Accept and pay'}
-        </button>
-      </form>
+      <div className="max-w-xs text-left sm:text-right">
+        <form action={`/portal/${engagementId}/checkout`} method="post">
+          <input name="quoteId" type="hidden" value={quoteId} />
+          {action === 'retry' && <input name="checkoutMode" type="hidden" value="fresh" />}
+          <button
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
+            type="submit"
+          >
+            {actionLabel(action)}
+          </button>
+        </form>
+        {message && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{message}</p>}
+      </div>
     )
   }
 
   return (
-    <span className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-      In review
-    </span>
+    <div className="max-w-xs text-left sm:text-right">
+      <span className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        In review
+      </span>
+      {message && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{message}</p>}
+    </div>
   )
+}
+
+function actionLabel(action: ReturnType<typeof portalPaymentAction>) {
+  if (action === 'accept_and_pay') return 'Accept and pay'
+  if (action === 'retry') return 'Retry payment'
+  return 'Pay now'
 }
 
 function StatusPill({ label }: { label: string }) {
@@ -325,6 +372,11 @@ function formatArtifactType(type: string): string {
     nft_receipt: 'NFT receipt',
   }
   return map[type] ?? type.replace(/_/g, ' ')
+}
+
+function firstQueryValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: discriminated union on entry.kind, cast for readability

@@ -51,6 +51,7 @@ vi.mock('@phyne/services/payments/dhanam-checkout', () => ({
   })),
 }))
 
+import { FederationError } from '@phyne/services/errors'
 import { POST } from '../route'
 
 describe('POST /portal/[engagementId]/checkout', () => {
@@ -101,9 +102,72 @@ describe('POST /portal/[engagementId]/checkout', () => {
       cancelUrl: 'http://localhost/portal/eng-001?checkout=cancelled',
       engagementId: 'eng-001',
       quoteId: 'quote-001',
+      reuseExistingCheckout: true,
       source: 'portal',
       successUrl: 'http://localhost/portal/eng-001?checkout=success',
     })
+  })
+
+  it('forces a fresh checkout when retrying payment', async () => {
+    installAwaitSequence(db, [
+      [
+        {
+          contactEmail: 'client@example.com',
+          contactId: 'contact-001',
+          id: 'eng-001',
+          opportunityId: 'opp-001',
+        },
+      ],
+      [
+        {
+          contactId: 'contact-001',
+          id: 'quote-001',
+          opportunityId: 'opp-001',
+        },
+      ],
+    ])
+
+    const res = await POST(requestWithQuote('quote-001', 'fresh'), {
+      params: Promise.resolve({ engagementId: 'eng-001' }),
+    })
+
+    expect(res.status).toBe(303)
+    expect(checkoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quoteId: 'quote-001',
+        reuseExistingCheckout: false,
+      }),
+    )
+  })
+
+  it('maps Dhanam checkout provider failures to a retryable portal error', async () => {
+    installAwaitSequence(db, [
+      [
+        {
+          contactEmail: 'client@example.com',
+          contactId: 'contact-001',
+          id: 'eng-001',
+          opportunityId: 'opp-001',
+        },
+      ],
+      [
+        {
+          contactId: 'contact-001',
+          id: 'quote-001',
+          opportunityId: 'opp-001',
+        },
+      ],
+    ])
+    checkoutMock.mockRejectedValue(new FederationError('dhanam', 'checkout down'))
+
+    const res = await POST(requestWithQuote('quote-001'), {
+      params: Promise.resolve({ engagementId: 'eng-001' }),
+    })
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toBe(
+      'http://localhost/portal/eng-001?checkout_error=provider_unavailable',
+    )
   })
 
   it('redirects to expired when the portal session is missing', async () => {
@@ -149,9 +213,10 @@ describe('POST /portal/[engagementId]/checkout', () => {
   })
 })
 
-function requestWithQuote(quoteId: string) {
+function requestWithQuote(quoteId: string, checkoutMode?: string) {
   const form = new FormData()
   form.set('quoteId', quoteId)
+  if (checkoutMode) form.set('checkoutMode', checkoutMode)
   return new Request('http://localhost/portal/eng-001/checkout', {
     body: form,
     method: 'POST',

@@ -123,6 +123,11 @@ https://staging-crm.madfam.io/engagements
 - `system:payment_reconciled` appears in the engagement timeline.
 - If the payment cannot be matched, `system:payment_unmatched` appears with
   `blocked` status for operator recovery.
+- When payment completes the order, `system:production_dispatch_requested`
+  appears once per onboarding delivery track and order-level external
+  references exist with `externalType=production_dispatch`.
+- If delivery tracks cannot be inferred, `system:production_dispatch_blocked`
+  appears and the order requires operator routing before provider dispatch.
 
 10. Send one staging-only Dhanam refund or failure lifecycle webhook for the
     same quote/order.

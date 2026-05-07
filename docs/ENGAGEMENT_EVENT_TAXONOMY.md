@@ -46,6 +46,8 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:payment_disputed` — Dhanam reported a dispute or chargeback for a matched order
 - `system:payment_cancelled` — Dhanam reported payment cancellation for a matched order
 - `system:payment_<state>_unmatched` — Dhanam reported a lifecycle change for a known engagement, but no active order could be matched
+- `system:production_dispatch_requested` — PhyneCRM recorded first-slice production dispatch intent for a paid order delivery track
+- `system:production_dispatch_blocked` — PhyneCRM could not infer delivery tracks for a paid order and needs operator routing
 
 ## `status` field semantics
 

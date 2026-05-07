@@ -49,6 +49,10 @@ export {
 } from './payments/payment-reconciliation.service'
 export { PipelinesService } from './pipelines/pipelines.service'
 export {
+  type ProductionDispatchIntentInput,
+  recordProductionDispatchIntent,
+} from './production/production-dispatch.service'
+export {
   type AcceptQuoteInput,
   type AcceptQuoteResult,
   QuotesService,

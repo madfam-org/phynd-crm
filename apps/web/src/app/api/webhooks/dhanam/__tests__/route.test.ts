@@ -653,7 +653,7 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
     })
 
     // Engagement events surfaced for the portal timeline.
-    expect(state.inserts.engagementEvents).toHaveLength(2)
+    expect(state.inserts.engagementEvents).toHaveLength(3)
     const ee = state.inserts.engagementEvents[0]!
     expect(ee.engagementId).toBe('eng_tablaco')
     expect(ee.source).toBe('dhanam')
@@ -664,6 +664,12 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
     expect(reconciled.source).toBe('system')
     expect(reconciled.eventType).toBe('system:payment_reconciled')
     expect(reconciled.dedupKey).toBe('payment:evt_checkout_1:reconciled')
+
+    const dispatchBlocked = state.inserts.engagementEvents[2]!
+    expect(dispatchBlocked.source).toBe('system')
+    expect(dispatchBlocked.eventType).toBe('system:production_dispatch_blocked')
+    expect(dispatchBlocked.status).toBe('blocked')
+    expect(dispatchBlocked.dedupKey).toBe('dispatch:order_tablaco:blocked')
 
     expect(state.updates.orders).toHaveLength(1)
     expect(state.updates.orders[0]).toMatchObject({

@@ -33,12 +33,19 @@ Repo-owned PP.5 work is ready:
 - Client portal checkout can accept a sent/accepted quote, create or reuse a
   signed Dhanam checkout session, publish an invoice artifact, and write
   `system:checkout_created` for the engagement timeline.
+- Client portal checkout is balance-aware for partial payments, supports fresh
+  retry sessions after failed/cancelled checkout, and surfaces client-safe
+  payment state/error copy.
 - Dhanam paid webhooks now reconcile matched payments onto CRM orders, update
   order payment state, write Dhanam payment external references, and emit
   `system:payment_reconciled` or `system:payment_unmatched` timeline events.
 - Dhanam failed/refunded/disputed/cancelled webhooks now reconcile lifecycle
   changes onto matched CRM orders, write lifecycle external references, update
   order payment state, and emit operator-recoverable timeline events.
+- Paid-in-full Dhanam reconciliation now records first-slice production dispatch
+  intent per onboarding delivery track using order external references and
+  `system:production_dispatch_requested`; missing routing metadata writes
+  `system:production_dispatch_blocked`.
 - CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
   variables, including `DATABASE_URL`, are available inside Turbo tasks.
 - The worker package declares the Sentry runtime dependency used by its entry
@@ -113,6 +120,7 @@ pnpm --filter @phyne/api test -- engagements.router.test.ts
 pnpm --filter @phyne/api test -- quotes.router.test.ts
 pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
 pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'
+pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/__tests__/payment-state.test.ts'
 pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 pnpm --filter @phyne/web exec biome check src/components/quotes/quotes-data-table.tsx
 pnpm --filter @phyne/web exec biome check src/components/orders/orders-data-table.tsx 'src/app/(dashboard)/orders/[id]/page.tsx'

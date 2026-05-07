@@ -197,6 +197,86 @@ describe('DhanamCheckoutService', () => {
     expect(mockDb._qb.values).not.toHaveBeenCalled()
   })
 
+  it('charges only the remaining balance when an order is partially paid', async () => {
+    const quote = makeQuote({ contactId: 'contact-001', id: 'quote-001', totalAmount: '420.00' })
+    const order = makeOrder({ id: 'order-001', paidAmount: '100.00', quoteId: 'quote-001' })
+    acceptMock.mockResolvedValue({ engagementId: 'eng-001', order, quote })
+    installAwaitSequence([[makeContact({ email: 'client@example.com' })], [makeEngagement()], []])
+
+    const result = await service().createForQuote({ engagementId: 'eng-001', quoteId: 'quote-001' })
+
+    expect(result.amountMinor).toBe(32_000)
+    const fetchCall = fetchMock.mock.calls[0]
+    expect(fetchCall).toBeDefined()
+    const payload = JSON.parse(fetchCall?.[1].body as string)
+    expect(payload.data.amount_minor).toBe(32_000)
+    const values = mockDb._qb.values.mock.calls.map((call) => call[0] as Record<string, unknown>)
+    expect(values).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            original_quote_amount_minor: 42_000,
+            remaining_balance_minor: 32_000,
+          }),
+        }),
+      ]),
+    )
+  })
+
+  it('creates a fresh checkout when the stored reference amount is stale', async () => {
+    const quote = makeQuote({ contactId: 'contact-001', id: 'quote-001', totalAmount: '420.00' })
+    const order = makeOrder({ id: 'order-001', paidAmount: '100.00', quoteId: 'quote-001' })
+    acceptMock.mockResolvedValue({ engagementId: 'eng-001', order, quote })
+    installAwaitSequence([
+      [makeContact({ email: 'client@example.com' })],
+      [makeEngagement()],
+      [
+        {
+          externalId: 'co_stale',
+          metadata: {
+            amount_minor: 42_000,
+            checkout_url: 'https://pay.dhan.am/session/co_stale',
+            currency: 'USD',
+            order_id: 'order-001',
+            session_id: 'co_stale',
+            status: 'open',
+          },
+        },
+      ],
+      [],
+      [],
+      [],
+    ])
+
+    const result = await service().createForQuote({ engagementId: 'eng-001', quoteId: 'quote-001' })
+
+    expect(result.reused).toBe(false)
+    expect(result.checkoutUrl).toBe('https://pay.dhan.am/session/co_001')
+    expect(fetchMock).toHaveBeenCalled()
+  })
+
+  it('creates a fresh checkout when reuse is explicitly disabled', async () => {
+    const quote = makeQuote({ contactId: 'contact-001', id: 'quote-001', totalAmount: '420.00' })
+    const order = makeOrder({ id: 'order-001', quoteId: 'quote-001' })
+    acceptMock.mockResolvedValue({ engagementId: 'eng-001', order, quote })
+    installAwaitSequence([
+      [makeContact({ email: 'client@example.com' })],
+      [makeEngagement()],
+      [],
+      [],
+      [],
+    ])
+
+    const result = await service().createForQuote({
+      engagementId: 'eng-001',
+      quoteId: 'quote-001',
+      reuseExistingCheckout: false,
+    })
+
+    expect(result.reused).toBe(false)
+    expect(fetchMock).toHaveBeenCalled()
+  })
+
   it('fails closed when Dhanam checkout signing is not configured', async () => {
     const quote = makeQuote({ contactId: 'contact-001', id: 'quote-001', totalAmount: '420.00' })
     acceptMock.mockResolvedValue({
@@ -227,6 +307,22 @@ describe('DhanamCheckoutService', () => {
     await expect(
       service().createForQuote({ engagementId: 'eng-001', quoteId: 'quote-001' }),
     ).rejects.toThrow('Quote total amount must be greater than zero before checkout')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects fully paid quotes before calling Dhanam', async () => {
+    const quote = makeQuote({ contactId: 'contact-001', id: 'quote-001', totalAmount: '420.00' })
+    const order = makeOrder({ id: 'order-001', paidAmount: '420.00' })
+    acceptMock.mockResolvedValue({
+      engagementId: 'eng-001',
+      order,
+      quote,
+    })
+    installAwaitSequence([[makeContact({ email: 'client@example.com' })], [makeEngagement()]])
+
+    await expect(
+      service().createForQuote({ engagementId: 'eng-001', quoteId: 'quote-001' }),
+    ).rejects.toThrow('Quote has no remaining balance before checkout')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

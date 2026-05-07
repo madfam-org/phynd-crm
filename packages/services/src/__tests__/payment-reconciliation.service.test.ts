@@ -13,7 +13,14 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@phyne/db/schema', () => ({
-  engagementEvents: { id: 'engagementEvents.id' },
+  engagementEvents: {
+    createdAt: 'engagementEvents.createdAt',
+    dedupKey: 'engagementEvents.dedupKey',
+    engagementId: 'engagementEvents.engagementId',
+    eventType: 'engagementEvents.eventType',
+    id: 'engagementEvents.id',
+    metadata: 'engagementEvents.metadata',
+  },
   engagements: {
     contactId: 'engagements.contactId',
     deletedAt: 'engagements.deletedAt',
@@ -138,6 +145,151 @@ describe('reconcileDhanamPayment', () => {
         paidAmount: '250.00',
         paymentStatus: 'partial',
         status: 'confirmed',
+      }),
+    )
+  })
+
+  it('records production dispatch intent when a matched payment completes the order', async () => {
+    const order = makeOrder({
+      id: 'order-001',
+      contactId: 'contact-001',
+      opportunityId: 'opp-001',
+      quoteId: 'quote-001',
+      totalAmount: '420.00',
+      currency: 'MXN',
+      status: 'confirmed',
+    })
+
+    installAwaitSequence([
+      [order],
+      [{ id: 'eng-001' }],
+      [],
+      [],
+      [],
+      [],
+      [
+        {
+          metadata: {
+            delivery_tracks: ['fabrication', 'digital_twin', 'kiosk'],
+            project_kind: 'phygital',
+          },
+        },
+      ],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+    ])
+
+    const result = await reconcileDhanamPayment(mockDb as never, {
+      amountMinor: 42_000,
+      contactId: 'contact-001',
+      currency: 'MXN',
+      eventId: 'evt-payment-dispatch',
+      eventType: 'payment.succeeded',
+      externalPaymentId: 'pi-dispatch',
+    })
+
+    expect(result.paymentStatus).toBe('paid')
+    const values = mockDb._qb.values.mock.calls.map((call) => call[0] as Record<string, unknown>)
+    expect(values).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityType: 'order',
+          entityId: 'order-001',
+          provider: 'pravara',
+          externalId: 'order-001:fabrication',
+          externalType: 'production_dispatch',
+        }),
+        expect.objectContaining({
+          entityType: 'order',
+          entityId: 'order-001',
+          provider: 'selva',
+          externalId: 'order-001:digital_twin',
+          externalType: 'production_dispatch',
+        }),
+        expect.objectContaining({
+          engagementId: 'eng-001',
+          source: 'system',
+          eventType: 'system:production_dispatch_requested',
+          dedupKey: 'dispatch:order-001:kiosk:requested',
+        }),
+      ]),
+    )
+  })
+
+  it('records a blocked dispatch event when paid production routing is missing', async () => {
+    const order = makeOrder({
+      id: 'order-001',
+      contactId: 'contact-001',
+      opportunityId: 'opp-001',
+      quoteId: 'quote-001',
+      totalAmount: '420.00',
+      currency: 'MXN',
+      status: 'confirmed',
+    })
+
+    installAwaitSequence([[order], [{ id: 'eng-001' }], [], [], [], [], [], [], []])
+
+    const result = await reconcileDhanamPayment(mockDb as never, {
+      amountMinor: 42_000,
+      contactId: 'contact-001',
+      currency: 'MXN',
+      eventId: 'evt-payment-dispatch-blocked',
+      eventType: 'payment.succeeded',
+      externalPaymentId: 'pi-dispatch-blocked',
+    })
+
+    expect(result.paymentStatus).toBe('paid')
+    expect(mockDb._qb.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engagementId: 'eng-001',
+        source: 'system',
+        eventType: 'system:production_dispatch_blocked',
+        status: 'blocked',
+        dedupKey: 'dispatch:order-001:blocked',
+      }),
+    )
+  })
+
+  it('does not duplicate an existing blocked dispatch event', async () => {
+    const order = makeOrder({
+      id: 'order-001',
+      contactId: 'contact-001',
+      opportunityId: 'opp-001',
+      quoteId: 'quote-001',
+      totalAmount: '420.00',
+      currency: 'MXN',
+      status: 'confirmed',
+    })
+
+    installAwaitSequence([
+      [order],
+      [{ id: 'eng-001' }],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ id: 'dispatch-blocked-existing' }],
+    ])
+
+    const result = await reconcileDhanamPayment(mockDb as never, {
+      amountMinor: 42_000,
+      contactId: 'contact-001',
+      currency: 'MXN',
+      eventId: 'evt-payment-dispatch-blocked-again',
+      eventType: 'payment.succeeded',
+      externalPaymentId: 'pi-dispatch-blocked-again',
+    })
+
+    expect(result.paymentStatus).toBe('paid')
+    const values = mockDb._qb.values.mock.calls.map((call) => call[0] as Record<string, unknown>)
+    expect(values).not.toContainEqual(
+      expect.objectContaining({
+        eventType: 'system:production_dispatch_blocked',
       }),
     )
   })

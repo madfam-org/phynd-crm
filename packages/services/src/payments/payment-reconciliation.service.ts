@@ -1,6 +1,7 @@
 import type { getDb } from '@phyne/db'
 import { engagementEvents, engagements, externalReferences, orders } from '@phyne/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
+import { recordProductionDispatchIntent } from '../production/production-dispatch.service'
 
 type PaymentTx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 type OrderRow = typeof orders.$inferSelect
@@ -101,6 +102,7 @@ export async function reconcileDhanamPayment(
 
   if (engagementId) {
     await recordReconciledPaymentEvent(tx, engagementId, order, input, paidAmount, paymentStatus)
+    await maybeRecordPaidProductionDispatch(tx, engagementId, order, input, paymentStatus)
   }
 
   return {
@@ -201,6 +203,23 @@ async function hasExistingOrderReference(
     )
     .limit(1)
   return Boolean(existing)
+}
+
+async function maybeRecordPaidProductionDispatch(
+  tx: PaymentTx,
+  engagementId: string,
+  order: OrderRow,
+  input: DhanamPaymentReconciliationInput,
+  paymentStatus: string,
+) {
+  if (paymentStatus !== 'paid') return
+  await recordProductionDispatchIntent(tx, {
+    engagementId,
+    order,
+    paymentEventId: input.eventId,
+    paymentReference: input.externalPaymentId ?? input.eventId,
+    quoteId: order.quoteId ?? input.quoteId ?? null,
+  })
 }
 
 async function resolveOrder(

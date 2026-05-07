@@ -35,6 +35,11 @@ export {
 export { OpportunitiesService } from './opportunities/opportunities.service'
 export { OrdersService } from './orders/orders.service'
 export {
+  type CreateDhanamCheckoutInput,
+  DhanamCheckoutService,
+  type DhanamCheckoutResult,
+} from './payments/dhanam-checkout.service'
+export {
   type DhanamPaymentReconciliationInput,
   type PaymentReconciliationResult,
   reconcileDhanamPayment,

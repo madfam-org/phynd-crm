@@ -101,9 +101,19 @@ https://staging-crm.madfam.io/engagements
 - The linked opportunity is `won`.
 - `system:quote_approved` appears in the engagement timeline.
 
-6. Send one staging-only Dhanam paid webhook for the accepted quote/order.
+6. From the Janua-backed client portal, open the engagement and submit the
+   quote payment action for one `sent` or `accepted` quote.
 
 7. Verify:
+
+- PhyneCRM redirects to a Dhanam sandbox checkout URL.
+- A Dhanam `checkout_session` external reference exists for the quote.
+- An `invoice` engagement artifact points at the checkout URL.
+- `system:checkout_created` appears in the engagement timeline.
+
+8. Send one staging-only Dhanam paid webhook for the accepted quote/order.
+
+9. Verify:
 
 - Order `paymentStatus` is `paid` or `partial`, depending on the synthetic
   amount.
@@ -114,11 +124,12 @@ https://staging-crm.madfam.io/engagements
 - If the payment cannot be matched, `system:payment_unmatched` appears with
   `blocked` status for operator recovery.
 
-8. Attach evidence to the PP.5 signoff packet:
+10. Attach evidence to the PP.5 signoff packet:
 
 - Engagement IDs.
 - Quote IDs.
 - Order IDs where applicable.
+- Dhanam staging checkout session IDs.
 - Dhanam staging event IDs.
 - Screenshot or exported row evidence from staging only.
 

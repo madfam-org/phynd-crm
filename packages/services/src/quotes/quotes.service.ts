@@ -20,7 +20,7 @@ export interface AcceptQuoteInput {
   estimatedCompletion?: Date
   orderNumber?: string
   orderStatus?: 'confirmed' | 'in_production'
-  source?: 'api' | 'cotiza' | 'crm'
+  source?: 'api' | 'cotiza' | 'crm' | 'portal'
 }
 
 export interface AcceptQuoteResult {

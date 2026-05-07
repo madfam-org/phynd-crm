@@ -38,6 +38,7 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:intake_created` — PhyneCRM created the client/project onboarding skeleton
 - `system:production_order_created` — PhyneCRM created the optional production order during onboarding
 - `system:quote_approved` — PhyneCRM CRM action accepted a quote and moved it to confirmed-order readiness
+- `system:checkout_created` — PhyneCRM created or exposed a Dhanam checkout session for a quote
 - `system:payment_reconciled` — Dhanam payment was matched to an order and the order payment state was updated
 - `system:payment_unmatched` — Dhanam payment was received for a known engagement, but no active order could be matched
 

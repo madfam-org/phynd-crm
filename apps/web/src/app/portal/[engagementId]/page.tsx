@@ -1,8 +1,8 @@
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phyne/db'
-import { contacts, engagements } from '@phyne/db/schema'
+import { contacts, engagements, orders, quotes } from '@phyne/db/schema'
 import { EngagementsService } from '@phyne/services'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 
 // Server-rendered portal page. Gates on the phyne-portal-session cookie
@@ -60,10 +60,12 @@ export default async function EngagementPortalPage({ params }: PageProps) {
     tenantId: 'madfam',
   })
 
-  const [timeline, artifacts] = await Promise.all([
+  const [timeline, artifacts, portalQuotes] = await Promise.all([
     service.getTimeline(engagementId, 50),
     service.listArtifacts(engagementId),
+    findPortalQuotes(db, row.engagement),
   ])
+  const quoteCards = await buildQuoteCards(db, portalQuotes)
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -80,6 +82,52 @@ export default async function EngagementPortalPage({ params }: PageProps) {
           </p>
           <StatusBadge status={row.engagement.status} />
         </header>
+
+        <section className="mb-10">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Quote and payment
+          </h2>
+          {quoteCards.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Your quote is being prepared. We'll publish it here when it is ready for review.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {quoteCards.map((card) => (
+                <li
+                  key={card.quote.id}
+                  className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        Quote {card.quote.quoteNumber}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        {formatMoney(card.quote.totalAmount, card.quote.currency)}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <StatusPill label={card.quote.status} />
+                        {card.order && <StatusPill label={card.order.paymentStatus} />}
+                      </div>
+                      {card.order && (
+                        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                          Order {card.order.orderNumber} · {card.order.status.replace(/_/g, ' ')}
+                        </p>
+                      )}
+                    </div>
+                    <QuoteAction
+                      engagementId={engagementId}
+                      paymentStatus={card.order?.paymentStatus ?? 'unpaid'}
+                      quoteId={card.quote.id}
+                      quoteStatus={card.quote.status}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <section className="mb-10">
           <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -154,6 +202,99 @@ export default async function EngagementPortalPage({ params }: PageProps) {
       </div>
     </main>
   )
+}
+
+type PortalQuote = typeof quotes.$inferSelect
+
+async function findPortalQuotes(
+  db: ReturnType<typeof getDb>,
+  engagement: typeof engagements.$inferSelect,
+) {
+  const rows = engagement.opportunityId
+    ? await db
+        .select()
+        .from(quotes)
+        .where(and(eq(quotes.opportunityId, engagement.opportunityId), isNull(quotes.deletedAt)))
+        .orderBy(desc(quotes.createdAt))
+        .limit(10)
+    : await db
+        .select()
+        .from(quotes)
+        .where(and(eq(quotes.contactId, engagement.contactId), isNull(quotes.deletedAt)))
+        .orderBy(desc(quotes.createdAt))
+        .limit(10)
+
+  return rows.filter((quote) => ['draft', 'sent', 'accepted'].includes(quote.status))
+}
+
+async function buildQuoteCards(db: ReturnType<typeof getDb>, portalQuotes: PortalQuote[]) {
+  return Promise.all(
+    portalQuotes.map(async (quote) => {
+      const [order] = await db
+        .select()
+        .from(orders)
+        .where(and(eq(orders.quoteId, quote.id), isNull(orders.deletedAt)))
+        .orderBy(desc(orders.createdAt))
+        .limit(1)
+      return { order: order ?? null, quote }
+    }),
+  )
+}
+
+function QuoteAction({
+  engagementId,
+  paymentStatus,
+  quoteId,
+  quoteStatus,
+}: {
+  engagementId: string
+  paymentStatus: string
+  quoteId: string
+  quoteStatus: string
+}) {
+  if (paymentStatus === 'paid') {
+    return (
+      <span className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
+        Paid
+      </span>
+    )
+  }
+
+  if (quoteStatus === 'sent' || quoteStatus === 'accepted') {
+    return (
+      <form action={`/portal/${engagementId}/checkout`} method="post">
+        <input name="quoteId" type="hidden" value={quoteId} />
+        <button
+          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
+          type="submit"
+        >
+          {quoteStatus === 'accepted' ? 'Pay now' : 'Accept and pay'}
+        </button>
+      </form>
+    )
+  }
+
+  return (
+    <span className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+      In review
+    </span>
+  )
+}
+
+function StatusPill({ label }: { label: string }) {
+  return (
+    <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+      {label.replace(/_/g, ' ')}
+    </span>
+  )
+}
+
+function formatMoney(amount: string | null, currency: string) {
+  if (!amount) return currency
+  return new Intl.NumberFormat('en-US', {
+    currency,
+    style: 'currency',
+  }).format(Number(amount))
 }
 
 function StatusBadge({ status }: { status: string }) {

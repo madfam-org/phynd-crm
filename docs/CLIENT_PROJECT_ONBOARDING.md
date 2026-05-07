@@ -136,7 +136,8 @@ date/project-based number.
 
 The CRM can now accept a quote through the dedicated `quotes.accept` mutation.
 This is the PhyneCRM-owned approval action for operator-led or Selva-office
-flows.
+flows. The client portal also exposes a quote payment action for portal-authenticated
+clients once a quote is `sent` or already `accepted`.
 
 When a quote is accepted, the mutation runs in one transaction:
 
@@ -150,6 +151,36 @@ When a quote is accepted, the mutation runs in one transaction:
 
 This gives operators a controlled path from quote-ready intake to production
 order readiness before provider payment and manufacturing automation are live.
+
+## Client Checkout
+
+The Dhanam checkout entry point is:
+
+```ts
+new DhanamCheckoutService(ctx).createForQuote(input)
+```
+
+The portal route is:
+
+```text
+POST /portal/:engagementId/checkout
+```
+
+The portal route verifies the Janua-backed portal cookie, checks that the quote
+belongs to the engagement's contact or opportunity, accepts the quote
+idempotently, creates or confirms the linked order, then creates or reuses a
+Dhanam checkout session.
+
+When a checkout session is created, PhyneCRM:
+
+- posts a signed `quote.checkout.requested` payload to Dhanam
+- stores a Dhanam `checkout_session` external reference on the quote
+- adds an `invoice` engagement artifact pointing at the checkout URL
+- writes `system:checkout_created` on the engagement timeline
+
+Checkout creation is idempotent at the quote level: if an open Dhanam checkout
+reference with a stored checkout URL already exists, PhyneCRM reuses it instead
+of creating a duplicate session.
 
 ## Payment Reconciliation
 
@@ -181,10 +212,10 @@ autonomous lifecycle yet.
 Still required for 100% production flow:
 
 - Cotiza-originated quote approval webhook automation beyond the CRM action.
-- Payment link/invoice creation from accepted quotes and full refund/dispute
-  reversal handling.
+- Full refund/dispute/payment reversal handling.
 - Pravara/Selva execution dispatch from the accepted order.
-- Client portal review/approval affordances for quotes, invoices, and delivery.
+- Client portal approval affordances beyond quote acceptance/payment, including
+  delivery review and final signoff.
 - Staging deployment and provider webhook split from PP.5 Wave 0-3.
 
 ## Validation
@@ -193,9 +224,11 @@ Current coverage:
 
 ```bash
 pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
+pnpm --filter @phyne/services test -- dhanam-checkout.service.test.ts
 pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
 pnpm --filter @phyne/api test -- engagements.router.test.ts
 pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
+pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'
 pnpm --filter @phyne/web typecheck
 pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 ```

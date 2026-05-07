@@ -30,6 +30,9 @@ Repo-owned PP.5 work is ready:
   row action; accepted quotes create or confirm a linked order, mark the
   opportunity won, record conversions, and write a `system:quote_approved`
   engagement milestone.
+- Client portal checkout can accept a sent/accepted quote, create or reuse a
+  signed Dhanam checkout session, publish an invoice artifact, and write
+  `system:checkout_created` for the engagement timeline.
 - Dhanam paid webhooks now reconcile matched payments onto CRM orders, update
   order payment state, write Dhanam payment external references, and emit
   `system:payment_reconciled` or `system:payment_unmatched` timeline events.
@@ -100,11 +103,13 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
+pnpm --filter @phyne/services test -- dhanam-checkout.service.test.ts
 pnpm --filter @phyne/services test -- quotes.service.test.ts
 pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
 pnpm --filter @phyne/api test -- engagements.router.test.ts
 pnpm --filter @phyne/api test -- quotes.router.test.ts
 pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
+pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'
 pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 pnpm --filter @phyne/web exec biome check src/components/quotes/quotes-data-table.tsx
 pnpm --filter @phyne/web exec biome check src/components/orders/orders-data-table.tsx 'src/app/(dashboard)/orders/[id]/page.tsx'

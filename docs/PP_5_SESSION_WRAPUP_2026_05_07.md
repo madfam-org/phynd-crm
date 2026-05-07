@@ -38,6 +38,10 @@ Repo-owned PP.5 guardrails are now in place:
 - Client/project onboarding now reuses existing active contacts by external
   Janua ID or case-insensitive normalized email and fills missing profile
   fields instead of creating duplicate client records.
+- CRM quote acceptance now has a dedicated `quotes.accept` action that accepts
+  the quote, creates or confirms the linked order, marks the opportunity won,
+  records conversions, and writes a `system:quote_approved` engagement
+  milestone.
 
 Cluster-side progress:
 
@@ -82,9 +86,12 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`apps/web/e2e`](../apps/web/e2e) | Updated stale browser assertions for CI auth bypass, seeded pipeline data, accessible selectors, and current dashboard UI. |
 | [`apps/web/package.json`](../apps/web/package.json) | Declared `pino` for Next standalone/server externalization through `serverExternalPackages`. |
 | [`packages/services/src/onboarding/client-project-onboarding.service.ts`](../packages/services/src/onboarding/client-project-onboarding.service.ts) | Added transactional onboarding orchestration for contact, opportunity, engagement, quote, optional order, artifacts, conversion, and timeline events; existing active contacts are reused by Janua ID or case-insensitive normalized email. |
+| [`packages/services/src/quotes/quotes.service.ts`](../packages/services/src/quotes/quotes.service.ts) | Added transactional quote acceptance side effects for confirmed-order readiness, opportunity win state, conversions, and engagement timeline milestone. |
 | [`packages/api/src/routers/engagements.ts`](../packages/api/src/routers/engagements.ts) | Added `engagements.onboardClientProject` protected mutation. |
+| [`packages/api/src/routers/quotes.ts`](../packages/api/src/routers/quotes.ts) | Added `quotes.accept` protected mutation. |
 | [`apps/web/src/components/engagements/create-client-project-dialog.tsx`](../apps/web/src/components/engagements/create-client-project-dialog.tsx) | Added the CRM dashboard dialog for client/project onboarding. |
 | [`apps/web/src/components/engagements/engagements-data-table.tsx`](../apps/web/src/components/engagements/engagements-data-table.tsx) | Added the onboarding action to the Engagements page toolbar. |
+| [`apps/web/src/components/quotes/quotes-data-table.tsx`](../apps/web/src/components/quotes/quotes-data-table.tsx) | Added the quote row action for CRM quote acceptance and order confirmation. |
 
 No unrelated working-tree changes were reverted; all current edits are part of
 the PP.5 guardrail, CI, deploy, or documentation remediation path.

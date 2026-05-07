@@ -30,6 +30,12 @@ The tRPC entry point is:
 engagements.onboardClientProject
 ```
 
+The CRM quote acceptance entry point is:
+
+```ts
+quotes.accept
+```
+
 The CRM UI entry point is:
 
 ```text
@@ -126,13 +132,33 @@ Common full input:
 If `quoteNumber` or `orderNumber` is omitted, the service generates a
 date/project-based number.
 
+## Quote Acceptance
+
+The CRM can now accept a quote through the dedicated `quotes.accept` mutation.
+This is the PhyneCRM-owned approval action for operator-led or Selva-office
+flows.
+
+When a quote is accepted, the mutation runs in one transaction:
+
+- sets the quote status to `accepted`
+- creates a confirmed order from the quote if no active order exists
+- confirms an existing pending order linked to the quote
+- marks the linked opportunity `won`
+- records `opportunity_to_won` and `quote_accepted` conversions
+- writes a `system:quote_approved` engagement milestone when the quote is tied
+  to an engagement
+
+This gives operators a controlled path from quote-ready intake to production
+order readiness before provider payment and manufacturing automation are live.
+
 ## Current Limits
 
-This is a quote-to-production skeleton, not the full autonomous lifecycle yet.
+This is a quote-to-production flow with CRM-owned quote acceptance, not the full
+autonomous lifecycle yet.
 
 Still required for 100% production flow:
 
-- Quote approval from Cotiza or a CRM approval action.
+- Cotiza-originated quote approval webhook automation beyond the CRM action.
 - Payment-to-quote/order reconciliation beyond the existing Dhanam engagement
   timeline event.
 - Pravara/Selva execution dispatch from the accepted order.

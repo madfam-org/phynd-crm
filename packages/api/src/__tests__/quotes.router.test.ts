@@ -9,7 +9,26 @@ vi.mock('@phyne/config/features', () => ({
 }))
 
 vi.mock('@phyne/db/schema', () => ({
+  conversions: { id: 'conversions.id', type: 'conversions.type' },
+  engagementEvents: { id: 'engagementEvents.id' },
+  engagements: {
+    contactId: 'engagements.contactId',
+    deletedAt: 'engagements.deletedAt',
+    id: 'engagements.id',
+    opportunityId: 'engagements.opportunityId',
+    status: 'engagements.status',
+  },
   notifications: { id: 'notifications.id' },
+  opportunities: {
+    deletedAt: 'opportunities.deletedAt',
+    id: 'opportunities.id',
+    status: 'opportunities.status',
+  },
+  orders: {
+    deletedAt: 'orders.deletedAt',
+    id: 'orders.id',
+    quoteId: 'orders.quoteId',
+  },
   quotes: {
     contactId: 'quotes.contactId',
     deletedAt: 'quotes.deletedAt',
@@ -46,6 +65,7 @@ function createMockCtx(): ServiceContext {
     insert: vi.fn(),
     leftJoin: vi.fn(),
     limit: vi.fn(),
+    onConflictDoNothing: vi.fn(),
     orderBy: vi.fn(),
     returning: vi.fn(),
     select: vi.fn(),
@@ -66,6 +86,7 @@ function createMockCtx(): ServiceContext {
   })
 
   const db = {
+    _qb: qb,
     delete: vi.fn().mockReturnValue(qb),
     insert: vi.fn().mockReturnValue(qb),
     select: vi.fn().mockReturnValue(qb),
@@ -152,5 +173,42 @@ describe('quotes router', () => {
         status: 'invalid_status' as 'draft',
       }),
     ).rejects.toThrow()
+  })
+
+  it('accept exposes the quote acceptance lifecycle mutation', async () => {
+    const ctx = createMockCtx()
+    const db = ctx.db as unknown as { _qb?: { _result: unknown[]; then: ReturnType<typeof vi.fn> } }
+    const qb = db._qb
+    if (qb) {
+      const quote = {
+        id: '00000000-0000-0000-0000-000000000001',
+        contactId: null,
+        opportunityId: null,
+        ownerId: null,
+        quoteNumber: 'Q-2026-0007',
+        status: 'sent',
+        totalAmount: '42000.00',
+        currency: 'MXN',
+        deletedAt: null,
+      }
+      const acceptedQuote = { ...quote, status: 'accepted' }
+      let callCount = 0
+      qb.then.mockImplementation((resolve: (v: unknown) => void) => {
+        const sequence = [[quote], [acceptedQuote], [], [{ id: 'order-001', quoteId: quote.id }]]
+        const result = sequence[callCount] ?? []
+        callCount += 1
+        return Promise.resolve(result).then(resolve)
+      })
+    }
+
+    const caller = createCaller(ctx)
+    await expect(
+      caller.quotes.accept({
+        id: '00000000-0000-0000-0000-000000000001',
+        source: 'crm',
+      }),
+    ).resolves.toMatchObject({
+      quote: expect.objectContaining({ status: 'accepted' }),
+    })
   })
 })

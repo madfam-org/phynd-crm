@@ -17,7 +17,7 @@ These appear in portal timelines with prominent visual treatment and can be quer
 
 | Canonical event_name | Semantic meaning | Who emits | Portal status |
 |---|---|---|---|
-| `quote_approved` | Client accepted a Cotiza proposal | Cotiza | `milestone` |
+| `quote_approved` | Client accepted a proposal | Cotiza / PhyneCRM CRM action | `milestone` |
 | `payment_received` | Payment settled at Dhanam | Dhanam | `milestone` |
 | `cfdi_stamped` | Karafiel stamped a CFDI 4.0 for an invoice | Karafiel | `milestone` |
 | `fabrication_started` | Physical build started on the fab floor | Pravara | `milestone` |
@@ -36,6 +36,7 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:contact_linked` — internal housekeeping
 - `system:intake_created` — PhyneCRM created the client/project onboarding skeleton
 - `system:production_order_created` — PhyneCRM created the optional production order during onboarding
+- `system:quote_approved` — PhyneCRM CRM action accepted a quote and moved it to confirmed-order readiness
 
 ## `status` field semantics
 

@@ -199,6 +199,7 @@ export type ConversionType =
   | 'visitor_to_lead'
   | 'lead_to_opportunity'
   | 'opportunity_to_won'
+  | 'quote_accepted'
   | 'offer_redemption'
 
 export interface RoleViewPreference {

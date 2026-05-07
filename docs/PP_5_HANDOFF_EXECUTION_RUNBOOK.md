@@ -91,7 +91,17 @@ https://staging-crm.madfam.io/engagements
 - If production order was requested, order exists and
   `system:production_order_created` appears in the timeline.
 
-4. Attach evidence to the PP.5 signoff packet:
+4. From `/quotes`, accept one synthetic quote with **Accept & Confirm**.
+
+5. Verify:
+
+- Quote status is `accepted`.
+- A confirmed order exists for that quote, or the existing pending order was
+  confirmed.
+- The linked opportunity is `won`.
+- `system:quote_approved` appears in the engagement timeline.
+
+6. Attach evidence to the PP.5 signoff packet:
 
 - Engagement IDs.
 - Quote IDs.
@@ -101,7 +111,8 @@ https://staging-crm.madfam.io/engagements
 Required outcome:
 
 - The CRM can create quote-ready digital, physical, and phygital project
-  skeletons without direct database writes.
+  skeletons and advance at least one accepted quote to confirmed-order
+  readiness without direct database writes.
 - No production CRM or provider records are touched.
 
 ## Wave 2 - Mutating Webhook Probes

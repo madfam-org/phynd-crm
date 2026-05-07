@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuotesService } from '../quotes/quotes.service'
-import { type MockDatabase, createTestContext, makeQuote } from './helpers'
+import {
+  type MockDatabase,
+  createTestContext,
+  makeOpportunity,
+  makeOrder,
+  makeQuote,
+} from './helpers'
 
 // ---------------------------------------------------------------------------
 // Mock external modules
@@ -14,7 +20,26 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@phyne/db/schema', () => ({
+  conversions: { id: 'conversions.id', type: 'conversions.type' },
+  engagementEvents: { id: 'engagementEvents.id' },
+  engagements: {
+    contactId: 'engagements.contactId',
+    deletedAt: 'engagements.deletedAt',
+    id: 'engagements.id',
+    opportunityId: 'engagements.opportunityId',
+    status: 'engagements.status',
+  },
   notifications: { id: 'notifications.id' },
+  opportunities: {
+    deletedAt: 'opportunities.deletedAt',
+    id: 'opportunities.id',
+    status: 'opportunities.status',
+  },
+  orders: {
+    deletedAt: 'orders.deletedAt',
+    id: 'orders.id',
+    quoteId: 'orders.quoteId',
+  },
   quotes: {
     contactId: 'quotes.contactId',
     deletedAt: 'quotes.deletedAt',
@@ -173,6 +198,143 @@ describe('QuotesService', () => {
   })
 
   // -------------------------------------------------------------------------
+  // accept()
+  // -------------------------------------------------------------------------
+  describe('accept()', () => {
+    it('accepts a quote, creates a confirmed order, marks the opportunity won, and records the milestone', async () => {
+      const quote = makeQuote({
+        id: 'quote-001',
+        contactId: 'contact-001',
+        opportunityId: 'opp-001',
+        ownerId: 'owner-001',
+        quoteNumber: 'Q-2026-0007',
+        status: 'sent',
+        totalAmount: '42000.00',
+        currency: 'MXN',
+      })
+      const acceptedQuote = makeQuote({ ...quote, status: 'accepted' })
+      const order = makeOrder({
+        id: 'order-001',
+        contactId: 'contact-001',
+        opportunityId: 'opp-001',
+        quoteId: 'quote-001',
+        orderNumber: 'ORD-2026-0007',
+        status: 'confirmed',
+        totalAmount: '42000.00',
+        currency: 'MXN',
+        ownerId: 'owner-001',
+      })
+      const opportunity = makeOpportunity({
+        id: 'opp-001',
+        contactId: 'contact-001',
+        status: 'open',
+        value: '42000.00',
+      })
+      const engagement = {
+        id: 'eng-001',
+        contactId: 'contact-001',
+        opportunityId: 'opp-001',
+        status: 'active',
+      }
+
+      installAwaitSequence([
+        [quote],
+        [acceptedQuote],
+        [],
+        [order],
+        [opportunity],
+        [{ ...opportunity, status: 'won', probability: 100 }],
+        [],
+        [],
+        [engagement],
+        [],
+      ])
+
+      const result = await service.accept('quote-001', { source: 'crm' })
+
+      expect(result).toEqual({ engagementId: 'eng-001', order, quote: acceptedQuote })
+      expect(mockDb.transaction).toHaveBeenCalled()
+      expect(mockDb._qb.set).toHaveBeenCalledWith({ status: 'accepted' })
+      expect(mockDb._qb.set).toHaveBeenCalledWith({ status: 'won', probability: 100 })
+
+      const values = mockDb._qb.values.mock.calls.map((call) => call[0] as Record<string, unknown>)
+      expect(values).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            orderNumber: 'ORD-2026-0007',
+            quoteId: 'quote-001',
+            status: 'confirmed',
+            totalAmount: '42000.00',
+            currency: 'MXN',
+          }),
+          expect.objectContaining({
+            type: 'opportunity_to_won',
+            contactId: 'contact-001',
+            opportunityId: 'opp-001',
+            value: '42000.00',
+          }),
+          expect.objectContaining({
+            type: 'quote_accepted',
+            contactId: 'contact-001',
+            opportunityId: 'opp-001',
+            value: '42000.00',
+          }),
+          expect.objectContaining({
+            engagementId: 'eng-001',
+            source: 'system',
+            eventType: 'system:quote_approved',
+            status: 'milestone',
+            dedupKey: 'quote:quote-001:accepted',
+          }),
+        ]),
+      )
+    })
+
+    it('does not duplicate conversion or timeline side effects when the quote is already accepted', async () => {
+      const quote = makeQuote({
+        id: 'quote-001',
+        contactId: 'contact-001',
+        opportunityId: 'opp-001',
+        status: 'accepted',
+      })
+      const order = makeOrder({
+        id: 'order-001',
+        quoteId: 'quote-001',
+        status: 'confirmed',
+      })
+      const engagement = {
+        id: 'eng-001',
+        contactId: 'contact-001',
+        opportunityId: 'opp-001',
+        status: 'active',
+      }
+
+      installAwaitSequence([[quote], [quote], [order], [engagement]])
+
+      const result = await service.accept('quote-001')
+
+      expect(result).toEqual({ engagementId: 'eng-001', order, quote })
+      expect(mockDb._qb.values).not.toHaveBeenCalled()
+    })
+
+    it('rejects declined or expired quotes before mutating lifecycle records', async () => {
+      const quote = makeQuote({
+        id: 'quote-001',
+        quoteNumber: 'Q-2026-0007',
+        status: 'declined',
+      })
+
+      installAwaitSequence([[quote]])
+
+      await expect(service.accept('quote-001')).rejects.toThrow(
+        'Quote Q-2026-0007 cannot be accepted from status declined',
+      )
+      expect(mockDb._qb.set).not.toHaveBeenCalled()
+      expect(mockDb._qb.values).not.toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // delete() — soft delete
   // -------------------------------------------------------------------------
   describe('delete()', () => {
@@ -196,4 +358,13 @@ describe('QuotesService', () => {
       expect(result).toBeNull()
     })
   })
+
+  function installAwaitSequence(results: unknown[][]) {
+    let callCount = 0
+    mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
+      const result = results[callCount] ?? []
+      callCount += 1
+      return Promise.resolve(result).then(resolve)
+    })
+  }
 })

@@ -35,7 +35,11 @@ export {
 export { OpportunitiesService } from './opportunities/opportunities.service'
 export { OrdersService } from './orders/orders.service'
 export { PipelinesService } from './pipelines/pipelines.service'
-export { QuotesService } from './quotes/quotes.service'
+export {
+  type AcceptQuoteInput,
+  type AcceptQuoteResult,
+  QuotesService,
+} from './quotes/quotes.service'
 export { ReferralService } from './referrals/referrals.service'
 export { PreferencesService } from './preferences/preferences.service'
 export { SearchService, type SearchResult } from './search/search.service'

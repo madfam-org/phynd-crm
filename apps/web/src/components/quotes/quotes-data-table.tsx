@@ -86,6 +86,17 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
     },
     onError: (err) => toast.error('Failed to delete quote', { description: err.message }),
   })
+  const acceptMutation = trpc.quotes.accept.useMutation({
+    onSuccess: () => {
+      invalidateQuotes()
+      utils.orders.list.invalidate()
+      utils.orders.listMine.invalidate()
+      utils.opportunities.list.invalidate()
+      utils.opportunities.listMine.invalidate()
+      toast.success('Quote accepted')
+    },
+    onError: (err) => toast.error('Failed to accept quote', { description: err.message }),
+  })
 
   const columns: ColumnDef<QuoteRow>[] = [
     {
@@ -137,6 +148,14 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
             <DropdownMenuItem asChild>
               <Link href={`/quotes/${row.id}`}>View</Link>
             </DropdownMenuItem>
+            {row.status !== 'accepted' && row.status !== 'declined' && row.status !== 'expired' && (
+              <DropdownMenuItem
+                disabled={acceptMutation.isPending}
+                onClick={() => acceptMutation.mutate({ id: row.id, source: 'crm' })}
+              >
+                Accept & Confirm
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => setEditQuote(row)}>Edit</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteQuote(row)}>
               Delete

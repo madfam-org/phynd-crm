@@ -99,6 +99,23 @@ export const quotesRouter = router({
       return service.update(id, data)
     }),
 
+  accept: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        createOrder: z.boolean().optional(),
+        estimatedCompletion: z.date().optional(),
+        orderNumber: z.string().min(1).max(50).optional(),
+        orderStatus: z.enum(['confirmed', 'in_production']).optional(),
+        source: z.enum(['api', 'cotiza', 'crm']).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const { id, ...data } = input
+      const service = new QuotesService(ctx)
+      return service.accept(id, data)
+    }),
+
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(({ ctx, input }) => {

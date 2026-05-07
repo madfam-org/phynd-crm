@@ -79,6 +79,18 @@ describe('conversions router', () => {
     ).resolves.not.toThrow()
   })
 
+  it('record accepts quote acceptance conversions', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    await expect(
+      caller.conversions.record({
+        type: 'quote_accepted',
+        opportunityId: '00000000-0000-0000-0000-000000000001',
+        value: '42000.00',
+      }),
+    ).resolves.not.toThrow()
+  })
+
   it('getByEntity returns conversions for entity', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)

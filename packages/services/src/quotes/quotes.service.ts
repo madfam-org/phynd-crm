@@ -1,8 +1,33 @@
-import { quotes } from '@phyne/db/schema'
+import {
+  conversions,
+  engagementEvents,
+  engagements,
+  opportunities,
+  orders,
+  quotes,
+} from '@phyne/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotificationsService } from '../notifications/notifications.service'
+
+type QuoteTx = Parameters<Parameters<ServiceContext['db']['transaction']>[0]>[0]
+type QuoteRow = typeof quotes.$inferSelect
+type OrderRow = typeof orders.$inferSelect
+
+export interface AcceptQuoteInput {
+  createOrder?: boolean
+  estimatedCompletion?: Date
+  orderNumber?: string
+  orderStatus?: 'confirmed' | 'in_production'
+  source?: 'api' | 'cotiza' | 'crm'
+}
+
+export interface AcceptQuoteResult {
+  engagementId: string | null
+  order: OrderRow | null
+  quote: QuoteRow
+}
 
 export class QuotesService {
   constructor(private readonly ctx: ServiceContext) {}
@@ -147,6 +172,12 @@ export class QuotesService {
     return quote ?? null
   }
 
+  async accept(id: string, input: AcceptQuoteInput = {}): Promise<AcceptQuoteResult | null> {
+    return this.ctx.db.transaction((tx) =>
+      acceptQuoteInTransaction(tx, id, input, this.ctx.auth.userId),
+    )
+  }
+
   async delete(id: string) {
     const [deleted] = await this.ctx.db
       .update(quotes)
@@ -155,4 +186,205 @@ export class QuotesService {
       .returning()
     return deleted ?? null
   }
+}
+
+async function acceptQuoteInTransaction(
+  tx: QuoteTx,
+  id: string,
+  input: AcceptQuoteInput,
+  acceptedBy: string | undefined,
+): Promise<AcceptQuoteResult | null> {
+  const current = await getActiveQuote(tx, id)
+  if (!current) return null
+  if (!canAcceptQuote(current.status)) {
+    throw new Error(`Quote ${current.quoteNumber} cannot be accepted from status ${current.status}`)
+  }
+
+  const alreadyAccepted = current.status === 'accepted'
+  const quote = await updateQuoteToAccepted(tx, current)
+  const order = await resolveAcceptedQuoteOrder(tx, quote, input)
+
+  if (!alreadyAccepted) {
+    await markOpportunityWon(tx, quote)
+    await recordQuoteAcceptedConversion(tx, quote)
+  }
+
+  const engagement = await findEngagementForQuote(tx, quote)
+  if (engagement && !alreadyAccepted) {
+    await recordQuoteApprovedMilestone(tx, engagement.id, quote, order, input, acceptedBy)
+  }
+
+  return { engagementId: engagement?.id ?? null, order, quote }
+}
+
+async function getActiveQuote(tx: QuoteTx, id: string) {
+  const [quote] = await tx
+    .select()
+    .from(quotes)
+    .where(and(eq(quotes.id, id), isNull(quotes.deletedAt)))
+    .limit(1)
+  return quote ?? null
+}
+
+async function updateQuoteToAccepted(tx: QuoteTx, current: QuoteRow) {
+  const [acceptedQuote] = await tx
+    .update(quotes)
+    .set({ status: 'accepted' })
+    .where(eq(quotes.id, current.id))
+    .returning()
+  return acceptedQuote ?? { ...current, status: 'accepted' }
+}
+
+async function resolveAcceptedQuoteOrder(tx: QuoteTx, quote: QuoteRow, input: AcceptQuoteInput) {
+  const [existing] = await tx
+    .select()
+    .from(orders)
+    .where(and(eq(orders.quoteId, quote.id), isNull(orders.deletedAt)))
+    .limit(1)
+
+  if (existing) {
+    return maybeConfirmExistingOrder(tx, existing, input)
+  }
+
+  if (input.createOrder === false) return null
+
+  const [order] = await tx
+    .insert(orders)
+    .values({
+      orderNumber: input.orderNumber ?? buildOrderNumber(quote.quoteNumber),
+      opportunityId: quote.opportunityId,
+      quoteId: quote.id,
+      contactId: quote.contactId,
+      status: input.orderStatus ?? 'confirmed',
+      totalAmount: quote.totalAmount,
+      currency: quote.currency,
+      estimatedCompletion: input.estimatedCompletion,
+      ownerId: quote.ownerId,
+    })
+    .returning()
+  return order ?? null
+}
+
+async function recordQuoteApprovedMilestone(
+  tx: QuoteTx,
+  engagementId: string,
+  quote: QuoteRow,
+  order: OrderRow | null,
+  input: AcceptQuoteInput,
+  acceptedBy: string | undefined,
+) {
+  const source = input.source === 'cotiza' ? 'cotiza' : 'system'
+  await tx.insert(engagementEvents).values({
+    engagementId,
+    source,
+    eventType: `${source}:quote_approved`,
+    status: 'milestone',
+    message: `Quote ${quote.quoteNumber} accepted`,
+    metadata: {
+      accepted_by: acceptedBy,
+      acceptance_source: input.source ?? 'crm',
+      contact_id: quote.contactId,
+      currency: quote.currency,
+      order_id: order?.id ?? null,
+      opportunity_id: quote.opportunityId,
+      quote_id: quote.id,
+      quote_number: quote.quoteNumber,
+      total_amount: quote.totalAmount,
+    },
+    dedupKey: `quote:${quote.id}:accepted`,
+  })
+}
+
+async function maybeConfirmExistingOrder(tx: QuoteTx, order: OrderRow, input: AcceptQuoteInput) {
+  const patch: Partial<typeof orders.$inferInsert> = {}
+  if (input.orderStatus) {
+    patch.status = input.orderStatus
+  } else if (order.status === 'pending') {
+    patch.status = 'confirmed'
+  }
+  if (input.estimatedCompletion) patch.estimatedCompletion = input.estimatedCompletion
+
+  if (Object.keys(patch).length === 0) return order
+
+  const [updated] = await tx.update(orders).set(patch).where(eq(orders.id, order.id)).returning()
+  return updated ?? order
+}
+
+async function markOpportunityWon(tx: QuoteTx, quote: QuoteRow) {
+  if (!quote.opportunityId) return
+
+  const [opportunity] = await tx
+    .select()
+    .from(opportunities)
+    .where(and(eq(opportunities.id, quote.opportunityId), isNull(opportunities.deletedAt)))
+    .limit(1)
+  if (!opportunity || opportunity.status === 'won') return
+
+  await tx
+    .update(opportunities)
+    .set({ status: 'won', probability: 100 })
+    .where(eq(opportunities.id, quote.opportunityId))
+
+  await tx
+    .insert(conversions)
+    .values({
+      type: 'opportunity_to_won',
+      contactId: quote.contactId,
+      opportunityId: quote.opportunityId,
+      value: quote.totalAmount ?? opportunity.value,
+    })
+    .onConflictDoNothing()
+}
+
+async function recordQuoteAcceptedConversion(tx: QuoteTx, quote: QuoteRow) {
+  await tx
+    .insert(conversions)
+    .values({
+      type: 'quote_accepted',
+      contactId: quote.contactId,
+      opportunityId: quote.opportunityId,
+      value: quote.totalAmount,
+      metadata: {
+        currency: quote.currency,
+        quote_id: quote.id,
+        quote_number: quote.quoteNumber,
+      },
+    })
+    .onConflictDoNothing()
+}
+
+async function findEngagementForQuote(tx: QuoteTx, quote: QuoteRow) {
+  if (quote.opportunityId) {
+    const [engagement] = await tx
+      .select()
+      .from(engagements)
+      .where(and(eq(engagements.opportunityId, quote.opportunityId), isNull(engagements.deletedAt)))
+      .limit(1)
+    if (engagement) return engagement
+  }
+
+  if (!quote.contactId) return null
+
+  const [engagement] = await tx
+    .select()
+    .from(engagements)
+    .where(
+      and(
+        eq(engagements.contactId, quote.contactId),
+        eq(engagements.status, 'active'),
+        isNull(engagements.deletedAt),
+      ),
+    )
+    .limit(1)
+  return engagement ?? null
+}
+
+function buildOrderNumber(quoteNumber: string) {
+  const normalized = quoteNumber.trim()
+  if (/^Q[-_]/i.test(normalized)) return normalized.replace(/^Q/i, 'ORD')
+  return `ORD-${normalized}`
+}
+
+function canAcceptQuote(status: string) {
+  return status === 'draft' || status === 'sent' || status === 'accepted'
 }

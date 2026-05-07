@@ -114,6 +114,16 @@ The E2E workflow installs Chromium through the web workspace because
 pnpm --filter @phyne/web exec playwright install --with-deps chromium
 ```
 
+It then runs the package-local Playwright script directly:
+
+```bash
+pnpm --filter @phyne/web test:e2e
+```
+
+Do not use the root `pnpm test:e2e` in CI while setting `AUTH_BYPASS=true`;
+Turbo's root task depends on a production `next build`, and production config
+correctly rejects auth bypass.
+
 ## Database Migrations
 
 ```bash

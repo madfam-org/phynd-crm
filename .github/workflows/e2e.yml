@@ -49,7 +49,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
       - run: pnpm --filter @phyne/web exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      - run: pnpm --filter @phyne/web test:e2e
         env:
           DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
           REDIS_URL: redis://localhost:6379

@@ -69,7 +69,7 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`turbo.json`](../turbo.json) | Added `globalPassThroughEnv` coverage for CI, E2E, deploy, webhook, auth, provider, and worker runtime variables. |
 | [`.github/workflows/deploy-web.yml`](../.github/workflows/deploy-web.yml) | Switched deploy checkout/digest commit auth to `github.token`; kept GHCR auth on `MADFAM_BOT_PAT`. |
 | [`.github/workflows/deploy-worker.yml`](../.github/workflows/deploy-worker.yml) | Switched deploy checkout/digest commit auth to `github.token`; kept GHCR auth on `MADFAM_BOT_PAT`. |
-| [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Invokes Playwright through the `@phyne/web` workspace so CI finds the package-local binary. |
+| [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Invokes Playwright install and E2E execution through the `@phyne/web` workspace so CI finds the package-local binary and avoids production-build auth-bypass conflicts. |
 
 No unrelated working-tree changes were reverted; all current edits are part of
 the PP.5 guardrail, CI, deploy, or documentation remediation path.

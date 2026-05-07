@@ -18,10 +18,11 @@ test.describe('Campaigns', () => {
     // Requires: authenticated session
     await page.goto('/campaigns')
     await page.getByRole('button', { name: 'Create Campaign' }).click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByLabel('Name *')).toBeVisible()
-    await expect(page.getByText('Channel')).toBeVisible()
-    await expect(page.getByText('UTM Parameters')).toBeVisible()
+    const dialog = page.getByRole('dialog', { name: 'Create Campaign' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByLabel('Name *')).toBeVisible()
+    await expect(dialog.getByText('Channel', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('UTM Parameters')).toBeVisible()
   })
 
   test('campaigns table shows channel and status badges', async ({ page }) => {

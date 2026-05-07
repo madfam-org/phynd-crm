@@ -15,6 +15,7 @@ import type { AppRouter } from '@phyne/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
+import { CreateClientProjectDialog } from './create-client-project-dialog'
 import { CreateEngagementDialog } from './create-engagement-dialog'
 import { DeleteEngagementDialog } from './delete-engagement-dialog'
 
@@ -176,7 +177,8 @@ export function EngagementsDataTable({ initialData }: EngagementsDataTableProps)
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <CreateClientProjectDialog />
         <CreateEngagementDialog />
       </div>
       <DataTable

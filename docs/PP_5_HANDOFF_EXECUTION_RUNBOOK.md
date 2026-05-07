@@ -61,6 +61,47 @@ Required outcome:
 - Same payload with the wrong secret returns `401`.
 - Production PhyneCRM receives no staging probe rows or cache effects.
 
+## Wave 1.5 - CRM Onboarding Dry Run
+
+Run after Wave 0 passes and before provider teams perform mutating probes.
+
+1. Open:
+
+```text
+https://staging-crm.madfam.io/engagements
+```
+
+2. Use **Onboard Client Project** to create three synthetic engagements:
+
+| Scenario | Project kind | Delivery tracks | Production order |
+|---|---|---|---|
+| Digital | `digital` | `digital_experience` | No |
+| Physical | `physical` | `fabrication`, `fulfillment` | Yes |
+| Phygital | `phygital` | `fabrication`, `digital_twin`, `kiosk` | Yes |
+
+3. Verify for each engagement:
+
+- Contact exists.
+- Opportunity is in the selected pipeline/stage.
+- Engagement detail page opens.
+- Quote artifact appears in the engagement artifact list.
+- `system:intake_created` appears in the engagement timeline.
+- If production order was requested, order exists and
+  `system:production_order_created` appears in the timeline.
+
+4. Attach evidence to the PP.5 signoff packet:
+
+- Engagement IDs.
+- Quote IDs.
+- Order IDs where applicable.
+- Screenshot or exported row evidence from staging only.
+
+Required outcome:
+
+- The CRM can create quote-ready digital, physical, and phygital project
+  skeletons without direct database writes.
+- No production CRM or provider records are touched.
+
 ## Wave 2 - Mutating Webhook Probes
 
 Run these by provider, in parallel, after the staging DB is seeded enough for

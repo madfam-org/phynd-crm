@@ -34,6 +34,8 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `selva:agent_task_assigned`, `selva:pr_opened` — digital execution checkpoints
 - `karafiel:nom151_stamped` — technical compliance checkpoints
 - `system:contact_linked` — internal housekeeping
+- `system:intake_created` — PhyneCRM created the client/project onboarding skeleton
+- `system:production_order_created` — PhyneCRM created the optional production order during onboarding
 
 ## `status` field semantics
 

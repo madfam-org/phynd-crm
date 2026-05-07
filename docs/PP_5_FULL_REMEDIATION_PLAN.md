@@ -23,6 +23,9 @@ Repo-owned PP.5 work is ready:
 - Staging env validator exists: `node scripts/pp5-validate-staging-env.mjs`.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
+- Client project onboarding is available through `engagements.onboardClientProject`
+  and `/engagements -> Onboard Client Project`; see
+  [`docs/CLIENT_PROJECT_ONBOARDING.md`](./CLIENT_PROJECT_ONBOARDING.md).
 - CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
   variables, including `DATABASE_URL`, are available inside Turbo tasks.
 - The worker package declares the Sentry runtime dependency used by its entry
@@ -63,7 +66,8 @@ PP.5 is remediated when:
 7. Run mutating provider probes.
 8. Validate outbound integrations.
 9. Add masked restore or approved deterministic seed baseline.
-10. Sign off promotion confidence gates.
+10. Run a CRM onboarding dry run for digital, physical, and phygital projects.
+11. Sign off promotion confidence gates.
 
 Provider registration work can run in parallel after step 4, but signed probes
 must wait until steps 1-5 are complete.
@@ -88,6 +92,9 @@ node scripts/pp5-wave0-check.mjs
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
+pnpm --filter @phyne/api test -- engagements.router.test.ts
+pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 pnpm --filter @phyne/web exec playwright test --list
 AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
 ```

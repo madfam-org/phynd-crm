@@ -31,6 +31,10 @@ Repo-owned PP.5 guardrails are now in place:
 - A staging env file can be generated with fresh random staging-only secrets
   plus explicit `REPLACE_ME_*` markers for operator-owned values.
 - Wave 0 readiness can be checked with one command.
+- Client/project onboarding now has a transactional service, protected tRPC
+  mutation, and CRM dialog for creating a contact, opportunity, engagement,
+  quote, optional production order, quote artifact, conversion, and timeline
+  events in one flow.
 
 Cluster-side progress:
 
@@ -57,6 +61,7 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`scripts/pp5-validate-staging-env.mjs`](../scripts/pp5-validate-staging-env.mjs) | Rejects unresolved or unsafe staging env files before they are applied as Kubernetes secrets. |
 | [`scripts/pp5-webhook-probe.mjs`](../scripts/pp5-webhook-probe.mjs) | Generates signed `curl` probes or sends signed staging webhook probes for all active inbound lanes. |
 | [`scripts/pp5-wave0-check.mjs`](../scripts/pp5-wave0-check.mjs) | Consolidated Wave 0 readiness check for secret coverage, namespace, secret, ArgoCD app, and staging health. |
+| [`docs/CLIENT_PROJECT_ONBOARDING.md`](./CLIENT_PROJECT_ONBOARDING.md) | Documents the new client/project onboarding service, tRPC mutation, CRM dialog, created records, and limits. |
 
 ## Files Updated
 
@@ -73,6 +78,10 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Invokes Playwright install and E2E execution through the `@phyne/web` workspace so CI finds the package-local binary and avoids production-build auth-bypass conflicts. |
 | [`apps/web/e2e`](../apps/web/e2e) | Updated stale browser assertions for CI auth bypass, seeded pipeline data, accessible selectors, and current dashboard UI. |
 | [`apps/web/package.json`](../apps/web/package.json) | Declared `pino` for Next standalone/server externalization through `serverExternalPackages`. |
+| [`packages/services/src/onboarding/client-project-onboarding.service.ts`](../packages/services/src/onboarding/client-project-onboarding.service.ts) | Added transactional onboarding orchestration for contact, opportunity, engagement, quote, optional order, artifacts, conversion, and timeline events. |
+| [`packages/api/src/routers/engagements.ts`](../packages/api/src/routers/engagements.ts) | Added `engagements.onboardClientProject` protected mutation. |
+| [`apps/web/src/components/engagements/create-client-project-dialog.tsx`](../apps/web/src/components/engagements/create-client-project-dialog.tsx) | Added the CRM dashboard dialog for client/project onboarding. |
+| [`apps/web/src/components/engagements/engagements-data-table.tsx`](../apps/web/src/components/engagements/engagements-data-table.tsx) | Added the onboarding action to the Engagements page toolbar. |
 
 No unrelated working-tree changes were reverted; all current edits are part of
 the PP.5 guardrail, CI, deploy, or documentation remediation path.
@@ -123,6 +132,9 @@ pnpm --filter @phyne/federation typecheck
 pnpm --filter @phyne/federation test
 pnpm --filter @phyne/web typecheck
 pnpm --filter @phyne/web test
+pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
+pnpm --filter @phyne/api test -- engagements.router.test.ts
+pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
 pnpm --filter @phyne/web exec playwright test --list
 pnpm --filter @phyne/worker lint
 pnpm --filter @phyne/worker typecheck
@@ -246,6 +258,10 @@ node scripts/pp5-wave0-check.mjs
 7. Once Wave 0 passes, start provider probe batches from
 [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md).
 
+8. Run the CRM onboarding dry run from
+[`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md#wave-15---crm-onboarding-dry-run)
+for digital, physical, and phygital projects.
+
 ## Explicit Non-Actions
 
 - Did not install `phyne-crm-staging-secrets` with placeholder values.
@@ -254,6 +270,8 @@ node scripts/pp5-wave0-check.mjs
 - Did not run provider webhook probes against staging because DNS/Argo/secret
   are not ready.
 - Did not implement masked restore automation; it remains Workstream 4.
+- Did not run the CRM onboarding dry run against staging because Wave 0 is
+  still blocked by missing secret, ArgoCD app, and DNS/HTTP health.
 
 ## Known Risks
 

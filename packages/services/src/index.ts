@@ -25,6 +25,13 @@ export { LeadsService } from './leads/leads.service'
 export { NotesService } from './notes/notes.service'
 export { NotificationsService } from './notifications/notifications.service'
 export { OffersService } from './offers/offers.service'
+export {
+  ClientProjectOnboardingService,
+  type ClientProjectDeliveryTrack,
+  type ClientProjectKind,
+  type ClientProjectOnboardingInput,
+  type ClientProjectOnboardingResult,
+} from './onboarding/client-project-onboarding.service'
 export { OpportunitiesService } from './opportunities/opportunities.service'
 export { OrdersService } from './orders/orders.service'
 export { PipelinesService } from './pipelines/pipelines.service'

@@ -1,6 +1,19 @@
-import { EngagementPortalMagicLinkService, EngagementsService } from '@phyne/services'
+import {
+  ClientProjectOnboardingService,
+  EngagementPortalMagicLinkService,
+  EngagementsService,
+} from '@phyne/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
+
+const clientProjectKind = z.enum(['digital', 'physical', 'phygital'])
+const deliveryTrack = z.enum([
+  'digital_experience',
+  'digital_twin',
+  'fabrication',
+  'fulfillment',
+  'kiosk',
+])
 
 const paginationInput = z
   .object({
@@ -53,6 +66,45 @@ export const engagementsRouter = router({
     )
     .mutation(({ ctx, input }) => {
       const service = new EngagementsService(ctx)
+      return service.create(input)
+    }),
+
+  onboardClientProject: protectedProcedure
+    .input(
+      z.object({
+        client: z.object({
+          name: z.string().min(1).max(255),
+          email: z.string().email().optional(),
+          phone: z.string().max(50).optional(),
+          company: z.string().max(255).optional(),
+          externalJanuaId: z.string().max(255).optional(),
+        }),
+        project: z.object({
+          name: z.string().min(1).max(255),
+          description: z.string().max(2000).optional(),
+          kind: clientProjectKind,
+          deliveryTracks: z.array(deliveryTrack).optional(),
+        }),
+        commercial: z.object({
+          pipelineId: z.string().min(1),
+          stageId: z.string().min(1),
+          amount: z.string().optional(),
+          currency: z.string().max(10).optional(),
+          expectedCloseDate: z.date().optional(),
+          quoteNumber: z.string().min(1).max(50).optional(),
+          quoteStatus: z.enum(['draft', 'sent']).optional(),
+          quoteValidUntil: z.date().optional(),
+          createProductionOrder: z.boolean().optional(),
+          orderNumber: z.string().min(1).max(50).optional(),
+          orderStatus: z.enum(['pending', 'confirmed', 'in_production']).optional(),
+          estimatedCompletion: z.date().optional(),
+        }),
+        intakeSource: z.enum(['api', 'crm', 'selva_office']).optional(),
+        ownerId: z.string().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new ClientProjectOnboardingService(ctx)
       return service.create(input)
     }),
 

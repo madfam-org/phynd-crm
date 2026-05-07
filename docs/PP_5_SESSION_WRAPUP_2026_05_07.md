@@ -15,8 +15,9 @@ blockers that were preventing a clean push-to-main signal:
 - Worker build dependencies now include the Sentry runtime package imported by
   `apps/worker/src/index.ts`.
 - Worker tests now declare their Vitest dependency.
-- Deploy workflows now use the workflow-scoped `GITHUB_TOKEN` for checkout,
-  GHCR login, and staging digest commits.
+- Deploy workflows now use the workflow-scoped `GITHUB_TOKEN` for checkout and
+  staging digest commits, while retaining `MADFAM_BOT_PAT` for GHCR package
+  push access.
 - Turbo now passes runtime env vars such as `DATABASE_URL`, `REDIS_URL`,
   `AUTH_SECRET`, provider URLs/secrets, and worker settings through strict mode.
 - Web/API/service/federation tests were tightened where TypeScript or Biome
@@ -64,10 +65,11 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md) | Marked namespace as complete and Wave 0 checker/env generator as ready. |
 | [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md) | Added current Wave 0 status and linked canonical remediation plan. |
 | [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md) | Added env generator and consolidated Wave 0 checker. |
-| [`docs/DEPLOYMENT.md`](./DEPLOYMENT.md) | Added CI/deploy notes for workflow token usage, Turbo env pass-through, and local build validation caveats. |
+| [`docs/DEPLOYMENT.md`](./DEPLOYMENT.md) | Added CI/deploy notes for workflow token usage, Turbo env pass-through, Playwright E2E invocation, and local build validation caveats. |
 | [`turbo.json`](../turbo.json) | Added `globalPassThroughEnv` coverage for CI, E2E, deploy, webhook, auth, provider, and worker runtime variables. |
-| [`.github/workflows/deploy-web.yml`](../.github/workflows/deploy-web.yml) | Switched deploy checkout/GHCR auth to `github.token`. |
-| [`.github/workflows/deploy-worker.yml`](../.github/workflows/deploy-worker.yml) | Switched deploy checkout/GHCR auth to `github.token`. |
+| [`.github/workflows/deploy-web.yml`](../.github/workflows/deploy-web.yml) | Switched deploy checkout/digest commit auth to `github.token`; kept GHCR auth on `MADFAM_BOT_PAT`. |
+| [`.github/workflows/deploy-worker.yml`](../.github/workflows/deploy-worker.yml) | Switched deploy checkout/digest commit auth to `github.token`; kept GHCR auth on `MADFAM_BOT_PAT`. |
+| [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Invokes Playwright through the `@phyne/web` workspace so CI finds the package-local binary. |
 
 No unrelated working-tree changes were reverted; all current edits are part of
 the PP.5 guardrail, CI, deploy, or documentation remediation path.

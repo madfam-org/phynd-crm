@@ -48,7 +48,7 @@ jobs:
       - run: pnpm db:generate && pnpm db:migrate && pnpm db:seed
         env:
           DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
-      - run: npx playwright install --with-deps chromium
+      - run: pnpm --filter @phyne/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
         env:
           DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm

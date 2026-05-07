@@ -14,8 +14,9 @@ Repo-owned PP.5 work is ready:
 - Staging secret template exists at `infra/k8s/staging-secrets-template.yaml`.
 - In-repo ArgoCD Application exists at `infra/argocd/phyne-crm-staging-application.yaml`.
 - Deploy workflows write image digests to staging, not production.
-- Deploy workflows use the workflow-scoped `GITHUB_TOKEN` for checkout, GHCR
-  login, and same-repo staging digest commits.
+- Deploy workflows use the workflow-scoped `GITHUB_TOKEN` for checkout and
+  same-repo staging digest commits, while keeping `MADFAM_BOT_PAT` for GHCR
+  package push access.
 - Manual promote and rollback workflows exist.
 - Staging secret coverage guard exists: `node scripts/pp5-staging-audit.mjs`.
 - Staging env generator exists: `node scripts/pp5-generate-staging-env.mjs`.

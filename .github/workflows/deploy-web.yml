@@ -35,7 +35,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ github.token }}
+          password: ${{ secrets.MADFAM_BOT_PAT }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

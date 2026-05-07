@@ -124,6 +124,7 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
         searchKey="email"
         searchPlaceholder="Search by email..."
         filterKey="role"
+        filterLabel="Filter by role"
         filterOptions={[
           { label: 'Admin', value: 'admin' },
           { label: 'Manager', value: 'manager' },

@@ -107,7 +107,6 @@ test.describe('Global Search', () => {
     const resultsDropdown = page.getByLabel('Search results')
     await expect(resultsDropdown).toBeVisible()
     // At least one badge type should be visible
-    const badges = resultsDropdown.locator('[class*="badge"]')
-    expect(await badges.count()).toBeGreaterThan(0)
+    await expect(resultsDropdown.getByText(/Contact|Lead|Opportunity/).first()).toBeVisible()
   })
 })

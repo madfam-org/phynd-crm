@@ -35,6 +35,7 @@ interface DataTableProps<T> {
   columns: ColumnDef<T>[]
   data: T[]
   filterKey?: keyof T & string
+  filterLabel?: string
   filterOptions?: FilterOption[]
   getRowKey?: (row: T, index: number) => string | number
   onRowClick?: (row: T) => void
@@ -49,6 +50,7 @@ export function DataTable<T>({
   columns,
   data,
   filterKey,
+  filterLabel,
   filterOptions,
   getRowKey,
   onRowClick,
@@ -165,7 +167,7 @@ export function DataTable<T>({
           )}
           {filterOptions && filterKey && (
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[180px]" aria-label="Filter by status">
+              <SelectTrigger className="w-[180px]" aria-label={filterLabel ?? 'Filter table'}>
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>

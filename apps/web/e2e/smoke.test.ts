@@ -13,6 +13,7 @@ test.describe('Smoke tests', () => {
   })
 
   test('unauthenticated users are redirected from dashboard to login', async ({ page }) => {
+    test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirects')
     await page.goto('/overview')
     await expect(page).toHaveURL(/\/login/)
   })

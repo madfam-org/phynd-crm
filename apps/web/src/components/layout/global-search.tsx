@@ -55,7 +55,7 @@ export function GlobalSearch() {
   // Cmd+K / Ctrl+K keyboard shortcut to focus
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         inputRef.current?.focus()
       }

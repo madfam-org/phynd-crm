@@ -180,7 +180,7 @@ test.describe('Bulk Operations', () => {
       // toggle selection for rows that pass the current search/filter criteria.
       await page.goto('/contacts')
       // Type a search to filter the table
-      const searchInput = page.getByPlaceholder('Search...')
+      const searchInput = page.getByPlaceholder('Search contacts...')
       await searchInput.fill('alice')
       // Select all visible rows
       const selectAll = page.getByLabel('Select all rows')

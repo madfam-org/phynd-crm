@@ -124,6 +124,14 @@ Do not use the root `pnpm test:e2e` in CI while setting `AUTH_BYPASS=true`;
 Turbo's root task depends on a production `next build`, and production config
 correctly rejects auth bypass.
 
+Playwright CI runs the app with development auth bypass enabled. Redirect-only
+browser assertions must call `test.skip(process.env.AUTH_BYPASS === 'true', ...)`
+or run in a separate no-bypass job. Dashboard E2E assertions should target
+accessible labels or visible text, not generated component class names.
+
+The web app lists `pino` as an app dependency because Next externalizes it for
+standalone/server bundles through `serverExternalPackages`.
+
 ## Database Migrations
 
 ```bash

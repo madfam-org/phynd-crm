@@ -34,6 +34,8 @@ const CHANNELS = [
   { value: 'other', label: 'Other' },
 ] as const
 
+const NO_OFFER_VALUE = 'none'
+
 export function CreateCampaignDialog() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -46,7 +48,7 @@ export function CreateCampaignDialog() {
   const [currency, setCurrency] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [offerId, setOfferId] = useState('')
+  const [offerId, setOfferId] = useState(NO_OFFER_VALUE)
 
   const { data: offersData } = trpc.offers.list.useQuery(undefined, { retry: false })
 
@@ -71,7 +73,7 @@ export function CreateCampaignDialog() {
     setCurrency('')
     setStartDate('')
     setEndDate('')
-    setOfferId('')
+    setOfferId(NO_OFFER_VALUE)
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -95,7 +97,7 @@ export function CreateCampaignDialog() {
       currency: currency || undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
-      offerId: offerId || undefined,
+      offerId: offerId === NO_OFFER_VALUE ? undefined : offerId,
     })
   }
 
@@ -230,7 +232,7 @@ export function CreateCampaignDialog() {
                   <SelectValue placeholder="Select offer (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NO_OFFER_VALUE}>None</SelectItem>
                   {(offersData?.items ?? []).map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}

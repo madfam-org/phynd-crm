@@ -103,8 +103,7 @@ test.describe('User Management', () => {
   test('users table has role filter dropdown', async ({ page }) => {
     // Requires: authenticated session with admin role
     await page.goto('/settings/users')
-    // The role filter is a Radix Select with options: Admin, Manager, Sales Rep, Viewer
-    const filterTrigger = page.locator('[class*="SelectTrigger"]')
+    const filterTrigger = page.getByLabel('Filter by role')
     await expect(filterTrigger).toBeVisible()
   })
 
@@ -121,9 +120,7 @@ test.describe('User Management', () => {
   test('user roles display with correct badges', async ({ page }) => {
     // Requires: authenticated session with admin role + users with different roles
     await page.goto('/settings/users')
-    // Role badges render with specific variants: Admin, Manager, Sales Rep, Viewer
-    const roleBadges = page.locator('td [class*="badge"]')
-    expect(await roleBadges.count()).toBeGreaterThan(0)
+    await expect(page.getByText('Admin').first()).toBeVisible()
   })
 
   test('CRUD operations require admin role', async ({ page }) => {

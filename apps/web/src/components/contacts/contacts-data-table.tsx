@@ -107,6 +107,8 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
         columns={columns}
         data={contacts?.items ?? []}
         getRowKey={(row) => row.id}
+        searchKey="name"
+        searchPlaceholder="Search contacts..."
         selectable
         onSelectionChange={setSelectedKeys}
       />

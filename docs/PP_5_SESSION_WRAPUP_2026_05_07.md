@@ -70,6 +70,8 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`.github/workflows/deploy-web.yml`](../.github/workflows/deploy-web.yml) | Switched deploy checkout/digest commit auth to `github.token`; kept GHCR auth on `MADFAM_BOT_PAT`. |
 | [`.github/workflows/deploy-worker.yml`](../.github/workflows/deploy-worker.yml) | Switched deploy checkout/digest commit auth to `github.token`; kept GHCR auth on `MADFAM_BOT_PAT`. |
 | [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Invokes Playwright install and E2E execution through the `@phyne/web` workspace so CI finds the package-local binary and avoids production-build auth-bypass conflicts. |
+| [`apps/web/e2e`](../apps/web/e2e) | Updated stale browser assertions for CI auth bypass, seeded pipeline data, accessible selectors, and current dashboard UI. |
+| [`apps/web/package.json`](../apps/web/package.json) | Declared `pino` for Next standalone/server externalization through `serverExternalPackages`. |
 
 No unrelated working-tree changes were reverted; all current edits are part of
 the PP.5 guardrail, CI, deploy, or documentation remediation path.
@@ -120,6 +122,7 @@ pnpm --filter @phyne/federation typecheck
 pnpm --filter @phyne/federation test
 pnpm --filter @phyne/web typecheck
 pnpm --filter @phyne/web test
+pnpm --filter @phyne/web exec playwright test --list
 pnpm --filter @phyne/worker lint
 pnpm --filter @phyne/worker typecheck
 pnpm --filter @phyne/worker build
@@ -154,8 +157,8 @@ Wave 0 blocked: 3 check(s) failed
 The local migration probe now reaches Drizzle with a defined `DATABASE_URL`;
 the local machine then rejects the sample CI role with
 `role "phyne" does not exist`. This confirms the previous Turbo env-stripping
-failure mode is closed. A real E2E run still requires a provisioned Postgres
-service matching the CI URL, as GitHub Actions provides.
+failure mode is closed. GitHub Actions provides the matching Postgres and Redis
+services used by the full Playwright E2E job.
 
 Notes:
 

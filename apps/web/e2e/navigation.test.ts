@@ -10,16 +10,19 @@ test.describe('Navigation', () => {
 
   test.describe('unauthenticated redirects', () => {
     test('redirects /overview to /login', async ({ page }) => {
+      test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirects')
       await page.goto('/overview')
       await expect(page).toHaveURL(/\/login/)
     })
 
     test('redirects /contacts to /login', async ({ page }) => {
+      test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirects')
       await page.goto('/contacts')
       await expect(page).toHaveURL(/\/login/)
     })
 
     test('redirects /analytics to /login', async ({ page }) => {
+      test.skip(process.env.AUTH_BYPASS === 'true', 'AUTH_BYPASS skips redirects')
       await page.goto('/analytics')
       await expect(page).toHaveURL(/\/login/)
     })

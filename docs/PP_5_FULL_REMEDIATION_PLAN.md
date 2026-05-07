@@ -26,6 +26,9 @@ Repo-owned PP.5 work is ready:
   variables, including `DATABASE_URL`, are available inside Turbo tasks.
 - The worker package declares the Sentry runtime dependency used by its entry
   point.
+- The web package declares the `pino` runtime dependency externalized by Next.
+- Playwright E2E runs through the `@phyne/web` workspace and its browser
+  assertions are aligned with the CI auth-bypass mode.
 
 Observed blockers from this workspace on 2026-05-07:
 
@@ -83,6 +86,7 @@ node scripts/pp5-wave0-check.mjs
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm --filter @phyne/web exec playwright test --list
 AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
 ```
 

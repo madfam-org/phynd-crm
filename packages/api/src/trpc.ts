@@ -84,11 +84,7 @@ function requiredScopeFromPath(path: string, procedureType: string | undefined):
 
 function hasRequiredScope(scopes: string[], requiredScope: string): boolean {
   const [resource] = requiredScope.split(':')
-  return (
-    scopes.includes('*') ||
-    scopes.includes(requiredScope) ||
-    scopes.includes(`${resource}:*`)
-  )
+  return scopes.includes('*') || scopes.includes(requiredScope) || scopes.includes(`${resource}:*`)
 }
 
 // Service auth is least-privilege by default. Requires explicit scope matches

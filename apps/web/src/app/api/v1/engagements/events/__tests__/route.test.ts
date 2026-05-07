@@ -50,6 +50,21 @@ vi.mock('@phyne/services', () => ({
 
 import { POST } from '../route'
 
+type RecordedEngagementEvent = {
+  engagementId: string
+  source: string
+  eventType: string
+  status?: string
+  dedupKey: string
+  metadata?: Record<string, unknown>
+}
+
+function getRecordedEventArg(): RecordedEngagementEvent {
+  const call = mockRecordEvent.mock.calls[0]
+  expect(call).toBeDefined()
+  return call?.[0] as RecordedEngagementEvent
+}
+
 function createSignedRequest(body: object, options: { secret?: string } = {}) {
   const secret = options.secret ?? 'test-events-secret'
   const bodyStr = JSON.stringify(body)
@@ -123,7 +138,7 @@ describe('POST /api/v1/engagements/events', () => {
     expect(res.status).toBe(200)
     expect(mockRecordEvent).toHaveBeenCalledTimes(1)
 
-    const arg = mockRecordEvent.mock.calls[0][0]
+    const arg = getRecordedEventArg()
     expect(arg).toMatchObject({
       engagementId: 'eng_tablaco',
       source: 'dhanam',
@@ -146,7 +161,7 @@ describe('POST /api/v1/engagements/events', () => {
     const req = createSignedRequest(payload)
     const res = await POST(req)
     expect(res.status).toBe(200)
-    const arg = mockRecordEvent.mock.calls[0][0]
+    const arg = getRecordedEventArg()
     // Shape of the derived key must be stable so a replay produces the same key.
     expect(arg.dedupKey).toBe('cotiza:quote_approved:2026-04-19T09:00:00.000Z')
   })

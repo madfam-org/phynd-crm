@@ -48,6 +48,11 @@ interface JsonSchema extends JsonSchemaProperty {
 const schemaPath = resolve(__dirname, 'dhanam-customer-contract.schema.json')
 const contractSchema: JsonSchema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
 
+function expectDefined<T>(value: T | undefined): T {
+  expect(value).toBeDefined()
+  return value as T
+}
+
 // ---------------------------------------------------------------------------
 // Inline JSON Schema validator (avoids adding ajv as a dependency)
 // ---------------------------------------------------------------------------
@@ -405,35 +410,39 @@ describe('DhanamRawCustomer contract schema validation', () => {
       expect(contractSchema.required).toHaveLength(requiredFields.length)
     })
 
-  it('contract schema defines all subscription properties', () => {
-      const subSchema = contractSchema.properties!.subscription
+    it('contract schema defines all subscription properties', () => {
+      const properties = expectDefined(contractSchema.properties)
+      const subSchema = properties.subscription
       expect(subSchema?.required).toEqual(expect.arrayContaining(['plan', 'status']))
-  })
+    })
 
-  it('contract schema defines all balance properties', () => {
-      const balSchema = contractSchema.properties!.balance
+    it('contract schema defines all balance properties', () => {
+      const properties = expectDefined(contractSchema.properties)
+      const balSchema = properties.balance
       expect(balSchema?.required).toEqual(expect.arrayContaining(['amount', 'currency']))
-  })
+    })
 
-  it('contract schema defines all invoice properties', () => {
-      const invItemSchema = contractSchema.properties!.invoices?.items
+    it('contract schema defines all invoice properties', () => {
+      const properties = expectDefined(contractSchema.properties)
+      const invItemSchema = properties.invoices?.items
       const expectedFields = ['id', 'amount', 'currency', 'status', 'created_at', 'paid_at']
       expect(invItemSchema?.required).toEqual(expect.arrayContaining(expectedFields))
-  })
+    })
 
-  it('contract schema defines all payment_method properties', () => {
-      const pmItemSchema = contractSchema.properties!.payment_methods?.items
+    it('contract schema defines all payment_method properties', () => {
+      const properties = expectDefined(contractSchema.properties)
+      const pmItemSchema = properties.payment_methods?.items
       const expectedFields = ['id', 'type', 'last_four', 'is_default']
       expect(pmItemSchema?.required).toEqual(expect.arrayContaining(expectedFields))
-  })
+    })
 
-  it('contract schema disallows additional properties at every level', () => {
+    it('contract schema disallows additional properties at every level', () => {
       expect(contractSchema.additionalProperties).toBe(false)
       expect(contractSchema.properties?.subscription?.additionalProperties).toBe(false)
       expect(contractSchema.properties?.balance?.additionalProperties).toBe(false)
       expect(contractSchema.properties?.invoices?.items?.additionalProperties).toBe(false)
       expect(contractSchema.properties?.payment_methods?.items?.additionalProperties).toBe(false)
-  })
+    })
   })
 })
 
@@ -503,21 +512,22 @@ describe('DhanamProvider.map() transformation', () => {
   it('maps invoice paid_at as null when raw paid_at is null', () => {
     const result = provider.map(fixtures.expiredWithBalance)
 
-    expect(result.invoices[0]!.paidAt).toBeNull()
-    expect(result.invoices[1]!.paidAt).toBeNull()
+    expect(expectDefined(result.invoices[0]).paidAt).toBeNull()
+    expect(expectDefined(result.invoices[1]).paidAt).toBeNull()
   })
 
   it('maps invoice paid_at as Date when raw paid_at is a string', () => {
     const result = provider.map(fixtures.activeSubscriber)
+    const invoice = expectDefined(result.invoices[0])
 
-    expect(result.invoices[0]!.paidAt).toBeInstanceOf(Date)
-    expect(result.invoices[0]!.paidAt?.toISOString()).toBe('2026-03-01T00:05:00.000Z')
+    expect(invoice.paidAt).toBeInstanceOf(Date)
+    expect(invoice.paidAt?.toISOString()).toBe('2026-03-01T00:05:00.000Z')
   })
 
   it('renames last_four to last4 in payment methods', () => {
     const result = provider.map(fixtures.activeSubscriber)
 
-    const paymentMethod = result.paymentMethods[0]!
+    const paymentMethod = expectDefined(result.paymentMethods[0])
     expect(paymentMethod).toHaveProperty('last4')
     expect(paymentMethod).not.toHaveProperty('last_four')
   })
@@ -525,7 +535,7 @@ describe('DhanamProvider.map() transformation', () => {
   it('renames is_default to isDefault in payment methods', () => {
     const result = provider.map(fixtures.activeSubscriber)
 
-    const paymentMethod = result.paymentMethods[0]!
+    const paymentMethod = expectDefined(result.paymentMethods[0])
     expect(paymentMethod).toHaveProperty('isDefault')
     expect(paymentMethod).not.toHaveProperty('is_default')
   })
@@ -534,16 +544,17 @@ describe('DhanamProvider.map() transformation', () => {
     const result = provider.map(fixtures.multiProviderUser)
 
     expect(result.paymentMethods).toHaveLength(3)
-    expect(result.paymentMethods[0]!.type).toBe('stripe')
-    expect(result.paymentMethods[1]!.type).toBe('paddle')
-    expect(result.paymentMethods[2]!.type).toBe('janua')
+    expect(expectDefined(result.paymentMethods[0]).type).toBe('stripe')
+    expect(expectDefined(result.paymentMethods[1]).type).toBe('paddle')
+    expect(expectDefined(result.paymentMethods[2]).type).toBe('janua')
   })
 
   it('converts created_at string to issuedAt Date', () => {
     const result = provider.map(fixtures.activeSubscriber)
+    const invoice = expectDefined(result.invoices[0])
 
-    expect(result.invoices[0]!.issuedAt).toBeInstanceOf(Date)
-    expect(result.invoices[0]!.issuedAt.toISOString()).toBe('2026-03-01T00:00:00.000Z')
+    expect(invoice.issuedAt).toBeInstanceOf(Date)
+    expect(invoice.issuedAt.toISOString()).toBe('2026-03-01T00:00:00.000Z')
   })
 
   it('maps balance amount and currency from raw fields', () => {

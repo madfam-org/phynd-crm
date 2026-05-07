@@ -274,6 +274,9 @@ export class EngagementsService {
         dedupKey: data.dedupKey,
       })
       .returning()
+    if (!row) {
+      throw new ConflictError('Failed to record engagement event')
+    }
     return { event: row, deduplicated: false as const }
   }
 

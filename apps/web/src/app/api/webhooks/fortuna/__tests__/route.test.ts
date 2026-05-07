@@ -8,6 +8,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // mockDb / mockQb / etc. inside the factory throws ReferenceError.
 // ---------------------------------------------------------------------------
 
+type MockQueryBuilder = {
+  _result: unknown[]
+  from: ReturnType<typeof vi.fn>
+  insert: ReturnType<typeof vi.fn>
+  limit: ReturnType<typeof vi.fn>
+  orderBy: ReturnType<typeof vi.fn>
+  returning: ReturnType<typeof vi.fn>
+  select: ReturnType<typeof vi.fn>
+  set: ReturnType<typeof vi.fn>
+  then: ReturnType<typeof vi.fn>
+  update: ReturnType<typeof vi.fn>
+  values: ReturnType<typeof vi.fn>
+  where: ReturnType<typeof vi.fn>
+}
+
 const { mockCheckRateLimit, mockValidateWebhookSignature, mockQb, mockDb } = vi.hoisted(() => {
   const mockCheckRateLimit = vi.fn().mockResolvedValue({ allowed: true, remaining: 99 })
   const mockValidateWebhookSignature = vi.fn().mockReturnValue(true)
@@ -24,7 +39,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, mockQb, mockDb } = vi.
     update: vi.fn(),
     values: vi.fn(),
     where: vi.fn(),
-  }
+  } as MockQueryBuilder
 
   for (const method of Object.keys(mockQb).filter((k) => k !== '_result')) {
     ;(mockQb as unknown as Record<string, ReturnType<typeof vi.fn>>)[method]?.mockReturnValue(

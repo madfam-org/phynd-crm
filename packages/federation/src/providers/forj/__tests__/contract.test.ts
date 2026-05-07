@@ -13,6 +13,11 @@ import { ForjProvider } from '../index'
 
 type ForjRawData = Parameters<ForjProvider['map']>[0]
 
+function expectDefined<T>(value: T | undefined): T {
+  expect(value).toBeDefined()
+  return value as T
+}
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['assets', 'total_count'],
@@ -101,7 +106,7 @@ describe('ForjProvider.map()', () => {
 
   it('renames snake_case fields on each asset', () => {
     const result = provider.map(fixture)
-    const firstAsset = result.assets[0]!
+    const firstAsset = expectDefined(result.assets[0])
     expect(result.assets).toHaveLength(2)
     expect(firstAsset).toMatchObject({
       id: 'forj-1',
@@ -117,7 +122,7 @@ describe('ForjProvider.map()', () => {
 
   it('converts created_at + updated_at to Date', () => {
     const result = provider.map(fixture)
-    const firstAsset = result.assets[0]!
+    const firstAsset = expectDefined(result.assets[0])
     expect(result.assets).toHaveLength(2)
     expect(firstAsset.createdAt).toBeInstanceOf(Date)
     expect(firstAsset.updatedAt).toBeInstanceOf(Date)
@@ -130,7 +135,7 @@ describe('ForjProvider.map()', () => {
 
   it('handles null urls on draft assets', () => {
     const result = provider.map(fixture)
-    const draftAsset = result.assets[1]!
+    const draftAsset = expectDefined(result.assets[1])
     expect(result.assets).toHaveLength(2)
     expect(draftAsset.thumbnailUrl).toBeNull()
     expect(draftAsset.modelUrl).toBeNull()

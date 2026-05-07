@@ -94,7 +94,12 @@ describe('PravaraRawData contract', () => {
   it('rejects invalid status enum', () => {
     const invalid = {
       ...fixture,
-      orders: [{ ...fixture.orders[0], status: 'spinning' as unknown as PravaraRawData['orders'][number]['status'] }],
+      orders: [
+        {
+          ...fixture.orders[0],
+          status: 'spinning' as unknown as PravaraRawData['orders'][number]['status'],
+        },
+      ],
     }
     const errors = validateAgainstSchema(invalid, schema)
     expect(errors.some((e) => e.path.includes('status'))).toBe(true)

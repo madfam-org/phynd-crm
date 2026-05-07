@@ -13,6 +13,11 @@ import { CotizaProvider } from '../index'
 
 type CotizaRawData = Parameters<CotizaProvider['map']>[0]
 
+function expectDefined<T>(value: T | undefined): T {
+  expect(value).toBeDefined()
+  return value as T
+}
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['orders', 'quotes'],
@@ -112,7 +117,7 @@ describe('CotizaProvider.map()', () => {
 
   it('maps orders and quotes to camelCase', () => {
     const result = provider.map(fixture)
-    const firstOrder = result.orders[0]!
+    const firstOrder = expectDefined(result.orders[0])
     expect(result.orders).toHaveLength(1)
     expect(firstOrder).toMatchObject({
       id: 'order-1',
@@ -130,20 +135,20 @@ describe('CotizaProvider.map()', () => {
 
   it('converts created_at + estimated_completion to Date', () => {
     const result = provider.map(fixture)
-    const firstOrder = result.orders[0]!
+    const firstOrder = expectDefined(result.orders[0])
     expect(result.orders).toHaveLength(1)
     expect(firstOrder.createdAt).toBeInstanceOf(Date)
     expect(firstOrder.estimatedCompletion).toBeInstanceOf(Date)
   })
 
   it('estimated_completion null produces null', () => {
-    const rawOrder = fixture.orders[0]!
+    const rawOrder = expectDefined(fixture.orders[0])
     const input: CotizaRawData = {
       ...fixture,
       orders: [{ ...rawOrder, estimated_completion: null }],
     }
     const result = provider.map(input)
-    const mappedOrder = result.orders[0]!
+    const mappedOrder = expectDefined(result.orders[0])
     expect(mappedOrder.estimatedCompletion).toBeNull()
   })
 })

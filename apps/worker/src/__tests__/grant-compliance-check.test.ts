@@ -17,22 +17,27 @@ type MockQueryBuilder = {
   where: ReturnType<typeof vi.fn>
 }
 
-const mockQb: MockQueryBuilder = {
+const mockQb = {
   _result: [] as unknown[],
   from: vi.fn(),
   limit: vi.fn(),
   returning: vi.fn(),
   select: vi.fn(),
   set: vi.fn(),
-  then: vi.fn(),
   update: vi.fn(),
   values: vi.fn(),
   where: vi.fn(),
-}
+} as MockQueryBuilder
 
-for (const method of Object.keys(mockQb).filter((k) => k !== '_result' && k !== 'then')) {
+for (const method of Object.keys(mockQb).filter((k) => k !== '_result')) {
   ;(mockQb as unknown as Record<string, ReturnType<typeof vi.fn>>)[method]?.mockReturnValue(mockQb)
 }
+
+Object.defineProperty(mockQb, 'then', {
+  value: vi.fn(),
+  configurable: true,
+  enumerable: false,
+})
 
 const resetMockQueryThen = () => {
   mockQb.then.mockImplementation((resolve: (v: unknown) => void) =>

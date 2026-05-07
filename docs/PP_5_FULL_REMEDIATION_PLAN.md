@@ -14,11 +14,17 @@ Repo-owned PP.5 work is ready:
 - Staging secret template exists at `infra/k8s/staging-secrets-template.yaml`.
 - In-repo ArgoCD Application exists at `infra/argocd/phyne-crm-staging-application.yaml`.
 - Deploy workflows write image digests to staging, not production.
+- Deploy workflows use the workflow-scoped `GITHUB_TOKEN` for checkout, GHCR
+  login, and same-repo staging digest commits.
 - Manual promote and rollback workflows exist.
 - Staging secret coverage guard exists: `node scripts/pp5-staging-audit.mjs`.
 - Staging env generator exists: `node scripts/pp5-generate-staging-env.mjs`.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
+- CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
+  variables, including `DATABASE_URL`, are available inside Turbo tasks.
+- The worker package declares the Sentry runtime dependency used by its entry
+  point.
 
 Observed blockers from this workspace on 2026-05-07:
 
@@ -73,6 +79,10 @@ Actions:
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
 node scripts/pp5-wave0-check.mjs
+pnpm lint
+pnpm typecheck
+pnpm test
+AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
 ```
 
 Exit criteria:
@@ -80,7 +90,15 @@ Exit criteria:
 - Both scripts pass.
 - Every active inbound webhook lane appears in the probe list.
 - Wave 0 checker reports only expected external blockers until platform bootstrap is complete.
+- CI, test, typecheck, and production build checks pass locally before push.
 - `git diff --check` passes.
+
+Operational note:
+
+- `DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm pnpm db:migrate`
+  should reach Drizzle with a defined URL. A local failure of
+  `role "phyne" does not exist` is a workstation DB provisioning issue, not the
+  Turbo env-stripping failure that previously broke E2E.
 
 ## Workstream 1 - Platform Bootstrap
 

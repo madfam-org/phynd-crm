@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       id: conversions.id,
       value: conversions.value,
       metadata: conversions.metadata,
-      createdAt: conversions.createdAt,
+      recordedAt: conversions.convertedAt,
     })
     .from(conversions)
     .where(
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
              OR ${conversions.metadata}->>'billing_id' = ${billingId})`,
       ),
     )
-    .orderBy(sql`${conversions.createdAt} DESC`)
+    .orderBy(sql`${conversions.convertedAt} DESC`)
     .limit(1)
 
   if (row.length === 0) {
@@ -79,7 +79,16 @@ export async function GET(request: Request) {
     })
   }
 
-  const r = row[0]!
+  const r = row[0]
+  if (!r) {
+    return NextResponse.json({
+      credited: false,
+      reason: 'no matching conversion — event not yet processed or attribution not bound',
+      lead_id: leadId,
+      billing_id: billingId,
+    })
+  }
+
   const meta = (r.metadata ?? {}) as Record<string, unknown>
   const amountMinor =
     typeof meta.amount_minor === 'number'
@@ -94,6 +103,6 @@ export async function GET(request: Request) {
     source_agent: meta.source_agent_id ?? null,
     campaign_id: meta.campaign_id ?? null,
     credit_amount_mxn_cents: amountMinor,
-    recorded_at: r.createdAt,
+    recorded_at: r.recordedAt,
   })
 }

@@ -13,6 +13,11 @@ import { JanuaTelemetryProvider } from '../index'
 
 type JanuaRawTelemetry = Parameters<JanuaTelemetryProvider['map']>[0]
 
+function expectDefined<T>(value: T | undefined): T {
+  expect(value).toBeDefined()
+  return value as T
+}
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['sessions', 'total_sessions', 'unique_devices', 'top_sources'],
@@ -174,7 +179,7 @@ describe('JanuaTelemetryProvider.map()', () => {
     }
     const result = provider.map(minimal)
     expect(result.sessions).toHaveLength(1)
-    const session = result.sessions[0]!
+    const session = expectDefined(result.sessions[0])
     expect(session).toBeDefined()
     expect(session.contactId).toBeNull()
     expect(session.ipCity).toBeNull()

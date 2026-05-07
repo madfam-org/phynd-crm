@@ -31,6 +31,20 @@ const mockCreateServiceContext = vi.fn().mockReturnValue({
   tenantId: 'madfam',
 })
 
+type MockAuthContext = {
+  userId: string
+  tenantId: string
+  roles: string[]
+  scopes: string[]
+  accessToken: string
+}
+
+function getServiceAuthContext(): MockAuthContext {
+  const call = mockCreateServiceContext.mock.calls[0]
+  expect(call).toBeDefined()
+  return call?.[2] as MockAuthContext
+}
+
 vi.mock('@phyne/services/context', () => ({
   createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
 }))
@@ -50,9 +64,9 @@ const mockGetFederationClients = vi.fn(() => ({}))
 const mockGetHealthChecker = vi.fn(() => ({}))
 
 vi.mock('@/lib/federation/clients', () => ({
-  getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-  getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-  getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+  getCacheManager: () => mockGetCacheManager(),
+  getFederationClients: () => mockGetFederationClients(),
+  getHealthChecker: () => mockGetHealthChecker(),
 }))
 
 vi.mock('@phyne/logging', () => ({
@@ -119,9 +133,9 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
-      getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-      getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-      getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+      getCacheManager: () => mockGetCacheManager(),
+      getFederationClients: () => mockGetFederationClients(),
+      getHealthChecker: () => mockGetHealthChecker(),
     }))
     vi.doMock('@phyne/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
@@ -141,7 +155,7 @@ describe('tRPC route handler — federation token auth', () => {
     await GET(req)
 
     expect(mockCreateServiceContext).toHaveBeenCalledOnce()
-    const [_db, _cache, authCtx] = mockCreateServiceContext.mock.calls[0]
+    const authCtx = getServiceAuthContext()
     expect(authCtx).toEqual({
       userId: 'service:autoswarm',
       tenantId: 'madfam',
@@ -172,9 +186,9 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
-      getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-      getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-      getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+      getCacheManager: () => mockGetCacheManager(),
+      getFederationClients: () => mockGetFederationClients(),
+      getHealthChecker: () => mockGetHealthChecker(),
     }))
     vi.doMock('@phyne/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
@@ -198,7 +212,7 @@ describe('tRPC route handler — federation token auth', () => {
 
     // createServiceContext should be called with an unauthenticated context (no session)
     expect(mockCreateServiceContext).toHaveBeenCalledOnce()
-    const [, , authCtx] = mockCreateServiceContext.mock.calls[0]
+    const authCtx = getServiceAuthContext()
     expect(authCtx.userId).toBe('')
     expect(authCtx.roles).toEqual([])
   })
@@ -224,9 +238,9 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
-      getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-      getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-      getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+      getCacheManager: () => mockGetCacheManager(),
+      getFederationClients: () => mockGetFederationClients(),
+      getHealthChecker: () => mockGetHealthChecker(),
     }))
     vi.doMock('@phyne/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
@@ -246,7 +260,7 @@ describe('tRPC route handler — federation token auth', () => {
 
     expect(mockAuth).toHaveBeenCalledOnce()
     expect(mockCreateServiceContext).toHaveBeenCalledOnce()
-    const [, , authCtx] = mockCreateServiceContext.mock.calls[0]
+    const authCtx = getServiceAuthContext()
     expect(authCtx.userId).toBe('')
   })
 
@@ -270,9 +284,9 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
-      getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-      getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-      getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+      getCacheManager: () => mockGetCacheManager(),
+      getFederationClients: () => mockGetFederationClients(),
+      getHealthChecker: () => mockGetHealthChecker(),
     }))
     vi.doMock('@phyne/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
@@ -294,7 +308,7 @@ describe('tRPC route handler — federation token auth', () => {
     // Without FEDERATION_API_TOKEN set, even a Bearer token should fall through
     expect(mockAuth).toHaveBeenCalledOnce()
     expect(mockCreateServiceContext).toHaveBeenCalledOnce()
-    const [, , authCtx] = mockCreateServiceContext.mock.calls[0]
+    const authCtx = getServiceAuthContext()
     expect(authCtx.userId).toBe('')
   })
 
@@ -317,9 +331,9 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
-      getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-      getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-      getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+      getCacheManager: () => mockGetCacheManager(),
+      getFederationClients: () => mockGetFederationClients(),
+      getHealthChecker: () => mockGetHealthChecker(),
     }))
     vi.doMock('@phyne/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
@@ -338,7 +352,7 @@ describe('tRPC route handler — federation token auth', () => {
 
     await GET(req)
 
-    const [, , authCtx] = mockCreateServiceContext.mock.calls[0]
+    const authCtx = getServiceAuthContext()
     // Verify it does NOT have admin role or wildcard scope
     expect(authCtx.roles).not.toContain('admin')
     expect(authCtx.scopes).not.toContain('*')
@@ -368,9 +382,9 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
-      getCacheManager: (...args: unknown[]) => mockGetCacheManager(...args),
-      getFederationClients: (...args: unknown[]) => mockGetFederationClients(...args),
-      getHealthChecker: (...args: unknown[]) => mockGetHealthChecker(...args),
+      getCacheManager: () => mockGetCacheManager(),
+      getFederationClients: () => mockGetFederationClients(),
+      getHealthChecker: () => mockGetHealthChecker(),
     }))
     vi.doMock('@phyne/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),

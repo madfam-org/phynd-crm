@@ -130,7 +130,11 @@ describe('protectedProcedure service auth scopes', () => {
     })
     const createCaller = createCallerFactory(serviceQueryRouter)
     const caller = createCaller(
-      createMockServiceContext({ userId: 'service:autoswarm', roles: ['service'], scopes: ['leads:read'] }),
+      createMockServiceContext({
+        userId: 'service:autoswarm',
+        roles: ['service'],
+        scopes: ['leads:read'],
+      }),
     )
 
     const result = await caller.leads.list()

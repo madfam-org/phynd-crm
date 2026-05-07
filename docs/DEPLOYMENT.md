@@ -64,6 +64,43 @@ docker build -f docker/Dockerfile.worker -t phyne-worker .
 
 The `.dockerignore` excludes `.git`, `node_modules`, test files, coverage, and environment files from the build context.
 
+## GitHub Deploy Workflows
+
+`deploy-web.yml` and `deploy-worker.yml` build container images, push them to
+GHCR, and commit the resulting image digest to
+`infra/k8s/overlays/staging/kustomization.yaml`.
+
+These workflows intentionally use the workflow-scoped `GITHUB_TOKEN` for
+checkout, GHCR login, and same-repo digest commits. The jobs require:
+
+- `permissions.contents: write`
+- `permissions.packages: write`
+
+Do not replace this path with a personal or bot PAT unless the token is known
+to have same-repo contents write and package write access. A badly scoped PAT
+will publish the image and then fail when committing the staging digest.
+
+Production image movement remains manual through `promote-to-prod.yml`.
+
+## CI Build Notes
+
+Turbo runs in strict env mode. Runtime variables that CI, E2E, build, and
+deploy tasks need are listed in `turbo.json` under `globalPassThroughEnv`.
+Add new runtime-only env vars there when a task needs to read them without
+making them cache hash inputs.
+
+For a local production build, use a valid 16+ character `AUTH_SECRET` and force
+`AUTH_BYPASS=false` if `.env.local` enables development auth bypass:
+
+```bash
+AUTH_BYPASS=false \
+AUTH_SECRET=test-secret-123456 \
+DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm \
+REDIS_URL=redis://localhost:6379 \
+NEXT_PUBLIC_APP_URL=http://localhost:3000 \
+pnpm build
+```
+
 ## Database Migrations
 
 ```bash

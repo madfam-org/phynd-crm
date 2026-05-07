@@ -36,6 +36,7 @@ export interface BillingEvent {
 }
 
 type EventHandler = (event: BillingEvent) => Promise<void>
+type RedisStreamBatch = Array<[stream: string, entries: Array<[id: string, fields: string[]]>]>
 
 export class BillingEventConsumer {
   private redis: Redis
@@ -105,7 +106,7 @@ export class BillingEventConsumer {
 
   private async processNextBatch(): Promise<void> {
     // XREADGROUP with blocking
-    const results = await this.redis.xreadgroup(
+    const results = (await this.redis.xreadgroup(
       'GROUP',
       CONSUMER_GROUP,
       CONSUMER_NAME,
@@ -116,13 +117,13 @@ export class BillingEventConsumer {
       'STREAMS',
       STREAM_KEY,
       '>',
-    )
+    )) as RedisStreamBatch | null
 
     if (!results) return // timeout, no new messages
 
     for (const [, entries] of results) {
       for (const [id, fields] of entries) {
-        const event = this.parseEntry(id, fields as string[])
+        const event = this.parseEntry(id, fields)
         if (!event) {
           await this.redis.xack(STREAM_KEY, CONSUMER_GROUP, id)
           continue
@@ -214,7 +215,9 @@ export class BillingEventConsumer {
     try {
       const map: Record<string, string> = {}
       for (let i = 0; i < fields.length; i += 2) {
-        map[fields[i]] = fields[i + 1]
+        const key = fields[i]
+        if (!key) continue
+        map[key] = fields[i + 1] ?? ''
       }
 
       return {

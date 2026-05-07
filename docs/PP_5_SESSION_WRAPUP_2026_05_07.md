@@ -8,6 +8,20 @@
 This session advanced PP.5 from audit/remediation planning into executable
 handoff and bootstrap artifacts.
 
+Later in the same session, the repo also closed the immediate CI/deploy
+blockers that were preventing a clean push-to-main signal:
+
+- API formatting drift is corrected.
+- Worker build dependencies now include the Sentry runtime package imported by
+  `apps/worker/src/index.ts`.
+- Worker tests now declare their Vitest dependency.
+- Deploy workflows now use the workflow-scoped `GITHUB_TOKEN` for checkout,
+  GHCR login, and staging digest commits.
+- Turbo now passes runtime env vars such as `DATABASE_URL`, `REDIS_URL`,
+  `AUTH_SECRET`, provider URLs/secrets, and worker settings through strict mode.
+- Web/API/service/federation tests were tightened where TypeScript or Biome
+  previously relied on unsafe assertions.
+
 Repo-owned PP.5 guardrails are now in place:
 
 - Staging environment shape is documented.
@@ -50,9 +64,13 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md) | Marked namespace as complete and Wave 0 checker/env generator as ready. |
 | [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md) | Added current Wave 0 status and linked canonical remediation plan. |
 | [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md) | Added env generator and consolidated Wave 0 checker. |
+| [`docs/DEPLOYMENT.md`](./DEPLOYMENT.md) | Added CI/deploy notes for workflow token usage, Turbo env pass-through, and local build validation caveats. |
+| [`turbo.json`](../turbo.json) | Added `globalPassThroughEnv` coverage for CI, E2E, deploy, webhook, auth, provider, and worker runtime variables. |
+| [`.github/workflows/deploy-web.yml`](../.github/workflows/deploy-web.yml) | Switched deploy checkout/GHCR auth to `github.token`. |
+| [`.github/workflows/deploy-worker.yml`](../.github/workflows/deploy-worker.yml) | Switched deploy checkout/GHCR auth to `github.token`. |
 
-Other modified files already existed in the working tree from earlier PP.5
-work and adjacent changes. Do not revert them blindly.
+No unrelated working-tree changes were reverted; all current edits are part of
+the PP.5 guardrail, CI, deploy, or documentation remediation path.
 
 ## Cluster Actions Performed
 
@@ -88,6 +106,21 @@ was changed.
 Passing:
 
 ```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
+pnpm --filter @phyne/api test
+pnpm --filter @phyne/services typecheck
+pnpm --filter @phyne/services test
+pnpm --filter @phyne/federation lint
+pnpm --filter @phyne/federation typecheck
+pnpm --filter @phyne/federation test
+pnpm --filter @phyne/web typecheck
+pnpm --filter @phyne/web test
+pnpm --filter @phyne/worker lint
+pnpm --filter @phyne/worker typecheck
+pnpm --filter @phyne/worker build
 node --check scripts/pp5-generate-staging-env.mjs
 node --check scripts/pp5-staging-audit.mjs
 node --check scripts/pp5-wave0-check.mjs
@@ -97,13 +130,14 @@ node scripts/pp5-webhook-probe.mjs list
 git diff --check
 ```
 
-Expected blocked check:
+Expected blocked checks:
 
 ```bash
 node scripts/pp5-wave0-check.mjs
+DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm pnpm db:migrate
 ```
 
-Current output summary:
+Current output summary for Wave 0:
 
 ```text
 PASS secret template coverage
@@ -114,6 +148,20 @@ BLOCKED staging ArgoCD app
 BLOCKED staging health DNS/HTTP
 Wave 0 blocked: 3 check(s) failed
 ```
+
+The local migration probe now reaches Drizzle with a defined `DATABASE_URL`;
+the local machine then rejects the sample CI role with
+`role "phyne" does not exist`. This confirms the previous Turbo env-stripping
+failure mode is closed. A real E2E run still requires a provisioned Postgres
+service matching the CI URL, as GitHub Actions provides.
+
+Notes:
+
+- Local production builds must override any developer `.env.local` value of
+  `AUTH_BYPASS=true` with `AUTH_BYPASS=false`; production validation correctly
+  refuses to prerender protected dashboard pages when bypass is enabled.
+- `pnpm lint` exits successfully but still reports warning-class complexity
+  diagnostics in older code paths. These are not current CI blockers.
 
 ## Provider Probe Coverage
 

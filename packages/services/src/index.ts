@@ -34,6 +34,11 @@ export {
 } from './onboarding/client-project-onboarding.service'
 export { OpportunitiesService } from './opportunities/opportunities.service'
 export { OrdersService } from './orders/orders.service'
+export {
+  type DhanamPaymentReconciliationInput,
+  type PaymentReconciliationResult,
+  reconcileDhanamPayment,
+} from './payments/payment-reconciliation.service'
 export { PipelinesService } from './pipelines/pipelines.service'
 export {
   type AcceptQuoteInput,

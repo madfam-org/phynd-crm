@@ -35,13 +35,23 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     referralCodeByCode: new Map<string, string>(), // code → referral_code_id
     referralByCodeIdAndEmail: new Map<string, string>(), // `${codeId}|${email}` → referral_id
     engagementByContactId: new Map<string, string>(),
+    engagementById: new Map<
+      string,
+      { id: string; contactId: string; opportunityId: string | null }
+    >(),
+    ordersByContactId: new Map<string, Array<Record<string, unknown>>>(),
+    ordersById: new Map<string, Record<string, unknown>>(),
+    ordersByQuoteId: new Map<string, Array<Record<string, unknown>>>(),
+    ordersByOpportunityId: new Map<string, Array<Record<string, unknown>>>(),
     inserts: {
       webhookEvents: [] as Array<Record<string, unknown>>,
       conversions: [] as Array<Record<string, unknown>>,
       engagementEvents: [] as Array<Record<string, unknown>>,
+      externalReferences: [] as Array<Record<string, unknown>>,
     },
     updates: {
       leads: [] as Array<{ id: string; values: Record<string, unknown> }>,
+      orders: [] as Array<{ id: string; values: Record<string, unknown> }>,
       referrals: [] as Array<{ id: string; values: Record<string, unknown> }>,
     },
     nextId: 0,
@@ -125,10 +135,45 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
       return []
     }
     if (from === 'engagements') {
+      const idIdx = cols.findIndex((c) => c === 'engagements.id')
+      if (idIdx >= 0) {
+        const engagement = state.engagementById.get(String(vals[idIdx]))
+        return engagement ? [engagement] : []
+      }
       const idx = cols.findIndex((c) => c === 'engagements.contactId')
       if (idx >= 0) {
         const id = state.engagementByContactId.get(String(vals[idx]))
-        return id ? [{ id }] : []
+        if (!id) return []
+        const engagement = state.engagementById.get(id)
+        return engagement ? [engagement] : [{ id }]
+      }
+      const opportunityIdx = cols.findIndex((c) => c === 'engagements.opportunityId')
+      if (opportunityIdx >= 0) {
+        const opportunityId = String(vals[opportunityIdx])
+        const engagement = [...state.engagementById.values()].find(
+          (row) => row.opportunityId === opportunityId,
+        )
+        return engagement ? [engagement] : []
+      }
+      return []
+    }
+    if (from === 'orders') {
+      const idIdx = cols.findIndex((c) => c === 'orders.id')
+      if (idIdx >= 0) {
+        const order = state.ordersById.get(String(vals[idIdx]))
+        return order ? [order] : []
+      }
+      const quoteIdx = cols.findIndex((c) => c === 'orders.quoteId')
+      if (quoteIdx >= 0) {
+        return state.ordersByQuoteId.get(String(vals[quoteIdx])) ?? []
+      }
+      const opportunityIdx = cols.findIndex((c) => c === 'orders.opportunityId')
+      if (opportunityIdx >= 0) {
+        return state.ordersByOpportunityId.get(String(vals[opportunityIdx])) ?? []
+      }
+      const contactIdx = cols.findIndex((c) => c === 'orders.contactId')
+      if (contactIdx >= 0) {
+        return state.ordersByContactId.get(String(vals[contactIdx])) ?? []
       }
       return []
     }
@@ -199,6 +244,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
         if (tableName === 'webhook_events') state.inserts.webhookEvents.push(v)
         else if (tableName === 'conversions') state.inserts.conversions.push(v)
         else if (tableName === 'engagement_events') state.inserts.engagementEvents.push(v)
+        else if (tableName === 'external_references') state.inserts.externalReferences.push(v)
         return (origValues as (v: Record<string, unknown>) => unknown)(v)
       })
       return qb
@@ -228,6 +274,10 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
           // We don't yet know the id; record after .where() runs.
           queueMicrotask(() => {
             if (capturedRowId) state.updates.leads.push({ id: capturedRowId, values: v })
+          })
+        } else if (tableName === 'orders') {
+          queueMicrotask(() => {
+            if (capturedRowId) state.updates.orders.push({ id: capturedRowId, values: v })
           })
         } else if (tableName === 'referrals') {
           queueMicrotask(() => {
@@ -300,12 +350,27 @@ vi.mock('@phyne/db/schema', () => ({
     deletedAt: 'engagements.deletedAt',
     createdAt: 'engagements.createdAt',
   }),
+  externalReferences: tableMock('external_references', {
+    entityId: 'externalReferences.entityId',
+    entityType: 'externalReferences.entityType',
+    externalId: 'externalReferences.externalId',
+    id: 'externalReferences.id',
+    provider: 'externalReferences.provider',
+  }),
   leads: tableMock('leads', {
     id: 'leads.id',
     contactId: 'leads.contactId',
     pipelineId: 'leads.pipelineId',
     deletedAt: 'leads.deletedAt',
     createdAt: 'leads.createdAt',
+  }),
+  orders: tableMock('orders', {
+    id: 'orders.id',
+    contactId: 'orders.contactId',
+    opportunityId: 'orders.opportunityId',
+    quoteId: 'orders.quoteId',
+    deletedAt: 'orders.deletedAt',
+    createdAt: 'orders.createdAt',
   }),
   pipelineStages: tableMock('pipeline_stages', {
     id: 'pipelineStages.id',
@@ -407,6 +472,24 @@ function checkoutCompletedEvent(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function orderRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'order_tablaco',
+    orderNumber: 'ORD-2026-0007',
+    contactId: 'contact_tablaco',
+    opportunityId: 'opp_tablaco',
+    quoteId: 'quote_tablaco',
+    status: 'pending',
+    paymentStatus: 'unpaid',
+    paidAmount: null,
+    totalAmount: '199.00',
+    currency: 'MXN',
+    deletedAt: null,
+    createdAt: new Date('2026-05-07T00:00:00Z'),
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   process.env.DHANAM_WEBHOOK_SECRET = SECRET
   // Reset state.
@@ -418,10 +501,17 @@ beforeEach(() => {
   state.referralCodeByCode.clear()
   state.referralByCodeIdAndEmail.clear()
   state.engagementByContactId.clear()
+  state.engagementById.clear()
+  state.ordersByContactId.clear()
+  state.ordersById.clear()
+  state.ordersByQuoteId.clear()
+  state.ordersByOpportunityId.clear()
   state.inserts.webhookEvents.length = 0
   state.inserts.conversions.length = 0
   state.inserts.engagementEvents.length = 0
+  state.inserts.externalReferences.length = 0
   state.updates.leads.length = 0
+  state.updates.orders.length = 0
   state.updates.referrals.length = 0
   state.nextId = 0
 
@@ -499,13 +589,33 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
       { id: 'stage_closed_won', name: 'Closed Won' },
     ])
     state.engagementByContactId.set('contact_tablaco', 'eng_tablaco')
+    state.engagementById.set('eng_tablaco', {
+      id: 'eng_tablaco',
+      contactId: 'contact_tablaco',
+      opportunityId: 'opp_tablaco',
+    })
+    const order = orderRow()
+    state.ordersByContactId.set('contact_tablaco', [order])
+    state.ordersByOpportunityId.set('opp_tablaco', [order])
+    state.ordersByQuoteId.set('quote_tablaco', [order])
+    state.ordersById.set('order_tablaco', order)
 
     const res = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
     expect(res.status).toBe(200)
-    const json = (await res.json()) as { received: boolean; status: string; lead_id: string }
+    const json = (await res.json()) as {
+      received: boolean
+      status: string
+      lead_id: string
+      payment_reconciliation_status: string
+      order_id: string
+      quote_id: string
+    }
     expect(json.received).toBe(true)
     expect(json.status).toBe('recorded')
     expect(json.lead_id).toBe('lead_tablaco')
+    expect(json.payment_reconciliation_status).toBe('reconciled')
+    expect(json.order_id).toBe('order_tablaco')
+    expect(json.quote_id).toBe('quote_tablaco')
 
     // webhook_events written with the event_id at the top-level for
     // idempotency lookups.
@@ -541,13 +651,38 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
       stageId: 'stage_closed_won',
     })
 
-    // Engagement event surfaced for the portal timeline.
-    expect(state.inserts.engagementEvents).toHaveLength(1)
+    // Engagement events surfaced for the portal timeline.
+    expect(state.inserts.engagementEvents).toHaveLength(2)
     const ee = state.inserts.engagementEvents[0]!
     expect(ee.engagementId).toBe('eng_tablaco')
     expect(ee.source).toBe('dhanam')
     expect(ee.eventType).toBe('dhanam:payment_succeeded')
     expect(ee.dedupKey).toBe('dhanam:evt_checkout_1')
+
+    const reconciled = state.inserts.engagementEvents[1]!
+    expect(reconciled.source).toBe('system')
+    expect(reconciled.eventType).toBe('system:payment_reconciled')
+    expect(reconciled.dedupKey).toBe('payment:evt_checkout_1:reconciled')
+
+    expect(state.updates.orders).toHaveLength(1)
+    expect(state.updates.orders[0]).toMatchObject({
+      id: 'order_tablaco',
+      values: expect.objectContaining({
+        externalPaymentId: 'evt_checkout_1',
+        paidAmount: '199.00',
+        paymentProvider: 'dhanam',
+        paymentStatus: 'paid',
+        status: 'confirmed',
+      }),
+    })
+    expect(state.inserts.externalReferences).toHaveLength(1)
+    expect(state.inserts.externalReferences[0]).toMatchObject({
+      entityType: 'order',
+      entityId: 'order_tablaco',
+      provider: 'dhanam',
+      externalId: 'evt_checkout_1',
+      externalType: 'payment',
+    })
   })
 
   it('looks up contact via email when janua_user_id is absent', async () => {
@@ -624,6 +759,39 @@ describe('POST /api/webhooks/dhanam — orphan path', () => {
     expect(json.lead_id).toBeNull()
     expect(state.inserts.conversions).toHaveLength(1)
     expect(state.inserts.conversions[0]!.leadId).toBeNull()
+  })
+
+  it('records a blocked engagement event when payment cannot match an order', async () => {
+    state.contactByEmail.set('tablaco@example.com', 'contact_no_order')
+    state.engagementByContactId.set('contact_no_order', 'eng_no_order')
+    state.engagementById.set('eng_no_order', {
+      id: 'eng_no_order',
+      contactId: 'contact_no_order',
+      opportunityId: null,
+    })
+
+    const res = await POST(
+      signedRequest(JSON.stringify(checkoutCompletedEvent({ id: 'evt_no_order' }))),
+    )
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as {
+      payment_reconciliation_status: string
+      order_id: string | null
+      engagement_id: string
+    }
+    expect(json.payment_reconciliation_status).toBe('unmatched')
+    expect(json.order_id).toBeNull()
+    expect(json.engagement_id).toBe('eng_no_order')
+
+    const unmatched = state.inserts.engagementEvents.find(
+      (event) => event.eventType === 'system:payment_unmatched',
+    )
+    expect(unmatched).toMatchObject({
+      engagementId: 'eng_no_order',
+      source: 'system',
+      status: 'blocked',
+      dedupKey: 'payment:evt_no_order:unmatched',
+    })
   })
 })
 

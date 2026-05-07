@@ -9,7 +9,8 @@
     "./errors": "./src/errors.ts",
     "./email": "./src/email/email.service.ts",
     "./email/unsubscribe-token": "./src/email/unsubscribe-token.ts",
-    "./email/templates/*": "./src/email/templates/*.ts"
+    "./email/templates/*": "./src/email/templates/*.ts",
+    "./payments/payment-reconciliation": "./src/payments/payment-reconciliation.service.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -151,6 +151,28 @@ When a quote is accepted, the mutation runs in one transaction:
 This gives operators a controlled path from quote-ready intake to production
 order readiness before provider payment and manufacturing automation are live.
 
+## Payment Reconciliation
+
+Dhanam paid webhooks now reconcile payment events onto the CRM order lifecycle
+when the event can be matched to an existing active order by explicit
+`order_id`, `quote_id`, `engagement_id`, or the active contact/order chain.
+
+When a paid Dhanam event is matched, PhyneCRM:
+
+- updates the linked order `paymentStatus`, `paidAmount`, `paidAt`,
+  `paymentProvider`, and `externalPaymentId`
+- confirms a still-pending order
+- writes an `external_references` row for the Dhanam payment
+- writes a `system:payment_reconciled` engagement milestone
+
+Reconciliation is idempotent by webhook event ID and by Dhanam payment reference
+so multiple paid event envelopes for the same payment do not double-count paid
+amounts.
+
+When payment is received for a known engagement but no order can be matched,
+PhyneCRM writes `system:payment_unmatched` with `blocked` status so an operator
+can recover the lifecycle without database access.
+
 ## Current Limits
 
 This is a quote-to-production flow with CRM-owned quote acceptance, not the full
@@ -159,8 +181,8 @@ autonomous lifecycle yet.
 Still required for 100% production flow:
 
 - Cotiza-originated quote approval webhook automation beyond the CRM action.
-- Payment-to-quote/order reconciliation beyond the existing Dhanam engagement
-  timeline event.
+- Payment link/invoice creation from accepted quotes and full refund/dispute
+  reversal handling.
 - Pravara/Selva execution dispatch from the accepted order.
 - Client portal review/approval affordances for quotes, invoices, and delivery.
 - Staging deployment and provider webhook split from PP.5 Wave 0-3.
@@ -171,7 +193,9 @@ Current coverage:
 
 ```bash
 pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
+pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
 pnpm --filter @phyne/api test -- engagements.router.test.ts
+pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
 pnpm --filter @phyne/web typecheck
 pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 ```

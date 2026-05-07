@@ -101,18 +101,33 @@ https://staging-crm.madfam.io/engagements
 - The linked opportunity is `won`.
 - `system:quote_approved` appears in the engagement timeline.
 
-6. Attach evidence to the PP.5 signoff packet:
+6. Send one staging-only Dhanam paid webhook for the accepted quote/order.
+
+7. Verify:
+
+- Order `paymentStatus` is `paid` or `partial`, depending on the synthetic
+  amount.
+- Order `paidAmount`, `paidAt`, `paymentProvider=dhanam`, and
+  `externalPaymentId` are populated.
+- A Dhanam payment `external_references` row exists for the order.
+- `system:payment_reconciled` appears in the engagement timeline.
+- If the payment cannot be matched, `system:payment_unmatched` appears with
+  `blocked` status for operator recovery.
+
+8. Attach evidence to the PP.5 signoff packet:
 
 - Engagement IDs.
 - Quote IDs.
 - Order IDs where applicable.
+- Dhanam staging event IDs.
 - Screenshot or exported row evidence from staging only.
 
 Required outcome:
 
 - The CRM can create quote-ready digital, physical, and phygital project
   skeletons and advance at least one accepted quote to confirmed-order
-  readiness without direct database writes.
+  readiness, then reconcile a paid Dhanam event onto that order without direct
+  database writes.
 - No production CRM or provider records are touched.
 
 ## Wave 2 - Mutating Webhook Probes

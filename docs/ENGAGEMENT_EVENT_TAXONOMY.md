@@ -19,6 +19,7 @@ These appear in portal timelines with prominent visual treatment and can be quer
 |---|---|---|---|
 | `quote_approved` | Client accepted a proposal | Cotiza / PhyneCRM CRM action | `milestone` |
 | `payment_received` | Payment settled at Dhanam | Dhanam | `milestone` |
+| `payment_reconciled` | Payment matched to a CRM order | PhyneCRM CRM action | `milestone` |
 | `cfdi_stamped` | Karafiel stamped a CFDI 4.0 for an invoice | Karafiel | `milestone` |
 | `fabrication_started` | Physical build started on the fab floor | Pravara | `milestone` |
 | `prototype_shipped` | Physical prototype left the fab (in transit) | Pravara / external fab | `milestone` |
@@ -37,6 +38,8 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:intake_created` — PhyneCRM created the client/project onboarding skeleton
 - `system:production_order_created` — PhyneCRM created the optional production order during onboarding
 - `system:quote_approved` — PhyneCRM CRM action accepted a quote and moved it to confirmed-order readiness
+- `system:payment_reconciled` — Dhanam payment was matched to an order and the order payment state was updated
+- `system:payment_unmatched` — Dhanam payment was received for a known engagement, but no active order could be matched
 
 ## `status` field semantics
 

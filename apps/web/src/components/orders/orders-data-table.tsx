@@ -46,6 +46,16 @@ const statusVariant: Record<
   pending: 'secondary',
 }
 
+const paymentStatusVariant: Record<
+  string,
+  'default' | 'success' | 'destructive' | 'secondary' | 'warning'
+> = {
+  paid: 'success',
+  partial: 'warning',
+  refunded: 'destructive',
+  unpaid: 'secondary',
+}
+
 type ViewMode = 'all' | 'mine'
 
 export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
@@ -112,6 +122,15 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
       ),
     },
     {
+      id: 'paymentStatus',
+      header: 'Payment',
+      cell: (row) => (
+        <Badge variant={paymentStatusVariant[row.paymentStatus] ?? 'default'}>
+          {row.paymentStatus.replace('_', ' ')}
+        </Badge>
+      ),
+    },
+    {
       id: 'estimatedCompletion',
       header: 'Est. Completion',
       cell: (row) =>
@@ -162,6 +181,7 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
         { key: 'orderNumber', header: 'Order Number' },
         { key: 'totalAmount', header: 'Amount' },
         { key: 'status', header: 'Status' },
+        { key: 'paymentStatus', header: 'Payment Status' },
       ],
       'orders',
     )

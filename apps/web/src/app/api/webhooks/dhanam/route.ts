@@ -15,6 +15,7 @@ import {
 } from '@phyne/db/schema'
 import { CacheInvalidator, validateWebhookSignature } from '@phyne/federation'
 import { createLogger } from '@phyne/logging'
+import { reconcileDhanamPayment } from '@phyne/services/payments/payment-reconciliation'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -100,7 +101,12 @@ interface NormalizedEvent {
   amountMinor: number | null
   currency: string | null
   // Subscription metadata
+  engagementId: string | null
+  invoiceId: string | null
+  orderId: string | null
+  paymentId: string | null
   planId: string | null
+  quoteId: string | null
   subscriptionId: string | null
   organizationId: string | null
   // Attribution (from Stripe checkout metadata)
@@ -200,81 +206,143 @@ function normalizeEvent(payload: DhanamWebhookPayload): NormalizedEvent | null {
   const dataMetadata = (data.metadata ?? {}) as Record<string, unknown>
   const merged = { ...dataMetadata, ...stripeMetadata }
 
-  const januaUserId = pickString(
-    merged.janua_user_id,
-    data.janua_user_id,
-    merged.januaUserId,
-    data.customer_id, // Janua-style payload uses customer_id = janua user
-  )
-
-  // Stripe checkout.session shapes
-  const customerEmail = pickString(
-    obj.customer_email,
-    obj.customer_details && (obj.customer_details as Record<string, unknown>).email,
-    data.customer_email,
-    merged.customer_email,
-    merged.email,
-  )
-
-  const stripeCustomerId = pickString(
-    obj.customer,
-    data.stripe_customer_id,
-    merged.stripe_customer_id,
-  )
-
-  const amountMinor = pickAmountMinor(obj, data)
-  const currency =
-    pickString(
-      obj.currency,
-      data.currency,
-      (obj as { currency?: string }).currency,
-    )?.toUpperCase() ?? null
-
-  const planId = pickString(
-    merged.plan,
-    merged.plan_id,
-    data.plan_id,
-    (obj.items &&
-      (
-        ((obj.items as Record<string, unknown>).data as Array<Record<string, unknown>>)?.[0]
-          ?.price as Record<string, unknown>
-      )?.id) ||
-      undefined,
-  )
-
-  const subscriptionId = pickString(
-    obj.subscription,
-    obj.id, // for customer.subscription.created the resource IS the subscription
-    data.subscription_id,
-    merged.subscription_id,
-  )
-
-  const organizationId = pickString(merged.org_id, merged.organization_id, data.organization_id)
-
-  const referralCode = pickString(merged.referral_code, dataMetadata.referral_code)
-
-  const utm: Record<string, string> = {}
-  for (const [k, v] of Object.entries(merged)) {
-    if (typeof k === 'string' && k.startsWith('utm_') && typeof v === 'string') {
-      utm[k] = v
-    }
-  }
+  const identity = extractIdentityHints(obj, data, merged)
+  const billing = extractBillingHints(obj, data, merged)
+  const lifecycle = extractLifecycleHints(data, merged)
+  const attribution = extractAttributionHints(merged, dataMetadata)
 
   return {
     eventId,
     eventType,
-    januaUserId,
-    customerEmail: customerEmail ? customerEmail.toLowerCase() : null,
-    stripeCustomerId,
-    amountMinor,
-    currency,
-    planId,
-    subscriptionId,
-    organizationId,
-    referralCode,
-    utm,
+    ...identity,
+    ...billing,
+    ...lifecycle,
+    ...attribution,
     raw: payload as Record<string, unknown>,
   }
+}
+
+function extractIdentityHints(
+  stripeObject: Record<string, unknown>,
+  dhanamData: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+) {
+  const customerEmail = pickString(
+    stripeObject.customer_email,
+    stripeObject.customer_details &&
+      (stripeObject.customer_details as Record<string, unknown>).email,
+    dhanamData.customer_email,
+    metadata.customer_email,
+    metadata.email,
+  )
+
+  return {
+    januaUserId: pickString(
+      metadata.janua_user_id,
+      dhanamData.janua_user_id,
+      metadata.januaUserId,
+      dhanamData.customer_id,
+    ),
+    customerEmail: customerEmail ? customerEmail.toLowerCase() : null,
+    stripeCustomerId: pickString(
+      stripeObject.customer,
+      dhanamData.stripe_customer_id,
+      metadata.stripe_customer_id,
+    ),
+  }
+}
+
+function extractBillingHints(
+  stripeObject: Record<string, unknown>,
+  dhanamData: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+) {
+  return {
+    amountMinor: pickAmountMinor(stripeObject, dhanamData),
+    currency:
+      pickString(
+        stripeObject.currency,
+        dhanamData.currency,
+        (stripeObject as { currency?: string }).currency,
+      )?.toUpperCase() ?? null,
+    invoiceId: pickString(
+      stripeObject.invoice,
+      dhanamData.invoice_id,
+      dhanamData.invoiceId,
+      metadata.invoice_id,
+    ),
+    organizationId: pickString(
+      metadata.org_id,
+      metadata.organization_id,
+      dhanamData.organization_id,
+    ),
+    paymentId: pickString(
+      stripeObject.payment_intent,
+      stripeObject.payment,
+      dhanamData.payment_id,
+      dhanamData.paymentId,
+      metadata.payment_id,
+      metadata.paymentId,
+    ),
+    planId: pickString(
+      metadata.plan,
+      metadata.plan_id,
+      dhanamData.plan_id,
+      extractFirstPriceId(stripeObject),
+    ),
+    subscriptionId: pickString(
+      stripeObject.subscription,
+      stripeObject.id,
+      dhanamData.subscription_id,
+      metadata.subscription_id,
+    ),
+  }
+}
+
+function extractLifecycleHints(
+  dhanamData: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+) {
+  return {
+    engagementId: pickString(
+      metadata.engagement_id,
+      metadata.engagementId,
+      dhanamData.engagement_id,
+      dhanamData.engagementId,
+    ),
+    quoteId: pickString(
+      metadata.quote_id,
+      metadata.quoteId,
+      dhanamData.quote_id,
+      dhanamData.quoteId,
+    ),
+    orderId: pickString(
+      metadata.order_id,
+      metadata.orderId,
+      dhanamData.order_id,
+      dhanamData.orderId,
+    ),
+  }
+}
+
+function extractAttributionHints(
+  metadata: Record<string, unknown>,
+  dataMetadata: Record<string, unknown>,
+) {
+  return {
+    referralCode: pickString(metadata.referral_code, dataMetadata.referral_code),
+    utm: Object.fromEntries(
+      Object.entries(metadata).filter(
+        ([key, value]) => key.startsWith('utm_') && typeof value === 'string',
+      ),
+    ) as Record<string, string>,
+  }
+}
+
+function extractFirstPriceId(stripeObject: Record<string, unknown>) {
+  const items = stripeObject.items as Record<string, unknown> | undefined
+  const firstItem = (items?.data as Array<Record<string, unknown>> | undefined)?.[0]
+  return (firstItem?.price as Record<string, unknown> | undefined)?.id
 }
 
 function pickString(...values: unknown[]): string | null {
@@ -321,6 +389,10 @@ interface PersistResult {
   contact_id?: string | null
   lead_id?: string | null
   referral_id?: string | null
+  payment_reconciliation_status?: string | null
+  order_id?: string | null
+  quote_id?: string | null
+  engagement_id?: string | null
 }
 
 async function persistEvent(event: NormalizedEvent): Promise<PersistResult> {
@@ -344,113 +416,177 @@ async function persistEvent(event: NormalizedEvent): Promise<PersistResult> {
   const contactId = await resolveContactId(event)
   const leadInfo = contactId ? await resolveLeadAndStage(contactId) : null
 
-  return await db.transaction(async (tx) => {
-    // a) audit row — `payload.event_id` is the idempotency key, hence the
-    //    explicit projection below.
-    const auditPayload = {
-      event_id: event.eventId,
-      event_type: event.eventType,
-      janua_user_id: event.januaUserId,
-      customer_email: event.customerEmail,
-      stripe_customer_id: event.stripeCustomerId,
-      amount_minor: event.amountMinor,
-      currency: event.currency,
-      plan_id: event.planId,
-      subscription_id: event.subscriptionId,
-      organization_id: event.organizationId,
-      referral_code: event.referralCode,
-      utm: event.utm,
-      raw: event.raw,
-    } satisfies Record<string, unknown>
+  return await db.transaction((tx) => persistEventInTransaction(tx, event, contactId, leadInfo))
+}
 
-    const [wh] = await tx
-      .insert(webhookEvents)
-      .values({
-        provider: 'dhanam',
-        eventType: event.eventType,
-        payload: auditPayload,
-        processedAt: new Date(),
-      })
-      .returning({ id: webhookEvents.id })
+async function persistEventInTransaction(
+  tx: Tx,
+  event: NormalizedEvent,
+  contactId: string | null,
+  leadInfo: LeadStageInfo | null,
+): Promise<PersistResult> {
+  const webhookEventId = await recordWebhookAudit(tx, event)
 
-    // Orphan events still get a webhook_events row so reconciliation can
-    // backfill the conversion later when the contact lands.
-    if (!contactId) {
-      logger.warn(
-        { event_id: event.eventId, event_type: event.eventType, janua_user_id: event.januaUserId },
-        'dhanam event received but no contact match — orphan logged',
-      )
-      return { status: 'orphan', contact_id: null, lead_id: null, referral_id: null }
-    }
+  if (!contactId) {
+    return recordOrphanEvent(event)
+  }
 
-    // b) conversions row — value is in major units (numeric(12,2)).
-    const conversionType = mapEventTypeToConversionType(event.eventType)
-    const valueMajor = event.amountMinor != null ? (event.amountMinor / 100).toFixed(2) : null
+  const conversionId = await recordConversion(tx, event, contactId, leadInfo, webhookEventId)
+  const referralId = await maybeMarkReferralConverted(tx, event, contactId, leadInfo, conversionId)
+  await maybePromoteLead(tx, event, leadInfo)
 
-    const [conversion] = await tx
-      .insert(conversions)
-      .values({
-        type: conversionType,
-        contactId,
-        leadId: leadInfo?.leadId ?? null,
-        value: valueMajor,
-        metadata: {
-          event_id: event.eventId,
-          event_type: event.eventType,
-          provider: 'dhanam',
-          plan_id: event.planId,
-          subscription_id: event.subscriptionId,
-          organization_id: event.organizationId,
-          janua_user_id: event.januaUserId,
-          customer_email: event.customerEmail,
-          stripe_customer_id: event.stripeCustomerId,
-          amount_minor: event.amountMinor,
-          currency: event.currency,
-          referral_code: event.referralCode,
-          utm: event.utm,
-          webhook_event_id: wh?.id ?? null,
-        },
-      })
-      .returning({ id: conversions.id })
+  const engagementId = await maybeRecordEngagementEvent(tx, contactId, event)
+  const paymentReconciliation = await maybeReconcilePayment(tx, event, contactId, engagementId)
 
-    // c) referral attribution — only when the metadata carries a code.
-    let referralId: string | null = null
-    if (event.referralCode) {
-      referralId = await markReferralConverted(
-        tx,
-        event.referralCode,
-        event.customerEmail,
-        event.amountMinor,
-        event.planId,
-        contactId,
-        leadInfo?.leadId ?? null,
-        conversion?.id ?? null,
-      )
-    }
+  return {
+    status: 'recorded',
+    conversion_id: conversionId,
+    contact_id: contactId,
+    lead_id: leadInfo?.leadId ?? null,
+    referral_id: referralId,
+    payment_reconciliation_status: paymentReconciliation?.status ?? null,
+    order_id: paymentReconciliation?.orderId ?? null,
+    quote_id: paymentReconciliation?.quoteId ?? null,
+    engagement_id: paymentReconciliation?.engagementId ?? engagementId ?? null,
+  }
+}
 
-    // d) lead promotion — only on paid/conversion events. We deliberately
-    //    don't trip the lead state on `subscription.updated` events that
-    //    represent tier shuffles; those don't change "won" semantics.
-    if (leadInfo && STRIPE_PAID_EVENT_TYPES.has(event.eventType)) {
-      const updateValues: { status: string; stageId?: string } = { status: 'converted' }
-      if (leadInfo.closedWonStageId) {
-        updateValues.stageId = leadInfo.closedWonStageId
-      }
-      await tx.update(leads).set(updateValues).where(eq(leads.id, leadInfo.leadId))
-    }
+async function recordWebhookAudit(tx: Tx, event: NormalizedEvent): Promise<string | null> {
+  const [wh] = await tx
+    .insert(webhookEvents)
+    .values({
+      provider: 'dhanam',
+      eventType: event.eventType,
+      payload: buildAuditPayload(event),
+      processedAt: new Date(),
+    })
+    .returning({ id: webhookEvents.id })
 
-    // e) engagement_event — surface the billing event in the client portal
-    //    timeline if there's an active engagement for this contact.
-    await maybeRecordEngagementEvent(tx, contactId, event)
+  return wh?.id ?? null
+}
 
-    // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
-    return {
-      status: 'recorded',
-      conversion_id: conversion!.id,
-      contact_id: contactId,
-      lead_id: leadInfo?.leadId ?? null,
-      referral_id: referralId,
-    }
+function buildAuditPayload(event: NormalizedEvent) {
+  return {
+    event_id: event.eventId,
+    event_type: event.eventType,
+    janua_user_id: event.januaUserId,
+    customer_email: event.customerEmail,
+    stripe_customer_id: event.stripeCustomerId,
+    amount_minor: event.amountMinor,
+    currency: event.currency,
+    engagement_id: event.engagementId,
+    invoice_id: event.invoiceId,
+    order_id: event.orderId,
+    payment_id: event.paymentId,
+    plan_id: event.planId,
+    quote_id: event.quoteId,
+    subscription_id: event.subscriptionId,
+    organization_id: event.organizationId,
+    referral_code: event.referralCode,
+    utm: event.utm,
+    raw: event.raw,
+  } satisfies Record<string, unknown>
+}
+
+function recordOrphanEvent(event: NormalizedEvent): PersistResult {
+  logger.warn(
+    { event_id: event.eventId, event_type: event.eventType, janua_user_id: event.januaUserId },
+    'dhanam event received but no contact match — orphan logged',
+  )
+  return { status: 'orphan', contact_id: null, lead_id: null, referral_id: null }
+}
+
+async function recordConversion(
+  tx: Tx,
+  event: NormalizedEvent,
+  contactId: string,
+  leadInfo: LeadStageInfo | null,
+  webhookEventId: string | null,
+): Promise<string | undefined> {
+  const [conversion] = await tx
+    .insert(conversions)
+    .values({
+      type: mapEventTypeToConversionType(event.eventType),
+      contactId,
+      leadId: leadInfo?.leadId ?? null,
+      value: event.amountMinor != null ? (event.amountMinor / 100).toFixed(2) : null,
+      metadata: buildConversionMetadata(event, webhookEventId),
+    })
+    .returning({ id: conversions.id })
+
+  return conversion?.id
+}
+
+function buildConversionMetadata(event: NormalizedEvent, webhookEventId: string | null) {
+  return {
+    event_id: event.eventId,
+    event_type: event.eventType,
+    provider: 'dhanam',
+    plan_id: event.planId,
+    subscription_id: event.subscriptionId,
+    organization_id: event.organizationId,
+    janua_user_id: event.januaUserId,
+    customer_email: event.customerEmail,
+    stripe_customer_id: event.stripeCustomerId,
+    amount_minor: event.amountMinor,
+    currency: event.currency,
+    engagement_id: event.engagementId,
+    invoice_id: event.invoiceId,
+    order_id: event.orderId,
+    payment_id: event.paymentId,
+    referral_code: event.referralCode,
+    quote_id: event.quoteId,
+    utm: event.utm,
+    webhook_event_id: webhookEventId,
+  }
+}
+
+async function maybeMarkReferralConverted(
+  tx: Tx,
+  event: NormalizedEvent,
+  contactId: string,
+  leadInfo: LeadStageInfo | null,
+  conversionId: string | undefined,
+) {
+  if (!event.referralCode) return null
+  return markReferralConverted(
+    tx,
+    event.referralCode,
+    event.customerEmail,
+    event.amountMinor,
+    event.planId,
+    contactId,
+    leadInfo?.leadId ?? null,
+    conversionId ?? null,
+  )
+}
+
+async function maybePromoteLead(tx: Tx, event: NormalizedEvent, leadInfo: LeadStageInfo | null) {
+  if (!leadInfo || !STRIPE_PAID_EVENT_TYPES.has(event.eventType)) return
+  const updateValues: { status: string; stageId?: string } = { status: 'converted' }
+  if (leadInfo.closedWonStageId) {
+    updateValues.stageId = leadInfo.closedWonStageId
+  }
+  await tx.update(leads).set(updateValues).where(eq(leads.id, leadInfo.leadId))
+}
+
+async function maybeReconcilePayment(
+  tx: Tx,
+  event: NormalizedEvent,
+  contactId: string,
+  engagementId: string | null,
+) {
+  if (!STRIPE_PAID_EVENT_TYPES.has(event.eventType)) return null
+  return reconcileDhanamPayment(tx, {
+    amountMinor: event.amountMinor,
+    contactId,
+    currency: event.currency,
+    engagementId: event.engagementId ?? engagementId,
+    eventId: event.eventId,
+    eventType: event.eventType,
+    externalPaymentId: event.paymentId ?? event.invoiceId ?? event.eventId,
+    orderId: event.orderId,
+    quoteId: event.quoteId,
   })
 }
 
@@ -567,7 +703,7 @@ async function maybeRecordEngagementEvent(
   tx: Tx,
   contactId: string,
   event: NormalizedEvent,
-): Promise<void> {
+): Promise<string | null> {
   // Pick the first active (non-deleted) engagement for this contact —
   // matches the convention in the Pravara webhook handler. If there's no
   // engagement (pre-portal client, or a self-serve Dhanam-only customer),
@@ -584,7 +720,7 @@ async function maybeRecordEngagementEvent(
     )
     .orderBy(engagements.createdAt)
     .limit(1)
-  if (!eng?.id) return
+  if (!eng?.id) return null
 
   const portalEventType = STRIPE_PAID_EVENT_TYPES.has(event.eventType)
     ? 'dhanam:payment_succeeded'
@@ -603,6 +739,11 @@ async function maybeRecordEngagementEvent(
       subscription_id: event.subscriptionId,
       amount_minor: event.amountMinor,
       currency: event.currency,
+      engagement_id: event.engagementId,
+      invoice_id: event.invoiceId,
+      order_id: event.orderId,
+      payment_id: event.paymentId,
+      quote_id: event.quoteId,
     },
     // Idempotency for the engagement timeline — `engagement_events` has a
     // `(engagement_id, dedup_key)` composite index for fast lookups, but
@@ -611,6 +752,8 @@ async function maybeRecordEngagementEvent(
     // dedup key for portal-side queries.
     dedupKey: `dhanam:${event.eventId}`,
   })
+
+  return eng.id
 }
 
 function buildEngagementMessage(event: NormalizedEvent): string {

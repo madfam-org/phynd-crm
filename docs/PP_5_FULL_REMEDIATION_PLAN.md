@@ -30,6 +30,9 @@ Repo-owned PP.5 work is ready:
   row action; accepted quotes create or confirm a linked order, mark the
   opportunity won, record conversions, and write a `system:quote_approved`
   engagement milestone.
+- Dhanam paid webhooks now reconcile matched payments onto CRM orders, update
+  order payment state, write Dhanam payment external references, and emit
+  `system:payment_reconciled` or `system:payment_unmatched` timeline events.
 - CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
   variables, including `DATABASE_URL`, are available inside Turbo tasks.
 - The worker package declares the Sentry runtime dependency used by its entry
@@ -98,10 +101,13 @@ pnpm typecheck
 pnpm test
 pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
 pnpm --filter @phyne/services test -- quotes.service.test.ts
+pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
 pnpm --filter @phyne/api test -- engagements.router.test.ts
 pnpm --filter @phyne/api test -- quotes.router.test.ts
+pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
 pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 pnpm --filter @phyne/web exec biome check src/components/quotes/quotes-data-table.tsx
+pnpm --filter @phyne/web exec biome check src/components/orders/orders-data-table.tsx 'src/app/(dashboard)/orders/[id]/page.tsx'
 pnpm --filter @phyne/web exec playwright test --list
 AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
 ```

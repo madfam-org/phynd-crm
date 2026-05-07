@@ -21,6 +21,24 @@ const statusVariant: Record<
   pending: 'secondary',
 }
 
+const paymentStatusVariant: Record<
+  string,
+  'default' | 'success' | 'destructive' | 'secondary' | 'warning'
+> = {
+  paid: 'success',
+  partial: 'warning',
+  refunded: 'destructive',
+  unpaid: 'secondary',
+}
+
+function formatMoney(value: string | null) {
+  return value ? `$${Number(value).toLocaleString()}` : '—'
+}
+
+function formatDate(value: Date | string | null) {
+  return value ? new Date(value).toLocaleDateString() : '—'
+}
+
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { id } = await params
   const caller = await getServerCaller()
@@ -45,9 +63,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <span className="text-sm text-muted-foreground">Amount</span>
-            <p className="text-xl font-bold">
-              {order.totalAmount ? `$${Number(order.totalAmount).toLocaleString()}` : '—'}
-            </p>
+            <p className="text-xl font-bold">{formatMoney(order.totalAmount)}</p>
           </div>
           <div>
             <span className="text-sm text-muted-foreground">Currency</span>
@@ -62,18 +78,36 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             </div>
           </div>
           <div>
+            <span className="text-sm text-muted-foreground">Payment</span>
+            <div className="mt-1">
+              <Badge variant={paymentStatusVariant[order.paymentStatus] ?? 'default'}>
+                {order.paymentStatus.replace('_', ' ')}
+              </Badge>
+            </div>
+          </div>
+          <div>
             <span className="text-sm text-muted-foreground">Est. Completion</span>
-            <p className="font-medium">
-              {order.estimatedCompletion
-                ? new Date(order.estimatedCompletion).toLocaleDateString()
-                : '—'}
-            </p>
+            <p className="font-medium">{formatDate(order.estimatedCompletion)}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Paid Amount</span>
+            <p className="font-medium">{formatMoney(order.paidAmount)}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Paid At</span>
+            <p className="font-medium">{formatDate(order.paidAt)}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Payment Provider</span>
+            <p className="font-medium">{order.paymentProvider ?? '—'}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">External Payment</span>
+            <p className="font-medium">{order.externalPaymentId ?? '—'}</p>
           </div>
           <div>
             <span className="text-sm text-muted-foreground">Actual Completion</span>
-            <p className="font-medium">
-              {order.actualCompletion ? new Date(order.actualCompletion).toLocaleDateString() : '—'}
-            </p>
+            <p className="font-medium">{formatDate(order.actualCompletion)}</p>
           </div>
           {quote && (
             <div>
@@ -110,7 +144,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           )}
           <div>
             <span className="text-sm text-muted-foreground">Created</span>
-            <p className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</p>
+            <p className="font-medium">{formatDate(order.createdAt)}</p>
           </div>
         </div>
       </div>

@@ -42,6 +42,9 @@ Repo-owned PP.5 guardrails are now in place:
   the quote, creates or confirms the linked order, marks the opportunity won,
   records conversions, and writes a `system:quote_approved` engagement
   milestone.
+- Dhanam payment reconciliation now updates matched orders with durable payment
+  state, records the Dhanam payment external reference, and writes
+  `system:payment_reconciled` or `system:payment_unmatched` engagement events.
 
 Cluster-side progress:
 
@@ -87,11 +90,16 @@ ready. Doing so would create a broken rollout with placeholder credentials.
 | [`apps/web/package.json`](../apps/web/package.json) | Declared `pino` for Next standalone/server externalization through `serverExternalPackages`. |
 | [`packages/services/src/onboarding/client-project-onboarding.service.ts`](../packages/services/src/onboarding/client-project-onboarding.service.ts) | Added transactional onboarding orchestration for contact, opportunity, engagement, quote, optional order, artifacts, conversion, and timeline events; existing active contacts are reused by Janua ID or case-insensitive normalized email. |
 | [`packages/services/src/quotes/quotes.service.ts`](../packages/services/src/quotes/quotes.service.ts) | Added transactional quote acceptance side effects for confirmed-order readiness, opportunity win state, conversions, and engagement timeline milestone. |
+| [`packages/services/src/payments/payment-reconciliation.service.ts`](../packages/services/src/payments/payment-reconciliation.service.ts) | Added Dhanam payment-to-order reconciliation, order payment state updates, external payment references, and engagement timeline events. |
+| [`packages/db/src/schema/orders.ts`](../packages/db/src/schema/orders.ts) | Added durable order payment fields: status, paid amount/date, provider, and external payment ID. |
 | [`packages/api/src/routers/engagements.ts`](../packages/api/src/routers/engagements.ts) | Added `engagements.onboardClientProject` protected mutation. |
 | [`packages/api/src/routers/quotes.ts`](../packages/api/src/routers/quotes.ts) | Added `quotes.accept` protected mutation. |
 | [`apps/web/src/components/engagements/create-client-project-dialog.tsx`](../apps/web/src/components/engagements/create-client-project-dialog.tsx) | Added the CRM dashboard dialog for client/project onboarding. |
 | [`apps/web/src/components/engagements/engagements-data-table.tsx`](../apps/web/src/components/engagements/engagements-data-table.tsx) | Added the onboarding action to the Engagements page toolbar. |
 | [`apps/web/src/components/quotes/quotes-data-table.tsx`](../apps/web/src/components/quotes/quotes-data-table.tsx) | Added the quote row action for CRM quote acceptance and order confirmation. |
+| [`apps/web/src/app/api/webhooks/dhanam/route.ts`](../apps/web/src/app/api/webhooks/dhanam/route.ts) | Wires paid Dhanam events into order payment reconciliation after webhook audit/conversion writes. |
+| [`apps/web/src/components/orders/orders-data-table.tsx`](../apps/web/src/components/orders/orders-data-table.tsx) | Surfaces payment status in the orders list and export. |
+| [`apps/web/src/app/(dashboard)/orders/[id]/page.tsx`](../apps/web/src/app/(dashboard)/orders/[id]/page.tsx) | Surfaces payment status, paid amount/date, payment provider, and external payment ID on the order detail page. |
 
 No unrelated working-tree changes were reverted; all current edits are part of
 the PP.5 guardrail, CI, deploy, or documentation remediation path.

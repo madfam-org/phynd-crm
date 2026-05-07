@@ -126,6 +126,15 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
+  const productionDispatch = new Queue('production-dispatch', {
+    connection,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_SLOW },
+      ...HIGH_THROUGHPUT_RETENTION,
+    },
+  })
+
   const redditBot = new Queue('reddit-bot', {
     connection,
     defaultJobOptions: {
@@ -143,6 +152,7 @@ export function createQueues(connection: ConnectionOptions) {
     grantComplianceCheck,
     healthCheck,
     leadScoring,
+    productionDispatch,
     redditBot,
     referralRewardDispatch,
     sessionIdentify,

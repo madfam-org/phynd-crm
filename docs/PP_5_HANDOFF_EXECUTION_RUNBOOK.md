@@ -31,11 +31,13 @@ Observed from this workspace on 2026-05-07:
 - `node scripts/pp5-staging-audit.mjs`: passed.
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
 - `node scripts/pp5-validate-staging-env.mjs /private/tmp/phyne-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
-- `node scripts/pp5-wave0-check.mjs`: reports 3 blockers: staging secret, ArgoCD app, DNS/HTTP health.
+- `node scripts/pp5-wave0-check.mjs`: now reports 2 blockers after ArgoCD
+  Application creation: staging secret and DNS/HTTP health.
 - `curl -fsS https://staging-crm.madfam.io/api/health`: failed; DNS does not resolve `staging-crm.madfam.io`.
 - `kubectl get ns phyne-crm-staging`: passed after namespace creation.
 - `kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets`: failed; secret not present.
-- `kubectl -n argocd get application phyne-crm-staging`: failed; ArgoCD Application not installed.
+- `kubectl -n argocd get application phyne-crm-staging`: passed after applying
+  `infra/argocd/phyne-crm-staging-application.yaml`.
 
 ## Wave 1 - Low-Mutation Webhook Probes
 
@@ -126,6 +128,11 @@ https://staging-crm.madfam.io/engagements
 - When payment completes the order, `system:production_dispatch_requested`
   appears once per onboarding delivery track and order-level external
   references exist with `externalType=production_dispatch`.
+- The worker `production-dispatch` queue sends live provider handoffs from
+  those references. Verify the reference metadata moves to
+  `dispatch_status=sent` and `system:production_dispatch_sent` appears. A
+  provider error leaves `dispatch_status=retry` and emits
+  `system:production_dispatch_failed`.
 - If delivery tracks cannot be inferred, `system:production_dispatch_blocked`
   appears and the order requires operator routing before provider dispatch.
 

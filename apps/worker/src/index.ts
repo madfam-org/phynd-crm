@@ -19,6 +19,7 @@ import { processFederationSync } from './processors/federation-sync'
 import { processGrantComplianceCheck } from './processors/grant-compliance-check'
 import { processHealthCheck } from './processors/health-check'
 import { processLeadScoring } from './processors/lead-scoring'
+import { processProductionDispatch } from './processors/production-dispatch'
 import { processRedditBot } from './processors/reddit-bot'
 import { processReferralRewardDispatch } from './processors/referral-reward-dispatch'
 import { processSessionIdentify } from './processors/session-identify'
@@ -94,6 +95,12 @@ async function main() {
     },
   )
 
+  const productionDispatchWorker = new Worker('production-dispatch', processProductionDispatch, {
+    connection,
+    concurrency: 2,
+    maxStalledCount: 2,
+  })
+
   const redditBotWorker = new Worker('reddit-bot', processRedditBot, {
     connection,
     concurrency: 1,
@@ -110,6 +117,7 @@ async function main() {
   const queues = createQueues(connection)
   await queues.taskReminders.add('check-due-tasks', {}, { repeat: { pattern: '0 */4 * * *' } })
   await queues.demoCleanup.add('cleanup-expired-demos', {}, { repeat: { pattern: '0 * * * *' } })
+  await queues.productionDispatch.add('scan', {}, { repeat: { pattern: '* * * * *' } })
 
   // Reddit bot: poll every 15 minutes
   const redditSubreddits = (
@@ -138,6 +146,7 @@ async function main() {
     { name: 'grant-compliance-check', worker: grantComplianceCheckWorker },
     { name: 'health-check', worker: healthWorker },
     { name: 'lead-scoring', worker: leadScoringWorker },
+    { name: 'production-dispatch', worker: productionDispatchWorker },
     { name: 'reddit-bot', worker: redditBotWorker },
     { name: 'referral-reward-dispatch', worker: referralRewardDispatchWorker },
     { name: 'session-identify', worker: sessionIdentifyWorker },
@@ -183,6 +192,7 @@ async function main() {
         { concurrency: 2, name: 'grant-compliance-check' },
         { concurrency: 1, name: 'health-check' },
         { concurrency: 1, name: 'lead-scoring' },
+        { concurrency: 2, name: 'production-dispatch' },
         { concurrency: 1, name: 'reddit-bot' },
         { concurrency: 2, name: 'referral-reward-dispatch' },
         { concurrency: 3, name: 'session-identify' },
@@ -203,6 +213,7 @@ async function main() {
       grantComplianceCheckWorker.close(),
       healthWorker.close(),
       leadScoringWorker.close(),
+      productionDispatchWorker.close(),
       redditBotWorker.close(),
       referralRewardDispatchWorker.close(),
       sessionIdentifyWorker.close(),
@@ -210,6 +221,7 @@ async function main() {
       queues.demoCleanup.close(),
       queues.emailDrip.close(),
       queues.grantComplianceCheck.close(),
+      queues.productionDispatch.close(),
       queues.redditBot.close(),
       queues.taskReminders.close(),
     ])

@@ -46,6 +46,10 @@ Repo-owned PP.5 work is ready:
   intent per onboarding delivery track using order external references and
   `system:production_dispatch_requested`; missing routing metadata writes
   `system:production_dispatch_blocked`.
+- The worker `production-dispatch` queue now scans retryable dispatch-intent
+  records every minute, POSTs live provider handoffs to Pravara/Selva, updates
+  dispatch metadata, and emits `system:production_dispatch_sent` or
+  `system:production_dispatch_failed`.
 - CI env pass-through is explicit in `turbo.json` so GitHub Actions runtime
   variables, including `DATABASE_URL`, are available inside Turbo tasks.
 - The worker package declares the Sentry runtime dependency used by its entry
@@ -58,7 +62,8 @@ Observed blockers from this workspace on 2026-05-07:
 
 - `staging-crm.madfam.io` does not resolve.
 - Kubernetes namespace `phyne-crm-staging` now exists.
-- ArgoCD Application `phyne-crm-staging` is not installed.
+- ArgoCD Application `phyne-crm-staging` is installed and currently reports
+  `Healthy` with unknown sync until staging secret/DNS are completed.
 - Secret `phyne-crm-staging-secrets` is not installed.
 
 ## Target End State
@@ -385,6 +390,7 @@ Exit criteria:
 - [x] `node scripts/pp5-wave0-check.mjs` exists and reports current blockers.
 - [x] `phyne-crm-staging` namespace exists.
 - [ ] `phyne-crm-staging-secrets` is installed with staging-only values.
+- [x] ArgoCD app `phyne-crm-staging` is installed.
 - [ ] ArgoCD app `phyne-crm-staging` is `Synced` and `Healthy`.
 - [ ] `https://staging-crm.madfam.io/api/health` returns `200`.
 - [ ] Batch A provider probes pass.

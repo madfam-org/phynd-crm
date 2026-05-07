@@ -20,9 +20,11 @@ const REQUIRED_NON_EMPTY = new Set([
   'DHANAM_API_URL',
   'COTIZA_API_URL',
   'PRAVARA_BASE_URL',
+  'SELVA_API_URL',
   'FORJ_API_URL',
   'TEZCA_API_URL',
   'TEZCA_PUBLIC_URL',
+  'PRAVARA_API_KEY',
   'JANUA_WEBHOOK_SECRET',
   'DHANAM_WEBHOOK_SECRET',
   'COTIZA_WEBHOOK_SECRET',
@@ -66,6 +68,8 @@ const SECRET_MIN_LENGTH = new Map([
   ['PHYNE_ENGAGEMENT_EVENTS_SECRET', 32],
   ['PHYNECRM_OUTBOUND_SECRET', 32],
   ['KARAFIEL_WEBHOOK_SECRET', 32],
+  ['PRAVARA_DISPATCH_SECRET', 32],
+  ['SELVA_DISPATCH_SECRET', 32],
   ['PHYNE_CRM_PROBE_TOKEN', 32],
   ['FEDERATION_API_TOKEN', 48],
 ])
@@ -207,6 +211,12 @@ function validate(values, duplicates, templateKeys) {
   }
   if (!(values.get('EMAIL_ALLOWLIST_DOMAINS') ?? '').trim()) {
     issues.push('EMAIL_ALLOWLIST_DOMAINS: must constrain staging outbound email')
+  }
+  if (
+    !(values.get('SELVA_API_KEY') ?? '').trim() &&
+    !(values.get('SELVA_DISPATCH_SECRET') ?? '').trim()
+  ) {
+    issues.push('SELVA_API_KEY or SELVA_DISPATCH_SECRET: one Selva dispatch credential is required')
   }
 
   return issues

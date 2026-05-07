@@ -41,12 +41,15 @@ export async function recordProductionDispatchIntent(
       metadata: {
         dispatch_status: 'requested',
         engagement_id: input.engagementId,
+        currency: input.order.currency,
         order_id: input.order.id,
+        order_number: input.order.orderNumber,
         payment_event_id: input.paymentEventId,
         payment_reference: input.paymentReference,
         provider,
         quote_id: input.quoteId,
         track,
+        total_amount: input.order.totalAmount,
       },
     })
 

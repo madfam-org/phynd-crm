@@ -18,10 +18,20 @@ const envSchemaBase = z.object({
   DHANAM_API_URL: z.string().url(),
   COTIZA_API_URL: z.string().url(),
   PRAVARA_BASE_URL: z.string().url(),
+  SELVA_API_URL: z.string().url().optional(),
   FORJ_API_URL: z.string().url(),
 
   // Federation - API Keys
   PRAVARA_API_KEY: z.string().min(1),
+  SELVA_API_KEY: z.string().min(1).optional(),
+
+  // Paid production dispatch worker
+  PRAVARA_DISPATCH_URL: z.string().url().optional(),
+  SELVA_DISPATCH_URL: z.string().url().optional(),
+  PRAVARA_DISPATCH_SECRET: z.string().min(1).optional(),
+  SELVA_DISPATCH_SECRET: z.string().min(1).optional(),
+  PRODUCTION_DISPATCH_SCAN_LIMIT: z.string().optional(),
+  PRODUCTION_DISPATCH_TIMEOUT_MS: z.string().optional(),
 
   // Federation - Tezca (Legal Oracle)
   TEZCA_API_URL: z.string().url().optional(),

@@ -48,6 +48,8 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:payment_<state>_unmatched` — Dhanam reported a lifecycle change for a known engagement, but no active order could be matched
 - `system:production_dispatch_requested` — PhyneCRM recorded first-slice production dispatch intent for a paid order delivery track
 - `system:production_dispatch_blocked` — PhyneCRM could not infer delivery tracks for a paid order and needs operator routing
+- `system:production_dispatch_sent` — PhyneCRM sent the live Pravara/Selva production dispatch HTTP request
+- `system:production_dispatch_failed` — PhyneCRM attempted live provider dispatch and left the intent retryable
 
 ## `status` field semantics
 

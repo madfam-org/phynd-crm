@@ -236,11 +236,23 @@ first-slice production dispatch intent from the onboarding delivery tracks:
 - each track writes `system:production_dispatch_requested` on the engagement
   timeline
 
-These records are idempotent per order and delivery track. They are dispatch
-intent records, not yet live provider HTTP dispatch calls. If a paid order has
+These records are idempotent per order and delivery track. If a paid order has
 no onboarding delivery metadata, PhyneCRM writes
 `system:production_dispatch_blocked` so an operator can recover the routing
 without database access.
+
+The worker runs the `production-dispatch` queue every minute. It scans pending
+`production_dispatch` external references, sends idempotent HTTP dispatches to
+Pravara or Selva, updates the reference metadata to `sent` or `retry`, and
+writes `system:production_dispatch_sent` or
+`system:production_dispatch_failed` timeline events. Endpoint defaults are:
+
+- `POST ${PRAVARA_BASE_URL}/api/v1/fabrication/dispatches`
+- `POST ${SELVA_API_URL}/api/v1/projects/dispatches`
+
+Required live-dispatch credentials are `PRAVARA_API_KEY` for Pravara and either
+`SELVA_API_KEY` or `SELVA_DISPATCH_SECRET` for Selva. `PRAVARA_DISPATCH_URL`
+and `SELVA_DISPATCH_URL` can override the default endpoints.
 
 ## Current Limits
 
@@ -250,8 +262,6 @@ autonomous lifecycle yet.
 Still required for 100% production flow:
 
 - Cotiza-originated quote approval webhook automation beyond the CRM action.
-- Live Pravara/Selva execution dispatch HTTP calls from paid dispatch-intent
-  records.
 - Client portal approval affordances beyond quote acceptance/payment, including
   delivery review and final signoff.
 - Staging deployment and provider webhook split from PP.5 Wave 0-3.
@@ -264,6 +274,8 @@ Current coverage:
 pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
 pnpm --filter @phyne/services test -- dhanam-checkout.service.test.ts
 pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
+pnpm --filter @phyne/services test -- production-dispatch-http.service.test.ts
+pnpm --filter @phyne/worker exec vitest run src/__tests__/production-dispatch.test.ts
 pnpm --filter @phyne/api test -- engagements.router.test.ts
 pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
 pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'

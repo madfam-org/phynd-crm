@@ -53,6 +53,14 @@ export {
   recordProductionDispatchIntent,
 } from './production/production-dispatch.service'
 export {
+  dispatchPendingProductionDispatches,
+  dispatchProductionDispatchReference,
+  listPendingProductionDispatchReferenceIds,
+  type DispatchProductionOptions,
+  type DispatchProductionResult,
+  type DispatchProductionSummary,
+} from './production/production-dispatch-http.service'
+export {
   type AcceptQuoteInput,
   type AcceptQuoteResult,
   QuotesService,

@@ -13,7 +13,7 @@ resources:
 - ../../production/pdb.yaml
 
 images:
-- digest: sha256:f8ee5a5857c623cfb29423a1490bce32a569f44deb92434089c7ceee59f3a8ff
+- digest: sha256:95a4861137553ed298c1b0248295f7e4405d1d15ffcc7fece8cbfb4a7ed4dc88
   name: ghcr.io/madfam-org/phyne-crm/web
   newName: ghcr.io/madfam-org/phyne-crm/web
 - digest: sha256:35ecfd93c178f4a734a1f38324837749a49f4090506128c4feb0ddcce2ce4737

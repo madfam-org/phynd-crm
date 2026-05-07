@@ -11,6 +11,8 @@ import {
 } from '../../../__tests__/contract-helpers'
 import { CotizaProvider } from '../index'
 
+type CotizaRawData = Parameters<CotizaProvider['map']>[0]
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['orders', 'quotes'],
@@ -52,7 +54,7 @@ const schema: JsonSchema = {
   },
 }
 
-const fixture = {
+const fixture: CotizaRawData = {
   orders: [
     {
       id: 'order-1',
@@ -110,12 +112,15 @@ describe('CotizaProvider.map()', () => {
 
   it('maps orders and quotes to camelCase', () => {
     const result = provider.map(fixture)
-    expect(result.orders[0]).toMatchObject({
+    const firstOrder = result.orders[0]!
+    expect(result.orders).toHaveLength(1)
+    expect(firstOrder).toMatchObject({
       id: 'order-1',
       productName: 'Custom widget',
       quantity: 50,
       progress: 60,
     })
+    expect(result.activeQuotes).toHaveLength(1)
     expect(result.activeQuotes[0]).toMatchObject({
       id: 'q-1',
       totalAmount: 12500.5,
@@ -125,16 +130,20 @@ describe('CotizaProvider.map()', () => {
 
   it('converts created_at + estimated_completion to Date', () => {
     const result = provider.map(fixture)
-    expect(result.orders[0].createdAt).toBeInstanceOf(Date)
-    expect(result.orders[0].estimatedCompletion).toBeInstanceOf(Date)
+    const firstOrder = result.orders[0]!
+    expect(result.orders).toHaveLength(1)
+    expect(firstOrder.createdAt).toBeInstanceOf(Date)
+    expect(firstOrder.estimatedCompletion).toBeInstanceOf(Date)
   })
 
   it('estimated_completion null produces null', () => {
-    const input = {
+    const rawOrder = fixture.orders[0]!
+    const input: CotizaRawData = {
       ...fixture,
-      orders: [{ ...fixture.orders[0], estimated_completion: null }],
+      orders: [{ ...rawOrder, estimated_completion: null }],
     }
     const result = provider.map(input)
-    expect(result.orders[0].estimatedCompletion).toBeNull()
+    const mappedOrder = result.orders[0]!
+    expect(mappedOrder.estimatedCompletion).toBeNull()
   })
 })

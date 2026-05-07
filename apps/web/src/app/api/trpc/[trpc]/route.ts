@@ -10,8 +10,10 @@ import { createServiceContext } from '@phyne/services/context'
 import type { AuthContext } from '@phyne/types/auth'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
-if (process.env.NODE_ENV === 'production' && process.env.AUTH_BYPASS === 'true') {
-  throw new Error('AUTH_BYPASS must not be enabled in production')
+function assertAuthBypassNotEnabled() {
+  if (process.env.NODE_ENV === 'production' && process.env.AUTH_BYPASS === 'true') {
+    throw new Error('AUTH_BYPASS must not be enabled in production')
+  }
 }
 
 const DEV_BYPASS = process.env.NODE_ENV === 'development' && process.env.AUTH_BYPASS === 'true'
@@ -40,6 +42,8 @@ function getDemoSessionId(req: Request): string | null {
 }
 
 const handler = async (req: Request) => {
+  assertAuthBypassNotEnabled()
+
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
   const { allowed } = await checkApiRateLimit(ip)
   if (!allowed) {

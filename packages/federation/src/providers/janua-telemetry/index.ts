@@ -5,28 +5,28 @@ interface JanuaRawTelemetry {
   sessions: Array<{
     session_id: string
     fingerprint: string
-    contact_id?: string
+    contact_id?: string | null
     identified: boolean
-    ip_city?: string
-    ip_country?: string
-    device_type?: string
-    browser?: string
-    os?: string
-    referrer?: string
-    utm_source?: string
-    utm_medium?: string
-    utm_campaign?: string
-    utm_term?: string
-    utm_content?: string
+    ip_city?: string | null
+    ip_country?: string | null
+    device_type?: string | null
+    browser?: string | null
+    os?: string | null
+    referrer?: string | null
+    utm_source?: string | null
+    utm_medium?: string | null
+    utm_campaign?: string | null
+    utm_term?: string | null
+    utm_content?: string | null
     page_views: Array<{
       url: string
-      title?: string
-      duration?: number
+      title?: string | null
+      duration?: number | null
       timestamp: string
     }>
     started_at: string
-    ended_at?: string
-    duration?: number
+    ended_at?: string | null
+    duration?: number | null
   }>
   total_sessions: number
   unique_devices: number

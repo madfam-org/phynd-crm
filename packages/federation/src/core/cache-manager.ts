@@ -1,6 +1,8 @@
 import type Redis from 'ioredis'
 
 export class CacheManager {
+  private readonly staleKeySuffix = ':stale'
+
   constructor(
     private readonly redis: Redis,
     private readonly tenantId: string = 'madfam',
@@ -8,6 +10,14 @@ export class CacheManager {
 
   private buildKey(prefix: string, id: string): string {
     return `phyne:${this.tenantId}:${prefix}:${id}`
+  }
+
+  private buildStaleKey(prefix: string, id: string): string {
+    return `${this.buildKey(prefix, id)}${this.staleKeySuffix}`
+  }
+
+  private staleTtlSeconds(ttlSeconds: number): number {
+    return Math.max(ttlSeconds * 5, 900)
   }
 
   async get<T>(prefix: string, id: string): Promise<{ data: T; cachedAt: Date } | null> {
@@ -21,16 +31,19 @@ export class CacheManager {
 
   async set<T>(prefix: string, id: string, data: T, ttlSeconds: number): Promise<void> {
     const key = this.buildKey(prefix, id)
+    const staleKey = this.buildStaleKey(prefix, id)
     const payload = JSON.stringify({
       data,
       cachedAt: new Date().toISOString(),
     })
     await this.redis.set(key, payload, 'EX', ttlSeconds)
+    await this.redis.set(staleKey, payload, 'EX', this.staleTtlSeconds(ttlSeconds))
   }
 
   async invalidate(prefix: string, id: string): Promise<void> {
     const key = this.buildKey(prefix, id)
-    await this.redis.del(key)
+    const staleKey = this.buildStaleKey(prefix, id)
+    await this.redis.del(key, staleKey)
   }
 
   async invalidatePattern(prefix: string): Promise<void> {
@@ -42,7 +55,11 @@ export class CacheManager {
   }
 
   async getStale<T>(prefix: string, id: string): Promise<T | null> {
-    const cached = await this.get<T>(prefix, id)
-    return cached?.data ?? null
+    const staleKey = this.buildStaleKey(prefix, id)
+    const raw = await this.redis.get(staleKey)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as { data: T; cachedAt: string }
+    return parsed.data
   }
 }

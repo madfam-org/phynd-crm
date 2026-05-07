@@ -150,7 +150,6 @@ export class ReferralService {
           .values({
             name: referredName ?? referredEmail.split('@')[0] ?? 'Referral',
             email: referredEmail,
-            source: 'referral',
             status: 'active',
           })
           .returning()

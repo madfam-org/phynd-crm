@@ -13,8 +13,10 @@ import { cookies } from 'next/headers'
 
 export const createCaller = createCallerFactory(appRouter)
 
-if (process.env.NODE_ENV === 'production' && process.env.AUTH_BYPASS === 'true') {
-  throw new Error('AUTH_BYPASS must not be enabled in production')
+function assertAuthBypassNotEnabled() {
+  if (process.env.NODE_ENV === 'production' && process.env.AUTH_BYPASS === 'true') {
+    throw new Error('AUTH_BYPASS must not be enabled in production')
+  }
 }
 
 const DEV_BYPASS = process.env.NODE_ENV === 'development' && process.env.AUTH_BYPASS === 'true'
@@ -28,6 +30,8 @@ const DEV_AUTH: AuthContext = {
 }
 
 export async function getServerCaller() {
+  assertAuthBypassNotEnabled()
+
   const session = await auth()
   const cookieStore = await cookies()
   const demoSessionId = isDemoSession(cookieStore)

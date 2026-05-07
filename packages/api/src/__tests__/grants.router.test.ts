@@ -127,8 +127,12 @@ describe('grants router', () => {
       const ctx = createMockCtx()
       const caller = createCaller(ctx)
 
-      await expect(caller.grants.listOpportunities()).rejects.toThrow('PRECONDITION_FAILED')
-      await expect(caller.grants.getPipelineStats()).rejects.toThrow('PRECONDITION_FAILED')
+      await expect(caller.grants.listOpportunities()).rejects.toThrow(
+        'Feature not enabled: treasuryHunter',
+      )
+      await expect(caller.grants.getPipelineStats()).rejects.toThrow(
+        'Feature not enabled: treasuryHunter',
+      )
 
       mockIsFeatureEnabled.mockReturnValue(true)
     })

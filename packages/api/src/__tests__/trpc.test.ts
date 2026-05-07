@@ -121,6 +121,63 @@ describe('protectedProcedure auth middleware', () => {
   })
 })
 
+describe('protectedProcedure service auth scopes', () => {
+  it('allows service callers with matching read scope for query procedures', async () => {
+    const serviceQueryRouter = router({
+      leads: router({
+        list: protectedProcedure.query(() => ({ ok: true })),
+      }),
+    })
+    const createCaller = createCallerFactory(serviceQueryRouter)
+    const caller = createCaller(
+      createMockServiceContext({ userId: 'service:autoswarm', roles: ['service'], scopes: ['leads:read'] }),
+    )
+
+    const result = await caller.leads.list()
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('forbids service callers without matching scope', async () => {
+    const serviceQueryRouter = router({
+      leads: router({
+        list: protectedProcedure.query(() => ({ ok: true })),
+      }),
+    })
+    const createCaller = createCallerFactory(serviceQueryRouter)
+    const caller = createCaller(
+      createMockServiceContext({
+        userId: 'service:autoswarm',
+        roles: ['service'],
+        scopes: ['contacts:read'],
+      }),
+    )
+
+    await expect(caller.leads.list()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    })
+  })
+
+  it('forbids service callers writing outside `...:write` scope', async () => {
+    const serviceMutationRouter = router({
+      leads: router({
+        create: protectedProcedure.mutation(() => ({ ok: true })),
+      }),
+    })
+    const createCaller = createCallerFactory(serviceMutationRouter)
+    const caller = createCaller(
+      createMockServiceContext({
+        userId: 'service:autoswarm',
+        roles: ['service'],
+        scopes: ['leads:read'],
+      }),
+    )
+
+    await expect(caller.leads.create()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    })
+  })
+})
+
 // ---------------------------------------------------------------------------
 // requireRole middleware
 // ---------------------------------------------------------------------------

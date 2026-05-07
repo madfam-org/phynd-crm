@@ -1,4 +1,5 @@
 import type { ServiceContext } from '@phyne/services/context'
+import type { AuthContext } from '@phyne/types/auth'
 import { TRPCError, initTRPC } from '@trpc/server'
 import superjson from 'superjson'
 
@@ -70,7 +71,43 @@ const enforceAuth = t.middleware(({ ctx, next }) => {
   return next({ ctx })
 })
 
-export const protectedProcedure = baseProcedure.use(enforceAuth)
+function isServiceAuth(auth: AuthContext) {
+  return auth.roles.includes('service') || auth.userId.startsWith('service:')
+}
+
+function requiredScopeFromPath(path: string, procedureType: string | undefined): string {
+  const [resource] = path.split('.')
+  const normalizedResource = resource || 'global'
+  const action = procedureType === 'query' || procedureType === 'subscription' ? 'read' : 'write'
+  return `${normalizedResource}:${action}`
+}
+
+function hasRequiredScope(scopes: string[], requiredScope: string): boolean {
+  const [resource] = requiredScope.split(':')
+  return (
+    scopes.includes('*') ||
+    scopes.includes(requiredScope) ||
+    scopes.includes(`${resource}:*`)
+  )
+}
+
+// Service auth is least-privilege by default. Requires explicit scope matches
+// (for non-service identities, scope checks are not enforced).
+const enforceServiceScopes = t.middleware(({ ctx, path, type, next }) => {
+  if (isServiceAuth(ctx.auth) && !ctx.auth.roles.includes('admin')) {
+    const requiredScope = requiredScopeFromPath(path, type)
+    if (!hasRequiredScope(ctx.auth.scopes, requiredScope)) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: `Missing scope: ${requiredScope}`,
+      })
+    }
+  }
+
+  return next({ ctx })
+})
+
+export const protectedProcedure = baseProcedure.use(enforceAuth).use(enforceServiceScopes)
 
 // Role middleware factory
 export function requireRole(...roles: string[]) {

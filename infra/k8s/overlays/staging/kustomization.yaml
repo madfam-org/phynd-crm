@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: phyne-crm-staging
+
+resources:
+  - namespace.yaml
+  - ../../production/web-deployment.yaml
+  - ../../production/web-service.yaml
+  - ../../production/worker-deployment.yaml
+  - ../../production/network-policies.yaml
+  - ../../production/resource-quota.yaml
+  - ../../production/pdb.yaml
+
+images:
+  - name: ghcr.io/madfam-org/phyne-crm/web
+    newName: ghcr.io/madfam-org/phyne-crm/web
+    digest: sha256:056cc5fff11c1619d1c0f74e65f8a8a845291246f60a800ea47073dd2f6d3aa8
+  - name: ghcr.io/madfam-org/phyne-crm/worker
+    newName: ghcr.io/madfam-org/phyne-crm/worker
+    digest: sha256:d532559f160f56228837d16fc34d551fb1a9528dbfa5024c4136b36634f04105
+
+patches:
+  - path: web-deployment.patch.yaml
+  - path: worker-deployment.patch.yaml

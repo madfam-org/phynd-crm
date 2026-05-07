@@ -1,4 +1,4 @@
-import { db } from '@phyne/db'
+import { getDb } from '@phyne/db'
 import { leads } from '@phyne/db/schema'
 import { verifyUnsubscribeToken } from '@phyne/services/email/unsubscribe-token'
 import { eq } from 'drizzle-orm'
@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
   if (!leadId) {
     return new NextResponse('Invalid or expired link', { status: 400 })
   }
+
+  const db = getDb()
 
   await db
     .update(leads)

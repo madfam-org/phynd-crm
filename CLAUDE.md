@@ -279,8 +279,10 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 ## CI/CD
 - `.github/workflows/ci.yml` — lint + typecheck + test (parallel) → build; `JANUA_TELEMETRY_API_URL` in build env
 - `.github/workflows/e2e.yml` — Playwright with Postgres/Redis services
-- `.github/workflows/deploy-web.yml` — Build + cosign sign + push web image to GHCR; updates kustomization.yaml digest; Enclii lifecycle callback
-- `.github/workflows/deploy-worker.yml` — Build + cosign sign + push worker image to GHCR; updates kustomization.yaml digest; Enclii lifecycle callback
+- `.github/workflows/deploy-web.yml` — Build + cosign sign + push web image to GHCR; updates `infra/k8s/overlays/staging/kustomization.yaml` digest; Enclii lifecycle callback
+- `.github/workflows/deploy-worker.yml` — Build + cosign sign + push worker image to GHCR; updates `infra/k8s/overlays/staging/kustomization.yaml` digest; Enclii lifecycle callback
+- `.github/workflows/promote-to-prod.yml` — Manual staging→production promotion; enforces 30m soak + staging smoke before kustomization sync
+- `.github/workflows/rollback-prod.yml` — Manual rollback to previous production digests for web, worker, or both
 
 ## Deployment Pipeline (dev → staging → prod)
 
@@ -289,28 +291,23 @@ seam across the MADFAM ecosystem webhook graph) for the 3-tier pipeline
 defined in
 [internal-devops/rfcs/0001-dev-staging-prod-pipeline.md](https://github.com/madfam-org/internal-devops/blob/main/rfcs/0001-dev-staging-prod-pipeline.md).
 
-**Current state:** PhyneCRM has **no staging environment today**. Every
-push to `main` touching `apps/web/**` or `apps/worker/**` triggers
-`deploy-web.yml` or `deploy-worker.yml`, which build an image, cosign-sign
-it, and commit the digest directly into
-`infra/k8s/production/kustomization.yaml`. ArgoCD / Enclii reconciles
-straight into prod. No `infra/k8s/overlays/` directory, no
-`phyne-crm-staging` namespace, no `.enclii.yml` in the repo.
+**Current state:** Staging is now in place. Pushes to `main` for app/package
+changes write web and worker digests to
+`infra/k8s/overlays/staging/kustomization.yaml`, which ArgoCD tracks via
+`infra/argocd/phyne-crm-staging-application.yaml`. Production updates are
+manual via `promote-to-prod.yml` with soak + smoke checks; emergency
+production reversions use `rollback-prod.yml`.
 
-See [docs/PP_5_STAGING_AUDIT.md](docs/PP_5_STAGING_AUDIT.md) for the full
-row-by-row gap analysis (~15% compliant with RFC 0001).
+See [docs/PP_5_STAGING_AUDIT.md](docs/PP_5_STAGING_AUDIT.md) for the current
+state and remaining PP.5 follow-up items.
 
 ### Known divergences from RFC 0001 (tracked in PP_5_STAGING_AUDIT.md)
 
 | Divergence | Impact | Resolution PR |
 |---|---|---|
-| No `phyne-crm-staging` namespace, no staging overlay, no staging ArgoCD Application | CRM changes land directly in prod; no soak before customer-facing data is touched | PP.5b |
-| `infra/k8s/production/` plays both canonical-base and prod-overlay roles; digests live in it directly | Prod kustomization is the single digest-write target for both `deploy-web.yml` and `deploy-worker.yml` | PP.5b |
-| No `promote-to-prod.yml` or `rollback-prod.yml` | Prod consumes CI builds; rollback = `git revert` + rebuild | PP.5c |
-| No `.enclii.yml` in the repo at all | RFC 0001's `promotion:` key has no file to land in yet | PP.5c (creates minimal `.enclii.yml`) |
-| No staging subdomain (`staging-crm.madfam.io`) or Cloudflare tunnel route for it | Can't cross-service smoke-test | PP.5b (+ Cloudflare ops) |
-| No staging-secrets template | Every env var prod uses needs a staging equivalent | PP.5b (`infra/k8s/staging-secrets-template.yaml`) |
-| Nightly prod→staging masked DB refresh not implemented | Staging DB will be seeded via `pnpm db:seed` (including tablaco fixtures) until masking tool chosen | Deferred (RFC 0001 open question) |
+| Staging subdomain (`staging-crm.madfam.io`) is not yet wired to tunnel/ingress | Can't cross-service smoke-test | Deferred (Cloudflare ops) |
+| Inbound/outbound webhook and provider API routing separation is still pending in dependent services | Staging can still point at production destinations | Deferred (service-by-service coordination) |
+| Nightly prod→staging masked DB refresh not implemented | Staging DB still needs safe fixture/PII-seeded refresh path | Deferred (RFC 0001 open question) |
 
 ### PhyneCRM-specific staging constraints
 
@@ -343,22 +340,20 @@ services, its staging rollout requires coordinated env separation on
 - **Drip emails must not reach real prospects from staging.** Resend
   staging API key must be domain-scoped to `@madfam.io` /
   `@staging.madfam.io`. Tezca-side must only emit events for test email
-  addresses. Consider adding `EMAIL_ALLOWLIST_DOMAINS` to
-  `apps/worker/src/processors/email-drip.ts` as a belt-and-suspenders
-  (hardening backlog).
+  addresses. `EMAIL_ALLOWLIST_DOMAINS` is implemented in
+  `apps/worker/src/processors/email-drip.ts` as a hardening guard.
 
 See `docs/PP_5_STAGING_AUDIT.md` § PhyneCRM-specific staging constraints
 for the full staging-secrets template (all 30+ keys) and the per-provider
 webhook wiring matrix.
 
-### Promotion pattern (when PP.5c lands)
+### Promotion pattern
 
 PhyneCRM is **Pattern B — manual gate** per RFC 0001 § Promotion mechanics.
 Reasoning: PhyneCRM owns the ACCA Treasury Hunter HITL approval queue +
 the customer lead pipeline + the conversions table (partial unique
 constraints). A wrong promote can corrupt active grant applications or
-silently break the drip worker. When PP.5c ships, `.enclii.yml` will
-declare:
+silently break the drip worker. `.enclii.yml` declares:
 
 ```yaml
 promotion:
@@ -371,13 +366,10 @@ promotion:
 
 | Workflow | Trigger | Effect |
 |---|---|---|
-| `deploy-web.yml` | push to main (apps/web/**, packages/**, pnpm-lock.yaml) | Builds web image, cosign-signs, commits digest to `infra/k8s/production/kustomization.yaml`, ArgoCD/Enclii reconciles prod |
+| `deploy-web.yml` | push to main (apps/web/**, packages/**, pnpm-lock.yaml) | Builds web image, cosign-signs, commits digest to `infra/k8s/overlays/staging/kustomization.yaml` |
 | `deploy-worker.yml` | push to main (apps/worker/**, packages/**, pnpm-lock.yaml) | Same shape for worker image |
-
-**This flow is intentionally preserved unchanged by PP.5.** Convergence to
-RFC 0001 is sequenced across follow-up PRs (PP.5b structural, PP.5c
-promote/rollback + `.enclii.yml`) so each diff is reviewable and
-reversible.
+| `promote-to-prod.yml` | manual | Copies staged digests into `infra/k8s/production/kustomization.yaml` after soak + smoke |
+| `rollback-prod.yml` | manual | Rollbacks target digest(s) in `infra/k8s/production/kustomization.yaml` and re-runs production smoke |
 
 ## Local Development
 ```bash

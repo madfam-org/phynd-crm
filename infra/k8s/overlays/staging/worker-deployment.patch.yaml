@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phyne-crm-worker
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: worker
+          envFrom:
+            - secretRef:
+                name: phyne-crm-staging-secrets
+            - secretRef:
+                name: phyne-acca-staging-secrets
+                optional: true

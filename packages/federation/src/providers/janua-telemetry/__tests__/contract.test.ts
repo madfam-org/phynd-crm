@@ -11,6 +11,8 @@ import {
 } from '../../../__tests__/contract-helpers'
 import { JanuaTelemetryProvider } from '../index'
 
+type JanuaRawTelemetry = Parameters<JanuaTelemetryProvider['map']>[0]
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['sessions', 'total_sessions', 'unique_devices', 'top_sources'],
@@ -145,21 +147,35 @@ describe('JanuaTelemetryProvider.map()', () => {
   })
 
   it('coerces null-or-missing session fields to null', () => {
-    const minimal = {
+    const minimal: JanuaRawTelemetry = {
       ...emptyFixture,
       sessions: [
         {
           session_id: 's2',
           fingerprint: 'fp2',
           identified: false,
+          contact_id: null,
+          ip_city: null,
+          ip_country: null,
+          device_type: null,
+          browser: null,
+          os: null,
+          referrer: null,
+          utm_source: null,
+          utm_medium: null,
+          utm_campaign: null,
+          utm_term: null,
+          utm_content: null,
           page_views: [],
           started_at: '2026-04-17T00:00:00Z',
-        } as any,
+        },
       ],
       total_sessions: 1,
     }
     const result = provider.map(minimal)
-    const session = result.sessions[0]
+    expect(result.sessions).toHaveLength(1)
+    const session = result.sessions[0]!
+    expect(session).toBeDefined()
     expect(session.contactId).toBeNull()
     expect(session.ipCity).toBeNull()
   })

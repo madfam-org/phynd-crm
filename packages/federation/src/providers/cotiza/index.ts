@@ -7,7 +7,7 @@ interface CotizaRawData {
     status: string
     product_name: string
     quantity: number
-    estimated_completion: string | null
+    estimated_completion?: string | null
     progress_pct: number
     created_at: string
   }>

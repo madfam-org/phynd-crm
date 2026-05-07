@@ -8,11 +8,12 @@ on:
       - "apps/worker/**"
       - "packages/**"
       - "pnpm-lock.yaml"
-      - "!infra/k8s/production/kustomization.yaml"
+      - "!infra/k8s/overlays/staging/kustomization.yaml"
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: madfam-org/phyne-crm/worker
+  KUSTOMIZATION_PATH: infra/k8s/overlays/staging/kustomization.yaml
 
 jobs:
   build-and-push:
@@ -71,15 +72,16 @@ jobs:
       - name: Commit image digest
         run: |
           DIGEST="${{ steps.build.outputs.digest }}"
+          DIR="$(dirname "${KUSTOMIZATION_PATH}")"
           git config user.name "madfam-bot"
           git config user.email "bot@madfam.dev"
           for ATTEMPT in 1 2 3; do
             git fetch origin main
             git reset --hard origin/main
-            cd infra/k8s/production
+            cd "$DIR"
             kustomize edit set image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
-            cd ../../..
-            git add infra/k8s/production/kustomization.yaml
+            cd -
+            git add "${KUSTOMIZATION_PATH}"
             git diff --staged --quiet && echo "No changes to commit" && exit 0
             git commit -m "deploy(worker): update digest to ${GITHUB_SHA::8}"
             git push origin main && exit 0

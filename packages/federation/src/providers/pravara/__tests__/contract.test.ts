@@ -11,6 +11,8 @@ import {
 } from '../../../__tests__/contract-helpers'
 import { PravaraProvider } from '../index'
 
+type PravaraRawData = Parameters<PravaraProvider['map']>[0]
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['orders', 'summary'],
@@ -65,7 +67,7 @@ const schema: JsonSchema = {
   },
 }
 
-const fixture = {
+const fixture: PravaraRawData = {
   orders: [
     {
       order_id: 'pv-1',
@@ -90,7 +92,10 @@ describe('PravaraRawData contract', () => {
   })
 
   it('rejects invalid status enum', () => {
-    const invalid = { ...fixture, orders: [{ ...fixture.orders[0], status: 'spinning' }] }
+    const invalid = {
+      ...fixture,
+      orders: [{ ...fixture.orders[0], status: 'spinning' as unknown as PravaraRawData['orders'][number]['status'] }],
+    }
     const errors = validateAgainstSchema(invalid, schema)
     expect(errors.some((e) => e.path.includes('status'))).toBe(true)
   })

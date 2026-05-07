@@ -1,0 +1,243 @@
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Component(s) to rollback
+        type: choice
+        required: false
+        default: both
+        options:
+          - web
+          - worker
+          - both
+      target_web_digest:
+        description: Optional target web digest (sha256:...)
+        required: false
+      target_worker_digest:
+        description: Optional target worker digest (sha256:...)
+        required: false
+      source_commit:
+        description: Optional commit to read digests from if targets are not provided
+        required: false
+      skip_smoke_check:
+        description: Skip production health recheck
+        required: false
+        default: "false"
+
+env:
+  WEB_IMAGE: ghcr.io/madfam-org/phyne-crm/web
+  WORKER_IMAGE: ghcr.io/madfam-org/phyne-crm/worker
+  PRODUCTION_KUSTOMIZATION: infra/k8s/production/kustomization.yaml
+
+jobs:
+  rollback:
+    name: Revert production digests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MADFAM_BOT_PAT }}
+          fetch-depth: 0
+
+      - name: Resolve target digests
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          parse_digest_file() {
+            local image="$1"
+            local file="$2"
+            local digest
+            digest=$(
+              awk -v target_image="$image" '
+                BEGIN { found = 0 }
+                $1 == "name:" && $2 == target_image { found = 1; next }
+                found && $1 == "digest:" { print $2; exit }
+                found && $1 == "name:" { found = 0 }
+              ' "$file"
+            )
+            if [ -z "$digest" ]; then
+              echo "Digest not found for $image in $file" >&2
+              exit 1
+            fi
+            echo "$digest"
+          }
+
+          parse_digest_from_commit() {
+            local image="$1"
+            local commit="$2"
+            local tmp
+            tmp=$(mktemp)
+
+            if ! git cat-file -e "${commit}^{commit}"; then
+              echo "source_commit ${commit} is not a valid commit" >&2
+              rm -f "$tmp"
+              exit 1
+            fi
+
+            if ! git show "${commit}:infra/k8s/production/kustomization.yaml" > "$tmp"; then
+              echo "Unable to read infra/k8s/production/kustomization.yaml from ${commit}" >&2
+              rm -f "$tmp"
+              exit 1
+            fi
+
+            parse_digest_file "$image" "$tmp"
+            rm -f "$tmp"
+          }
+
+          source_commit="${{ inputs.source_commit }}"
+          web_digest="${{ inputs.target_web_digest }}"
+          worker_digest="${{ inputs.target_worker_digest }}"
+          component="${{ inputs.component }}"
+          component="${component:-both}"
+          case "${component}" in
+            web|worker|both) ;;
+            *)
+              echo "Invalid component: ${component}" >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$source_commit" ] && [ -n "${web_digest}" ] && [ -n "${worker_digest}" ]; then
+            source_commit="manual"
+          elif [ -z "$source_commit" ]; then
+            source_commit=$(git log --format=%H --skip=1 --max-count=1 -- infra/k8s/production/kustomization.yaml || true)
+          fi
+          if [ -z "$source_commit" ]; then
+            if [ -z "${web_digest}" ] || [ -z "${worker_digest}" ]; then
+              echo "Unable to determine source_commit for rollback without explicit digests" >&2
+              exit 1
+            fi
+            source_commit="manual"
+          fi
+
+          if [ -n "${web_digest}" ] && [ -n "${worker_digest}" ]; then
+            echo "Using explicitly provided web and worker digests from inputs"
+          elif [ "$component" = "web" ]; then
+            if [ -z "${web_digest}" ]; then
+              web_digest=$(parse_digest_from_commit "${WEB_IMAGE}" "${source_commit}")
+            fi
+          elif [ "$component" = "worker" ]; then
+            if [ -z "${worker_digest}" ]; then
+              worker_digest=$(parse_digest_from_commit "${WORKER_IMAGE}" "${source_commit}")
+            fi
+          else
+            if [ -z "${web_digest}" ]; then
+              web_digest=$(parse_digest_from_commit "${WEB_IMAGE}" "${source_commit}")
+            fi
+            if [ -z "${worker_digest}" ]; then
+              worker_digest=$(parse_digest_from_commit "${WORKER_IMAGE}" "${source_commit}")
+            fi
+          fi
+
+          if [ -z "$web_digest" ] && [ "$component" != "worker" ]; then
+            echo "web_digest is required for this rollback" >&2
+            exit 1
+          fi
+          if [ -z "$worker_digest" ] && [ "$component" != "web" ]; then
+            echo "worker_digest is required for this rollback" >&2
+            exit 1
+          fi
+
+          if [ "$component" = "web" ]; then
+            current_worker=$(parse_digest_file "${WORKER_IMAGE}" "${PRODUCTION_KUSTOMIZATION}")
+            echo "worker_digest=${current_worker}" >> "$GITHUB_OUTPUT"
+          elif [ "$component" = "worker" ]; then
+            current_web=$(parse_digest_file "${WEB_IMAGE}" "${PRODUCTION_KUSTOMIZATION}")
+            echo "web_digest=${current_web}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${source_commit}" = "manual" ]; then
+            source_commit_short="manual"
+          else
+            source_commit_short="${source_commit:0:8}"
+          fi
+
+          echo "source_commit=${source_commit}" >> "$GITHUB_OUTPUT"
+          echo "source_commit_short=${source_commit_short}" >> "$GITHUB_OUTPUT"
+          echo "component=${component}" >> "$GITHUB_OUTPUT"
+          echo "web_digest=${web_digest}" >> "$GITHUB_OUTPUT"
+          echo "worker_digest=${worker_digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Apply rollback digests
+        run: |
+          git config user.name "madfam-bot"
+          git config user.email "bot@madfam.dev"
+          git fetch origin main
+          git reset --hard origin/main
+          cd infra/k8s/production
+
+          if [ "${{ steps.resolve.outputs.component }}" = "web" ] || [ "${{ steps.resolve.outputs.component }}" = "both" ]; then
+            kustomize edit set image "${WEB_IMAGE}=${WEB_IMAGE}@${{ steps.resolve.outputs.web_digest }}"
+          fi
+
+          if [ "${{ steps.resolve.outputs.component }}" = "worker" ] || [ "${{ steps.resolve.outputs.component }}" = "both" ]; then
+            kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}@${{ steps.resolve.outputs.worker_digest }}"
+          fi
+
+          cd - >/dev/null
+          git add "${PRODUCTION_KUSTOMIZATION}"
+          if git diff --staged --quiet; then
+            echo "No production digest changes"
+            exit 0
+          fi
+
+          source_commit="${{ steps.resolve.outputs.source_commit_short }}"
+          if [ "${{ steps.resolve.outputs.component }}" = "both" ]; then
+            scope="web+worker"
+          elif [ "${{ steps.resolve.outputs.component }}" = "web" ]; then
+            scope="web"
+          else
+            scope="worker"
+          fi
+          git commit -m "rollback(prod): ${scope} from ${source_commit}"
+          git push origin main
+
+      - name: Rollback smoke check
+        if: ${{ inputs.skip_smoke_check != 'true' }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "https://crm.madfam.io/api/health" >/dev/null; then
+              echo "Production smoke check passed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/6 failed, retrying in 20s"
+            sleep 20
+          done
+          echo "Production smoke check failed"
+          exit 1
+
+      - name: Notify Enclii
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            EVENT_TYPE="production_rollback"
+          else
+            EVENT_TYPE="rollback_failed"
+          fi
+          curl -s -X POST "https://api.enclii.dev/v1/callbacks/lifecycle-event" \
+            -H "Authorization: Bearer ${{ secrets.ENCLII_CALLBACK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo_full_name\": \"madfam-org/phyne-crm\",
+              \"commit_sha\": \"${GITHUB_SHA}\",
+              \"branch\": \"${GITHUB_REF_NAME}\",
+              \"event_type\": \"${EVENT_TYPE}\",
+              \"source\": \"ci_callback\",
+              \"message\": \"rollback-prod ${STATUS}\",
+              \"metadata\": {
+                \"service\": \"phyne-crm\",
+                \"workflow\": \"rollback-prod\",
+                \"component\": \"${{ steps.resolve.outputs.component }}\",
+                \"source_commit\": \"${{ steps.resolve.outputs.source_commit }}\",
+                \"web_digest\": \"${{ steps.resolve.outputs.web_digest }}\",
+                \"worker_digest\": \"${{ steps.resolve.outputs.worker_digest }}\",
+                \"actor\": \"${{ github.actor }}\"
+              }
+            }" || true

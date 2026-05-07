@@ -11,6 +11,8 @@ import {
 } from '../../../__tests__/contract-helpers'
 import { ForjProvider } from '../index'
 
+type ForjRawData = Parameters<ForjProvider['map']>[0]
+
 const schema: JsonSchema = {
   type: 'object',
   required: ['assets', 'total_count'],
@@ -39,7 +41,7 @@ const schema: JsonSchema = {
   },
 }
 
-const fixture = {
+const fixture: ForjRawData = {
   assets: [
     {
       id: 'forj-1',
@@ -77,7 +79,8 @@ describe('ForjRawData contract', () => {
   })
 
   it('rejects missing asset_type', () => {
-    const { asset_type: _, ...invalidAsset } = fixture.assets[0]
+    const firstAsset = fixture.assets[0] as ForjRawData['assets'][number]
+    const { asset_type: _assetType, ...invalidAsset } = firstAsset
     const invalid = { ...fixture, assets: [invalidAsset] }
     const errors = validateAgainstSchema(invalid, schema)
     expect(errors.some((e) => e.path.includes('asset_type'))).toBe(true)
@@ -98,7 +101,9 @@ describe('ForjProvider.map()', () => {
 
   it('renames snake_case fields on each asset', () => {
     const result = provider.map(fixture)
-    expect(result.assets[0]).toMatchObject({
+    const firstAsset = result.assets[0]!
+    expect(result.assets).toHaveLength(2)
+    expect(firstAsset).toMatchObject({
       id: 'forj-1',
       name: 'Solarpunk Lily',
       type: '3d_model',
@@ -112,8 +117,10 @@ describe('ForjProvider.map()', () => {
 
   it('converts created_at + updated_at to Date', () => {
     const result = provider.map(fixture)
-    expect(result.assets[0].createdAt).toBeInstanceOf(Date)
-    expect(result.assets[0].updatedAt).toBeInstanceOf(Date)
+    const firstAsset = result.assets[0]!
+    expect(result.assets).toHaveLength(2)
+    expect(firstAsset.createdAt).toBeInstanceOf(Date)
+    expect(firstAsset.updatedAt).toBeInstanceOf(Date)
   })
 
   it('maps totalCount', () => {
@@ -123,7 +130,9 @@ describe('ForjProvider.map()', () => {
 
   it('handles null urls on draft assets', () => {
     const result = provider.map(fixture)
-    expect(result.assets[1].thumbnailUrl).toBeNull()
-    expect(result.assets[1].modelUrl).toBeNull()
+    const draftAsset = result.assets[1]!
+    expect(result.assets).toHaveLength(2)
+    expect(draftAsset.thumbnailUrl).toBeNull()
+    expect(draftAsset.modelUrl).toBeNull()
   })
 })

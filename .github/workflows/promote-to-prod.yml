@@ -1,0 +1,161 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_digest:
+        description: Optional web digest to promote (sha256:...)
+        required: false
+      worker_digest:
+        description: Optional worker digest to promote (sha256:...)
+        required: false
+      skip_soak_check:
+        description: Skip 30-minute soak verification
+        required: false
+        default: "false"
+      skip_smoke_check:
+        description: Skip staging smoke verification
+        required: false
+        default: "false"
+      staging_health_url:
+        description: Staging health endpoint to verify before promotion
+        required: false
+        default: "https://staging-crm.madfam.io/api/health"
+
+env:
+  WEB_IMAGE: ghcr.io/madfam-org/phyne-crm/web
+  WORKER_IMAGE: ghcr.io/madfam-org/phyne-crm/worker
+  STAGING_KUSTOMIZATION: infra/k8s/overlays/staging/kustomization.yaml
+  PRODUCTION_KUSTOMIZATION: infra/k8s/production/kustomization.yaml
+
+jobs:
+  promote:
+    name: Promote staging images to production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MADFAM_BOT_PAT }}
+          fetch-depth: 0
+
+      - name: Validate staging soak window
+        if: ${{ inputs.skip_soak_check != 'true' }}
+        run: |
+          MIN_SOAK_MINUTES=30
+          last_commit_ts=$(git log -1 --format=%ct -- infra/k8s/overlays/staging/kustomization.yaml)
+          now_ts=$(date +%s)
+          age_minutes=$(( (now_ts - last_commit_ts) / 60 ))
+          if (( age_minutes < MIN_SOAK_MINUTES )); then
+            echo "Staging has not soaked for ${age_minutes} minutes (minimum: ${MIN_SOAK_MINUTES})"
+            exit 1
+          fi
+          echo "Staging soak check passed: ${age_minutes} minutes since last staging digest write."
+
+      - name: Verify staging health
+        if: ${{ inputs.skip_smoke_check != 'true' }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "${{ inputs.staging_health_url }}" >/dev/null; then
+              echo "Staging smoke check passed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/6 failed, retrying in 20s"
+            sleep 20
+          done
+          echo "Staging smoke check failed"
+          exit 1
+
+      - name: Resolve target digests
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          parse_digest() {
+            local image="$1"
+            local file="$2"
+            local digest
+            digest=$(
+              awk -v target_image="$image" '
+                BEGIN { found = 0 }
+                $1 == "name:" && $2 == target_image { found = 1; next }
+                found && $1 == "digest:" { print $2; exit }
+                found && $1 == "name:" { found = 0 }
+              ' "$file"
+            )
+            if [ -z "$digest" ]; then
+              echo "Digest not found for $image in $file" >&2
+              exit 1
+            fi
+            echo "$digest"
+          }
+
+          web_digest="${{ inputs.web_digest }}"
+          if [ -z "$web_digest" ]; then
+            web_digest=$(parse_digest "${WEB_IMAGE}" "${STAGING_KUSTOMIZATION}")
+          fi
+
+          worker_digest="${{ inputs.worker_digest }}"
+          if [ -z "$worker_digest" ]; then
+            worker_digest=$(parse_digest "${WORKER_IMAGE}" "${STAGING_KUSTOMIZATION}")
+          fi
+
+          echo "web_digest=${web_digest}" >> "$GITHUB_OUTPUT"
+          echo "worker_digest=${worker_digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Promote to production kustomization
+        run: |
+          git config user.name "madfam-bot"
+          git config user.email "bot@madfam.dev"
+          for ATTEMPT in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cd infra/k8s/production
+            kustomize edit set image "${WEB_IMAGE}=${WEB_IMAGE}@${{ steps.resolve.outputs.web_digest }}"
+            kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}@${{ steps.resolve.outputs.worker_digest }}"
+            cd - >/dev/null
+            git add "${PRODUCTION_KUSTOMIZATION}"
+            if git diff --staged --quiet; then
+              echo "No production digest changes"
+              exit 0
+            fi
+
+            message="promote: ${GITHUB_SHA::8} (web=${{ steps.resolve.outputs.web_digest }}, worker=${{ steps.resolve.outputs.worker_digest }})"
+            git commit -m "${message}"
+            git push origin main && exit 0
+            echo "Retry ${ATTEMPT}..."
+            sleep $((ATTEMPT * 10))
+          done
+          echo "Failed after 3 attempts"
+          exit 1
+
+      - name: Notify Enclii
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            EVENT_TYPE="production_promotion"
+          else
+            EVENT_TYPE="promotion_failed"
+          fi
+          curl -s -X POST "https://api.enclii.dev/v1/callbacks/lifecycle-event" \
+            -H "Authorization: Bearer ${{ secrets.ENCLII_CALLBACK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo_full_name\": \"madfam-org/phyne-crm\",
+              \"commit_sha\": \"${GITHUB_SHA}\",
+              \"branch\": \"${GITHUB_REF_NAME}\",
+              \"event_type\": \"${EVENT_TYPE}\",
+              \"source\": \"ci_callback\",
+              \"message\": \"promote-to-prod ${STATUS}\",
+              \"metadata\": {
+                \"service\": \"phyne-crm\",
+                \"workflow\": \"promote-to-prod\",
+                \"web_digest\": \"${{ steps.resolve.outputs.web_digest }}\",
+                \"worker_digest\": \"${{ steps.resolve.outputs.worker_digest }}\",
+                \"actor\": \"${{ github.actor }}\"
+              }
+            }" || true

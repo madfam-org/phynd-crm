@@ -4,27 +4,41 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Mock modules — must be before imports
 // ---------------------------------------------------------------------------
 
-const mockQb = {
+type MockQueryBuilder = {
+  _result: unknown[]
+  from: ReturnType<typeof vi.fn>
+  limit: ReturnType<typeof vi.fn>
+  returning: ReturnType<typeof vi.fn>
+  select: ReturnType<typeof vi.fn>
+  set: ReturnType<typeof vi.fn>
+  then: ReturnType<typeof vi.fn>
+  update: ReturnType<typeof vi.fn>
+  values: ReturnType<typeof vi.fn>
+  where: ReturnType<typeof vi.fn>
+}
+
+const mockQb: MockQueryBuilder = {
   _result: [] as unknown[],
   from: vi.fn(),
   limit: vi.fn(),
   returning: vi.fn(),
   select: vi.fn(),
   set: vi.fn(),
+  then: vi.fn(),
   update: vi.fn(),
   values: vi.fn(),
   where: vi.fn(),
 }
 
-for (const method of Object.keys(mockQb).filter((k) => k !== '_result')) {
+for (const method of Object.keys(mockQb).filter((k) => k !== '_result' && k !== 'then')) {
   ;(mockQb as unknown as Record<string, ReturnType<typeof vi.fn>>)[method]?.mockReturnValue(mockQb)
 }
 
-Object.defineProperty(mockQb, 'then', {
-  value: vi.fn((resolve: (v: unknown) => void) => Promise.resolve(mockQb._result).then(resolve)),
-  configurable: true,
-  enumerable: false,
-})
+const resetMockQueryThen = () => {
+  mockQb.then.mockImplementation((resolve: (v: unknown) => void) =>
+    Promise.resolve(mockQb._result).then(resolve),
+  )
+}
 
 const mockDb = {
   select: vi.fn().mockReturnValue(mockQb),
@@ -87,6 +101,7 @@ describe('processGrantComplianceCheck', () => {
         complianceChecks: {},
       },
     ]
+    resetMockQueryThen()
   })
 
   afterEach(() => {

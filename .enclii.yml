@@ -1,0 +1,9 @@
+apiVersion: enclii.dev/v1
+kind: Service
+metadata:
+  name: phyne-crm
+  project: phyne-crm
+promotion:
+  pattern: manual
+  min_soak_minutes: 30
+  require_smoke_pass: true

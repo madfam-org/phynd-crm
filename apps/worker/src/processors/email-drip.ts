@@ -13,6 +13,35 @@ import { eq } from 'drizzle-orm'
 import { createRedisConnection } from '../queues'
 
 const logger = createLogger('worker:email-drip')
+const DEFAULT_EMAIL_ALLOWLIST = new Set<string>()
+
+function normalizeAllowlist(value: string | undefined): Set<string> {
+  if (!value) {
+    return DEFAULT_EMAIL_ALLOWLIST
+  }
+
+  const domains = value
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .map((entry) => (entry.startsWith('@') ? entry.slice(1) : entry))
+
+  return new Set(domains)
+}
+
+function isEmailAllowed(email: string, allowlist: Set<string>): boolean {
+  if (allowlist.size === 0) {
+    return true
+  }
+
+  const atIndex = email.lastIndexOf('@')
+  if (atIndex === -1) {
+    return false
+  }
+
+  const domain = email.slice(atIndex + 1).toLowerCase()
+  return allowlist.has(domain)
+}
 
 export interface EmailDripData {
   leadId: string
@@ -64,6 +93,11 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
     return
   }
 
+  if (!lead.contactId) {
+    logger.warn({ leadId }, 'Lead has no contactId — skipping drip')
+    return
+  }
+
   if (lead.unsubscribed) {
     logger.info({ leadId, step }, 'Lead unsubscribed — skipping drip')
     return
@@ -72,12 +106,21 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
   const contactRows = await db
     .select({ email: contacts.email })
     .from(contacts)
-    .where(eq(contacts.id, lead.contactId!))
+    .where(eq(contacts.id, lead.contactId))
     .limit(1)
 
   const contact = contactRows[0]
   if (!contact?.email) {
     logger.warn({ leadId, contactId: lead.contactId }, 'Contact has no email — skipping drip')
+    return
+  }
+
+  const allowlist = normalizeAllowlist(process.env.EMAIL_ALLOWLIST_DOMAINS)
+  if (!isEmailAllowed(contact.email, allowlist)) {
+    logger.warn(
+      { leadId, step, email: contact.email },
+      'Email domain is not allowlisted for drip delivery — skipping',
+    )
     return
   }
 

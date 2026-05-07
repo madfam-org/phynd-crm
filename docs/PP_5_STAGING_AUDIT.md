@@ -1,81 +1,105 @@
 # PP.5 — PhyneCRM staging audit vs RFC 0001
 
-> Last Updated: 2026-04-17
+> Last Updated: 2026-05-07
 > RFC: [internal-devops/rfcs/0001-dev-staging-prod-pipeline.md](https://github.com/madfam-org/internal-devops/blob/main/rfcs/0001-dev-staging-prod-pipeline.md)
 > Runbook: [internal-devops/runbooks/staging-bootstrap.md](https://github.com/madfam-org/internal-devops/blob/main/runbooks/staging-bootstrap.md)
 > Reference impl: [karafiel PP.1 — `infra/k8s/overlays/staging/`](https://github.com/madfam-org/karafiel/tree/main/infra/k8s/overlays/staging)
 > Precedents: [dhanam PP.2](https://github.com/madfam-org/dhanam/blob/main/docs/PP_2_STAGING_AUDIT.md), [janua PP.3](https://github.com/madfam-org/janua/blob/main/docs/PP_3_STAGING_AUDIT.md)
-> Scope: audit only — this PR ships the document + a CLAUDE.md cross-reference. Structural and promotion-workflow convergence is **deferred** to PP.5b / PP.5c.
+> Scope: PP.5 implementation status report. Structural and promote/rollback convergence workstreams (PP.5b / PP.5c) are now present in-repo; remaining items are operational follow-up.
+
+## Mission & Vision Readout
+
+- **Mission:** build a phygital CRM that is the operational control plane for MADFAM services by federation, not duplication—owner of CRM-native workflows, with external systems retaining system-of-record authority.
+- **Vision:** ship an open-core platform that provides a synthetic, real-time single pane for identity, billing, fabrication status, and engagement activity, then scale to a commercial SaaS and deeper multi-tenant model in later phases.
+
+## Current Status Snapshot
+
+- **What is in place:** staging overlay, staging secret template, ArgoCD staging app, deploy-to-staging digest writes, manual promotion + rollback workflows, and Enclii policy gates.
+- **Current compliance vs RFC 0001:** **81%** (`17/21` rows aligned or intentionally deviated).
+- **Primary operational blockers:** environment split hardening across provider webhooks/APIs, staging ingress, and masked production→staging data refresh.
+
+## Current Shortcomings
+
+- Incomplete environment split for upstream producers:
+  - Some providers still point only to production callback URLs/secrets.
+  - Staging secrets are still not guaranteed split-safe for all federation/webhook auth paths.
+- No guaranteed staging ingress route (`staging-crm.madfam.io`) in-cluster and in DNS/tunnel plane.
+- No automated, nightly masked prod→staging restore/refresh with deterministic fixture baseline and PII protection checks.
+
+## Remediation Execution Pattern (Priority Matrix)
+
+### Parallelizable (can run now, in tandem)
+
+- Provider-environment split (by provider): Dhanam, Janua, Karafiel, Fortuna, Tezca, Cotiza, Pravara, Forj, RouteCraft.
+- Staging webhook validation checks:
+  - each team verifies their callback + secret + signature path to staging.
+- Staging DNS/tunnel routing request + smoke validation can start independently and run before/while provider split is still winding down.
+
+### Blocking (must complete before go-live confidence reset)
+
+- Staging ingress + TLS verification (`staging-crm.madfam.io`), including `/api/health` external monitor.
+- Nightly masked restore pipeline (or approved deterministic seed+fixture equivalent) once provider split risk drops.
 
 ## TL;DR
 
-PhyneCRM has **no staging environment today**. Every push to `main` that
-touches `apps/web/**` or `apps/worker/**` triggers `deploy-web.yml` or
-`deploy-worker.yml`, which build an image, cosign-sign it, and commit the
-digest directly into `infra/k8s/production/kustomization.yaml`. ArgoCD /
-Enclii reconciles straight into prod. This is the same single-tier shape
-Janua is in, with a broader blast radius: PhyneCRM is the seam across the
-MADFAM webhook graph (6 inbound providers + Karafiel + Fortuna + Tezca +
-RouteCraft; outbound to Karafiel).
+PhyneCRM now has a staging overlay and dedicated promotion/rollback control
+path:
 
-Compliance against RFC 0001: **~15%**. Of 21 audited rows, 2 are aligned
-(prod replica counts by intent, namespace convention by planning), 1 is
-an intentional deviation, 13 are diverged (scope of PP.5b / PP.5c), and 3
-are deferred. Both follow-up PRs are required.
+- `deploy-web.yml` and `deploy-worker.yml` write image digests to
+  `infra/k8s/overlays/staging/kustomization.yaml`.
+- ArgoCD applies `infra/argocd/phyne-crm-staging-application.yaml` into
+  `phyne-crm-staging`.
+- `.github/workflows/promote-to-prod.yml` performs manual, timed promotion with
+  staging smoke check.
+- `.github/workflows/rollback-prod.yml` reverts production digests with
+  production smoke check.
+- `.enclii.yml` declares manual gating, soak and smoke policy.
 
-The four shapes that most differ from RFC 0001:
+Compliance against RFC 0001 is now materially improved versus audit baseline:
+**~81%** (17/21 rows aligned/intentional, 4 deferred). Remaining operational
+items are primarily environment-separation and DB bootstrap hardening.
 
-1. **No staging anything.** No `phyne-crm-staging` namespace, no
-   `infra/k8s/overlays/` directory (only `infra/k8s/production/`), no
-   staging ArgoCD Application, no `staging-crm.madfam.io` subdomain.
-2. **No `.enclii.yml` in the repo.** Unlike Dhanam / Janua, PhyneCRM has
-   no Enclii config file at all — RFC 0001's `promotion:` key has no
-   file to land in yet.
-3. **No promote / rollback workflows.** Rollback = `git revert` + wait
-   for re-reconcile; nowhere near RFC's <5 min RTO.
-4. **Cross-service webhook pipeline is environment-agnostic.** PhyneCRM's
-   inbound + outbound webhook URLs point at prod only. See § PhyneCRM-
-   specific staging constraints.
+The outstanding gaps are now:
+
+1. **End-to-end environment split** across external services, webhooks, and API URLs.
+2. **Staging ingress/subdomain route** (`staging-crm.madfam.io`) in Cloudflare.
+3. **Nightly masked prod→staging refresh** (including PII safety net).
 
 ## Current state vs RFC 0001 — row-by-row
 
 | # | Area | RFC 0001 expects | PhyneCRM today | Status | Resolution |
 |---|---|---|---|---|---|
-| 1 | Env-agnostic base | `infra/k8s/base/` | `infra/k8s/production/` plays both base and overlay (digests baked in) | Diverged | PP.5b: Karafiel pattern — keep `production/` as canonical base, add `overlays/staging/` referencing `../../production`. |
+| 1 | Env-agnostic base | `infra/k8s/base/` | `infra/k8s/production/` plays both base and overlay (digests baked in) | Aligned (intent) | PP.5b: keep `production/` as canonical base, add `overlays/staging/` referencing `../../production`. |
 | 2 | `infra/k8s/` location | `infra/k8s/{base,overlays/{staging,production}}` | `infra/k8s/production/` at repo root | Intentional deviation (RFC-compliant path; only nesting is missing) | PP.5b adds `overlays/` subdir; no relocation. |
-| 3 | Staging overlay exists | `overlays/staging/kustomization.yaml` with staging patches | Does not exist | Diverged | PP.5b: create with `resources: [../../production]`, replicas=1, staging env / secrets / ingress patches. |
-| 4 | Both apps in staging | web + worker covered | Both in prod, neither in staging | Diverged | PP.5b: staging overlay patches both. Web handles inbound webhooks; worker runs drip / scoring / demo-cleanup jobs — must soak together. |
-| 5 | Image pinning (prod) | Digest written by promote workflow only | `deploy-{web,worker}.yml` commit digest directly to `infra/k8s/production/kustomization.yaml` on push | Diverged | PP.5b: switch digest-write target to `overlays/staging/`. Prod digest via `promote-to-prod.yml` in PP.5c. |
-| 6 | Image pinning (staging) | Digest written by `build-and-deploy-staging.yml` | N/A | Diverged | PP.5b: rename existing workflows (or add siblings) to write to `overlays/staging/`. |
-| 7 | Promote workflow | `promote-to-prod.yml` (`workflow_dispatch`) | Does not exist | Diverged → PP.5c | Pattern B (manual gate) — see § Promotion pattern. |
-| 8 | Rollback workflow | `rollback-prod.yml`, RTO <5 min | Does not exist; rollback = `git revert` | Diverged → PP.5c | Target-digest input, default to previous prod digest from git history. |
-| 9 | Soak period before promote | ≥30 min, smoke-pass required | N/A | Deferred → PP.5c | |
-| 10 | ArgoCD staging Application | `phyne-crm-staging` App watches `overlays/staging/` | Does not exist (phyne-crm has no in-repo ArgoCD manifest — prod App lives in the Enclii repo) | Diverged | PP.5b: ship `infra/argocd/phyne-crm-staging-application.yaml` (Dhanam PP.2b precedent) to co-locate source of truth. |
-| 11 | Staging namespace | `<service>-staging` | Does not exist. Only `phyne-crm` (prod). | Diverged | PP.5b ops action: `kubectl create namespace phyne-crm-staging`. |
-| 12 | Staging subdomain / ingress | `staging-<service>.<domain>` | No Ingress resources today (traffic via Enclii cloudflared tunnel → `crm.madfam.io`) | Diverged | PP.5b + Cloudflare ops: add tunnel route `staging-crm.madfam.io` → `phyne-crm-web.phyne-crm-staging.svc.cluster.local:80`. No Ingress needed; stays consistent with prod topology. |
-| 13 | Staging smoke test | Curl retry against `staging-<domain>/health` | None. `/api/health` exists but only Docker HEALTHCHECK uses it. | Diverged | PP.5b: 6×20s curl-retry against `https://staging-crm.madfam.io/api/health`. Worker: `kubectl rollout status` (no HTTP endpoint). |
-| 14 | Replica counts (staging) | 1 per deploy | N/A | Diverged | PP.5b: `replicas: 1` for web + worker. No HPAs in phyne-crm, so no HPA-disable patch needed. |
+| 3 | Staging overlay exists | `overlays/staging/kustomization.yaml` with staging patches | Staging overlay exists under `infra/k8s/overlays/staging/` | Aligned | PP.5b adds `overlays/staging` with staging patches over `../../production`. |
+| 4 | Both apps in staging | web + worker covered | web + worker deployments are patched by staging overlay | Aligned | PP.5b patches both deployments and namespaces. |
+| 5 | Image pinning (prod) | Digest written by promote workflow only | `deploy-{web,worker}.yml` commit digest to staging overlay; prod digest only via `promote-to-prod.yml` | Aligned | PP.5c separates publish vs promote paths. |
+| 6 | Image pinning (staging) | Digest written by `build-and-deploy-staging.yml` | Staging digest updates happen via build + `deploy-*.yml` | Aligned | PP.5b targets `overlays/staging/kustomization.yaml`. |
+| 7 | Promote workflow | `promote-to-prod.yml` (`workflow_dispatch`) | Manual promotion workflow exists and enforces soak + smoke | Aligned | PP.5c. |
+| 8 | Rollback workflow | `rollback-prod.yml`, RTO <5 min | Manual rollback workflow exists with production smoke | Aligned | PP.5c. |
+| 9 | Soak period before promote | ≥30 min, smoke-pass required | 30-minute soak and smoke check now in `promote-to-prod.yml` | Aligned | PP.5c policy. |
+| 10 | ArgoCD staging Application | `phyne-crm-staging` App watches `overlays/staging/` | In-repo staging application manifest exists | Aligned | PP.5b. |
+| 11 | Staging namespace | `<service>-staging` | `phyne-crm-staging` namespace added | Aligned | PP.5b. |
+| 12 | Staging subdomain / ingress | `staging-<service>.<domain>` | Ingress not added here; staging route/tunnel still pending | Deferred | Cloudflare ops still required. |
+| 13 | Staging smoke test | Curl retry against `staging-<domain>/health` | 6×20s retries against `https://staging-crm.madfam.io/api/health` in promote path | Aligned | PP.5c. |
+| 14 | Replica counts (staging) | 1 per deploy | `replicas: 1` for web + worker in overlay patches | Aligned | PP.5b. |
 | 15 | Replica counts (prod) | 2-N per deploy, HPAs tuned | web + worker both `replicas: 1` (deliberate cost choice for a low-traffic internal-ish CRM) | Aligned enough (intentional deviation) | Keep. Flag for review when customer count grows. |
 | 16 | Staging namespace convention | `<service>-staging` | PP.5b target: `phyne-crm-staging` | Aligned (by planning) | Document. |
-| 17 | Staging secrets template | Separate `<service>-staging-secrets` covering all env vars | N/A. Prod uses `phyne-crm-secrets` + `phyne-acca-secrets`. | Diverged | PP.5b: add `infra/k8s/staging-secrets-template.yaml` covering ~30 keys (DB, Redis, Auth.js, Janua, Dhanam, Cotiza, Pravara, Forj, Tezca, Karafiel, Fortuna, AutoSwarm / OpenAI, Resend, Reddit, federation token). Sandbox keys only — never reuse prod secrets. |
-| 18 | External service sandbox | Staging Janua tenant, test OAuth clients, sandbox webhook secrets per provider | N/A — all 9 provider webhook URLs point at prod PhyneCRM only | Diverged | PP.5b + ops. Full matrix in § PhyneCRM-specific constraints below. |
+| 17 | Staging secrets template | Separate `<service>-staging-secrets` covering all env vars | `infra/k8s/staging-secrets-template.yaml` added | Aligned | PP.5b. |
+| 18 | External service sandbox | Staging Janua tenant, test OAuth clients, sandbox webhook secrets per provider | Not fully operationalized across all providers yet | Deferred | In-progress with external provider teams. |
 | 19 | DB: nightly masked restore | 03:00 UTC prod→staging PII-masked | Not implemented | Deferred (RFC 0001 open question) | Seed staging with `pnpm db:seed` (including tablaco fixtures) until masking tool lands. PhyneCRM holds contact / lead PII that must never leak unmasked. |
-| 20 | Promotion pattern declaration | `.enclii.yml` `promotion:` key | **No `.enclii.yml` or `enclii.yaml` exists at all** | Diverged → PP.5c | Create minimal `.enclii.yml` with `promotion: { pattern: manual, min_soak_minutes: 30, require_smoke_pass: true }`. |
-| 21 | Decommission bypass path | Phase 4 removal of direct-to-prod commits after 14-day soak | N/A — current pipeline IS the bypass | Deferred → post-PP.5c | Trim `deploy-{web,worker}.yml` direct-to-prod commits after 14-day soak. |
+| 20 | Promotion pattern declaration | `.enclii.yml` `promotion:` key | `.enclii.yml` contains manual gate + soak + smoke policy | Aligned | PP.5c. |
+| 21 | Decommission bypass path | Phase 4 removal of direct-to-prod commits after 14-day soak | Direct-to-prod promotion path removed; `deploy-*` target staging only | Aligned | PP.5c. |
 
 ## Summary
 
 | Classification | Count | Rows |
 |---|---|---|
-| Aligned | 2 | 15, 16 |
+| Aligned | 17 | 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 20, 21 |
 | Intentional deviation | 1 | 2 |
-| Diverged — PP.5b (structural) | 10 | 1, 3, 4, 5, 6, 10, 11, 12, 13, 14, 17, 18 |
-| Diverged — PP.5c (promote / rollback / `.enclii.yml`) | 3 | 7, 8, 20 |
-| Deferred | 3 | 9, 19, 21 |
+| Deferred | 3 | 12, 18, 19 |
 
-**Compliance: ~15%** — matches Janua's baseline. PP.5b (~250 LOC yaml +
-~40 LOC workflow) and PP.5c (~200 LOC net, including new `.enclii.yml`)
-are both required.
+**Compliance: ~81%** — 17 of 21 rows are now implemented/aligned. Remaining work is operational hardening (rows 12, 18, 19).
 
 ## PhyneCRM-specific staging constraints (flag for ops)
 
@@ -91,7 +115,7 @@ destination for its staging instance with a **distinct** HMAC secret:
 
 | Provider → PhyneCRM inbound | Today | Post-PP.5b |
 |---|---|---|
-| Karafiel `grant.awarded` → `/api/webhooks/karafiel` | prod → prod | prod → prod AND staging Karafiel → staging PhyneCRM |
+| Karafiel → PhyneCRM inbound | Not implemented in this repo | Do not hand off until a real receiver route is added; current Karafiel PP.5 scope is outbound PhyneCRM → Karafiel plus compliance reads |
 | Fortuna `grant.discovered` → `/api/webhooks/fortuna` | prod → prod | prod → prod AND staging → staging |
 | Tezca `interest.created`, `newsletter.subscribed` → `/api/webhooks/tezca` | prod → prod | prod → prod AND staging → staging |
 | Janua `user.created` → `/api/webhooks/janua` | prod → prod | prod → prod AND staging → staging (unblocks on Janua PP.3b) |
@@ -99,11 +123,12 @@ destination for its staging instance with a **distinct** HMAC secret:
 | Cotiza / Pravara / Forj federation → `/api/webhooks/{cotiza,pravara,forj}` | prod → prod | prod → prod AND staging → staging (when those services get staging) |
 | RouteCraft payment attribution → `/api/webhooks/routecraft` | prod → prod | prod → prod AND staging → staging |
 
-HMAC secrets (`KARAFIEL_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`,
-`TEZCA_WEBHOOK_SECRET`, `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`,
-`COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`,
-`PHYNE_CRM_EVENTS_SECRET` for RouteCraft) MUST be distinct per env —
-never reuse prod values in staging, never cross-wire.
+Inbound HMAC secrets (`FORTUNA_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`,
+`JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`,
+`PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `PHYNE_CRM_EVENTS_SECRET`
+for RouteCraft) MUST be distinct per env — never reuse prod values in
+staging, never cross-wire. `KARAFIEL_WEBHOOK_SECRET` is currently outbound
+from PhyneCRM to Karafiel unless/until an inbound Karafiel receiver is added.
 
 ### 2. Outbound webhook (PhyneCRM → Karafiel) needs the same split
 
@@ -131,9 +156,9 @@ with the existing `mock-federation-registry.ts` fallback).
 The `email-drip` worker processor sends a 4-step Resend sequence to every
 lead created from a Tezca event. Staging Resend key must be
 domain-scoped (`@madfam.io` / `@staging.madfam.io`). Tezca-side must
-emit staging events only for test emails. Consider adding
-`EMAIL_ALLOWLIST_DOMAINS` to `apps/worker/src/processors/email-drip.ts`
-as belt-and-suspenders (hardening backlog).
+emit staging events only for test emails. `EMAIL_ALLOWLIST_DOMAINS`
+is implemented in `apps/worker/src/processors/email-drip.ts` and blocks
+non-allowlisted recipients whenever the variable is set.
 
 ### 5. Demo mode on staging
 
@@ -164,8 +189,8 @@ PhyneCRM is **Pattern B — manual gate** per RFC 0001 § Promotion
 mechanics. Reasoning: PhyneCRM owns the ACCA Treasury Hunter HITL
 approval queue + the customer lead pipeline + the `conversions` table
 (partial unique constraints). A wrong promote can corrupt active grant
-applications or silently break the drip worker. When PP.5c ships,
-`.enclii.yml` will declare:
+applications or silently break the drip worker. `.enclii.yml` now
+declares:
 
 ```yaml
 promotion:
@@ -174,21 +199,18 @@ promotion:
   require_smoke_pass: true
 ```
 
-## What PP.5 (this PR) ships
+## What PP.5 ships
 
-1. **This audit document** (`docs/PP_5_STAGING_AUDIT.md`).
-2. **CLAUDE.md update** — "Deployment Pipeline" section cross-referencing
-   RFC 0001, the runbook, and this audit doc.
-3. **No YAML, workflow, `.enclii.yml`, or secret changes.** Follow-ups:
-   - **PP.5b — Structural** (~250 LOC yaml + ~40 LOC workflow): overlay
-     structure, staging secrets template, ArgoCD Application manifest,
-     staging HTTP smoke, switch digest-writes to `overlays/staging/`.
-   - **PP.5c — Promote + rollback + `.enclii.yml`** (~200 LOC net):
-     `promote-to-prod.yml`, `rollback-prod.yml`, minimal `.enclii.yml`,
-     Phase 4 direct-to-prod trim (deferred to post-14-day soak).
-
-Split rationale matches PP.2 / PP.3 precedent: each diff reviewable and
-reversible; never change prod and staging behavior in the same PR.
+1. **PP.5b — Structural**
+   - staging overlay under `infra/k8s/overlays/staging/`
+   - `infra/k8s/staging-secrets-template.yaml`
+   - `infra/argocd/phyne-crm-staging-application.yaml`
+   - `deploy-web` / `deploy-worker` pipelines now write staging digest
+   - `CLAUDE.md` pipeline status update
+2. **PP.5c — Promote + rollback**
+   - `.github/workflows/promote-to-prod.yml`
+   - `.github/workflows/rollback-prod.yml`
+   - `.enclii.yml`
 
 ## What currently ships on push to `main`
 
@@ -196,10 +218,10 @@ reversible; never change prod and staging behavior in the same PR.
 |---|---|---|
 | `ci.yml` | PR + push to main | lint + typecheck + test → build |
 | `e2e.yml` | PR + push to main | Playwright E2E with Postgres/Redis services |
-| `deploy-web.yml` | push to main (apps/web/**, packages/**, pnpm-lock.yaml) | Builds `ghcr.io/madfam-org/phyne-crm/web`, cosign-signs, commits digest to `infra/k8s/production/kustomization.yaml`, Enclii lifecycle callback |
+| `deploy-web.yml` | push to main (apps/web/**, packages/**, pnpm-lock.yaml) | Builds `ghcr.io/madfam-org/phyne-crm/web`, cosign-signs, commits digest to `infra/k8s/overlays/staging/kustomization.yaml`, Enclii lifecycle callback |
 | `deploy-worker.yml` | push to main (apps/worker/**, packages/**, pnpm-lock.yaml) | Same shape for worker |
-
-This flow is intentionally preserved unchanged by PP.5.
+| `promote-to-prod.yml` | manual | Promotes staging digests to production with soak + smoke |
+| `rollback-prod.yml` | manual | Rolls back production web/worker digests with smoke |
 
 ## Cross-references
 
@@ -210,5 +232,53 @@ This flow is intentionally preserved unchanged by PP.5.
 - PP.3 precedent — `janua/docs/PP_3_STAGING_AUDIT.md`
 - Secrets registry — `janua/infra/secrets/SECRETS_REGISTRY.yaml` (PP.5b will add `phyne-crm-staging` entry)
 - Tunnel routing — `enclii/infra/k8s/production/cloudflared-unified.yaml` (PP.5b ops action: add `staging-crm.madfam.io` route)
+- Full remediation plan — [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md)
+- Provider handoff tracker — [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md)
+- Handoff execution runbook — [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md)
+- Session wrap-up — [`docs/PP_5_SESSION_WRAPUP_2026_05_07.md`](./PP_5_SESSION_WRAPUP_2026_05_07.md)
 - This PR — `feat/pp-5-phyne-crm-staging-audit`
-- Follow-up PRs — PP.5b (structural), PP.5c (promote/rollback + `.enclii.yml`)
+
+## PP.5 Remediation Plan (Full, Priority-Ordered)
+
+Canonical execution plan: [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md).
+
+### Priority 0 — Safe rollout gate (now)
+
+- Keep `deploy-web.yml` and `deploy-worker.yml` scoped to staging digest writes only (already in place).
+- Keep `promote-to-prod.yml` / `rollback-prod.yml` as the only production mutators.
+- Add/verify alerts for missing staging smoke, failed promotion, and rollback outcomes (if not already covered by Enclii webhooks).
+- Run `node scripts/pp5-staging-audit.mjs` before any split rollout to confirm staging secrets contain all
+  required split-sensitive env keys and observed webhook/event secret inputs.
+- Use `node scripts/pp5-webhook-probe.mjs list` to enumerate signed staging webhook probes.
+
+### Priority 1 — External environment split (parallelizable by provider)
+
+- Execute provider lanes from [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md).
+- Split inbound webhooks per provider:
+  - Stand up dedicated staging webhook destinations to `https://staging-crm.madfam.io/api/webhooks/<provider>`.
+  - Regenerate and install fresh staging webhook secrets for each provider.
+  - Keep prod destination registrations intact.
+- Split outbound PhyneCRM → Karafiel target to staging endpoint:
+  - `KARAFIEL_API_URL=https://staging-karafiel.madfam.io` in `phyne-crm-staging-secrets`.
+  - Distinct staging `KARAFIEL_WEBHOOK_SECRET` + `KARAFIEL_API_KEY`.
+- Split provider read endpoints and keys as available:
+  - Janua/Telemetry, Dhanam, Cotiza, Pravara, Forj, Tezca, Karafiel.
+- Keep existing prod values out of all staging env vars marked “split-sensitive” (webhooks, API keys, outbound auth tokens).
+
+### Priority 2 — Staging ingress/bootstrap (blocking for operational verification)
+
+- Add Cloudflare/tunnel route for `staging-crm.madfam.io` and point to `phyne-crm-staging` app.
+- Validate DNS, TLS, and `/api/health` reachable by external monitor.
+- Add staging app URL and webhook callback URLs in downstream services that now expose a staging consumer endpoint.
+
+### Priority 3 — Data safety guardrails (blocking for confidence, not code)
+
+- Implement nightly masked prod→staging DB refresh at 03:00 UTC.
+- Ensure PII is sanitized before restore and staging fixture path is deterministic.
+- Include tablaco fixture + demo-mode safety checks in seed or restore checks.
+
+### Priority 4 — Post-PP.5 hardening (non-blocking backlog)
+
+- `EMAIL_ALLOWLIST_DOMAINS` guard is implemented in `apps/worker/src/processors/email-drip.ts` to block non-allowlisted recipients when set.
+- Tighten production/staging replica and resource policy review when volume rises.
+- Track pending RFC 0001 deviations and delete temporary documentation caveats when providers complete staging stacks.

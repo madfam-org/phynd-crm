@@ -1,6 +1,6 @@
 # PP.5 Handoff Execution Runbook
 
-> Last Updated: 2026-05-07
+> Last Updated: 2026-05-07 local / 2026-05-08 UTC
 > Full remediation plan: [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md)
 > Matrix: [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md)
 > Session wrap-up: [`docs/PP_5_SESSION_WRAPUP_2026_05_07.md`](./PP_5_SESSION_WRAPUP_2026_05_07.md)
@@ -29,7 +29,7 @@ Required outcome:
 - ArgoCD app `phyne-crm-staging` is synced and healthy.
 - Web and worker rollouts are ready.
 
-Observed from this workspace on 2026-05-07:
+Observed from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 
 - `node scripts/pp5-staging-audit.mjs`: passed.
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
@@ -49,6 +49,8 @@ Observed from this workspace on 2026-05-07:
   `infra/argocd/phyne-crm-staging-application.yaml`.
 - `kubectl -n argocd wait --for=jsonpath={.status.sync.status}=Synced application/phyne-crm-staging --timeout=30s`: passed after the
   self-contained overlay fix.
+- Current pod blocker is `secret "phyne-crm-staging-secrets" not found`; image
+  pull is no longer the active blocker after `ghcr-credentials` was mirrored.
 
 ## Wave 1 - Low-Mutation Webhook Probes
 

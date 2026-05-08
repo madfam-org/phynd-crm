@@ -1,6 +1,6 @@
 # PP.5 Full Remediation Plan
 
-> Last Updated: 2026-05-07
+> Last Updated: 2026-05-07 local / 2026-05-08 UTC
 > Audit: [`docs/PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md)
 > Handoff matrix: [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md)
 > Execution runbook: [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md)
@@ -58,7 +58,7 @@ Repo-owned PP.5 work is ready:
 - Playwright E2E runs through the `@phyne/web` workspace and its browser
   assertions are aligned with the CI auth-bypass mode.
 
-Observed blockers from this workspace on 2026-05-07:
+Observed blockers from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 
 - `staging-crm.madfam.io` does not resolve.
 - Kubernetes namespace `phyne-crm-staging` now exists.

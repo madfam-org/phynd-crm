@@ -24,8 +24,48 @@ const checks = [
     command: ['kubectl', '-n', 'phyne-crm-staging', 'get', 'secret', 'phyne-crm-staging-secrets'],
   },
   {
+    name: 'staging image pull secret',
+    command: ['kubectl', '-n', 'phyne-crm-staging', 'get', 'secret', 'ghcr-credentials'],
+  },
+  {
     name: 'staging ArgoCD app',
     command: ['kubectl', '-n', 'argocd', 'get', 'application', 'phyne-crm-staging'],
+  },
+  {
+    name: 'staging ArgoCD sync',
+    command: [
+      'kubectl',
+      '-n',
+      'argocd',
+      'wait',
+      '--for=jsonpath={.status.sync.status}=Synced',
+      'application/phyne-crm-staging',
+      '--timeout=30s',
+    ],
+  },
+  {
+    name: 'staging web rollout',
+    command: [
+      'kubectl',
+      '-n',
+      'phyne-crm-staging',
+      'rollout',
+      'status',
+      'deployment/phyne-crm-web',
+      '--timeout=30s',
+    ],
+  },
+  {
+    name: 'staging worker rollout',
+    command: [
+      'kubectl',
+      '-n',
+      'phyne-crm-staging',
+      'rollout',
+      'status',
+      'deployment/phyne-crm-worker',
+      '--timeout=30s',
+    ],
   },
   {
     name: 'staging health DNS/HTTP',

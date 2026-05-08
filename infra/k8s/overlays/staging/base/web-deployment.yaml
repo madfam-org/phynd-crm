@@ -4,6 +4,7 @@ metadata:
   name: phyne-crm-web
   labels:
     app: phyne-crm-web
+    app.kubernetes.io/name: phyne-crm-web
     app.kubernetes.io/part-of: madfam-platform
 spec:
   replicas: 1
@@ -14,6 +15,7 @@ spec:
     metadata:
       labels:
         app: phyne-crm-web
+        app.kubernetes.io/name: phyne-crm-web
         app.kubernetes.io/part-of: madfam-platform
     spec:
       securityContext:

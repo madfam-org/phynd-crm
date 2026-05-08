@@ -15,6 +15,7 @@ node scripts/pp5-generate-staging-env.mjs --output /secure/path/phyne-crm-stagin
 node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
 node scripts/pp5-wave0-check.mjs
 curl -fsS https://staging-crm.madfam.io/api/health
+kubectl -n phyne-crm-staging get secret ghcr-credentials
 kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets
 ```
 
@@ -23,23 +24,31 @@ Required outcome:
 - The audit script passes.
 - Generated env values have every `REPLACE_ME_*` value replaced by the secrets owner, and the validator passes before any Kubernetes secret apply.
 - `staging-crm.madfam.io` resolves to the staging PhyneCRM web service.
+- `ghcr-credentials` exists in `phyne-crm-staging` so private GHCR images can be pulled.
 - `phyne-crm-staging-secrets` exists and contains staging-only values.
 - ArgoCD app `phyne-crm-staging` is synced and healthy.
+- Web and worker rollouts are ready.
 
 Observed from this workspace on 2026-05-07:
 
 - `node scripts/pp5-staging-audit.mjs`: passed.
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
 - `node scripts/pp5-validate-staging-env.mjs /private/tmp/phyne-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
-- `node scripts/pp5-wave0-check.mjs`: now reports 2 blockers after ArgoCD
-  Application creation: staging secret and DNS/HTTP health.
+- `node scripts/pp5-wave0-check.mjs`: now verifies the staging overlay render,
+  namespace, GHCR pull secret, app secret, ArgoCD app/sync, web rollout,
+  worker rollout, and DNS/HTTP health.
 - `kubectl kustomize infra/k8s/overlays/staging`: passes after making the
   staging overlay self-contained for ArgoCD default load restrictions.
+- `kubectl -n phyne-crm-staging get secret ghcr-credentials`: passed after
+  mirroring the existing production GHCR pull secret into staging without
+  printing secret data.
 - `curl -fsS https://staging-crm.madfam.io/api/health`: failed; DNS does not resolve `staging-crm.madfam.io`.
 - `kubectl get ns phyne-crm-staging`: passed after namespace creation.
 - `kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets`: failed; secret not present.
 - `kubectl -n argocd get application phyne-crm-staging`: passed after applying
   `infra/argocd/phyne-crm-staging-application.yaml`.
+- `kubectl -n argocd wait --for=jsonpath={.status.sync.status}=Synced application/phyne-crm-staging --timeout=30s`: passed after the
+  self-contained overlay fix.
 
 ## Wave 1 - Low-Mutation Webhook Probes
 

@@ -62,11 +62,14 @@ Observed blockers from this workspace on 2026-05-07:
 
 - `staging-crm.madfam.io` does not resolve.
 - Kubernetes namespace `phyne-crm-staging` now exists.
-- ArgoCD Application `phyne-crm-staging` is installed and currently reports
-  `Healthy` with unknown sync until staging secret/DNS are completed.
+- ArgoCD Application `phyne-crm-staging` is installed and synced after the
+  staging overlay was made self-contained. It remains degraded until staging
+  runtime secrets and DNS/HTTP health are completed.
 - Staging Kustomize overlay is now self-contained under
   `infra/k8s/overlays/staging` so ArgoCD can render it with default load
   restrictions.
+- Staging image pull secret `ghcr-credentials` is installed so the namespace
+  can pull private GHCR images.
 - Secret `phyne-crm-staging-secrets` is not installed.
 
 ## Target End State
@@ -189,7 +192,18 @@ Use fresh values for every split-sensitive key:
 - `RESEND_API_KEY`
 - `PHYNE_CRM_PROBE_TOKEN`
 
-3. Install the staging secret from a secure env file:
+3. Ensure the GHCR image pull secret exists in staging.
+
+If production already has the pull secret, mirror it without printing secret
+data:
+
+```bash
+kubectl -n phyne-crm get secret ghcr-credentials -o json \
+  | jq 'del(.metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"], .metadata.creationTimestamp, .metadata.resourceVersion, .metadata.uid, .metadata.managedFields) | .metadata.namespace="phyne-crm-staging"' \
+  | kubectl apply -f -
+```
+
+4. Install the staging secret from a secure env file:
 
 ```bash
 node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
@@ -199,19 +213,19 @@ kubectl -n phyne-crm-staging create secret generic phyne-crm-staging-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-4. Install the ArgoCD app:
+5. Install the ArgoCD app:
 
 ```bash
 kubectl apply -f infra/argocd/phyne-crm-staging-application.yaml
 ```
 
-5. Add the Cloudflare/tunnel route:
+6. Add the Cloudflare/tunnel route:
 
 ```text
 staging-crm.madfam.io -> phyne-crm-web.phyne-crm-staging.svc.cluster.local:80
 ```
 
-6. Validate:
+7. Validate:
 
 ```bash
 node scripts/pp5-wave0-check.mjs
@@ -223,6 +237,7 @@ curl -fsS https://staging-crm.madfam.io/api/health
 Exit criteria:
 
 - Namespace exists.
+- GHCR image pull secret exists.
 - Secret exists.
 - Argo app is `Synced` and `Healthy`.
 - Web and worker pods are ready.
@@ -394,9 +409,12 @@ Exit criteria:
 - [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
   out-of-tree load restrictions.
 - [x] `phyne-crm-staging` namespace exists.
+- [x] `ghcr-credentials` image pull secret exists in `phyne-crm-staging`.
 - [ ] `phyne-crm-staging-secrets` is installed with staging-only values.
 - [x] ArgoCD app `phyne-crm-staging` is installed.
-- [ ] ArgoCD app `phyne-crm-staging` is `Synced` and `Healthy`.
+- [x] ArgoCD app `phyne-crm-staging` is `Synced`.
+- [ ] ArgoCD app `phyne-crm-staging` is `Healthy`.
+- [ ] Web and worker rollouts are ready in `phyne-crm-staging`.
 - [ ] `https://staging-crm.madfam.io/api/health` returns `200`.
 - [ ] Batch A provider probes pass.
 - [ ] Batch B provider probes pass.

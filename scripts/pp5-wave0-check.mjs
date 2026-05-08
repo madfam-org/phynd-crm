@@ -12,6 +12,10 @@ const checks = [
     command: ['node', 'scripts/pp5-webhook-probe.mjs', 'list'],
   },
   {
+    name: 'staging overlay render',
+    command: ['kubectl', 'kustomize', 'infra/k8s/overlays/staging'],
+  },
+  {
     name: 'staging namespace',
     command: ['kubectl', 'get', 'ns', 'phyne-crm-staging'],
   },

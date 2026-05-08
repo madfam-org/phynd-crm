@@ -64,6 +64,9 @@ Observed blockers from this workspace on 2026-05-07:
 - Kubernetes namespace `phyne-crm-staging` now exists.
 - ArgoCD Application `phyne-crm-staging` is installed and currently reports
   `Healthy` with unknown sync until staging secret/DNS are completed.
+- Staging Kustomize overlay is now self-contained under
+  `infra/k8s/overlays/staging` so ArgoCD can render it with default load
+  restrictions.
 - Secret `phyne-crm-staging-secrets` is not installed.
 
 ## Target End State
@@ -388,6 +391,8 @@ Exit criteria:
 - [x] `node scripts/pp5-staging-audit.mjs` passes.
 - [x] `node scripts/pp5-webhook-probe.mjs list` includes all active lanes.
 - [x] `node scripts/pp5-wave0-check.mjs` exists and reports current blockers.
+- [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
+  out-of-tree load restrictions.
 - [x] `phyne-crm-staging` namespace exists.
 - [ ] `phyne-crm-staging-secrets` is installed with staging-only values.
 - [x] ArgoCD app `phyne-crm-staging` is installed.

@@ -33,6 +33,8 @@ Observed from this workspace on 2026-05-07:
 - `node scripts/pp5-validate-staging-env.mjs /private/tmp/phyne-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
 - `node scripts/pp5-wave0-check.mjs`: now reports 2 blockers after ArgoCD
   Application creation: staging secret and DNS/HTTP health.
+- `kubectl kustomize infra/k8s/overlays/staging`: passes after making the
+  staging overlay self-contained for ArgoCD default load restrictions.
 - `curl -fsS https://staging-crm.madfam.io/api/health`: failed; DNS does not resolve `staging-crm.madfam.io`.
 - `kubectl get ns phyne-crm-staging`: passed after namespace creation.
 - `kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets`: failed; secret not present.

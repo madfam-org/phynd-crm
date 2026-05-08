@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phyne-crm-worker
+  labels:
+    app: phyne-crm-worker
+    app.kubernetes.io/part-of: madfam-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phyne-crm-worker
+  template:
+    metadata:
+      labels:
+        app: phyne-crm-worker
+        app.kubernetes.io/part-of: madfam-platform
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: worker
+          image: ghcr.io/madfam-org/phyne-crm/worker:latest
+          envFrom:
+            - secretRef:
+                name: phyne-crm-secrets
+            - secretRef:
+                name: phyne-acca-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: false

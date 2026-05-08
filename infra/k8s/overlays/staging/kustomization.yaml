@@ -5,12 +5,12 @@ namespace: phyne-crm-staging
 
 resources:
 - namespace.yaml
-- ../../production/web-deployment.yaml
-- ../../production/web-service.yaml
-- ../../production/worker-deployment.yaml
-- ../../production/network-policies.yaml
-- ../../production/resource-quota.yaml
-- ../../production/pdb.yaml
+- base/web-deployment.yaml
+- base/web-service.yaml
+- base/worker-deployment.yaml
+- base/network-policies.yaml
+- base/resource-quota.yaml
+- base/pdb.yaml
 
 images:
 - digest: sha256:724b1a4f87875023f14bf1dd1bb363256fdd9dfc955d7e02cedd30becaf5e122

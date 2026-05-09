@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import type { getDb } from '@phyne/db'
+import type { getDb } from '@phynd/db'
 import {
   contacts,
   engagementArtifacts,
@@ -8,7 +8,7 @@ import {
   externalReferences,
   type orders,
   type quotes,
-} from '@phyne/db/schema'
+} from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { FederationError, NotFoundError, ValidationError } from '../errors'
@@ -176,7 +176,7 @@ export class DhanamCheckoutService {
       body,
       headers: {
         'Content-Type': 'application/json',
-        'X-PhyneCRM-Signature': `sha256=${signature}`,
+        'X-PhyndCRM-Signature': `sha256=${signature}`,
       },
       method: 'POST',
       signal: AbortSignal.timeout(15_000),

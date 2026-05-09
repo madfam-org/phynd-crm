@@ -42,11 +42,11 @@ const mockDb = {
   }),
 }
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => mockDb),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   leads: {
     id: 'leads.id',
     contactId: 'leads.contactId',
@@ -61,7 +61,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 const mockEmailSend = vi.fn()
-vi.mock('@phyne/services/email', () => ({
+vi.mock('@phynd/services/email', () => ({
   EmailService: vi.fn(() => ({ send: mockEmailSend })),
 }))
 
@@ -78,7 +78,7 @@ vi.mock('../queues', () => ({
   createRedisConnection: vi.fn(() => ({ host: 'localhost' })),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),

@@ -4,7 +4,7 @@ import { NotFoundError, ServiceError, ValidationError } from '../errors'
 import { createTestContext } from './helpers'
 
 const JANUA_URL = 'https://auth.madfam.io'
-const PORTAL_URL = 'https://phyne-crm.madfam.io'
+const PORTAL_URL = 'https://phynd-phynd.app'
 
 function makeEngagementRow(overrides: Record<string, unknown> = {}) {
   return {

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { createLogger } from '@phyne/logging'
+import { createLogger } from '@phynd/logging'
 
 const logger = createLogger('services:grant-webhook-dispatcher')
 
@@ -48,7 +48,7 @@ export async function dispatchGrantAwarded(payload: {
   const body = JSON.stringify(webhookPayload)
   const signature = crypto.createHmac('sha256', secret).update(body).digest('hex')
 
-  const url = `${karafielUrl}/webhooks/phyne-crm`
+  const url = `${karafielUrl}/webhooks/phynd-crm`
 
   logger.info(
     { grantApplicationId: payload.grantApplicationId, url },
@@ -59,7 +59,7 @@ export async function dispatchGrantAwarded(payload: {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-PhyneCRM-Signature': signature,
+      'X-PhyndCRM-Signature': signature,
       'X-Webhook-Timestamp': webhookPayload.timestamp,
     },
     body,

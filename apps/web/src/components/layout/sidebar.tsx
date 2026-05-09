@@ -16,7 +16,7 @@ export function Sidebar({ isDemo }: SidebarProps) {
     <aside className="hidden w-64 flex-shrink-0 border-r bg-sidebar lg:block">
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <Link href="/overview" className="text-xl font-bold">
-          Phyne
+          Phynd
         </Link>
         {isDemo && (
           <span className="rounded-full bg-accent-violet/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-violet">

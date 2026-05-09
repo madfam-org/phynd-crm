@@ -1,29 +1,29 @@
 /**
  * Outbound webhook emitter for Cotiza's engagement projection.
  *
- * Fires whenever an engagement is created/updated/archived in PhyneCRM so
+ * Fires whenever an engagement is created/updated/archived in PhyndCRM so
  * Cotiza's projection stays in sync without relying on the
  * auto-materialize-on-quote-create fallback.
  *
  * Counterpart controller on Cotiza side:
- *   apps/api/src/modules/engagements/webhooks/phynecrm-engagements-webhook.controller.ts
- * which reads the shared secret from env `PHYNECRM_INBOUND_SECRET`. On this
- * side the same shared secret is read from `PHYNECRM_OUTBOUND_SECRET` — the
+ *   apps/api/src/modules/engagements/webhooks/phyndcrm-engagements-webhook.controller.ts
+ * which reads the shared secret from env `PHYNDCRM_INBOUND_SECRET`. On this
+ * side the same shared secret is read from `PHYNDCRM_OUTBOUND_SECRET` — the
  * asymmetric naming matches the existing ecosystem pattern (inbound secret
  * on receiver, outbound secret on emitter, same value).
  *
  * Contract:
- *   POST ${COTIZA_API_URL}/api/v1/webhooks/phynecrm/engagements
- *   Header: x-phynecrm-signature: <hex of HMAC-SHA256(body, secret)>
+ *   POST ${COTIZA_API_URL}/api/v1/webhooks/phyndcrm/engagements
+ *   Header: x-phyndcrm-signature: <hex of HMAC-SHA256(body, secret)>
  *   Body:   { engagement_id, event_type, tenant_id, timestamp, data? }
  *
  * Delivery semantics: fire-and-forget. Errors are logged, never thrown.
- * Cotiza being offline must never break a PhyneCRM write. Idempotency is
+ * Cotiza being offline must never break a PhyndCRM write. Idempotency is
  * the receiver's responsibility (dedup on engagement_id + event_type).
  */
 
 import crypto from 'node:crypto'
-import { createLogger } from '@phyne/logging'
+import { createLogger } from '@phynd/logging'
 
 const logger = createLogger('services:cotiza-engagement-emitter')
 
@@ -62,14 +62,14 @@ let warnedOnce = false
 
 function loadConfig(): EmitterConfig | null {
   const cotizaApiUrl = process.env.COTIZA_API_URL
-  const secret = process.env.PHYNECRM_OUTBOUND_SECRET
+  const secret = process.env.PHYNDCRM_OUTBOUND_SECRET
   const timeoutMs = Number(process.env.COTIZA_WEBHOOK_TIMEOUT ?? 10_000)
 
   if (!cotizaApiUrl || !secret) {
     if (!warnedOnce) {
       logger.warn(
         { hasUrl: Boolean(cotizaApiUrl), hasSecret: Boolean(secret) },
-        'COTIZA_API_URL or PHYNECRM_OUTBOUND_SECRET not set — Cotiza engagement emitter disabled',
+        'COTIZA_API_URL or PHYNDCRM_OUTBOUND_SECRET not set — Cotiza engagement emitter disabled',
       )
       warnedOnce = true
     }
@@ -99,14 +99,14 @@ export async function emitCotizaEngagementEvent(event: CotizaEngagementEvent): P
   const body = JSON.stringify(payload)
   const signature = crypto.createHmac('sha256', config.secret).update(body).digest('hex')
 
-  const url = `${config.cotizaApiUrl.replace(/\/$/, '')}/api/v1/webhooks/phynecrm/engagements`
+  const url = `${config.cotizaApiUrl.replace(/\/$/, '')}/api/v1/webhooks/phyndcrm/engagements`
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-phynecrm-signature': signature,
+        'x-phyndcrm-signature': signature,
       },
       body,
       signal: AbortSignal.timeout(config.timeoutMs),

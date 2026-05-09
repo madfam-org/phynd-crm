@@ -1,6 +1,6 @@
-import { getDb } from '@phyne/db'
-import { campaigns } from '@phyne/db/schema'
-import { postRedditComment } from '@phyne/services'
+import { getDb } from '@phynd/db'
+import { campaigns } from '@phynd/db/schema'
+import { postRedditComment } from '@phynd/services'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 

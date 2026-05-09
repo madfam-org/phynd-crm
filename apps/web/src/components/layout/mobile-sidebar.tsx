@@ -30,7 +30,7 @@ export function MobileSidebar() {
         <SheetHeader className="border-b px-6 py-4">
           <SheetTitle>
             <Link href="/overview" className="text-xl font-bold" onClick={close}>
-              Phyne
+              Phynd
             </Link>
           </SheetTitle>
         </SheetHeader>

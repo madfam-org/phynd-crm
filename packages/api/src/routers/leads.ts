@@ -1,4 +1,4 @@
-import { LeadsService } from '@phyne/services'
+import { LeadsService } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 

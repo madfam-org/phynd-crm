@@ -1,4 +1,4 @@
-# Phyne CRM — Production Deployment Guide
+# Phynd CRM — Production Deployment Guide
 
 ## Prerequisites
 
@@ -13,11 +13,11 @@ All required environment variables are defined and validated in `packages/config
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://phyne:secret@db:5432/phyne_crm` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://phynd:secret@db:5432/phynd_crm` |
 | `REDIS_URL` | Redis connection string | `redis://redis:6379` |
 | `AUTH_SECRET` | Auth.js session secret (min 16 chars) | `your-production-secret` |
 | `AUTH_JANUA_ISSUER` | Janua OIDC issuer URL | `https://janua.example.com` |
-| `AUTH_JANUA_CLIENT_ID` | Janua OIDC client ID | `phyne-crm` |
+| `AUTH_JANUA_CLIENT_ID` | Janua OIDC client ID | `phynd-crm` |
 | `AUTH_JANUA_CLIENT_SECRET` | Janua OIDC client secret | `secret` |
 | `NEXT_PUBLIC_APP_URL` | Public-facing app URL | `https://crm.example.com` |
 | `JANUA_API_URL` | Janua Identity API | `https://api.janua.example.com` |
@@ -56,10 +56,10 @@ The production compose file starts:
 
 ```bash
 # Web app
-docker build -f docker/Dockerfile.web -t phyne-web .
+docker build -f docker/Dockerfile.web -t phynd-web .
 
 # Worker
-docker build -f docker/Dockerfile.worker -t phyne-worker .
+docker build -f docker/Dockerfile.worker -t phynd-worker .
 ```
 
 The `.dockerignore` excludes `.git`, `node_modules`, test files, coverage, and environment files from the build context.
@@ -101,7 +101,7 @@ For a local production build, use a valid 16+ character `AUTH_SECRET` and force
 ```bash
 AUTH_BYPASS=false \
 AUTH_SECRET=test-secret-123456 \
-DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm \
+DATABASE_URL=postgresql://phynd:phynd@localhost:5432/phynd_crm \
 REDIS_URL=redis://localhost:6379 \
 NEXT_PUBLIC_APP_URL=http://localhost:3000 \
 pnpm build
@@ -111,13 +111,13 @@ The E2E workflow installs Chromium through the web workspace because
 `@playwright/test` is package-local:
 
 ```bash
-pnpm --filter @phyne/web exec playwright install --with-deps chromium
+pnpm --filter @phynd/web exec playwright install --with-deps chromium
 ```
 
 It then runs the package-local Playwright script directly:
 
 ```bash
-pnpm --filter @phyne/web test:e2e
+pnpm --filter @phynd/web test:e2e
 ```
 
 Do not use the root `pnpm test:e2e` in CI while setting `AUTH_BYPASS=true`;
@@ -180,7 +180,7 @@ All 6 provider webhook routes use a shared handler with:
 The worker runs periodic health checks against all 6 providers. Results are persisted to the `health_snapshots` table and exposed via the `federation-health` tRPC router.
 
 ### Structured Logging
-All services use `@phyne/logging` (pino) for structured JSON logging. Workers and webhook handlers log with contextual metadata.
+All services use `@phynd/logging` (pino) for structured JSON logging. Workers and webhook handlers log with contextual metadata.
 
 ## Architecture Notes
 

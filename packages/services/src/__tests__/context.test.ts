@@ -1,4 +1,4 @@
-import type { AuthContext } from '@phyne/types/auth'
+import type { AuthContext } from '@phynd/types/auth'
 import { describe, expect, it } from 'vitest'
 import { type ServiceContext, createServiceContext } from '../context'
 

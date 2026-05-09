@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Visitors to the Phyne landing page can't experience the product without signing up via Janua OIDC — a friction point that blocks conversion. The marketing site shows text and diagrams but no interactive product preview. We need a way for visitors to explore the full CRM without creating an account, while keeping demo data completely isolated from production data.
+Visitors to the Phynd landing page can't experience the product without signing up via Janua OIDC — a friction point that blocks conversion. The marketing site shows text and diagrams but no interactive product preview. We need a way for visitors to explore the full CRM without creating an account, while keeping demo data completely isolated from production data.
 
 ## Decision
 Implement a **cookie-based interactive demo mode** with per-session tenant isolation and automatic cleanup.
@@ -12,7 +12,7 @@ Implement a **cookie-based interactive demo mode** with per-session tenant isola
 ### Architecture
 
 #### Entry Flow
-- `GET /demo` → generates UUID session ID, sets `phyne-demo={sessionId}` cookie (httpOnly, sameSite=lax, maxAge=4h), seeds demo tenant, redirects to `/overview`
+- `GET /demo` → generates UUID session ID, sets `phynd-demo={sessionId}` cookie (httpOnly, sameSite=lax, maxAge=4h), seeds demo tenant, redirects to `/overview`
 - Middleware allows demo cookie holders through without real auth
 - Both `getServerCaller()` and tRPC route handler inject `createDemoAuth(sessionId)` as auth context
 

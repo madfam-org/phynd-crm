@@ -3,11 +3,11 @@
 > Last updated: 2026-05-07
 
 This document describes the first in-product path for onboarding a client and
-project into PhyneCRM as a quote-ready engagement.
+project into PhyndCRM as a quote-ready engagement.
 
 ## What Exists Now
 
-PhyneCRM can now create a linked onboarding skeleton in one protected action:
+PhyndCRM can now create a linked onboarding skeleton in one protected action:
 
 - `contact`, created or reused from an existing active client profile
 - `opportunity`
@@ -135,7 +135,7 @@ date/project-based number.
 ## Quote Acceptance
 
 The CRM can now accept a quote through the dedicated `quotes.accept` mutation.
-This is the PhyneCRM-owned approval action for operator-led or Selva-office
+This is the PhyndCRM-owned approval action for operator-led or Selva-office
 flows. The client portal also exposes a quote payment action for portal-authenticated
 clients once a quote is `sent` or already `accepted`.
 
@@ -171,7 +171,7 @@ belongs to the engagement's contact or opportunity, accepts the quote
 idempotently, creates or confirms the linked order, then creates or reuses a
 Dhanam checkout session.
 
-When a checkout session is created, PhyneCRM:
+When a checkout session is created, PhyndCRM:
 
 - posts a signed `quote.checkout.requested` payload to Dhanam
 - stores a Dhanam `checkout_session` external reference on the quote
@@ -179,11 +179,11 @@ When a checkout session is created, PhyneCRM:
 - writes `system:checkout_created` on the engagement timeline
 
 Checkout creation is idempotent at the quote level: if an open Dhanam checkout
-reference with a stored checkout URL already exists, PhyneCRM reuses it instead
+reference with a stored checkout URL already exists, PhyndCRM reuses it instead
 of creating a duplicate session.
 
 Checkout is now balance-aware. If an order already has a partial payment,
-PhyneCRM requests checkout only for the remaining balance. Failed or cancelled
+PhyndCRM requests checkout only for the remaining balance. Failed or cancelled
 portal payment retries can force a fresh Dhanam checkout session so clients are
 not sent back to a stale payment URL.
 
@@ -193,7 +193,7 @@ Dhanam paid webhooks now reconcile payment events onto the CRM order lifecycle
 when the event can be matched to an existing active order by explicit
 `order_id`, `quote_id`, `engagement_id`, or the active contact/order chain.
 
-When a paid Dhanam event is matched, PhyneCRM:
+When a paid Dhanam event is matched, PhyndCRM:
 
 - updates the linked order `paymentStatus`, `paidAmount`, `paidAt`,
   `paymentProvider`, and `externalPaymentId`
@@ -206,7 +206,7 @@ so multiple paid event envelopes for the same payment do not double-count paid
 amounts.
 
 When payment is received for a known engagement but no order can be matched,
-PhyneCRM writes `system:payment_unmatched` with `blocked` status so an operator
+PhyndCRM writes `system:payment_unmatched` with `blocked` status so an operator
 can recover the lifecycle without database access.
 
 Dhanam failed, refunded, disputed, and cancelled events now use the same order
@@ -221,12 +221,12 @@ matching chain. Matched lifecycle events:
   `system:payment_disputed`, or `system:payment_cancelled` timeline events
 
 When a lifecycle event is known to the engagement but cannot be matched to an
-order, PhyneCRM writes `system:payment_<state>_unmatched` with `blocked`
+order, PhyndCRM writes `system:payment_<state>_unmatched` with `blocked`
 status for operator recovery.
 
 ## Production Dispatch Intent
 
-When a matched Dhanam payment moves an order to `paid`, PhyneCRM now records
+When a matched Dhanam payment moves an order to `paid`, PhyndCRM now records
 first-slice production dispatch intent from the onboarding delivery tracks:
 
 - `fabrication` and `fulfillment` tracks create `pravara` production dispatch
@@ -237,7 +237,7 @@ first-slice production dispatch intent from the onboarding delivery tracks:
   timeline
 
 These records are idempotent per order and delivery track. If a paid order has
-no onboarding delivery metadata, PhyneCRM writes
+no onboarding delivery metadata, PhyndCRM writes
 `system:production_dispatch_blocked` so an operator can recover the routing
 without database access.
 
@@ -271,24 +271,24 @@ Still required for 100% production flow:
 Current coverage:
 
 ```bash
-pnpm --filter @phyne/services test -- client-project-onboarding.service.test.ts
-pnpm --filter @phyne/services test -- dhanam-checkout.service.test.ts
-pnpm --filter @phyne/services test -- payment-reconciliation.service.test.ts
-pnpm --filter @phyne/services test -- production-dispatch-http.service.test.ts
-pnpm --filter @phyne/worker exec vitest run src/__tests__/production-dispatch.test.ts
-pnpm --filter @phyne/api test -- engagements.router.test.ts
-pnpm --filter @phyne/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
-pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'
-pnpm --filter @phyne/web test -- 'src/app/portal/[engagementId]/__tests__/payment-state.test.ts'
-pnpm --filter @phyne/web typecheck
-pnpm --filter @phyne/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
+pnpm --filter @phynd/services test -- client-project-onboarding.service.test.ts
+pnpm --filter @phynd/services test -- dhanam-checkout.service.test.ts
+pnpm --filter @phynd/services test -- payment-reconciliation.service.test.ts
+pnpm --filter @phynd/services test -- production-dispatch-http.service.test.ts
+pnpm --filter @phynd/worker exec vitest run src/__tests__/production-dispatch.test.ts
+pnpm --filter @phynd/api test -- engagements.router.test.ts
+pnpm --filter @phynd/web test -- src/app/api/webhooks/dhanam/__tests__/route.test.ts
+pnpm --filter @phynd/web test -- 'src/app/portal/[engagementId]/checkout/__tests__/route.test.ts'
+pnpm --filter @phynd/web test -- 'src/app/portal/[engagementId]/__tests__/payment-state.test.ts'
+pnpm --filter @phynd/web typecheck
+pnpm --filter @phynd/web exec biome check src/components/engagements/create-client-project-dialog.tsx src/components/engagements/engagements-data-table.tsx
 ```
 
 Broader package validation:
 
 ```bash
-pnpm --filter @phyne/services test
-pnpm --filter @phyne/api test
-pnpm --filter @phyne/web test
-pnpm --filter @phyne/web lint
+pnpm --filter @phynd/services test
+pnpm --filter @phynd/api test
+pnpm --filter @phynd/web test
+pnpm --filter @phynd/web lint
 ```

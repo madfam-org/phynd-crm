@@ -1,6 +1,6 @@
-import type { AuthContext } from '@phyne/types/auth'
+import type { AuthContext } from '@phynd/types/auth'
 
-export const DEMO_COOKIE_NAME = 'phyne-demo'
+export const DEMO_COOKIE_NAME = 'phynd-demo'
 export const DEMO_COOKIE_MAX_AGE = 14400 // 4 hours in seconds
 
 export function isDemoSession(cookies: {
@@ -23,7 +23,7 @@ export function createDemoAuth(sessionId: string): AuthContext {
 export function createDemoUser(sessionId: string) {
   return {
     name: 'Demo Visitor',
-    email: 'demo@phyne.io',
+    email: 'demo@phynd.io',
     id: `demo-${sessionId}`,
   }
 }

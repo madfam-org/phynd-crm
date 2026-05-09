@@ -1,8 +1,8 @@
 import { getCacheManager } from '@/lib/federation/clients'
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { createServiceContext } from '@phyne/services'
-import { RedditBotService } from '@phyne/services'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { createServiceContext } from '@phynd/services'
+import { RedditBotService } from '@phynd/services'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 1. Validate authorization secret (Fortuna → Phyne CRM)
+    // 1. Validate authorization secret (Fortuna → Phynd CRM)
     const authHeader = req.headers.get('Authorization')
     if (!authHeader || authHeader !== `Bearer ${expectedSecret}`) {
       return NextResponse.json({ error: 'Unauthorized webhook trigger' }, { status: 401 })
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       accessToken: '',
     }
 
-    // We import createServiceContext from '@phyne/services' directly per the monorepo structure
+    // We import createServiceContext from '@phynd/services' directly per the monorepo structure
     const ctx = createServiceContext(db, cache, mockAuthCtx)
 
     // 3. Dispatch payload to Reddit Bot Campaign Service

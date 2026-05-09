@@ -1,6 +1,6 @@
-import { getDb } from '@phyne/db'
-import { activities, notifications } from '@phyne/db/schema'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { activities, notifications } from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
 import type { Job } from 'bullmq'
 import { and, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 

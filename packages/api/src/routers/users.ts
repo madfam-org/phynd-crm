@@ -1,4 +1,4 @@
-import { UsersService } from '@phyne/services'
+import { UsersService } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, requireRole, router } from '../trpc'
 

@@ -138,14 +138,14 @@ export function EcosystemDiagram() {
           One CRM. Five Platforms. Zero Copies.
         </h2>
         <p className="mt-4 text-lg text-muted-foreground">
-          Phyne sits at the center of the MADFAM ecosystem, federating data in real time.
+          Phynd sits at the center of the MADFAM ecosystem, federating data in real time.
         </p>
       </div>
 
       <div ref={ref} className="relative mt-16">
         <div className="mx-auto flex max-w-xs flex-col items-center">
           <div className="rounded-xl border-2 border-foreground bg-background px-6 py-3 text-center font-bold shadow-lg">
-            Phyne CRM
+            Phynd CRM
           </div>
         </div>
 

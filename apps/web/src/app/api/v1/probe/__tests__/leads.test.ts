@@ -3,7 +3,7 @@
  *
  * Locks the wire contract documented in
  * `autoswarm-office/packages/revenue-loop-probe/.../steps/crm.py`:
- *   - 503 when PHYNE_CRM_PROBE_TOKEN is unset
+ *   - 503 when PHYND_CRM_PROBE_TOKEN is unset
  *   - 401 when bearer is missing or wrong
  *   - 400 when correlation_id is missing
  *   - 400 when body is not JSON
@@ -54,7 +54,7 @@ const mockDb = {
   transaction: vi.fn((cb: (tx: unknown) => unknown) => Promise.resolve(cb(mockDb))),
 }
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: () => mockDb,
   contacts: 'contacts-table',
   leads: 'leads-table',
@@ -85,7 +85,7 @@ beforeEach(() => {
   db.leads = []
   db.pipelines = [{ id: 'pipe-1' }]
   db.stages = [{ id: 'stage-1', pipelineId: 'pipe-1' }]
-  process.env = { ...ORIGINAL_ENV, PHYNE_CRM_PROBE_TOKEN: 'test-token' }
+  process.env = { ...ORIGINAL_ENV, PHYND_CRM_PROBE_TOKEN: 'test-token' }
 
   // Every `.select()` call returns a chain whose `.limit()` returns the
   // matching rows from `db`. We inspect the order of `.from(<table>)` calls
@@ -150,8 +150,8 @@ function probeRequest(body: unknown, authHeader?: string | null): Request {
 // ---------------------------------------------------------------------------
 
 describe('POST /api/v1/probe/leads — auth', () => {
-  it('returns 503 when PHYNE_CRM_PROBE_TOKEN is unset', async () => {
-    delete process.env.PHYNE_CRM_PROBE_TOKEN
+  it('returns 503 when PHYND_CRM_PROBE_TOKEN is unset', async () => {
+    delete process.env.PHYND_CRM_PROBE_TOKEN
     const res = await POST(probeRequest({ correlation_id: 'c1' }))
     expect(res.status).toBe(503)
   })

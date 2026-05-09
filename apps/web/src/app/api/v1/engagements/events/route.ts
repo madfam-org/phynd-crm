@@ -1,7 +1,7 @@
 import { handleWebhook } from '@/lib/webhooks/handler'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
-import { EngagementsService } from '@phyne/services'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
+import { EngagementsService } from '@phynd/services'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:engagements-events')
@@ -23,12 +23,12 @@ const logger = createLogger('web:engagements-events')
 //     metadata?: Record<string, unknown>
 //   }
 //
-// Secret: PHYNE_ENGAGEMENT_EVENTS_SECRET. Each ecosystem service that
+// Secret: PHYND_ENGAGEMENT_EVENTS_SECRET. Each ecosystem service that
 // writes here gets the same secret (service-to-service trust boundary
 // is at the network edge via mTLS / Cloudflare service tokens, not
 // per-source HMAC). When unset, returns 503 to fail closed.
 export async function POST(req: Request) {
-  const secret = process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
+  const secret = process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Engagement events secret not configured' }, { status: 503 })
   }

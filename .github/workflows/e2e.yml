@@ -18,13 +18,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: phyne
-          POSTGRES_PASSWORD: phyne
-          POSTGRES_DB: phyne_crm
+          POSTGRES_USER: phynd
+          POSTGRES_PASSWORD: phynd
+          POSTGRES_DB: phynd_crm
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U phyne -d phyne_crm"
+          --health-cmd "pg_isready -U phynd -d phynd_crm"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
@@ -47,11 +47,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate && pnpm db:migrate && pnpm db:seed
         env:
-          DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
-      - run: pnpm --filter @phyne/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @phyne/web test:e2e
+          DATABASE_URL: postgresql://phynd:phynd@localhost:5432/phynd_crm
+      - run: pnpm --filter @phynd/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @phynd/web test:e2e
         env:
-          DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
+          DATABASE_URL: postgresql://phynd:phynd@localhost:5432/phynd_crm
           REDIS_URL: redis://localhost:6379
           AUTH_SECRET: e2e-test-secret-minimum-16
           AUTH_BYPASS: "true"

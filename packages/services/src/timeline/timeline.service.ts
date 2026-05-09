@@ -1,5 +1,5 @@
-import { activities, notes, stageTransitions } from '@phyne/db/schema'
-import type { EntityType } from '@phyne/types/crm'
+import { activities, notes, stageTransitions } from '@phynd/db/schema'
+import type { EntityType } from '@phynd/types/crm'
 import { and, desc, eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

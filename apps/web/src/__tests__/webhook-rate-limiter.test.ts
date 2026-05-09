@@ -8,7 +8,7 @@ vi.mock('ioredis', () => {
   return { default: vi.fn(() => mockRedis), __mockInstance: mockRedis }
 })
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: () => ({ warn: vi.fn(), info: vi.fn(), error: vi.fn() }),
 }))
 

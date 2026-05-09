@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { trpc } from '@/lib/trpc/client'
-import type { EntityType } from '@phyne/types/crm'
+import type { EntityType } from '@phynd/types/crm'
 import { useState } from 'react'
 import { toast } from 'sonner'
 

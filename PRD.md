@@ -1,8 +1,8 @@
-# **Phyne: Strategic Architecture and Product Requirements for a Phygital Customer Relationship Management Platform**
+# **Phynd: Strategic Architecture and Product Requirements for a Phygital Customer Relationship Management Platform**
 
 ## **Part 1: Problem Space Deep Dive**
 
-The architectural evolution of Customer Relationship Management (CRM) platforms has reached a critical inflection point. Traditional monolithic architectures, originally designed for static, text-based data entry and linear sales pipelines, are demonstrably incompatible with the modern, multi-dimensional operational requirements of complex enterprises. For organizations operating at the intersection of physical manufacturing and digital asset creation—the "phygital" domain—a CRM must transcend basic contact management to become a highly sophisticated, real-time orchestration engine. This deep dive systematically evaluates the current market paradigms across proprietary software, open-source initiatives, and multi-tenant cloud architectures to isolate the structural deficiencies that necessitate the development of the Phyne platform.
+The architectural evolution of Customer Relationship Management (CRM) platforms has reached a critical inflection point. Traditional monolithic architectures, originally designed for static, text-based data entry and linear sales pipelines, are demonstrably incompatible with the modern, multi-dimensional operational requirements of complex enterprises. For organizations operating at the intersection of physical manufacturing and digital asset creation—the "phygital" domain—a CRM must transcend basic contact management to become a highly sophisticated, real-time orchestration engine. This deep dive systematically evaluates the current market paradigms across proprietary software, open-source initiatives, and multi-tenant cloud architectures to isolate the structural deficiencies that necessitate the development of the Phynd platform.
 
 ### **Commercial and Proprietary CRM Market Analysis**
 
@@ -84,13 +84,13 @@ Failing to tightly scope API keys by individual tenant can allow a compromised i
 
 **Part 2: Product Requirements Document (PRD) Formulation**
 
-Based on the synthesis of the problem space, this Product Requirements Document (PRD) establishes the architectural and functional guidelines for Phyne. The constraints of the MADFAM ecosystem dictate that Phyne operate not as a monolithic data store, but as a dynamic orchestration layer.
+Based on the synthesis of the problem space, this Product Requirements Document (PRD) establishes the architectural and functional guidelines for Phynd. The constraints of the MADFAM ecosystem dictate that Phynd operate not as a monolithic data store, but as a dynamic orchestration layer.
 
 ### **Section 1: Executive Summary & Opportunity**
 
 **The Uniquely Unified Vision**
 
-Phyne is engineered to operate as a "Synthetic Single Pane of Glass" that synthesizes client context across four highly specialized digital ops platforms. The platform's strategic vision is tripartite:
+Phynd is engineered to operate as a "Synthetic Single Pane of Glass" that synthesizes client context across four highly specialized digital ops platforms. The platform's strategic vision is tripartite:
 
 1. **In-House Engine:** Serve as the central hub for MADFAM's internal human-AI swarms, federating data from Janua, Dhanam, Cotiza, and Forj without duplicating the systems of record.  
 2. **Open-Source Community Core:** Provide a highly extensible, open-source foundation that establishes a community standard for managing complex physical and digital relationships.  
@@ -98,7 +98,7 @@ Phyne is engineered to operate as a "Synthetic Single Pane of Glass" that synthe
 
 **The "Why Now"**
 
-The immediate imperative for Phyne is the failure of current monolithic CRMs to synthesize phygital context. Traditional CRMs rely on fragile ETL pipelines that attempt to physically duplicate external data into rigid relational tables. This approach is catastrophic and technically unfeasible when dealing with the gigabyte-scale 3D CAD models, immutable steganographic NFTs, and high-frequency manufacturing telemetry that MADFAM relies on.
+The immediate imperative for Phynd is the failure of current monolithic CRMs to synthesize phygital context. Traditional CRMs rely on fragile ETL pipelines that attempt to physically duplicate external data into rigid relational tables. This approach is catastrophic and technically unfeasible when dealing with the gigabyte-scale 3D CAD models, immutable steganographic NFTs, and high-frequency manufacturing telemetry that MADFAM relies on.
 
 **Target Audience Prioritization**
 
@@ -108,12 +108,12 @@ The immediate imperative for Phyne is the failure of current monolithic CRMs to 
 
 ### **Section 2: MADFAM Ecosystem Integrations (Highest Priority)**
 
-Phyne must interface seamlessly with MADFAM's four external domains using Data Virtualization. Phyne must *never* act as the source of truth for identity, billing, order fulfillment, or asset storage.
+Phynd must interface seamlessly with MADFAM's four external domains using Data Virtualization. Phynd must *never* act as the source of truth for identity, billing, order fulfillment, or asset storage.
 
-* **Identity Context (Janua \- Domain 1):** Phyne must not own user authentication or raw identity storage. It must utilize a Federated Identity Management (FIM) architecture to enable seamless authentication across the ecosystem via OpenID Connect (OIDC) and OAuth 2.0 protocols. Janua serves as the upstream identity source where lifecycle authority resides. When an identity profile changes, Janua will issue a webhook to invalidate Phyne’s local cache, forcing a real-time fetch to ensure absolute data consistency.  
-* **Commercial Context (Cotiza Studio \- Domain 2):** Phyne must integrate with Cotiza’s Manufacturing Execution System (MES) to retrieve real-time order history and physical project statuses. The CRM will track how raw materials transform into finished products, visualizing production schedules, work-in-progress (WIP) tracking, and factory floor bottlenecks directly in the client profile.  
-* **Monetization Context (Dhanam \- Domain 4):** Phyne will visualize financial profiles, payment histories, and wealth management simulations by calling Dhanam's Billing SDK. To handle multi-tenant usage limits, Phyne will implement Aspect-Oriented Programming (AOP) cross-cutting code to monitor service metering options, leveraging automated cron jobs to trigger end-of-cycle billing calculations in Dhanam.  
-* **Creation Context (Forj \- Domain 2):** Phyne will treat Forj as its remote 3D Digital Asset Management (DAM) repository. Instead of downloading 3D files, Phyne will use the \<model-viewer\> web component to embed interactive GLB and USDZ files directly in the browser, providing native 3D interactions and AR source links for mobile devices without moving the data. The system will rely on Forj’s event-driven architecture to extract metadata and create asset variants. It will also fetch and display the steganographic NFT certifications to prove digital ownership.
+* **Identity Context (Janua \- Domain 1):** Phynd must not own user authentication or raw identity storage. It must utilize a Federated Identity Management (FIM) architecture to enable seamless authentication across the ecosystem via OpenID Connect (OIDC) and OAuth 2.0 protocols. Janua serves as the upstream identity source where lifecycle authority resides. When an identity profile changes, Janua will issue a webhook to invalidate Phynd’s local cache, forcing a real-time fetch to ensure absolute data consistency.  
+* **Commercial Context (Cotiza Studio \- Domain 2):** Phynd must integrate with Cotiza’s Manufacturing Execution System (MES) to retrieve real-time order history and physical project statuses. The CRM will track how raw materials transform into finished products, visualizing production schedules, work-in-progress (WIP) tracking, and factory floor bottlenecks directly in the client profile.  
+* **Monetization Context (Dhanam \- Domain 4):** Phynd will visualize financial profiles, payment histories, and wealth management simulations by calling Dhanam's Billing SDK. To handle multi-tenant usage limits, Phynd will implement Aspect-Oriented Programming (AOP) cross-cutting code to monitor service metering options, leveraging automated cron jobs to trigger end-of-cycle billing calculations in Dhanam.  
+* **Creation Context (Forj \- Domain 2):** Phynd will treat Forj as its remote 3D Digital Asset Management (DAM) repository. Instead of downloading 3D files, Phynd will use the \<model-viewer\> web component to embed interactive GLB and USDZ files directly in the browser, providing native 3D interactions and AR source links for mobile devices without moving the data. The system will rely on Forj’s event-driven architecture to extract metadata and create asset variants. It will also fetch and display the steganographic NFT certifications to prove digital ownership.
 
 ### **Section 3: Target Workflows & Functional Requirements (The 'What')**
 
@@ -133,7 +133,7 @@ When an operator views a client profile, they must experience a cohesive interfa
 
 **SaaS / Multi-Tenancy Architecture**
 
-To achieve enterprise-grade isolation for the commercial SaaS tier, Phyne will utilize an *Isolated Database per Tenant* architecture (e.g., dedicated PostgreSQL instances per client).
+To achieve enterprise-grade isolation for the commercial SaaS tier, Phynd will utilize an *Isolated Database per Tenant* architecture (e.g., dedicated PostgreSQL instances per client).
 
 * **Data Isolation:** This model ensures maximum security, prevents cross-tenant data leakage, and simplifies compliance audits for sensitive physical and financial data.  
 * **Event-Driven Communication:** The platform will use loosely coupled, tenant-aware microservices communicating via asynchronous event streams (e.g., Kafka) to prevent one tenant's heavy external operations from blocking worker threads.  
@@ -141,20 +141,20 @@ To achieve enterprise-grade isolation for the commercial SaaS tier, Phyne will u
 
 **Community Core Strategy (Cannibalization Mitigation)**
 
-To foster a community without cannibalizing the SaaS product, Phyne will utilize an Open Core feature separation matrix. The open-source repository will provide foundational entity management (Contacts, Leads), basic GraphQL federation logic, and standard API gateways. However, MADFAM will strictly reserve the complex, automated multi-tenancy infrastructure (like the dynamic database provisioning manager and centralized IAM routing), native zero-configuration integrations (Dhanam/Cotiza), and advanced AI orchestrator capabilities exclusively for the commercial SaaS tier.
+To foster a community without cannibalizing the SaaS product, Phynd will utilize an Open Core feature separation matrix. The open-source repository will provide foundational entity management (Contacts, Leads), basic GraphQL federation logic, and standard API gateways. However, MADFAM will strictly reserve the complex, automated multi-tenancy infrastructure (like the dynamic database provisioning manager and centralized IAM routing), native zero-configuration integrations (Dhanam/Cotiza), and advanced AI orchestrator capabilities exclusively for the commercial SaaS tier.
 
 ### **Section 5: Non-Functional Requirements (The 'How Well')**
 
 **Observability for "MADFAM Agents" (Human-AI Swarms)**
 
-Phyne must incorporate robust observability tools specifically designed for AI agents. Because AI agents are non-deterministic, Phyne will rely on highly specialized "subagents" with their own token budgets and domain expertise, rather than a single do-everything agent.
+Phynd must incorporate robust observability tools specifically designed for AI agents. Because AI agents are non-deterministic, Phynd will rely on highly specialized "subagents" with their own token budgets and domain expertise, rather than a single do-everything agent.
 
-* **Kanban-Like White-Box Visibility:** Phyne will feature an ambient AI UI that includes an overview panel for current status, an activity log detailing the agent's actions, and a specific "oversight flow" (Kanban view) where human operators can intervene, approve actions, and resolve tasks requiring explicit attention.  
+* **Kanban-Like White-Box Visibility:** Phynd will feature an ambient AI UI that includes an overview panel for current status, an activity log detailing the agent's actions, and a specific "oversight flow" (Kanban view) where human operators can intervene, approve actions, and resolve tasks requiring explicit attention.  
 * **Trace and Span Telemetry:** Every agent decision will generate a hierarchical trace logging the exact prompt, tool calls, and reasoning steps utilized, ensuring total auditability of autonomous actions.
 
 **Security and Data Privacy**
 
-* Phyne will enforce Zero-Trust context propagation, utilizing Janua's OIDC tokens to ensure all internal and external API calls respect the originating user's permissions.  
+* Phynd will enforce Zero-Trust context propagation, utilizing Janua's OIDC tokens to ensure all internal and external API calls respect the originating user's permissions.  
 * PII and financial data must be dynamically masked before any context is passed to external LLMs.
 
 **Performance and Extreme Uptime**

@@ -1,6 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
-import { getDb } from '@phyne/db'
+import { getDb } from '@phynd/db'
 import {
   contacts,
   conversions,
@@ -12,10 +12,10 @@ import {
   referralCodes,
   referrals,
   webhookEvents,
-} from '@phyne/db/schema'
-import { CacheInvalidator, validateWebhookSignature } from '@phyne/federation'
-import { createLogger } from '@phyne/logging'
-import { reconcileDhanamPaymentLifecycle } from '@phyne/services/payments/payment-reconciliation'
+} from '@phynd/db/schema'
+import { CacheInvalidator, validateWebhookSignature } from '@phynd/federation'
+import { createLogger } from '@phynd/logging'
+import { reconcileDhanamPaymentLifecycle } from '@phynd/services/payments/payment-reconciliation'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import {
@@ -595,7 +595,7 @@ async function maybeReconcilePayment(
 async function resolveContactId(event: NormalizedEvent): Promise<string | null> {
   const db = getDb()
   // Strategy: janua_user_id (richer mapping) → email (fallback).
-  // We deliberately skip `stripe_customer_id` matching — PhyneCRM doesn't
+  // We deliberately skip `stripe_customer_id` matching — PhyndCRM doesn't
   // store Stripe customer IDs anywhere (the federation provider fetches
   // billing state on-demand from dhanam itself).
   if (event.januaUserId) {

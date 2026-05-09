@@ -17,11 +17,11 @@ vi.mock('@/lib/federation/clients', () => ({
   })),
 }))
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => ({})),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }))
 
@@ -41,7 +41,7 @@ const mockLeadCreate = vi.fn()
 const mockGetDefault = vi.fn()
 const mockGetStages = vi.fn()
 
-vi.mock('@phyne/services', () => {
+vi.mock('@phynd/services', () => {
   // Use a real class so `new RedditBotService()` returns an instance with methods
   class MockRedditBotService {
     processWebhook = mockProcessWebhook

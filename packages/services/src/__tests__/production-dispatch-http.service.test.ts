@@ -113,7 +113,7 @@ describe('production dispatch HTTP service', () => {
         'X-Webhook-Timestamp': '2026-05-07T23:00:00.000Z',
       }),
     )
-    expect((request.headers as Record<string, string>)['X-PhyneCRM-Signature']).toMatch(/^sha256=/)
+    expect((request.headers as Record<string, string>)['X-PhyndCRM-Signature']).toMatch(/^sha256=/)
     expect(state.updates[0]?.metadata).toEqual(expect.objectContaining({ dispatch_status: 'sent' }))
   })
 

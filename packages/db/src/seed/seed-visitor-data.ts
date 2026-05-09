@@ -59,15 +59,15 @@ export async function seedVisitorData(db: Db, ids: SeedIds) {
   await db.insert(visitorPageViews).values([
     {
       sessionId: sessionRows[0]?.id ?? '',
-      url: 'https://phyne.io/',
-      title: 'Phyne CRM - Home',
+      url: 'https://phynd.io/',
+      title: 'Phynd CRM - Home',
       duration: 12000,
       viewedAt: new Date('2025-02-10T14:30:00Z'),
     },
     {
       sessionId: sessionRows[0]?.id ?? '',
-      url: 'https://phyne.io/pricing',
-      title: 'Phyne CRM - Pricing',
+      url: 'https://phynd.io/pricing',
+      title: 'Phynd CRM - Pricing',
       duration: 45000,
       viewedAt: new Date('2025-02-10T14:32:00Z'),
     },
@@ -80,8 +80,8 @@ export async function seedVisitorData(db: Db, ids: SeedIds) {
     },
     {
       sessionId: sessionRows[2]?.id ?? '',
-      url: 'https://phyne.io/features',
-      title: 'Phyne CRM - Features',
+      url: 'https://phynd.io/features',
+      title: 'Phynd CRM - Features',
       duration: 60000,
       viewedAt: new Date('2025-02-12T11:02:00Z'),
     },

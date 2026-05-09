@@ -4,7 +4,7 @@
  * Idempotent synthetic-lead upsert used by madfam-revenue-loop-probe.
  *
  * Contract (from `autoswarm-office/packages/revenue-loop-probe/.../steps/crm.py`):
- *   - Bearer auth with `PHYNE_CRM_PROBE_TOKEN`.
+ *   - Bearer auth with `PHYND_CRM_PROBE_TOKEN`.
  *   - Body: `{ correlation_id, dry_run, channel, lead: { email, stage, score, source_agent } }`.
  *   - Idempotent on (tenant, correlation_id) OR (tenant, lead.email).
  *   - Returns `{ lead_id }`.
@@ -16,9 +16,9 @@
  * a new lead per run, just one to drive subsequent stages.
  */
 
-import { getDb } from '@phyne/db'
-import { contacts, leads, pipelineStages, pipelines } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { contacts, leads, pipelineStages, pipelines } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -34,9 +34,9 @@ function unauthorized(reason: string) {
 }
 
 export async function POST(request: Request) {
-  const expectedToken = process.env.PHYNE_CRM_PROBE_TOKEN
+  const expectedToken = process.env.PHYND_CRM_PROBE_TOKEN
   if (!expectedToken) {
-    return NextResponse.json({ error: 'PHYNE_CRM_PROBE_TOKEN not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'PHYND_CRM_PROBE_TOKEN not configured' }, { status: 503 })
   }
 
   const auth = request.headers.get('authorization') ?? ''

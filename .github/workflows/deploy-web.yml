@@ -12,7 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: madfam-org/phyne-crm/web
+  IMAGE_NAME: madfam-org/phynd-crm/web
   KUSTOMIZATION_PATH: infra/k8s/overlays/staging/kustomization.yaml
 
 jobs:
@@ -104,15 +104,15 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.ENCLII_CALLBACK_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
-              \"repo_full_name\": \"madfam-org/phyne-crm\",
+              \"repo_full_name\": \"madfam-org/phynd-crm\",
               \"commit_sha\": \"${{ github.sha }}\",
               \"branch\": \"${{ github.ref_name }}\",
               \"ref\": \"${{ github.ref }}\",
               \"event_type\": \"${EVENT_TYPE}\",
               \"source\": \"ci_callback\",
-              \"message\": \"phyne-crm-web ${STATUS} (digest: ${{ steps.build.outputs.digest }})\",
+              \"message\": \"phynd-crm-web ${STATUS} (digest: ${{ steps.build.outputs.digest }})\",
               \"metadata\": {
-                \"service\": \"phyne-crm-web\",
+                \"service\": \"phynd-crm-web\",
                 \"image\": \"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\",
                 \"digest\": \"${{ steps.build.outputs.digest }}\",
                 \"workflow\": \"deploy-web\",

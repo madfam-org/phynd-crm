@@ -6,7 +6,7 @@ import type {
   JanuaTelemetry,
   PravaraFabrication,
   ProviderStatus,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 
 type FederationEntry<T> = {
   data: T

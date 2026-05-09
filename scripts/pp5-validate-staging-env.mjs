@@ -3,10 +3,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const DEFAULT_NAMESPACE = 'phyne-crm-staging'
-const DEFAULT_SECRET_NAME = 'phyne-crm-staging-secrets'
+const DEFAULT_NAMESPACE = 'phynd-crm-staging'
+const DEFAULT_SECRET_NAME = 'phynd-crm-staging-secrets'
 const TEMPLATE_PATH = 'infra/k8s/staging-secrets-template.yaml'
-const STAGING_APP_URL = 'https://staging-crm.madfam.io'
+const STAGING_APP_URL = 'https://staging-phynd.app'
 
 const REQUIRED_NON_EMPTY = new Set([
   'DATABASE_URL',
@@ -33,11 +33,11 @@ const REQUIRED_NON_EMPTY = new Set([
   'TEZCA_WEBHOOK_SECRET',
   'FORTUNA_WEBHOOK_SECRET',
   'JANUA_TELEMETRY_WEBHOOK_SECRET',
-  'PHYNE_CRM_EVENTS_SECRET',
+  'PHYND_CRM_EVENTS_SECRET',
   'COFORMA_WEBHOOK_SECRET',
   'CEQ_WEBHOOK_SECRET',
-  'PHYNE_ENGAGEMENT_EVENTS_SECRET',
-  'PHYNECRM_OUTBOUND_SECRET',
+  'PHYND_ENGAGEMENT_EVENTS_SECRET',
+  'PHYNDCRM_OUTBOUND_SECRET',
   'KARAFIEL_WEBHOOK_SECRET',
   'KARAFIEL_API_URL',
   'KARAFIEL_API_KEY',
@@ -46,7 +46,7 @@ const REQUIRED_NON_EMPTY = new Set([
   'NODE_ENV',
   'NEXTAUTH_URL',
   'WORKER_HEALTH_PORT',
-  'PHYNE_CRM_PROBE_TOKEN',
+  'PHYND_CRM_PROBE_TOKEN',
   'FEDERATION_API_TOKEN',
   'RESEND_API_KEY',
   'EMAIL_ALLOWLIST_DOMAINS',
@@ -62,15 +62,15 @@ const SECRET_MIN_LENGTH = new Map([
   ['TEZCA_WEBHOOK_SECRET', 32],
   ['FORTUNA_WEBHOOK_SECRET', 32],
   ['JANUA_TELEMETRY_WEBHOOK_SECRET', 32],
-  ['PHYNE_CRM_EVENTS_SECRET', 32],
+  ['PHYND_CRM_EVENTS_SECRET', 32],
   ['COFORMA_WEBHOOK_SECRET', 32],
   ['CEQ_WEBHOOK_SECRET', 32],
-  ['PHYNE_ENGAGEMENT_EVENTS_SECRET', 32],
-  ['PHYNECRM_OUTBOUND_SECRET', 32],
+  ['PHYND_ENGAGEMENT_EVENTS_SECRET', 32],
+  ['PHYNDCRM_OUTBOUND_SECRET', 32],
   ['KARAFIEL_WEBHOOK_SECRET', 32],
   ['PRAVARA_DISPATCH_SECRET', 32],
   ['SELVA_DISPATCH_SECRET', 32],
-  ['PHYNE_CRM_PROBE_TOKEN', 32],
+  ['PHYND_CRM_PROBE_TOKEN', 32],
   ['FEDERATION_API_TOKEN', 48],
 ])
 
@@ -78,8 +78,8 @@ function usage(message) {
   if (message) console.error(`ERROR: ${message}`)
   console.error(`
 Usage:
-  node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env
-  node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
+  node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env
+  node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
 
 This validates that the env file is safe to install as ${DEFAULT_SECRET_NAME}.
 It never prints secret values.
@@ -186,10 +186,10 @@ function validate(values, duplicates, templateKeys) {
   if (databaseUrl && !databaseUrl.startsWith('postgresql://')) {
     issues.push('DATABASE_URL: must be a postgresql:// URL')
   }
-  if (databaseUrl && !databaseUrl.includes('phyne_crm_staging')) {
-    issues.push('DATABASE_URL: must target phyne_crm_staging')
+  if (databaseUrl && !databaseUrl.includes('phynd_crm_staging')) {
+    issues.push('DATABASE_URL: must target phynd_crm_staging')
   }
-  if (databaseUrl && !databaseUrl.includes('phyne_staging')) {
+  if (databaseUrl && !databaseUrl.includes('phynd_staging')) {
     issues.push('DATABASE_URL: must use a staging database role')
   }
 

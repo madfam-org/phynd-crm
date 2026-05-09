@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: phyne
+      POSTGRES_USER: phynd
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: phyne_crm
+      POSTGRES_DB: phynd_crm
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U phyne -d phyne_crm"]
+      test: ["CMD-SHELL", "pg_isready -U phynd -d phynd_crm"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,7 +32,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://phyne:${POSTGRES_PASSWORD}@postgres:5432/phyne_crm
+      DATABASE_URL: postgresql://phynd:${POSTGRES_PASSWORD}@postgres:5432/phynd_crm
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
       AUTH_SECRET: ${AUTH_SECRET}
@@ -90,7 +90,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.worker
     environment:
-      DATABASE_URL: postgresql://phyne:${POSTGRES_PASSWORD}@postgres:5432/phyne_crm
+      DATABASE_URL: postgresql://phynd:${POSTGRES_PASSWORD}@postgres:5432/phynd_crm
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
       JANUA_API_URL: ${JANUA_API_URL}

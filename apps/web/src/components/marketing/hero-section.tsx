@@ -24,7 +24,7 @@ export function HeroSection() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Phyne federates real-time data from your entire ecosystem into one unified view. No
+              Phynd federates real-time data from your entire ecosystem into one unified view. No
               data duplication. No vendor lock-in. No per-seat pricing.
             </p>
 
@@ -36,7 +36,7 @@ export function HeroSection() {
                 <Link href="/demo">Try Live Demo</Link>
               </Button>
               <Button size="lg" variant="ghost" asChild>
-                <a href="https://github.com/madfam/phyne" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/madfam/phynd" target="_blank" rel="noopener noreferrer">
                   <svg
                     className="mr-2 h-5 w-5"
                     fill="currentColor"

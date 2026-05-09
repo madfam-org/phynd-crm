@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Phyne exposes tRPC endpoints via Next.js API routes and webhook endpoints from 6 external providers. Both surfaces need protection against abuse, but have different runtime constraints and threat models.
+Phynd exposes tRPC endpoints via Next.js API routes and webhook endpoints from 6 external providers. Both surfaces need protection against abuse, but have different runtime constraints and threat models.
 
 ## Decision
 Implement **Redis sliding-window rate limiting** at the API route level for both tRPC and webhook endpoints, with separate limits and key namespaces.
@@ -13,13 +13,13 @@ Implement **Redis sliding-window rate limiting** at the API route level for both
 - **Location**: `apps/web/src/app/api/trpc/[trpc]/route.ts` — wraps the `fetchRequestHandler`
 - **Implementation**: `apps/web/src/lib/rate-limiter.ts` — `checkApiRateLimit(ip)`
 - **Limit**: 200 requests per minute per IP
-- **Key prefix**: `phyne:ratelimit:api:{ip}`
+- **Key prefix**: `phynd:ratelimit:api:{ip}`
 
 ### Webhook Rate Limiting
 - **Location**: `apps/web/src/lib/webhooks/handler.ts` — shared webhook handler
 - **Implementation**: `apps/web/src/lib/webhooks/rate-limiter.ts` — `checkRateLimit(ip)`
 - **Limit**: 100 requests per minute per IP
-- **Key prefix**: `phyne:ratelimit:webhook:{ip}`
+- **Key prefix**: `phynd:ratelimit:webhook:{ip}`
 
 ## Rationale
 

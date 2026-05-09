@@ -4,7 +4,7 @@ const features = [
   {
     title: 'Federation, Not Duplication',
     description:
-      'Phyne queries your source systems in real time. Data stays authoritative at the origin — no copies, no drift, no stale records.',
+      'Phynd queries your source systems in real time. Data stays authoritative at the origin — no copies, no drift, no stale records.',
     icon: (
       <svg
         aria-hidden="true"
@@ -94,7 +94,7 @@ export function FeaturesSection() {
           Built Different, By Design
         </h2>
         <p className="mt-4 text-lg text-muted-foreground">
-          Phyne&apos;s federation architecture solves the problems other CRMs create.
+          Phynd&apos;s federation architecture solves the problems other CRMs create.
         </p>
       </div>
       <div className="mt-16 space-y-20">

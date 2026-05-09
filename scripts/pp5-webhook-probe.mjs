@@ -2,7 +2,7 @@
 
 import { createHmac } from 'node:crypto'
 
-const DEFAULT_BASE_URL = 'https://staging-crm.madfam.io'
+const DEFAULT_BASE_URL = 'https://staging-phynd.app'
 
 const simple = {
   type: 'simple',
@@ -70,7 +70,7 @@ const lanes = {
       externalSessionId: 'pp5-session-001',
       pageViews: [
         {
-          url: 'https://staging-crm.madfam.io/pp5-probe',
+          url: 'https://staging-phynd.app/pp5-probe',
           title: 'PP.5 probe',
           duration: 3,
           viewedAt: new Date().toISOString(),
@@ -174,14 +174,14 @@ const lanes = {
   },
   routecraft: {
     path: '/api/webhooks/routecraft',
-    secretEnv: 'PHYNE_CRM_EVENTS_SECRET',
+    secretEnv: 'PHYND_CRM_EVENTS_SECRET',
     signature: madfam,
     signatureHeader: 'x-madfam-signature',
     payload: (opts) => paymentPayload('routecraft', opts),
   },
   'legacy-payment': {
     path: '/api/v1/events/payment.succeeded',
-    secretEnv: 'PHYNE_CRM_EVENTS_SECRET',
+    secretEnv: 'PHYND_CRM_EVENTS_SECRET',
     signature: madfam,
     signatureHeader: 'x-madfam-signature',
     payload: (opts) => paymentPayload('legacy', opts),
@@ -223,13 +223,13 @@ const lanes = {
         userName: 'PP5 Probe',
         company: 'MADFAM staging',
         title: 'Staging Probe',
-        phynecrmContactId: null,
+        phyndcrmContactId: null,
       },
     }),
   },
   'engagement-event': {
     path: '/api/v1/engagements/events',
-    secretEnv: 'PHYNE_ENGAGEMENT_EVENTS_SECRET',
+    secretEnv: 'PHYND_ENGAGEMENT_EVENTS_SECRET',
     signature: simple,
     signatureHeader: 'x-webhook-signature',
     payload: (opts) => ({
@@ -245,7 +245,7 @@ const lanes = {
   },
   'engagement-artifact': {
     path: '/api/v1/engagements/artifacts',
-    secretEnv: 'PHYNE_ENGAGEMENT_EVENTS_SECRET',
+    secretEnv: 'PHYND_ENGAGEMENT_EVENTS_SECRET',
     signature: simple,
     signatureHeader: 'x-webhook-signature',
     payload: (opts) => ({
@@ -253,7 +253,7 @@ const lanes = {
       type: 'deliverable',
       entity_type: 'external_reference',
       entity_id: `pp5-artifact-${opts.runId}`,
-      url: 'https://staging-crm.madfam.io/pp5-artifact',
+      url: 'https://staging-phynd.app/pp5-artifact',
       title: 'PP.5 staging artifact probe',
       metadata: { pp5_probe: true },
     }),

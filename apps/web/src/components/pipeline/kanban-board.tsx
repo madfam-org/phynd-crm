@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
 import { DragDropContext, Draggable, type DropResult, Droppable } from '@hello-pangea/dnd'
-import type { AppRouter } from '@phyne/api'
+import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'

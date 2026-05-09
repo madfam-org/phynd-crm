@@ -1,5 +1,5 @@
 {
-  "name": "phyne-crm",
+  "name": "phynd-crm",
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
@@ -10,10 +10,10 @@
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",
     "test:e2e": "turbo test:e2e",
-    "db:generate": "turbo db:generate --filter=@phyne/db",
-    "db:migrate": "turbo db:migrate --filter=@phyne/db",
-    "db:seed": "turbo db:seed --filter=@phyne/db",
-    "db:studio": "turbo db:studio --filter=@phyne/db",
+    "db:generate": "turbo db:generate --filter=@phynd/db",
+    "db:migrate": "turbo db:migrate --filter=@phynd/db",
+    "db:seed": "turbo db:seed --filter=@phynd/db",
+    "db:studio": "turbo db:studio --filter=@phynd/db",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
     "prepare": "husky"

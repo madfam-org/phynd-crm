@@ -1,4 +1,4 @@
-import { getFederationConfig } from '@phyne/config/federation'
+import { getFederationConfig } from '@phynd/config/federation'
 import {
   CacheManager,
   CircuitBreaker,
@@ -10,8 +10,8 @@ import {
   JanuaTelemetryProvider,
   PravaraProvider,
   ProviderHealthChecker,
-} from '@phyne/federation'
-import type { FederationProviderName } from '@phyne/types/federation'
+} from '@phynd/federation'
+import type { FederationProviderName } from '@phynd/types/federation'
 import Redis from 'ioredis'
 
 // --- Lazy singletons (survive across requests, preserve circuit breaker state) ---

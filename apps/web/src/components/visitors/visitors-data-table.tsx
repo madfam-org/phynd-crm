@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import type { ColumnDef } from '@/components/ui/data-table'
 import { DataTable } from '@/components/ui/data-table'
 import { trpc } from '@/lib/trpc/client'
-import type { AppRouter } from '@phyne/api'
+import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 
 type SessionRow = inferRouterOutputs<AppRouter>['visitorTracking']['list'][number]

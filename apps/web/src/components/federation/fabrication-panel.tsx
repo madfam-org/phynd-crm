@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { PravaraFabrication } from '@phyne/types/federation'
+import type { PravaraFabrication } from '@phynd/types/federation'
 
 interface FabricationPanelProps {
   data: PravaraFabrication

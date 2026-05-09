@@ -8,7 +8,7 @@ import { type MockDatabase, createTestContext, makeLead } from './helpers'
 
 // Feature flags: default leadScoring to false so scoring side-effects
 // don't interfere with lead CRUD tests unless explicitly enabled.
-vi.mock('@phyne/config/features', () => ({
+vi.mock('@phynd/config/features', () => ({
   isFeatureEnabled: vi.fn().mockReturnValue(false),
 }))
 
@@ -20,7 +20,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   conversions: { id: 'conversions.id', type: 'conversions.type' },
   leads: {
     deletedAt: 'leads.deletedAt',
@@ -192,7 +192,7 @@ describe('LeadsService', () => {
     })
 
     it('triggers scoring on status change when feature is enabled', async () => {
-      const { isFeatureEnabled } = await import('@phyne/config/features')
+      const { isFeatureEnabled } = await import('@phynd/config/features')
       ;(isFeatureEnabled as ReturnType<typeof vi.fn>).mockReturnValue(true)
 
       const updated = makeLead({ id: 'lead-001', status: 'qualified' })
@@ -205,7 +205,7 @@ describe('LeadsService', () => {
     })
 
     it('does not trigger scoring for non-status updates', async () => {
-      const { isFeatureEnabled } = await import('@phyne/config/features')
+      const { isFeatureEnabled } = await import('@phynd/config/features')
       const spy = isFeatureEnabled as ReturnType<typeof vi.fn>
       spy.mockClear()
       spy.mockReturnValue(true)

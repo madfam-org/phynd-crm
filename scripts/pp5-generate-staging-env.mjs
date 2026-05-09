@@ -16,15 +16,15 @@ const RANDOM_32 = new Set([
   'TEZCA_WEBHOOK_SECRET',
   'FORTUNA_WEBHOOK_SECRET',
   'JANUA_TELEMETRY_WEBHOOK_SECRET',
-  'PHYNE_CRM_EVENTS_SECRET',
+  'PHYND_CRM_EVENTS_SECRET',
   'COFORMA_WEBHOOK_SECRET',
   'CEQ_WEBHOOK_SECRET',
-  'PHYNE_ENGAGEMENT_EVENTS_SECRET',
-  'PHYNECRM_OUTBOUND_SECRET',
+  'PHYND_ENGAGEMENT_EVENTS_SECRET',
+  'PHYNDCRM_OUTBOUND_SECRET',
   'KARAFIEL_WEBHOOK_SECRET',
   'PRAVARA_DISPATCH_SECRET',
   'SELVA_DISPATCH_SECRET',
-  'PHYNE_CRM_PROBE_TOKEN',
+  'PHYND_CRM_PROBE_TOKEN',
 ])
 
 const RANDOM_48 = new Set(['FEDERATION_API_TOKEN'])
@@ -80,7 +80,7 @@ function usage(message) {
   console.error(`
 Usage:
   node scripts/pp5-generate-staging-env.mjs
-  node scripts/pp5-generate-staging-env.mjs --output /secure/path/phyne-crm-staging.env
+  node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-staging.env
 
 The generated file intentionally leaves provider URLs, DB/Redis URLs, OAuth
 clients, Resend, and provider API keys as REPLACE_ME_* values.

@@ -1,5 +1,5 @@
 {
-  "name": "@phyne/api",
+  "name": "@phynd/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,18 +16,20 @@
     "format": "biome format --write src/"
   },
   "dependencies": {
+    "@phynd/config": "workspace:*",
+    "@phynd/db": "workspace:*",
+    "@phynd/federation": "workspace:*",
+    "@phynd/services": "workspace:*",
+    "@phynd/types": "workspace:*",
     "@trpc/server": "^11.0.0-rc.682",
-    "@phyne/services": "workspace:*",
-    "@phyne/types": "workspace:*",
-    "@phyne/db": "workspace:*",
-    "@phyne/federation": "workspace:*",
-    "@phyne/config": "workspace:*",
+    "graphql": "^16.14.0",
+    "graphql-yoga": "^5.21.0",
     "superjson": "^2.2.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "vitest": "^3.0.5",
+    "@biomejs/biome": "^1.9.4",
     "typescript": "^5.7.3",
-    "@biomejs/biome": "^1.9.4"
+    "vitest": "^3.0.5"
   }
 }

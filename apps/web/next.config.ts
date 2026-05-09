@@ -9,12 +9,12 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   transpilePackages: [
-    '@phyne/api',
-    '@phyne/db',
-    '@phyne/services',
-    '@phyne/federation',
-    '@phyne/config',
-    '@phyne/types',
+    '@phynd/api',
+    '@phynd/db',
+    '@phynd/services',
+    '@phynd/federation',
+    '@phynd/config',
+    '@phynd/types',
   ],
   serverExternalPackages: ['pino', 'pino-pretty'],
   experimental: {

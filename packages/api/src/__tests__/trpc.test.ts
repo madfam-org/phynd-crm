@@ -1,12 +1,12 @@
-import type { ServiceContext } from '@phyne/services/context'
+import type { ServiceContext } from '@phynd/services/context'
 import {
   ConflictError,
   FederationError,
   NotFoundError,
   ServiceError,
   ValidationError,
-} from '@phyne/services/errors'
-import type { AuthContext } from '@phyne/types/auth'
+} from '@phynd/services/errors'
+import type { AuthContext } from '@phynd/types/auth'
 import { TRPCError } from '@trpc/server'
 import { describe, expect, it } from 'vitest'
 import {

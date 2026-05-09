@@ -1,4 +1,4 @@
-import { getFederationConfig } from '@phyne/config/federation'
+import { getFederationConfig } from '@phynd/config/federation'
 import {
   CacheManager,
   CircuitBreaker,
@@ -10,7 +10,7 @@ import {
   JanuaTelemetryProvider,
   PravaraProvider,
   ProviderHealthChecker,
-} from '@phyne/federation'
+} from '@phynd/federation'
 import type {
   CotizaManufacturing,
   DhanamBilling,
@@ -19,7 +19,7 @@ import type {
   JanuaIdentity,
   JanuaTelemetry,
   PravaraFabrication,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 import Redis from 'ioredis'
 
 interface WorkerFederationClients {

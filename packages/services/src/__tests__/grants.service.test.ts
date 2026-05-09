@@ -14,7 +14,7 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   grantApplications: {
     complianceChecks: 'grantApplications.complianceChecks',
     deletedAt: 'grantApplications.deletedAt',

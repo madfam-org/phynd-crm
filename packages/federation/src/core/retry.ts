@@ -1,4 +1,4 @@
-import type { RetryConfig } from '@phyne/types/federation'
+import type { RetryConfig } from '@phynd/types/federation'
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 3,

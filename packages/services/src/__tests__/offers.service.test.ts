@@ -9,7 +9,7 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(() => ({ _tag: 'sql' })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   offers: {
     currentRedemptions: 'offers.currentRedemptions',
     id: 'offers.id',

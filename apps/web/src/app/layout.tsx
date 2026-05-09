@@ -9,11 +9,11 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Phyne — The Phygital CRM',
-    template: '%s | Phyne',
+    default: 'Phynd — The Phygital CRM',
+    template: '%s | Phynd',
   },
   description:
-    'Phyne federates real-time data from your entire ecosystem into one unified CRM. No data duplication. No vendor lock-in.',
+    'Phynd federates real-time data from your entire ecosystem into one unified CRM. No data duplication. No vendor lock-in.',
 }
 
 export default function RootLayout({

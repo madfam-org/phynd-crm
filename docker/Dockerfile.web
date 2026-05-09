@@ -21,10 +21,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
 # Next.js needs NEXT_PUBLIC_* vars at build time for static optimization
-ARG NEXT_PUBLIC_APP_URL=https://crm.madfam.io
+ARG NEXT_PUBLIC_APP_URL=https://phynd.app
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV JANUA_TELEMETRY_API_URL=https://auth.madfam.io
-RUN pnpm --filter @phyne/web build
+RUN pnpm --filter @phynd/web build
 
 FROM base AS runner
 ENV NODE_ENV=production

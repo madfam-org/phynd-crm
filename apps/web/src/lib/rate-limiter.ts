@@ -1,4 +1,4 @@
-import { createLogger } from '@phyne/logging'
+import { createLogger } from '@phynd/logging'
 import Redis from 'ioredis'
 
 const logger = createLogger('rate-limiter')
@@ -24,7 +24,7 @@ export async function checkApiRateLimit(
 ): Promise<{ allowed: boolean; remaining: number }> {
   const windowMs = opts?.windowMs ?? DEFAULT_WINDOW_MS
   const maxRequests = opts?.maxRequests ?? DEFAULT_MAX_REQUESTS
-  const key = `phyne:ratelimit:api:${ip}`
+  const key = `phynd:ratelimit:api:${ip}`
   const client = getRedis()
 
   try {

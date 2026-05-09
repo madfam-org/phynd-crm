@@ -1,8 +1,8 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
-import { getDb } from '@phyne/db'
-import { visitorPageViews, visitorSessions } from '@phyne/db/schema'
-import { CacheInvalidator } from '@phyne/federation'
+import { getDb } from '@phynd/db'
+import { visitorPageViews, visitorSessions } from '@phynd/db/schema'
+import { CacheInvalidator } from '@phynd/federation'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 

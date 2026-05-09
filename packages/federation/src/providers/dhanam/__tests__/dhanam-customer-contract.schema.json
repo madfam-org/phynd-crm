@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://madfam.io/contracts/dhanam-raw-customer.json",
   "title": "DhanamRawCustomer",
-  "description": "Contract schema for the Dhanam federation endpoint response. This is the shape returned by GET /v1/customers/:externalId and consumed by PhyneCRM's DhanamProvider. Both sides MUST validate against this schema. Any breaking change requires updating this file and both contract tests.",
+  "description": "Contract schema for the Dhanam federation endpoint response. This is the shape returned by GET /v1/customers/:externalId and consumed by PhyndCRM's DhanamProvider. Both sides MUST validate against this schema. Any breaking change requires updating this file and both contract tests.",
   "type": "object",
   "required": ["id", "subscription", "balance", "invoices", "payment_methods"],
   "additionalProperties": false,
@@ -10,7 +10,7 @@
     "id": {
       "type": "string",
       "minLength": 1,
-      "description": "Dhanam user ID (maps to PhyneCRM's externalId)"
+      "description": "Dhanam user ID (maps to PhyndCRM's externalId)"
     },
     "subscription": {
       "type": "object",

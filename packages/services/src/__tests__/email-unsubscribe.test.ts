@@ -69,7 +69,7 @@ describe('unsubscribe-token', () => {
       process.env.NEXT_PUBLIC_APP_URL = original
     })
 
-    it('falls back to crm.madfam.io', () => {
+    it('falls back to phynd.app', () => {
       const original = process.env.NEXT_PUBLIC_APP_URL
       delete process.env.NEXT_PUBLIC_APP_URL
       const url = buildUnsubscribeUrl('lead-000')

@@ -5,9 +5,9 @@ WORKDIR /app
 FROM base AS builder
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN npx turbo build --filter=@phyne/worker
+RUN npx turbo build --filter=@phynd/worker
 # pnpm deploy creates flat node_modules with resolved workspace deps
-RUN pnpm deploy --filter=@phyne/worker /deploy
+RUN pnpm deploy --filter=@phynd/worker /deploy
 # tsup bundles to a single CJS file; copy it into the deploy output
 RUN cp apps/worker/dist/index.js /deploy/dist/index.js 2>/dev/null || \
     mkdir -p /deploy/dist && cp apps/worker/dist/index.js /deploy/dist/index.js

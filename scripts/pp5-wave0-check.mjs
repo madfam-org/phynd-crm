@@ -17,19 +17,19 @@ const checks = [
   },
   {
     name: 'staging namespace',
-    command: ['kubectl', 'get', 'ns', 'phyne-crm-staging'],
+    command: ['kubectl', 'get', 'ns', 'phynd-crm-staging'],
   },
   {
     name: 'staging secret',
-    command: ['kubectl', '-n', 'phyne-crm-staging', 'get', 'secret', 'phyne-crm-staging-secrets'],
+    command: ['kubectl', '-n', 'phynd-crm-staging', 'get', 'secret', 'phynd-crm-staging-secrets'],
   },
   {
     name: 'staging image pull secret',
-    command: ['kubectl', '-n', 'phyne-crm-staging', 'get', 'secret', 'ghcr-credentials'],
+    command: ['kubectl', '-n', 'phynd-crm-staging', 'get', 'secret', 'ghcr-credentials'],
   },
   {
     name: 'staging ArgoCD app',
-    command: ['kubectl', '-n', 'argocd', 'get', 'application', 'phyne-crm-staging'],
+    command: ['kubectl', '-n', 'argocd', 'get', 'application', 'phynd-crm-staging'],
   },
   {
     name: 'staging ArgoCD sync',
@@ -39,7 +39,7 @@ const checks = [
       'argocd',
       'wait',
       '--for=jsonpath={.status.sync.status}=Synced',
-      'application/phyne-crm-staging',
+      'application/phynd-crm-staging',
       '--timeout=30s',
     ],
   },
@@ -48,10 +48,10 @@ const checks = [
     command: [
       'kubectl',
       '-n',
-      'phyne-crm-staging',
+      'phynd-crm-staging',
       'rollout',
       'status',
-      'deployment/phyne-crm-web',
+      'deployment/phynd-crm-web',
       '--timeout=30s',
     ],
   },
@@ -60,16 +60,16 @@ const checks = [
     command: [
       'kubectl',
       '-n',
-      'phyne-crm-staging',
+      'phynd-crm-staging',
       'rollout',
       'status',
-      'deployment/phyne-crm-worker',
+      'deployment/phynd-crm-worker',
       '--timeout=30s',
     ],
   },
   {
     name: 'staging health DNS/HTTP',
-    command: ['curl', '-fsS', 'https://staging-crm.madfam.io/api/health'],
+    command: ['curl', '-fsS', 'https://staging-phynd.app/api/health'],
   },
 ]
 

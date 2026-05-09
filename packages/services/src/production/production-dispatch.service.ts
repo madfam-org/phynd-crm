@@ -1,5 +1,5 @@
-import type { getDb } from '@phyne/db'
-import { engagementEvents, externalReferences, type orders } from '@phyne/db/schema'
+import type { getDb } from '@phynd/db'
+import { engagementEvents, externalReferences, type orders } from '@phynd/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 
 type DispatchTx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]

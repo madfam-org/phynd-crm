@@ -1,6 +1,6 @@
 # PP.5 Session Wrap-Up - 2026-05-07 Local / 2026-05-08 UTC
 
-> Scope: PhyneCRM PP.5 staging remediation, client/project onboarding,
+> Scope: PhyndCRM PP.5 staging remediation, client/project onboarding,
 > self-checkout, Dhanam reconciliation, paid production handoff, provider
 > handoff planning, and Wave 0 bootstrap.
 >
@@ -10,9 +10,9 @@
 
 ## Executive Summary
 
-This session moved PhyneCRM materially closer to a complete client onboarding
+This session moved PhyndCRM materially closer to a complete client onboarding
 and paid-production path, but it is not yet ready for full live client
-onboarding at `crm.madfam.io`, `staging-crm.madfam.io`, or the Selva office
+onboarding at `phynd.app`, `staging-phynd.app`, or the Selva office
 without the remaining operator-owned staging bootstrap.
 
 Repo-owned work is now in place for:
@@ -50,7 +50,7 @@ Current practical readiness for a full client path is:
 - **Physical/phygital manufacturing handoff:** implemented through dispatch
   intent plus worker HTTP dispatch, but provider endpoint secrets and staging
   receiver proof are required before considering it reliable.
-- **Live external onboarding:** blocked until `phyne-crm-staging-secrets`,
+- **Live external onboarding:** blocked until `phynd-crm-staging-secrets`,
   staging DNS/tunnel, provider staging destinations, and staging probes are
   complete.
 
@@ -197,24 +197,24 @@ Also added:
 
 Observed on 2026-05-07 local time / 2026-05-08 UTC:
 
-- Namespace `phyne-crm-staging` exists.
-- ArgoCD Application `phyne-crm-staging` exists.
+- Namespace `phynd-crm-staging` exists.
+- ArgoCD Application `phynd-crm-staging` exists.
 - ArgoCD is synced to `9ae485eb649dce7113b8832a18413628477906b1`.
 - ArgoCD sync status is `Synced`.
 - ArgoCD operation phase is `Succeeded`.
 - ArgoCD health is `Degraded`.
 - Staging `ghcr-credentials` exists.
 - Web and worker images now pull successfully.
-- Web and worker pods are blocked by missing `phyne-crm-staging-secrets`.
-- `staging-crm.madfam.io` does not resolve.
+- Web and worker pods are blocked by missing `phynd-crm-staging-secrets`.
+- `staging-phynd.app` does not resolve.
 - Cloudflared local config does not define static ingress rules. Routes are
   managed remotely through Enclii/switchyard, so DNS/tunnel completion is a
-  platform action rather than a PhyneCRM repo patch.
+  platform action rather than a PhyndCRM repo patch.
 
 Current pod blocker:
 
 ```text
-Error: secret "phyne-crm-staging-secrets" not found
+Error: secret "phynd-crm-staging-secrets" not found
 ```
 
 This is the desired fail-closed state. No placeholder staging secret was
@@ -266,7 +266,7 @@ Local validation performed during the session:
 pnpm lint
 pnpm typecheck
 pnpm test
-AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phyne:phyne@localhost:5432/phyne_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
+AUTH_BYPASS=false AUTH_SECRET=test-secret-123456 DATABASE_URL=postgresql://phynd:phynd@localhost:5432/phynd_crm REDIS_URL=redis://localhost:6379 NEXT_PUBLIC_APP_URL=http://localhost:3000 pnpm build
 python3 scripts/check-networkpolicy-ports.py infra/k8s/
 kubectl kustomize infra/k8s/overlays/staging
 kubectl apply -k infra/k8s/overlays/staging --dry-run=server
@@ -307,32 +307,32 @@ Remote validation on latest commit `9ae485e`:
 | `fortuna` | `/api/webhooks/fortuna` | `FORTUNA_WEBHOOK_SECRET` | `x-fortuna-signature` |
 | `tezca-interest` | `/api/webhooks/tezca` | `TEZCA_WEBHOOK_SECRET` | `x-webhook-signature` |
 | `tezca-newsletter` | `/api/webhooks/tezca` | `TEZCA_WEBHOOK_SECRET` | `x-webhook-signature` |
-| `routecraft` | `/api/webhooks/routecraft` | `PHYNE_CRM_EVENTS_SECRET` | `x-madfam-signature` |
-| `legacy-payment` | `/api/v1/events/payment.succeeded` | `PHYNE_CRM_EVENTS_SECRET` | `x-madfam-signature` |
+| `routecraft` | `/api/webhooks/routecraft` | `PHYND_CRM_EVENTS_SECRET` | `x-madfam-signature` |
+| `legacy-payment` | `/api/v1/events/payment.succeeded` | `PHYND_CRM_EVENTS_SECRET` | `x-madfam-signature` |
 | `ceq` | `/api/webhooks/ceq` | `CEQ_WEBHOOK_SECRET` | `x-webhook-signature` |
 | `coforma` | `/api/webhooks/coforma` | `COFORMA_WEBHOOK_SECRET` | `x-madfam-signature` |
-| `engagement-event` | `/api/v1/engagements/events` | `PHYNE_ENGAGEMENT_EVENTS_SECRET` | `x-webhook-signature` |
-| `engagement-artifact` | `/api/v1/engagements/artifacts` | `PHYNE_ENGAGEMENT_EVENTS_SECRET` | `x-webhook-signature` |
+| `engagement-event` | `/api/v1/engagements/events` | `PHYND_ENGAGEMENT_EVENTS_SECRET` | `x-webhook-signature` |
+| `engagement-artifact` | `/api/v1/engagements/artifacts` | `PHYND_ENGAGEMENT_EVENTS_SECRET` | `x-webhook-signature` |
 
 ## Remaining Blockers
 
 ### Blocker 1 - Staging App Secret
 
-`phyne-crm-staging-secrets` is not installed.
+`phynd-crm-staging-secrets` is not installed.
 
 Generate and validate a secure staging env file:
 
 ```bash
-node scripts/pp5-generate-staging-env.mjs --output /secure/path/phyne-crm-staging.env
-node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
+node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-staging.env
+node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
 ```
 
 Apply only after all `REPLACE_ME_*` values are replaced with real staging-only
 values:
 
 ```bash
-kubectl -n phyne-crm-staging create secret generic phyne-crm-staging-secrets \
-  --from-env-file=/secure/path/phyne-crm-staging.env \
+kubectl -n phynd-crm-staging create secret generic phynd-crm-staging-secrets \
+  --from-env-file=/secure/path/phynd-crm-staging.env \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
@@ -348,21 +348,21 @@ Critical operator-owned values include:
 - `KARAFIEL_API_KEY`
 - `RESEND_API_KEY`
 - `EMAIL_ALLOWLIST_DOMAINS`
-- `PHYNE_CRM_PROBE_TOKEN`
+- `PHYND_CRM_PROBE_TOKEN`
 
 ### Blocker 2 - DNS/Tunnel Route
 
-`staging-crm.madfam.io` does not resolve.
+`staging-phynd.app` does not resolve.
 
 Target route:
 
 ```text
-staging-crm.madfam.io -> phyne-crm-web.phyne-crm-staging.svc.cluster.local:80
+staging-phynd.app -> phynd-crm-web.phynd-crm-staging.svc.cluster.local:80
 ```
 
 Cloudflared indicates ingress routes are managed remotely through Enclii /
 switchyard. Complete this through the platform domain/junction mechanism, not
-by editing PhyneCRM app manifests.
+by editing PhyndCRM app manifests.
 
 ### Blocker 3 - Provider Staging Destinations
 
@@ -393,15 +393,15 @@ Do not run production-derived data probes in staging until this is explicit.
 
 ## Immediate Next Actions
 
-1. Secrets owner installs validated `phyne-crm-staging-secrets`.
-2. Platform/Enclii adds `staging-crm.madfam.io` route to the staging service.
+1. Secrets owner installs validated `phynd-crm-staging-secrets`.
+2. Platform/Enclii adds `staging-phynd.app` route to the staging service.
 3. Re-run:
 
 ```bash
 node scripts/pp5-wave0-check.mjs
-kubectl -n phyne-crm-staging get deploy,svc,pod,secret
-kubectl -n argocd get application phyne-crm-staging
-curl -fsS https://staging-crm.madfam.io/api/health
+kubectl -n phynd-crm-staging get deploy,svc,pod,secret
+kubectl -n argocd get application phynd-crm-staging
+curl -fsS https://staging-phynd.app/api/health
 ```
 
 4. Once Wave 0 passes, run the CRM onboarding dry run for:
@@ -437,7 +437,7 @@ curl -fsS https://staging-crm.madfam.io/api/health
   `JANUA_WEBHOOK_SECRET`; remove reliance on that fallback once telemetry is
   fully split.
 - No inbound `POST /api/webhooks/karafiel` route exists in this repo. Current
-  Karafiel scope is outbound PhyneCRM to Karafiel unless a real inbound
+  Karafiel scope is outbound PhyndCRM to Karafiel unless a real inbound
   contract is added.
 
 ## Wrap-Up Status

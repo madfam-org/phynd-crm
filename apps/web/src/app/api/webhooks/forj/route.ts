@@ -1,6 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
-import { CacheInvalidator } from '@phyne/federation'
+import { CacheInvalidator } from '@phynd/federation'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {

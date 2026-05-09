@@ -11,42 +11,42 @@ import { SectionWrapper } from './section-wrapper'
 const rows = [
   {
     feature: 'Pricing Model',
-    phyne: 'Free core / flat cloud tier',
+    phynd: 'Free core / flat cloud tier',
     salesforce: 'Per seat, per month',
     hubspot: 'Freemium + per seat tiers',
     oss: 'Free (self-host only)',
   },
   {
     feature: 'Data Architecture',
-    phyne: 'Real-time federation',
+    phynd: 'Real-time federation',
     salesforce: 'Centralized ETL',
     hubspot: 'Centralized ETL',
     oss: 'Local database only',
   },
   {
     feature: 'Manufacturing Integration',
-    phyne: 'Native (PravaraMES)',
+    phynd: 'Native (PravaraMES)',
     salesforce: 'Custom connector',
     hubspot: 'Not available',
     oss: 'Build your own',
   },
   {
     feature: 'Digital Assets / 3D',
-    phyne: 'Native (Forj)',
+    phynd: 'Native (Forj)',
     salesforce: 'Not available',
     hubspot: 'Not available',
     oss: 'Not available',
   },
   {
     feature: 'Self-Hosting',
-    phyne: 'Yes (MIT licensed)',
+    phynd: 'Yes (MIT licensed)',
     salesforce: 'No',
     hubspot: 'No',
     oss: 'Yes',
   },
   {
     feature: 'API Federation',
-    phyne: '5+ providers, circuit breaker',
+    phynd: '5+ providers, circuit breaker',
     salesforce: 'REST/SOAP only',
     hubspot: 'REST only',
     oss: 'Varies',
@@ -57,7 +57,7 @@ export function ComparisonTable() {
   return (
     <SectionWrapper>
       <div className="reveal mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">How Phyne Compares</h2>
+        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">How Phynd Compares</h2>
         <p className="mt-4 text-lg text-muted-foreground">
           Purpose-built for businesses that span physical and digital operations.
         </p>
@@ -67,7 +67,7 @@ export function ComparisonTable() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px]">Feature</TableHead>
-              <TableHead className="bg-primary/5 font-bold text-foreground">Phyne</TableHead>
+              <TableHead className="bg-primary/5 font-bold text-foreground">Phynd</TableHead>
               <TableHead>Salesforce</TableHead>
               <TableHead>HubSpot</TableHead>
               <TableHead>OSS CRMs</TableHead>
@@ -77,7 +77,7 @@ export function ComparisonTable() {
             {rows.map((row) => (
               <TableRow key={row.feature}>
                 <TableCell className="font-medium">{row.feature}</TableCell>
-                <TableCell className="bg-primary/5 font-medium">{row.phyne}</TableCell>
+                <TableCell className="bg-primary/5 font-medium">{row.phynd}</TableCell>
                 <TableCell className="text-muted-foreground">{row.salesforce}</TableCell>
                 <TableCell className="text-muted-foreground">{row.hubspot}</TableCell>
                 <TableCell className="text-muted-foreground">{row.oss}</TableCell>

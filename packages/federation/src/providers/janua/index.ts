@@ -1,4 +1,4 @@
-import type { JanuaIdentity } from '@phyne/types/federation'
+import type { JanuaIdentity } from '@phynd/types/federation'
 import type { FederationProvider } from '../../core/types'
 
 interface JanuaRawProfile {

@@ -1,10 +1,10 @@
 /**
- * PhyneCRM-side contract test for the DhanamProvider federation integration.
+ * PhyndCRM-side contract test for the DhanamProvider federation integration.
  *
  * Validates that:
  * 1. The DhanamRawCustomer interface shape matches the shared JSON Schema contract
  * 2. The DhanamProvider.map() correctly transforms raw Dhanam responses into
- *    PhyneCRM's internal DhanamBilling type
+ *    PhyndCRM's internal DhanamBilling type
  *
  * If this test breaks, it means either:
  * - The DhanamRawCustomer interface drifted from the agreed contract

@@ -1,5 +1,5 @@
-import { users } from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { users } from '@phynd/db/schema'
+import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

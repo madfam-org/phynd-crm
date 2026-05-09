@@ -1,4 +1,4 @@
-import type { FederationProviderName } from '@phyne/types'
+import type { FederationProviderName } from '@phynd/types'
 import type { CacheManager } from '../core/cache-manager'
 
 interface InvalidationRule {

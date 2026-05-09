@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { isFeatureEnabled } from '@phyne/config/features'
+import { isFeatureEnabled } from '@phynd/config/features'
 import {
   campaigns,
   contacts,
@@ -9,8 +9,8 @@ import {
   pipelines,
   referralCodes,
   referrals,
-} from '@phyne/db/schema'
-import { createLogger } from '@phyne/logging'
+} from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
 import { and, eq, gt, isNull, lt, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

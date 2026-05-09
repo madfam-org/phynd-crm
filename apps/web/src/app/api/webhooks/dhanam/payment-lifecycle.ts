@@ -1,4 +1,4 @@
-import type { DhanamPaymentLifecycle } from '@phyne/services/payments/payment-reconciliation'
+import type { DhanamPaymentLifecycle } from '@phynd/services/payments/payment-reconciliation'
 
 interface PaymentLifecycleEvent {
   amountMinor: number | null

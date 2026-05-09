@@ -4,16 +4,16 @@ const mockDb = { kind: 'db' }
 const mockDispatchPending = vi.fn()
 const mockDispatchReference = vi.fn()
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => mockDb),
 }))
 
-vi.mock('@phyne/services', () => ({
+vi.mock('@phynd/services', () => ({
   dispatchPendingProductionDispatches: (...args: unknown[]) => mockDispatchPending(...args),
   dispatchProductionDispatchReference: (...args: unknown[]) => mockDispatchReference(...args),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),

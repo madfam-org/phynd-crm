@@ -5,7 +5,7 @@ const steps = [
     step: '1',
     title: 'Connect',
     description:
-      'Point Phyne at your existing platforms. Configure credentials once, federate forever.',
+      'Point Phynd at your existing platforms. Configure credentials once, federate forever.',
     icon: (
       <svg
         aria-hidden="true"

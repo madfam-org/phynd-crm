@@ -16,6 +16,6 @@ export function verifyUnsubscribeToken(token: string): string | null {
 }
 
 export function buildUnsubscribeUrl(leadId: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crm.madfam.io'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://phynd.app'
   return `${baseUrl}/api/unsubscribe?token=${generateUnsubscribeToken(leadId)}`
 }

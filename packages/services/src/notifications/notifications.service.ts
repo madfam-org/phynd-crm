@@ -1,4 +1,4 @@
-import { notifications } from '@phyne/db/schema'
+import { notifications } from '@phynd/db/schema'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

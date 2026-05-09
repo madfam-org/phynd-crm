@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import type { ForjAssets } from '@phyne/types/federation'
+import type { ForjAssets } from '@phynd/types/federation'
 import { useCallback, useRef } from 'react'
 import { ModelViewerEmbed } from './model-viewer-embed'
 import { NftCertificateBadge } from './nft-certificate-badge'

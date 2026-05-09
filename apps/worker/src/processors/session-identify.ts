@@ -1,7 +1,7 @@
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
-import { VisitorTrackingService } from '@phyne/services'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
+import { VisitorTrackingService } from '@phynd/services'
 import type { Job } from 'bullmq'
 import { getCacheManager } from '../lib/federation'
 

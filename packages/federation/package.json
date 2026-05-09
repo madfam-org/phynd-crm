@@ -1,5 +1,5 @@
 {
-  "name": "@phyne/federation",
+  "name": "@phynd/federation",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,8 +19,8 @@
   },
   "dependencies": {
     "ioredis": "^5.4.2",
-    "@phyne/types": "workspace:*",
-    "@phyne/config": "workspace:*"
+    "@phynd/types": "workspace:*",
+    "@phynd/config": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.12.0",

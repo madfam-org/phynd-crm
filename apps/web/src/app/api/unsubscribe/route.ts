@@ -1,6 +1,6 @@
-import { getDb } from '@phyne/db'
-import { leads } from '@phyne/db/schema'
-import { verifyUnsubscribeToken } from '@phyne/services/email/unsubscribe-token'
+import { getDb } from '@phynd/db'
+import { leads } from '@phynd/db/schema'
+import { verifyUnsubscribeToken } from '@phynd/services/email/unsubscribe-token'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 

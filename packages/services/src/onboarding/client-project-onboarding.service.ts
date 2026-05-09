@@ -7,7 +7,7 @@ import {
   opportunities,
   orders,
   quotes,
-} from '@phyne/db/schema'
+} from '@phynd/db/schema'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError } from '../errors'

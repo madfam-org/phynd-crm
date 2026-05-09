@@ -10,7 +10,7 @@ if (sentryDsn) {
 }
 
 import http from 'node:http'
-import { createLogger } from '@phyne/logging'
+import { createLogger } from '@phynd/logging'
 import { Worker } from 'bullmq'
 import { processCacheWarmup } from './processors/cache-warmup'
 import { processDemoCleanup } from './processors/demo-cleanup'
@@ -171,7 +171,7 @@ async function main() {
   const healthServer = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ status: 'ok', service: 'phyne-crm-worker', version: '0.1.0' }))
+      res.end(JSON.stringify({ status: 'ok', service: 'phynd-crm-worker', version: '0.1.0' }))
       return
     }
     res.writeHead(404, { 'Content-Type': 'application/json' })

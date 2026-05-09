@@ -1,8 +1,8 @@
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { leads } from '@phyne/db/schema'
-import { createLogger } from '@phyne/logging'
-import { LeadScoringService } from '@phyne/services'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { leads } from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
+import { LeadScoringService } from '@phynd/services'
 import type { Job } from 'bullmq'
 import { getCacheManager } from '../lib/federation'
 

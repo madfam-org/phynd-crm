@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { DhanamBilling } from '@phyne/types/federation'
+import type { DhanamBilling } from '@phynd/types/federation'
 
 interface BillingPanelProps {
   data: DhanamBilling

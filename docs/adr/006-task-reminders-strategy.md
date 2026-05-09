@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Activities in Phyne have a `dueAt` field, but there is no mechanism to notify users when tasks are approaching their deadlines. Sales reps miss follow-ups because there's no approaching-deadline automation. The notification infrastructure already exists (notifications table, NotificationsService, NotificationBell component with polling).
+Activities in Phynd have a `dueAt` field, but there is no mechanism to notify users when tasks are approaching their deadlines. Sales reps miss follow-ups because there's no approaching-deadline automation. The notification infrastructure already exists (notifications table, NotificationsService, NotificationBell component with polling).
 
 ## Decision
 Implement task reminders as a **repeatable BullMQ job** that scans for upcoming activities and creates notifications.

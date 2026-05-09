@@ -1,4 +1,4 @@
-# phyne-crm — Ecosystem Context
+# phynd-crm — Ecosystem Context
 
 > **Federated "single pane of glass" CRM — virtualizes data from 6 MADFAM platforms without ETL.**
 
@@ -11,7 +11,7 @@ embedded below.
 
 ## 1. What this repo is
 
-Phyne is the client-facing deliverables portal: per-client (possibly branded) dashboards showing a complete history with MADFAM — quotes, signed proposals, active projects, deliverables, invoices. Owns CRM-native entities (contacts, leads, opportunities, pipelines) and *virtualizes* everything else (identity from Janua, billing from Dhanam, custom orders from Cotiza, fab status from Pravara, 3D assets) through a federation layer with caching, circuit breaking, and partial-failure tolerance. **Project execution tracking lives here**, not in the upstream platforms.
+Phynd is the client-facing deliverables portal: per-client (possibly branded) dashboards showing a complete history with MADFAM — quotes, signed proposals, active projects, deliverables, invoices. Owns CRM-native entities (contacts, leads, opportunities, pipelines) and *virtualizes* everything else (identity from Janua, billing from Dhanam, custom orders from Cotiza, fab status from Pravara, 3D assets) through a federation layer with caching, circuit breaking, and partial-failure tolerance. **Project execution tracking lives here**, not in the upstream platforms.
 
 **Pillar**: Financial / CRM (client portal)
 **Type**: service
@@ -21,11 +21,11 @@ Phyne is the client-facing deliverables portal: per-client (possibly branded) da
 
 | Service | Public domain | Container port |
 |---|---|---|
-| `phyne-crm-web` | (per-client branded domains) | 3000 |
-| `phyne-crm-api` | (internal federation API) | 8000 |
-| `phyne-crm-worker` | (background jobs) | — |
+| `phynd-crm-web` | (per-client branded domains) | 3000 |
+| `phynd-crm-api` | (internal federation API) | 8000 |
+| `phynd-crm-worker` | (background jobs) | — |
 
-**Kubernetes namespace**: `phyne-crm`
+**Kubernetes namespace**: `phynd-crm`
 **Cluster**: bare-metal k3s on Hetzner (see topology section below).
 
 ### Upstream dependencies (this repo consumes)
@@ -71,7 +71,7 @@ below is embedded here so this document stands alone.
 | **Cotiza** | `madfam-org/digifab-quoting` | MADFAM's quoting engine (fabrication + services) |
 | **Forgesight** | `madfam-org/forgesight` | Digital fabrication industry intelligence (pricing/vendor feed to Cotiza) |
 | **Pravara MES** | `madfam-org/pravara-mes` | Fabrication-node routing and dispatch (physical jobs) |
-| **PhyneCRM** | `madfam-org/phyne-crm` | Client-facing deliverables portal (single pane of glass per engagement) |
+| **PhyndCRM** | `madfam-org/phynd-crm` | Client-facing deliverables portal (single pane of glass per engagement) |
 | **Fortuna** | `madfam-org/fortuna` | Problem intelligence / zeitgeist analysis |
 | **Avala** | `madfam-org/avala` | Learning verification platform |
 
@@ -148,21 +148,21 @@ Env vars: `ENCLII_API_URL` (default `https://api.enclii.dev`),
 `ENCLII_TOKEN` (alternative to interactive login),
 `ENCLII_PROJECT`, `ENCLII_ENV`.
 
-### Day-to-day for phyne-crm-api
+### Day-to-day for phynd-crm-api
 
-The commands below default to `phyne-crm-api` — the primary service name for
+The commands below default to `phynd-crm-api` — the primary service name for
 this repo as registered in Switchyard. For any other service in the
 ecosystem, swap the name.
 
 ```bash
 # Status + where the pods are running
 enclii ps --wide
-enclii ps phyne-crm-api --env production
+enclii ps phynd-crm-api --env production
 
 # Logs (tail, filter, history)
-enclii logs phyne-crm-api -f                          # live tail
-enclii logs phyne-crm-api --since 1h --level error    # last hour, errors only
-enclii logs phyne-crm-api --env staging -f
+enclii logs phynd-crm-api -f                          # live tail
+enclii logs phynd-crm-api --since 1h --level error    # last hour, errors only
+enclii logs phynd-crm-api --env staging -f
 
 # Deploy (preview, staging, production)
 enclii deploy --env preview                       # from current branch
@@ -170,28 +170,28 @@ enclii deploy --env staging
 enclii deploy --env production --strategy canary --canary-percent 10
 
 # Rollback
-enclii rollback phyne-crm-api                         # previous release
-enclii rollback phyne-crm-api --to-revision 5
+enclii rollback phynd-crm-api                         # previous release
+enclii rollback phynd-crm-api --to-revision 5
 
 # Releases + history
-enclii releases phyne-crm-api                          # list builds
-enclii releases phyne-crm-api --latest --output json
+enclii releases phynd-crm-api                          # list builds
+enclii releases phynd-crm-api --latest --output json
 
 # Secrets (routed through Lockbox → Vault → ESO → K8s)
-enclii secrets list phyne-crm-api
-enclii secrets set MY_KEY=value --service phyne-crm-api --secret
-enclii secrets rm MY_KEY --service phyne-crm-api
+enclii secrets list phynd-crm-api
+enclii secrets set MY_KEY=value --service phynd-crm-api --secret
+enclii secrets rm MY_KEY --service phynd-crm-api
 
 # Domains, tunnel routes, DNS
-enclii domains list phyne-crm-api
-enclii domains add phyne-crm-api my.example.com       # auto-provisions tunnel route + DNS
+enclii domains list phynd-crm-api
+enclii domains add phynd-crm-api my.example.com       # auto-provisions tunnel route + DNS
 
 # Scheduled jobs (cron + one-off)
 enclii jobs list
 enclii jobs run <job-name>                         # trigger one-off
 
 # Routing (ingress + TLS)
-enclii junctions list phyne-crm-api
+enclii junctions list phynd-crm-api
 
 # Serverless (scale-to-zero functions)
 enclii functions list

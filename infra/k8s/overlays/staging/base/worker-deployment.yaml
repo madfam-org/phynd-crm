@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: phyne-crm-worker
+  name: phynd-crm-worker
   labels:
-    app: phyne-crm-worker
-    app.kubernetes.io/name: phyne-crm-worker
+    app: phynd-crm-worker
+    app.kubernetes.io/name: phynd-crm-worker
     app.kubernetes.io/part-of: madfam-platform
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: phyne-crm-worker
+      app: phynd-crm-worker
   template:
     metadata:
       labels:
-        app: phyne-crm-worker
-        app.kubernetes.io/name: phyne-crm-worker
+        app: phynd-crm-worker
+        app.kubernetes.io/name: phynd-crm-worker
         app.kubernetes.io/part-of: madfam-platform
     spec:
       securityContext:
@@ -28,7 +28,7 @@ spec:
         - name: ghcr-credentials
       containers:
         - name: worker
-          image: ghcr.io/madfam-org/phyne-crm/worker:latest
+          image: ghcr.io/madfam-org/phynd-crm/worker:latest
           ports:
             - name: health
               containerPort: 3001
@@ -37,9 +37,9 @@ spec:
               value: "3001"
           envFrom:
             - secretRef:
-                name: phyne-crm-secrets
+                name: phynd-crm-secrets
             - secretRef:
-                name: phyne-acca-secrets
+                name: phynd-acca-secrets
                 optional: true
           resources:
             requests:

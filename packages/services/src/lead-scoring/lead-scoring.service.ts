@@ -4,8 +4,8 @@ import {
   leads,
   visitorPageViews,
   visitorSessions,
-} from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput, ScoringCondition } from '@phyne/types/crm'
+} from '@phynd/db/schema'
+import type { PaginatedResult, PaginationInput, ScoringCondition } from '@phynd/types/crm'
 import { and, eq, gt, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

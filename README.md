@@ -1,10 +1,10 @@
-# Phyne CRM
+# Phynd CRM
 
 A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates real-time data from six MADFAM ecosystem platforms without duplicating it. Open-source core with a commercial SaaS tier.
 
 ## Overview
 
-Phyne owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, custom orders, fabrication status, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phyne queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
+Phynd owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, custom orders, fabrication status, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phynd queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
 
 ## Architecture
 
@@ -55,7 +55,7 @@ All federation calls use `Promise.allSettled()` so that a failure in one provide
 ## Project Structure
 
 ```
-phyne-crm/
+phynd-crm/
   apps/
     web/              Next.js frontend and API routes
     worker/           BullMQ background job processors
@@ -83,8 +83,8 @@ phyne-crm/
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/phyne-crm.git
-cd phyne-crm
+git clone https://github.com/your-org/phynd-crm.git
+cd phynd-crm
 pnpm install
 
 # Start infrastructure
@@ -124,11 +124,11 @@ The app will be available at `http://localhost:3000`.
 
 ## Federation Layer
 
-Phyne uses a data virtualization pattern rather than ETL. Each external platform is represented by a class that implements the `FederationProvider` interface, exposing a uniform API for querying upstream data.
+Phynd uses a data virtualization pattern rather than ETL. Each external platform is represented by a class that implements the `FederationProvider` interface, exposing a uniform API for querying upstream data.
 
 ### Cache Strategy
 
-- Redis-backed with tenant-namespaced keys: `phyne:{tenantId}:fed:{provider}:{id}`
+- Redis-backed with tenant-namespaced keys: `phynd:{tenantId}:fed:{provider}:{id}`
 - Per-provider TTLs tuned to each platform's data volatility
 - Webhook-driven cache invalidation for real-time consistency
 
@@ -153,7 +153,7 @@ All SPOG (Single Pane of Glass) queries use `Promise.allSettled()`. If one provi
 
 ## External Systems
 
-Phyne federates data from six platforms in the MADFAM ecosystem (5 active in MVP, 1 feature-flagged):
+Phynd federates data from six platforms in the MADFAM ecosystem (5 active in MVP, 1 feature-flagged):
 
 | Platform             | Role                          | Status              | Integration              |
 | -------------------- | ----------------------------- | ------------------- | ------------------------ |
@@ -201,7 +201,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation API Keys    | `PRAVARA_API_KEY`                                    |
 | Webhook Secrets        | `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET` |
 | App                    | `NEXT_PUBLIC_APP_URL`, `NODE_ENV`                    |
-| AI Pipeline (Fortuna)  | `OPENAI_API_KEY`, `PHYNE_WEBHOOK_SECRET`             |
+| AI Pipeline (Fortuna)  | `OPENAI_API_KEY`, `PHYND_WEBHOOK_SECRET`             |
 | Tezca Oracle           | `INTERNAL_TEZCA_KEY`, `TEZCA_API_URL`               |
 | Reddit Bot             | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_REFRESH_TOKEN`, `REDDIT_BOT_USERNAME` |
 
@@ -209,7 +209,7 @@ All environment variables are validated at startup using Zod schemas in `package
 
 ## Fortuna AI Pipeline Integration
 
-Phyne CRM is the campaign orchestration layer for the autonomous legal scouting pipeline:
+Phynd CRM is the campaign orchestration layer for the autonomous legal scouting pipeline:
 
 ```
 fortuna-jobs  ──► madfam-crawler  ──► fortuna-nlp
@@ -240,7 +240,7 @@ fortuna-jobs  ──► madfam-crawler  ──► fortuna-nlp
 
 ### Reddit Bot Setup
 
-See the [walkthrough artifact](https://github.com/madfam-org/phyne-crm) for the one-time Reddit OAuth refresh token setup required to activate live posting.
+See the [walkthrough artifact](https://github.com/madfam-org/phynd-crm) for the one-time Reddit OAuth refresh token setup required to activate live posting.
 
 ## License
 

@@ -1,4 +1,4 @@
-import type { DhanamBilling } from '@phyne/types/federation'
+import type { DhanamBilling } from '@phynd/types/federation'
 import type { FederationProvider } from '../../core/types'
 
 interface DhanamRawCustomer {
@@ -107,5 +107,34 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
     }
 
     return response.json() as Promise<{ checkoutUrl: string; sessionId: string }>
+  }
+
+  async mutate(
+    externalId: string,
+    payload: unknown,
+    token: string,
+    signal?: AbortSignal,
+    idempotencyKey?: string,
+  ): Promise<void> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}/mutate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: signal ?? AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      throw Object.assign(new Error(`Dhanam mutation error: ${response.statusText}`), {
+        status: response.status,
+      })
+    }
   }
 }

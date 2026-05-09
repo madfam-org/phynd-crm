@@ -40,11 +40,11 @@ const mockDb = {
   transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(mockDb)),
 }
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: () => mockDb,
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   conversions: { id: 'conversions.id' },
   contacts: { id: 'contacts.id', externalJanuaId: 'contacts.external_janua_id' },
   webhookEvents: {
@@ -66,7 +66,7 @@ vi.mock('drizzle-orm', () => ({
 import { POST } from '../route'
 
 const SECRET = 'whsec_test_routecraft_2026'
-const PHYNE_CRM_EVENTS_SECRET_ORIGINAL = process.env.PHYNE_CRM_EVENTS_SECRET
+const PHYND_CRM_EVENTS_SECRET_ORIGINAL = process.env.PHYND_CRM_EVENTS_SECRET
 
 function signedRequest(body: string, headerOverride?: string): Request {
   const ts = Math.floor(Date.now() / 1000)
@@ -84,7 +84,7 @@ function signedRequest(body: string, headerOverride?: string): Request {
 }
 
 beforeEach(() => {
-  process.env.PHYNE_CRM_EVENTS_SECRET = SECRET
+  process.env.PHYND_CRM_EVENTS_SECRET = SECRET
   state.priorEventIds = new Set()
   state.inserted = { webhookEvents: [], conversions: [] }
   mockCheckRateLimit.mockClear().mockResolvedValue({ allowed: true, remaining: 99 })
@@ -94,7 +94,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  process.env.PHYNE_CRM_EVENTS_SECRET = PHYNE_CRM_EVENTS_SECRET_ORIGINAL
+  process.env.PHYND_CRM_EVENTS_SECRET = PHYND_CRM_EVENTS_SECRET_ORIGINAL
 })
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
@@ -113,8 +113,8 @@ function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe('POST /api/webhooks/routecraft', () => {
-  it('returns 503 when PHYNE_CRM_EVENTS_SECRET is unset', async () => {
-    delete process.env.PHYNE_CRM_EVENTS_SECRET
+  it('returns 503 when PHYND_CRM_EVENTS_SECRET is unset', async () => {
+    delete process.env.PHYND_CRM_EVENTS_SECRET
     const res = await POST(signedRequest(JSON.stringify(makeEvent())))
     expect(res.status).toBe(503)
   })

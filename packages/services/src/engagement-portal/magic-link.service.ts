@@ -1,4 +1,4 @@
-import { contacts, engagements } from '@phyne/db/schema'
+import { contacts, engagements } from '@phynd/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ServiceError, ValidationError } from '../errors'
@@ -32,10 +32,10 @@ interface PortalSession {
 }
 
 // Portal magic-link flow, Janua-backed:
-//   1. Staff triggers sendPortalLink(engagementId) from PhyneCRM.
-//   2. Janua sends the email with a URL pointing back at PhyneCRM's
+//   1. Staff triggers sendPortalLink(engagementId) from PhyndCRM.
+//   2. Janua sends the email with a URL pointing back at PhyndCRM's
 //      /portal/verify?engagement=<id>&token=<janua_magic_token>.
-//   3. Client clicks; PhyneCRM /portal/verify calls verifyPortalLink()
+//   3. Client clicks; PhyndCRM /portal/verify calls verifyPortalLink()
 //      which exchanges the token with Janua, receives an RS256 JWT,
 //      and seals it into a httpOnly cookie scoped to the portal.
 //   4. Portal page reads the cookie, validates via JWKS, confirms the

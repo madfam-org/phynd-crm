@@ -1,4 +1,4 @@
-import { campaigns, conversions, offers } from '@phyne/db/schema'
+import { campaigns, conversions, offers } from '@phynd/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

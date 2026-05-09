@@ -8,7 +8,7 @@ import { verifyJanuaAccessToken } from './jwks'
 // on every read we verify it against Janua's published JWKS so a
 // replayed cookie after a key rotation fails hard.
 
-export const PORTAL_COOKIE = 'phyne-portal-session'
+export const PORTAL_COOKIE = 'phynd-portal-session'
 // Janua access tokens default to 15 min; keep the cookie slightly
 // shorter so the token never expires between middleware and page render.
 const PORTAL_COOKIE_MAX_AGE_S = 14 * 60

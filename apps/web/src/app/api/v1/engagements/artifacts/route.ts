@@ -1,7 +1,7 @@
 import { handleWebhook } from '@/lib/webhooks/handler'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
-import { EngagementsService } from '@phyne/services'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
+import { EngagementsService } from '@phynd/services'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:engagements-artifacts')
@@ -23,9 +23,9 @@ const logger = createLogger('web:engagements-artifacts')
 //     metadata?: Record<string, unknown>
 //   }
 //
-// Secret: PHYNE_ENGAGEMENT_EVENTS_SECRET (same as events webhook).
+// Secret: PHYND_ENGAGEMENT_EVENTS_SECRET (same as events webhook).
 export async function POST(req: Request) {
-  const secret = process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
+  const secret = process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Engagement events secret not configured' }, { status: 503 })
   }

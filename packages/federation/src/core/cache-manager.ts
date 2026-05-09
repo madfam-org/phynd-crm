@@ -9,7 +9,7 @@ export class CacheManager {
   ) {}
 
   private buildKey(prefix: string, id: string): string {
-    return `phyne:${this.tenantId}:${prefix}:${id}`
+    return `phynd:${this.tenantId}:${prefix}:${id}`
   }
 
   private buildStaleKey(prefix: string, id: string): string {

@@ -42,7 +42,7 @@ export function DashboardPreview() {
           </div>
           <div className="mx-auto flex-1">
             <div className="mx-auto max-w-xs rounded-md bg-background/80 px-3 py-1 text-center text-[10px] text-muted-foreground">
-              phyne.io/overview
+              phynd.io/overview
             </div>
           </div>
         </div>

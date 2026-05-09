@@ -1,5 +1,5 @@
-import { createLogger } from '@phyne/logging'
-import type { FederationProviderName } from '@phyne/types/federation'
+import { createLogger } from '@phynd/logging'
+import type { FederationProviderName } from '@phynd/types/federation'
 import type { Job } from 'bullmq'
 import { getCacheManager, getFederationClient } from '../lib/federation'
 

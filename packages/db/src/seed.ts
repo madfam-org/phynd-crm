@@ -5,7 +5,9 @@ if (process.env.NODE_ENV === 'production') {
   process.exit(1)
 }
 
-seed()
+const tenantId = process.env.TENANT_ID || 'madfam'
+
+seed(tenantId)
   .then(() => process.exit(0))
   .catch((e) => {
     console.error('Seed failed:', e)

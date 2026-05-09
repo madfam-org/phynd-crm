@@ -7,11 +7,11 @@
 
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
-import { ReferralService, createServiceContext } from '@phyne/services'
-import type { AuthContext } from '@phyne/types/auth'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
+import { ReferralService, createServiceContext } from '@phynd/services'
+import type { AuthContext } from '@phynd/types/auth'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('api:referrals:validate')

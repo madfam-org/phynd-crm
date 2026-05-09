@@ -1,4 +1,4 @@
-import type { CircuitBreakerConfig } from '@phyne/types/federation'
+import type { CircuitBreakerConfig } from '@phynd/types/federation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CircuitBreaker, DEFAULT_CB_CONFIG } from '../circuit-breaker'
 

@@ -12,7 +12,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   engagementEvents: {
     createdAt: 'engagementEvents.createdAt',
     dedupKey: 'engagementEvents.dedupKey',

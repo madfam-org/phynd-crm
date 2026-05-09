@@ -9,7 +9,7 @@ import {
 
 const SECRET = 'test-shared-secret-abc123'
 const URL_BASE = 'https://api.cotiza.test'
-const EXPECTED_URL = `${URL_BASE}/api/v1/webhooks/phynecrm/engagements`
+const EXPECTED_URL = `${URL_BASE}/api/v1/webhooks/phyndcrm/engagements`
 
 function makeEvent(overrides: Partial<CotizaEngagementEvent> = {}): CotizaEngagementEvent {
   return {
@@ -37,7 +37,7 @@ describe('CotizaEngagementEmitter', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     vi.stubEnv('COTIZA_API_URL', URL_BASE)
-    vi.stubEnv('PHYNECRM_OUTBOUND_SECRET', SECRET)
+    vi.stubEnv('PHYNDCRM_OUTBOUND_SECRET', SECRET)
     vi.stubEnv('COTIZA_WEBHOOK_TIMEOUT', '5000')
   })
 
@@ -63,7 +63,7 @@ describe('CotizaEngagementEmitter', () => {
 
       const init = fetchMock.mock.calls[0]?.[1]
       const body = init?.body as string
-      const signature = init?.headers?.['x-phynecrm-signature'] as string
+      const signature = init?.headers?.['x-phyndcrm-signature'] as string
       const expected = crypto.createHmac('sha256', SECRET).update(body).digest('hex')
 
       expect(signature).toBe(expected)
@@ -104,8 +104,8 @@ describe('CotizaEngagementEmitter', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    it('skips dispatch and does not call fetch when PHYNECRM_OUTBOUND_SECRET is unset', async () => {
-      vi.stubEnv('PHYNECRM_OUTBOUND_SECRET', '')
+    it('skips dispatch and does not call fetch when PHYNDCRM_OUTBOUND_SECRET is unset', async () => {
+      vi.stubEnv('PHYNDCRM_OUTBOUND_SECRET', '')
 
       await emitCotizaEngagementEvent(makeEvent())
 

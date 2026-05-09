@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { exportToCsv } from '@/lib/csv-export'
 import { trpc } from '@/lib/trpc/client'
-import type { AppRouter } from '@phyne/api'
+import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { CreateContactDialog } from './create-contact-dialog'

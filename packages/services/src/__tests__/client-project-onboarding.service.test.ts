@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientProjectOnboardingService } from '../onboarding/client-project-onboarding.service'
 import { createTestContext, makeContact, makeOpportunity, makeOrder, makeQuote } from './helpers'
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   contacts: {
     deletedAt: 'contacts.deletedAt',
     email: 'contacts.email',

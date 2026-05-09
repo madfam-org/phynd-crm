@@ -1,5 +1,5 @@
-import { grantApplications, grantOpportunities, grantSignalAudit } from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { grantApplications, grantOpportunities, grantSignalAudit } from '@phynd/db/schema'
+import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'

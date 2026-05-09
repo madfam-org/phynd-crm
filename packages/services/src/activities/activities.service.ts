@@ -1,5 +1,5 @@
-import { activities } from '@phyne/db/schema'
-import type { EntityType, PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { activities } from '@phynd/db/schema'
+import type { EntityType, PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, desc, eq, gt } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

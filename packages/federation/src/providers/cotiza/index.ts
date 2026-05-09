@@ -1,4 +1,4 @@
-import type { CotizaManufacturing } from '@phyne/types/federation'
+import type { CotizaManufacturing } from '@phynd/types/federation'
 import type { FederationProvider } from '../../core/types'
 
 interface CotizaRawData {
@@ -71,5 +71,34 @@ export class CotizaProvider implements FederationProvider<CotizaRawData, CotizaM
 
   getCacheKey(externalId: string, _tenantId: string): string {
     return externalId
+  }
+
+  async mutate(
+    externalId: string,
+    payload: unknown,
+    token: string,
+    signal?: AbortSignal,
+    idempotencyKey?: string,
+  ): Promise<void> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/v1/clients/${externalId}/mutate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: signal ?? AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      throw Object.assign(new Error(`Cotiza mutation error: ${response.statusText}`), {
+        status: response.status,
+      })
+    }
   }
 }

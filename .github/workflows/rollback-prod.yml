@@ -27,8 +27,8 @@ on:
         default: "false"
 
 env:
-  WEB_IMAGE: ghcr.io/madfam-org/phyne-crm/web
-  WORKER_IMAGE: ghcr.io/madfam-org/phyne-crm/worker
+  WEB_IMAGE: ghcr.io/madfam-org/phynd-crm/web
+  WORKER_IMAGE: ghcr.io/madfam-org/phynd-crm/worker
   PRODUCTION_KUSTOMIZATION: infra/k8s/production/kustomization.yaml
 
 jobs:
@@ -202,7 +202,7 @@ jobs:
         if: ${{ inputs.skip_smoke_check != 'true' }}
         run: |
           for attempt in 1 2 3 4 5 6; do
-            if curl -fsS "https://crm.madfam.io/api/health" >/dev/null; then
+            if curl -fsS "https://phynd.app/api/health" >/dev/null; then
               echo "Production smoke check passed on attempt ${attempt}"
               exit 0
             fi
@@ -225,14 +225,14 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.ENCLII_CALLBACK_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
-              \"repo_full_name\": \"madfam-org/phyne-crm\",
+              \"repo_full_name\": \"madfam-org/phynd-crm\",
               \"commit_sha\": \"${GITHUB_SHA}\",
               \"branch\": \"${GITHUB_REF_NAME}\",
               \"event_type\": \"${EVENT_TYPE}\",
               \"source\": \"ci_callback\",
               \"message\": \"rollback-prod ${STATUS}\",
               \"metadata\": {
-                \"service\": \"phyne-crm\",
+                \"service\": \"phynd-crm\",
                 \"workflow\": \"rollback-prod\",
                 \"component\": \"${{ steps.resolve.outputs.component }}\",
                 \"source_commit\": \"${{ steps.resolve.outputs.source_commit }}\",

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: phyne-crm-web
+  name: phynd-crm-web
 spec:
   replicas: 1
   template:
@@ -10,7 +10,7 @@ spec:
         - name: web
           envFrom:
             - secretRef:
-                name: phyne-crm-staging-secrets
+                name: phynd-crm-staging-secrets
             - secretRef:
-                name: phyne-acca-staging-secrets
+                name: phynd-acca-staging-secrets
                 optional: true

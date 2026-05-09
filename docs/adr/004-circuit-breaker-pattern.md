@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Phyne federates data from 6 external providers. Any provider can become slow or unavailable. Without protection, a single slow provider can cascade into full page timeouts.
+Phynd federates data from 6 external providers. Any provider can become slow or unavailable. Without protection, a single slow provider can cascade into full page timeouts.
 
 ## Decision
 Implement the **circuit breaker pattern** for all federation provider calls, with shared circuit breaker instances between `FederationClient` and `ProviderHealthChecker`.

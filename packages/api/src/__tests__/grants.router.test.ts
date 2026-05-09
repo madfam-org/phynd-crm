@@ -1,16 +1,16 @@
-import type { ServiceContext } from '@phyne/services/context'
-import type { AuthContext } from '@phyne/types/auth'
+import type { ServiceContext } from '@phynd/services/context'
+import type { AuthContext } from '@phynd/types/auth'
 import { describe, expect, it, vi } from 'vitest'
 import { appRouter } from '../router'
 import { createCallerFactory } from '../trpc'
 
 const mockIsFeatureEnabled = vi.fn().mockReturnValue(true)
 
-vi.mock('@phyne/config/features', () => ({
+vi.mock('@phynd/config/features', () => ({
   isFeatureEnabled: (...args: unknown[]) => mockIsFeatureEnabled(...args),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   grantApplications: {
     complianceChecks: 'grantApplications.complianceChecks',
     deletedAt: 'grantApplications.deletedAt',

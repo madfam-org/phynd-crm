@@ -2,8 +2,8 @@
  * Contract tests for GET /api/v1/probe/attribution.
  *
  * Locks the wire contract documented in
- * `autoswarm-office/packages/revenue-loop-probe/.../steps/phyne_attribution.py`:
- *   - 503 when PHYNE_CRM_PROBE_TOKEN is unset
+ * `autoswarm-office/packages/revenue-loop-probe/.../steps/phynd_attribution.py`:
+ *   - 503 when PHYND_CRM_PROBE_TOKEN is unset
  *   - 401 when bearer is missing or wrong
  *   - 400 when lead_id or billing_id query params missing
  *   - 200 `{ credited: false, ... }` when no matching conversion
@@ -28,7 +28,7 @@ const mockDb = {
   })),
 }
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: () => mockDb,
   conversions: 'conversions-table',
   contacts: 'contacts-table',
@@ -52,7 +52,7 @@ const ORIGINAL_ENV = { ...process.env }
 
 beforeEach(() => {
   db.conversions = []
-  process.env = { ...ORIGINAL_ENV, PHYNE_CRM_PROBE_TOKEN: 'probe-tok' }
+  process.env = { ...ORIGINAL_ENV, PHYND_CRM_PROBE_TOKEN: 'probe-tok' }
 })
 
 afterEach(() => {
@@ -71,8 +71,8 @@ function probeRequest(
 }
 
 describe('GET /api/v1/probe/attribution — auth + input', () => {
-  it('returns 503 when PHYNE_CRM_PROBE_TOKEN is unset', async () => {
-    delete process.env.PHYNE_CRM_PROBE_TOKEN
+  it('returns 503 when PHYND_CRM_PROBE_TOKEN is unset', async () => {
+    delete process.env.PHYND_CRM_PROBE_TOKEN
     const res = await GET(probeRequest({ lead_id: 'l1', billing_id: 'b1' }))
     expect(res.status).toBe(503)
   })

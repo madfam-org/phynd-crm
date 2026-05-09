@@ -18,7 +18,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   leads: { pipelineId: 'leads.pipelineId', stageId: 'leads.stageId' },
   opportunities: { pipelineId: 'opportunities.pipelineId', stageId: 'opportunities.stageId' },
   pipelineStages: {

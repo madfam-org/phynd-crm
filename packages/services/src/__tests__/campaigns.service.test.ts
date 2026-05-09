@@ -8,7 +8,7 @@ vi.mock('drizzle-orm', () => ({
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   campaigns: {
     id: 'campaigns.id',
     status: 'campaigns.status',

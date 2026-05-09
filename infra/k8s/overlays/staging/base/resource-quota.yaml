@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: phyne-crm-quota
+  name: phynd-crm-quota
 spec:
   hard:
     requests.cpu: "1"
@@ -14,7 +14,7 @@ spec:
 apiVersion: v1
 kind: LimitRange
 metadata:
-  name: phyne-crm-limits
+  name: phynd-crm-limits
 spec:
   limits:
     - default:

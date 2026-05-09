@@ -11,45 +11,45 @@ Run these before provider teams send synthetic events.
 
 ```bash
 node scripts/pp5-staging-audit.mjs
-node scripts/pp5-generate-staging-env.mjs --output /secure/path/phyne-crm-staging.env
-node scripts/pp5-validate-staging-env.mjs /secure/path/phyne-crm-staging.env --print-apply-command
+node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-staging.env
+node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
 node scripts/pp5-wave0-check.mjs
-curl -fsS https://staging-crm.madfam.io/api/health
-kubectl -n phyne-crm-staging get secret ghcr-credentials
-kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets
+curl -fsS https://staging-phynd.app/api/health
+kubectl -n phynd-crm-staging get secret ghcr-credentials
+kubectl -n phynd-crm-staging get secret phynd-crm-staging-secrets
 ```
 
 Required outcome:
 
 - The audit script passes.
 - Generated env values have every `REPLACE_ME_*` value replaced by the secrets owner, and the validator passes before any Kubernetes secret apply.
-- `staging-crm.madfam.io` resolves to the staging PhyneCRM web service.
-- `ghcr-credentials` exists in `phyne-crm-staging` so private GHCR images can be pulled.
-- `phyne-crm-staging-secrets` exists and contains staging-only values.
-- ArgoCD app `phyne-crm-staging` is synced and healthy.
+- `staging-phynd.app` resolves to the staging PhyndCRM web service.
+- `ghcr-credentials` exists in `phynd-crm-staging` so private GHCR images can be pulled.
+- `phynd-crm-staging-secrets` exists and contains staging-only values.
+- ArgoCD app `phynd-crm-staging` is synced and healthy.
 - Web and worker rollouts are ready.
 
 Observed from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 
 - `node scripts/pp5-staging-audit.mjs`: passed.
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
-- `node scripts/pp5-validate-staging-env.mjs /private/tmp/phyne-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
+- `node scripts/pp5-validate-staging-env.mjs /private/tmp/phynd-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
 - `node scripts/pp5-wave0-check.mjs`: now verifies the staging overlay render,
   namespace, GHCR pull secret, app secret, ArgoCD app/sync, web rollout,
   worker rollout, and DNS/HTTP health.
 - `kubectl kustomize infra/k8s/overlays/staging`: passes after making the
   staging overlay self-contained for ArgoCD default load restrictions.
-- `kubectl -n phyne-crm-staging get secret ghcr-credentials`: passed after
+- `kubectl -n phynd-crm-staging get secret ghcr-credentials`: passed after
   mirroring the existing production GHCR pull secret into staging without
   printing secret data.
-- `curl -fsS https://staging-crm.madfam.io/api/health`: failed; DNS does not resolve `staging-crm.madfam.io`.
-- `kubectl get ns phyne-crm-staging`: passed after namespace creation.
-- `kubectl -n phyne-crm-staging get secret phyne-crm-staging-secrets`: failed; secret not present.
-- `kubectl -n argocd get application phyne-crm-staging`: passed after applying
-  `infra/argocd/phyne-crm-staging-application.yaml`.
-- `kubectl -n argocd wait --for=jsonpath={.status.sync.status}=Synced application/phyne-crm-staging --timeout=30s`: passed after the
+- `curl -fsS https://staging-phynd.app/api/health`: failed; DNS does not resolve `staging-phynd.app`.
+- `kubectl get ns phynd-crm-staging`: passed after namespace creation.
+- `kubectl -n phynd-crm-staging get secret phynd-crm-staging-secrets`: failed; secret not present.
+- `kubectl -n argocd get application phynd-crm-staging`: passed after applying
+  `infra/argocd/phynd-crm-staging-application.yaml`.
+- `kubectl -n argocd wait --for=jsonpath={.status.sync.status}=Synced application/phynd-crm-staging --timeout=30s`: passed after the
   self-contained overlay fix.
-- Current pod blocker is `secret "phyne-crm-staging-secrets" not found`; image
+- Current pod blocker is `secret "phynd-crm-staging-secrets" not found`; image
   pull is no longer the active blocker after `ghcr-credentials` was mirrored.
 
 ## Wave 1 - Low-Mutation Webhook Probes
@@ -74,7 +74,7 @@ Required outcome:
 
 - Signed staging request returns `200`.
 - Same payload with the wrong secret returns `401`.
-- Production PhyneCRM receives no staging probe rows or cache effects.
+- Production PhyndCRM receives no staging probe rows or cache effects.
 
 ## Wave 1.5 - CRM Onboarding Dry Run
 
@@ -83,7 +83,7 @@ Run after Wave 0 passes and before provider teams perform mutating probes.
 1. Open:
 
 ```text
-https://staging-crm.madfam.io/engagements
+https://staging-phynd.app/engagements
 ```
 
 2. Use **Onboard Client Project** to create three synthetic engagements:
@@ -121,7 +121,7 @@ https://staging-crm.madfam.io/engagements
 
 7. Verify:
 
-- PhyneCRM redirects to a Dhanam sandbox checkout URL.
+- PhyndCRM redirects to a Dhanam sandbox checkout URL.
 - A Dhanam `checkout_session` external reference exists for the quote.
 - An `invoice` engagement artifact points at the checkout URL.
 - `system:checkout_created` appears in the engagement timeline.
@@ -192,7 +192,7 @@ TEZCA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send tezca-newslette
 DHANAM_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send dhanam
 FORTUNA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send fortuna
 PRAVARA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send pravara
-PHYNE_CRM_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send routecraft
+PHYND_CRM_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send routecraft
 CEQ_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send ceq
 COFORMA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send coforma
 ```
@@ -200,8 +200,8 @@ COFORMA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send coforma
 Engagement probes need a real staging engagement ID:
 
 ```bash
-PHYNE_ENGAGEMENT_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send engagement-event --engagement-id <staging-engagement-id>
-PHYNE_ENGAGEMENT_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send engagement-artifact --engagement-id <staging-engagement-id>
+PHYND_ENGAGEMENT_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send engagement-event --engagement-id <staging-engagement-id>
+PHYND_ENGAGEMENT_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send engagement-artifact --engagement-id <staging-engagement-id>
 ```
 
 Required outcome:
@@ -219,7 +219,7 @@ Run after receiver teams confirm their staging endpoints and secrets.
 |---|---|---|
 | Karafiel grant award | Move a staging grant application to awarded. | Karafiel staging receives `grant.awarded`; prod Karafiel stays unchanged. |
 | Karafiel compliance reads | Send Fortuna staging `grant.discovered`. | Worker reads staging Karafiel compliance API with `KARAFIEL_API_KEY`. |
-| Cotiza engagement projection | Create/update/archive a staging engagement. | Cotiza staging receives `/api/v1/webhooks/phynecrm/engagements`. |
+| Cotiza engagement projection | Create/update/archive a staging engagement. | Cotiza staging receives `/api/v1/webhooks/phyndcrm/engagements`. |
 | Dhanam referral reward | Convert a staging referral. | Dhanam staging receives `/v1/referral/reward`; no real reward is applied. |
 
 ## Signoff Evidence
@@ -227,7 +227,7 @@ Run after receiver teams confirm their staging endpoints and secrets.
 Each provider ticket must attach:
 
 - Probe command or producer event ID.
-- PhyneCRM staging response status/body.
+- PhyndCRM staging response status/body.
 - Staging DB/audit evidence.
 - Provider staging evidence.
 - Explicit production isolation check.

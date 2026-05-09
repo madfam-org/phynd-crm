@@ -5,16 +5,16 @@
  * payment event → conversion binding we wrote in the
  * `/v1/events/payment.succeeded` receiver is visible.
  *
- * Contract (from `revenue_loop_probe/steps/phyne_attribution.py`):
- *   - Bearer auth with `PHYNE_CRM_PROBE_TOKEN`.
+ * Contract (from `revenue_loop_probe/steps/phynd_attribution.py`):
+ *   - Bearer auth with `PHYND_CRM_PROBE_TOKEN`.
  *   - On success: `{ credited: true, source_agent, credit_amount_mxn_cents, attribution_id }`.
  *   - If no matching conversion: `{ credited: false, reason }` (200 OK;
  *     the probe polls until `credited: true` or its timeout fires).
  */
 
-import { getDb } from '@phyne/db'
-import { conversions } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { conversions } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -26,9 +26,9 @@ function unauthorized(reason: string) {
 }
 
 export async function GET(request: Request) {
-  const expectedToken = process.env.PHYNE_CRM_PROBE_TOKEN
+  const expectedToken = process.env.PHYND_CRM_PROBE_TOKEN
   if (!expectedToken) {
-    return NextResponse.json({ error: 'PHYNE_CRM_PROBE_TOKEN not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'PHYND_CRM_PROBE_TOKEN not configured' }, { status: 503 })
   }
   const auth = request.headers.get('authorization') ?? ''
   const match = /^Bearer\s+(.+)$/i.exec(auth)

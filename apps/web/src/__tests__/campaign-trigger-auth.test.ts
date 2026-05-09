@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // ---------------------------------------------------------------------------
 // Mock heavy dependencies
 // ---------------------------------------------------------------------------
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => ({})),
 }))
 
@@ -17,7 +17,7 @@ vi.mock('@/lib/federation/clients', () => ({
 }))
 
 const mockProcessWebhook = vi.fn()
-vi.mock('@phyne/services', () => {
+vi.mock('@phynd/services', () => {
   class MockRedditBotService {
     processWebhook = mockProcessWebhook
   }

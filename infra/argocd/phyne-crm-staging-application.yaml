@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: phyne-crm-staging
+  name: phynd-crm-staging
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
-    repoURL: https://github.com/madfam-org/phyne-crm.git
+    repoURL: https://github.com/madfam-org/phynd-crm.git
     targetRevision: main
     path: infra/k8s/overlays/staging
   destination:
     server: https://kubernetes.default.svc
-    namespace: phyne-crm-staging
+    namespace: phynd-crm-staging
   syncPolicy:
     automated:
       prune: true

@@ -1,4 +1,4 @@
-import type { CircuitBreakerConfig, CircuitState } from '@phyne/types/federation'
+import type { CircuitBreakerConfig, CircuitState } from '@phynd/types/federation'
 
 export const DEFAULT_CB_CONFIG: CircuitBreakerConfig = {
   failureThreshold: 5,

@@ -68,11 +68,11 @@ vi.mock('@/lib/webhooks/rate-limiter', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
 }))
 
-vi.mock('@phyne/federation/webhooks', () => ({
+vi.mock('@phynd/federation/webhooks', () => ({
   validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
 }))
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => mockDb),
 }))
 
@@ -85,7 +85,7 @@ vi.mock('@/lib/federation/clients', () => ({
   })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   grantApplications: {
     complianceChecks: 'grantApplications.complianceChecks',
     deletedAt: 'grantApplications.deletedAt',
@@ -124,7 +124,7 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),
@@ -132,7 +132,7 @@ vi.mock('@phyne/logging', () => ({
   })),
 }))
 
-vi.mock('@phyne/services', () => ({
+vi.mock('@phynd/services', () => ({
   GrantsService: vi.fn().mockImplementation(() => ({
     upsertOpportunity: vi.fn().mockResolvedValue({ id: 'grant-opp-001', fortunaGrantId: 'f-123' }),
     createApplication: vi.fn().mockResolvedValue({ id: 'grant-app-001' }),

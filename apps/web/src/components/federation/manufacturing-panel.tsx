@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { CotizaManufacturing } from '@phyne/types/federation'
+import type { CotizaManufacturing } from '@phynd/types/federation'
 
 interface ManufacturingPanelProps {
   data: CotizaManufacturing

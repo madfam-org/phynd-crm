@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { trpc } from '@/lib/trpc/client'
-import type { AppRouter } from '@phyne/api'
+import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'

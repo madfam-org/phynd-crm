@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   // Redirect relative to the request URL. The previous fallback to
   // process.env.NEXTAUTH_URL ?? 'http://localhost:3000' leaked
   // localhost:3000 into the production redirect Location header on
-  // crm.madfam.io because NEXTAUTH_URL is no longer set after the
+  // phynd.app because NEXTAUTH_URL is no longer set after the
   // Janua migration (NextAuth env var was retired).
   return NextResponse.redirect(new URL('/overview', request.url))
 }

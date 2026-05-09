@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
-import type { EntityType } from '@phyne/types/crm'
+import type { EntityType } from '@phynd/types/crm'
 import { Activity, ArrowRight, FileText } from 'lucide-react'
 
 interface EntityTimelineProps {

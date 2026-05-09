@@ -1,4 +1,3 @@
-import type { NextResponse } from 'next/server'
 import { createLogger } from './index'
 
 const logger = createLogger('web:middleware')
@@ -8,8 +7,8 @@ const logger = createLogger('web:middleware')
  * Generates a UUID per request, logs it, and sets it on the response header.
  */
 export function withCorrelationId(
-  handler: (request: Request, correlationId: string) => Promise<NextResponse>,
-): (request: Request) => Promise<NextResponse> {
+  handler: (request: Request, correlationId: string) => Promise<Response>,
+): (request: Request) => Promise<Response> {
   return async (request: Request) => {
     const correlationId = request.headers.get('x-correlation-id') ?? crypto.randomUUID()
 

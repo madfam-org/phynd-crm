@@ -298,7 +298,7 @@ vi.mock('@/lib/webhooks/rate-limiter', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
 }))
 
-vi.mock('@phyne/federation', () => ({
+vi.mock('@phynd/federation', () => ({
   validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
   CacheInvalidator: vi.fn().mockImplementation(() => ({
     invalidate: vi.fn().mockResolvedValue(undefined),
@@ -314,7 +314,7 @@ vi.mock('@/lib/federation/clients', () => ({
   })),
 }))
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => mockDb),
 }))
 
@@ -330,7 +330,7 @@ function tableMock(name: string, columns: Record<string, string>) {
   return tbl
 }
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   contacts: tableMock('contacts', {
     id: 'contacts.id',
     email: 'contacts.email',
@@ -416,7 +416,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),

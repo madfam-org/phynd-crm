@@ -1,5 +1,5 @@
 /**
- * Tests for the MADFAM ecosystem signature verifier (PhyneCRM side).
+ * Tests for the MADFAM ecosystem signature verifier (PhyndCRM side).
  *
  * These mirror the tests in
  *   dhanam/apps/api/src/modules/billing/__tests__/madfam-events.sig.spec.ts

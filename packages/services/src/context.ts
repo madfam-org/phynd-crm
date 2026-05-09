@@ -1,7 +1,7 @@
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import type { Database } from '@phyne/db'
-import type { CacheManager, FederationClient, ProviderHealthChecker } from '@phyne/federation'
-import type { AuthContext } from '@phyne/types/auth'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import type { Database } from '@phynd/db'
+import type { CacheManager, FederationClient, ProviderHealthChecker } from '@phynd/federation'
+import type { AuthContext } from '@phynd/types/auth'
 import type {
   CotizaManufacturing,
   DhanamBilling,
@@ -9,7 +9,7 @@ import type {
   JanuaIdentity,
   JanuaTelemetry,
   PravaraFabrication,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 
 export interface FederationClients {
   januaClient: FederationClient<unknown, JanuaIdentity>
@@ -35,12 +35,13 @@ export function createServiceContext(
   db: Database,
   cache: CacheManager,
   auth: AuthContext,
+  tenantId?: string
 ): ServiceContext {
+  const resolvedTenantId = tenantId || (auth as any).tenantId || DEFAULT_TENANT_ID;
   return {
     db,
     cache,
     auth,
-    // Single-tenant for MVP Phase 1, extracted from JWT/subdomain in Phase 3
-    tenantId: DEFAULT_TENANT_ID,
+    tenantId: resolvedTenantId,
   }
 }

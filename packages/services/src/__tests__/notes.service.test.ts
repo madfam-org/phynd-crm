@@ -11,7 +11,7 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   notes: {
     createdAt: 'notes.createdAt',
     entityId: 'notes.entityId',

@@ -4,13 +4,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: phyne
-      POSTGRES_PASSWORD: phyne
-      POSTGRES_DB: phyne_crm
+      POSTGRES_USER: phynd
+      POSTGRES_PASSWORD: phynd
+      POSTGRES_DB: phynd_crm
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U phyne -d phyne_crm"]
+      test: ["CMD-SHELL", "pg_isready -U phynd -d phynd_crm"]
       interval: 5s
       timeout: 5s
       retries: 5

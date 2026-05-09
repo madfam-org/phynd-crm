@@ -44,7 +44,7 @@ const envSchemaBase = z.object({
   PRAVARA_WEBHOOK_SECRET: z.string().min(1).optional(),
   FORJ_WEBHOOK_SECRET: z.string().min(1).optional(),
 
-  // Service-to-service auth — Fortuna → Phyne campaign trigger webhook
+  // Service-to-service auth — Fortuna → Phynd campaign trigger webhook
   FORTUNA_WEBHOOK_SECRET: z.string().min(16).optional(),
 
   // ACCA Treasury Hunter — Karafiel compliance integration

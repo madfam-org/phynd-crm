@@ -1,4 +1,4 @@
-import type { ProviderConfig, ProviderStatus } from '@phyne/types/federation'
+import type { ProviderConfig, ProviderStatus } from '@phynd/types/federation'
 import type { CacheManager } from './cache-manager'
 import { CircuitBreaker } from './circuit-breaker'
 import { withRetry } from './retry'
@@ -99,5 +99,42 @@ export class FederationClient<TRaw, TMapped> {
 
   resetCircuitBreaker() {
     this.circuitBreaker.reset()
+  }
+
+  async mutate(
+    externalId: string,
+    payload: unknown,
+    token: string,
+    tenantId = 'madfam',
+    idempotencyKey?: string,
+  ): Promise<{ status: ProviderStatus; error: string | null }> {
+    if (!this.provider.mutate) {
+      return { status: 'ok', error: 'Mutation not supported by provider' }
+    }
+
+    if (!this.circuitBreaker.isCallPermitted()) {
+      return { status: 'unavailable', error: 'Circuit breaker open' }
+    }
+
+    try {
+      const signal = AbortSignal.timeout(this.config.timeout ?? 10000)
+      await withRetry(
+        () => this.provider.mutate!(externalId, payload, token, signal, idempotencyKey),
+        this.config.retry,
+      )
+
+      this.circuitBreaker.recordSuccess()
+
+      const cacheKey = this.provider.getCacheKey(externalId, tenantId)
+      await this.cache.invalidate(this.config.cache.keyPrefix, cacheKey)
+
+      return { status: 'ok', error: null }
+    } catch (error) {
+      this.circuitBreaker.recordFailure()
+      return {
+        status: 'unavailable',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    }
   }
 }

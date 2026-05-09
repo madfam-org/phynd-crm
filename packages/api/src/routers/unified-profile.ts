@@ -1,4 +1,4 @@
-import { UnifiedProfileService } from '@phyne/services'
+import { UnifiedProfileService } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 

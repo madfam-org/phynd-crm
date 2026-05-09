@@ -1,14 +1,14 @@
-import type { ServiceContext } from '@phyne/services/context'
-import type { AuthContext } from '@phyne/types/auth'
+import type { ServiceContext } from '@phynd/services/context'
+import type { AuthContext } from '@phynd/types/auth'
 import { describe, expect, it, vi } from 'vitest'
 import { appRouter } from '../router'
 import { createCallerFactory } from '../trpc'
 
-vi.mock('@phyne/config/features', () => ({
+vi.mock('@phynd/config/features', () => ({
   isFeatureEnabled: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   conversions: { id: 'conversions.id', type: 'conversions.type' },
   engagementEvents: { id: 'engagementEvents.id' },
   engagements: {

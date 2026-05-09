@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import type { JanuaTelemetry } from '@phyne/types/federation'
+import type { JanuaTelemetry } from '@phynd/types/federation'
 
 interface TelemetryPanelProps {
   data: JanuaTelemetry

@@ -1,4 +1,4 @@
-import { PreferencesService } from '@phyne/services'
+import { PreferencesService } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 

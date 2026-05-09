@@ -7,3 +7,4 @@ export {
   router,
   type TRPCContext,
 } from './trpc'
+export { schema } from './graphql/schema'

@@ -1,5 +1,5 @@
-import { conversions, opportunities, stageTransitions } from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { conversions, opportunities, stageTransitions } from '@phynd/db/schema'
+import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotificationsService } from '../notifications/notifications.service'

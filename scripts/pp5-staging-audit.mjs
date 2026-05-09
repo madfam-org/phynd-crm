@@ -20,10 +20,10 @@ const REQUIRED_KEYS = [
   'FORJ_WEBHOOK_SECRET',
   'TEZCA_WEBHOOK_SECRET',
   'FORTUNA_WEBHOOK_SECRET',
-  'PHYNE_CRM_EVENTS_SECRET',
+  'PHYND_CRM_EVENTS_SECRET',
   'COFORMA_WEBHOOK_SECRET',
   'CEQ_WEBHOOK_SECRET',
-  'PHYNECRM_OUTBOUND_SECRET',
+  'PHYNDCRM_OUTBOUND_SECRET',
   'KARAFIEL_WEBHOOK_SECRET',
   'KARAFIEL_API_KEY',
   'FEDERATION_API_TOKEN',
@@ -121,8 +121,8 @@ function main() {
 
   const stagingTemplate = readFile('infra/k8s/staging-secrets-template.yaml')
   const appUrlMatch = stagingTemplate.match(/NEXT_PUBLIC_APP_URL:\s*\"([^\"]+)\"/)
-  if (!appUrlMatch || !appUrlMatch[1].includes('staging-crm.madfam.io')) {
-    throw new Error('NEXT_PUBLIC_APP_URL must include staging-crm.madfam.io in staging-secrets-template.yaml')
+  if (!appUrlMatch || !appUrlMatch[1].includes('staging-phynd.app')) {
+    throw new Error('NEXT_PUBLIC_APP_URL must include staging-phynd.app in staging-secrets-template.yaml')
   }
 
   console.log('PASS staging web entrypoint and env coverage checks')

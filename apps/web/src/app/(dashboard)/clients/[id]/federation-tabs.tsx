@@ -3,8 +3,8 @@
 import { FederationErrorBoundary } from '@/components/federation/error-boundary'
 import { FederationPanel } from '@/components/federation/federation-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { FederationProviderName } from '@phyne/types/crm'
-import type { ProviderStatus } from '@phyne/types/federation'
+import type { FederationProviderName } from '@phynd/types/crm'
+import type { ProviderStatus } from '@phynd/types/federation'
 
 interface FederationPanelConfig {
   provider: FederationProviderName

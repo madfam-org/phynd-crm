@@ -1,5 +1,5 @@
 {
-  "name": "@phyne/db",
+  "name": "@phynd/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -27,6 +27,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "@biomejs/biome": "^1.9.4",
-    "@phyne/config": "workspace:*"
+    "@phynd/config": "workspace:*"
   }
 }

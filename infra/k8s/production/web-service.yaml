@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: phyne-crm-web
-  namespace: phyne-crm
+  name: phynd-crm-web
+  namespace: phynd-crm
 spec:
   selector:
-    app: phyne-crm-web
+    app: phynd-crm-web
   ports:
     - port: 80
       targetPort: 3000

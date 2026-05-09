@@ -14,7 +14,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/demo', () => ({
-  DEMO_COOKIE_NAME: 'phyne-demo',
+  DEMO_COOKIE_NAME: 'phynd-demo',
   createDemoAuth: vi.fn(() => ({
     userId: 'demo-test',
     tenantId: 'demo-test',
@@ -45,11 +45,11 @@ function getServiceAuthContext(): MockAuthContext {
   return call?.[2] as MockAuthContext
 }
 
-vi.mock('@phyne/services/context', () => ({
+vi.mock('@phynd/services/context', () => ({
   createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
 }))
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => ({})),
 }))
 
@@ -69,7 +69,7 @@ vi.mock('@/lib/federation/clients', () => ({
   getHealthChecker: () => mockGetHealthChecker(),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),
@@ -83,7 +83,7 @@ vi.mock('@trpc/server/adapters/fetch', () => ({
   fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
 }))
 
-vi.mock('@phyne/api/router', () => ({
+vi.mock('@phynd/api/router', () => ({
   appRouter: {},
 }))
 
@@ -125,25 +125,25 @@ describe('tRPC route handler — federation token auth', () => {
       auth: vi.fn().mockResolvedValue(null),
     }))
     vi.doMock('@/lib/demo', () => ({
-      DEMO_COOKIE_NAME: 'phyne-demo',
+      DEMO_COOKIE_NAME: 'phynd-demo',
       createDemoAuth: vi.fn(),
     }))
-    vi.doMock('@phyne/services/context', () => ({
+    vi.doMock('@phynd/services/context', () => ({
       createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
     }))
-    vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
+    vi.doMock('@phynd/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
       getCacheManager: () => mockGetCacheManager(),
       getFederationClients: () => mockGetFederationClients(),
       getHealthChecker: () => mockGetHealthChecker(),
     }))
-    vi.doMock('@phyne/logging', () => ({
+    vi.doMock('@phynd/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
     }))
     vi.doMock('@trpc/server/adapters/fetch', () => ({
       fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
     }))
-    vi.doMock('@phyne/api/router', () => ({ appRouter: {} }))
+    vi.doMock('@phynd/api/router', () => ({ appRouter: {} }))
 
     const { GET } = await import('@/app/api/trpc/[trpc]/route')
 
@@ -178,25 +178,25 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@/lib/auth', () => ({ auth: mockAuth }))
     vi.doMock('@/lib/demo', () => ({
-      DEMO_COOKIE_NAME: 'phyne-demo',
+      DEMO_COOKIE_NAME: 'phynd-demo',
       createDemoAuth: vi.fn(),
     }))
-    vi.doMock('@phyne/services/context', () => ({
+    vi.doMock('@phynd/services/context', () => ({
       createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
     }))
-    vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
+    vi.doMock('@phynd/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
       getCacheManager: () => mockGetCacheManager(),
       getFederationClients: () => mockGetFederationClients(),
       getHealthChecker: () => mockGetHealthChecker(),
     }))
-    vi.doMock('@phyne/logging', () => ({
+    vi.doMock('@phynd/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
     }))
     vi.doMock('@trpc/server/adapters/fetch', () => ({
       fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
     }))
-    vi.doMock('@phyne/api/router', () => ({ appRouter: {} }))
+    vi.doMock('@phynd/api/router', () => ({ appRouter: {} }))
 
     const { GET } = await import('@/app/api/trpc/[trpc]/route')
 
@@ -230,25 +230,25 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@/lib/auth', () => ({ auth: mockAuth }))
     vi.doMock('@/lib/demo', () => ({
-      DEMO_COOKIE_NAME: 'phyne-demo',
+      DEMO_COOKIE_NAME: 'phynd-demo',
       createDemoAuth: vi.fn(),
     }))
-    vi.doMock('@phyne/services/context', () => ({
+    vi.doMock('@phynd/services/context', () => ({
       createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
     }))
-    vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
+    vi.doMock('@phynd/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
       getCacheManager: () => mockGetCacheManager(),
       getFederationClients: () => mockGetFederationClients(),
       getHealthChecker: () => mockGetHealthChecker(),
     }))
-    vi.doMock('@phyne/logging', () => ({
+    vi.doMock('@phynd/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
     }))
     vi.doMock('@trpc/server/adapters/fetch', () => ({
       fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
     }))
-    vi.doMock('@phyne/api/router', () => ({ appRouter: {} }))
+    vi.doMock('@phynd/api/router', () => ({ appRouter: {} }))
 
     const { GET } = await import('@/app/api/trpc/[trpc]/route')
 
@@ -276,25 +276,25 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@/lib/auth', () => ({ auth: mockAuth }))
     vi.doMock('@/lib/demo', () => ({
-      DEMO_COOKIE_NAME: 'phyne-demo',
+      DEMO_COOKIE_NAME: 'phynd-demo',
       createDemoAuth: vi.fn(),
     }))
-    vi.doMock('@phyne/services/context', () => ({
+    vi.doMock('@phynd/services/context', () => ({
       createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
     }))
-    vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
+    vi.doMock('@phynd/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
       getCacheManager: () => mockGetCacheManager(),
       getFederationClients: () => mockGetFederationClients(),
       getHealthChecker: () => mockGetHealthChecker(),
     }))
-    vi.doMock('@phyne/logging', () => ({
+    vi.doMock('@phynd/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
     }))
     vi.doMock('@trpc/server/adapters/fetch', () => ({
       fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
     }))
-    vi.doMock('@phyne/api/router', () => ({ appRouter: {} }))
+    vi.doMock('@phynd/api/router', () => ({ appRouter: {} }))
 
     const { GET } = await import('@/app/api/trpc/[trpc]/route')
 
@@ -323,25 +323,25 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@/lib/auth', () => ({ auth: vi.fn().mockResolvedValue(null) }))
     vi.doMock('@/lib/demo', () => ({
-      DEMO_COOKIE_NAME: 'phyne-demo',
+      DEMO_COOKIE_NAME: 'phynd-demo',
       createDemoAuth: vi.fn(),
     }))
-    vi.doMock('@phyne/services/context', () => ({
+    vi.doMock('@phynd/services/context', () => ({
       createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
     }))
-    vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
+    vi.doMock('@phynd/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
       getCacheManager: () => mockGetCacheManager(),
       getFederationClients: () => mockGetFederationClients(),
       getHealthChecker: () => mockGetHealthChecker(),
     }))
-    vi.doMock('@phyne/logging', () => ({
+    vi.doMock('@phynd/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
     }))
     vi.doMock('@trpc/server/adapters/fetch', () => ({
       fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
     }))
-    vi.doMock('@phyne/api/router', () => ({ appRouter: {} }))
+    vi.doMock('@phynd/api/router', () => ({ appRouter: {} }))
 
     const { GET } = await import('@/app/api/trpc/[trpc]/route')
 
@@ -374,25 +374,25 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@/lib/auth', () => ({ auth: vi.fn().mockResolvedValue(null) }))
     vi.doMock('@/lib/demo', () => ({
-      DEMO_COOKIE_NAME: 'phyne-demo',
+      DEMO_COOKIE_NAME: 'phynd-demo',
       createDemoAuth: vi.fn(),
     }))
-    vi.doMock('@phyne/services/context', () => ({
+    vi.doMock('@phynd/services/context', () => ({
       createServiceContext: (...args: unknown[]) => mockCreateServiceContext(...args),
     }))
-    vi.doMock('@phyne/db', () => ({ getDb: vi.fn(() => ({})) }))
+    vi.doMock('@phynd/db', () => ({ getDb: vi.fn(() => ({})) }))
     vi.doMock('@/lib/federation/clients', () => ({
       getCacheManager: () => mockGetCacheManager(),
       getFederationClients: () => mockGetFederationClients(),
       getHealthChecker: () => mockGetHealthChecker(),
     }))
-    vi.doMock('@phyne/logging', () => ({
+    vi.doMock('@phynd/logging', () => ({
       createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
     }))
     vi.doMock('@trpc/server/adapters/fetch', () => ({
       fetchRequestHandler: (...args: unknown[]) => mockFetchRequestHandler(...args),
     }))
-    vi.doMock('@phyne/api/router', () => ({ appRouter: {} }))
+    vi.doMock('@phynd/api/router', () => ({ appRouter: {} }))
 
     const { GET } = await import('@/app/api/trpc/[trpc]/route')
 

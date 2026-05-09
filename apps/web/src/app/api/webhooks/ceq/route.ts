@@ -1,8 +1,8 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
 import {
   CampaignsService,
   ContactsService,
@@ -10,7 +10,7 @@ import {
   LeadsService,
   PipelinesService,
   createServiceContext,
-} from '@phyne/services'
+} from '@phynd/services'
 import { Queue } from 'bullmq'
 import { NextResponse } from 'next/server'
 

@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
-import type { getDb } from '@phyne/db'
-import { engagementEvents, externalReferences } from '@phyne/db/schema'
-import { createLogger } from '@phyne/logging'
+import type { getDb } from '@phynd/db'
+import { engagementEvents, externalReferences } from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
 import { and, eq } from 'drizzle-orm'
 
 const logger = createLogger('services:production-dispatch-http')
@@ -213,7 +213,7 @@ function buildHeaders(
   if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`
   if (config.hmacSecret) {
     const signature = createHmac('sha256', config.hmacSecret).update(body).digest('hex')
-    headers['X-PhyneCRM-Signature'] = `sha256=${signature}`
+    headers['X-PhyndCRM-Signature'] = `sha256=${signature}`
     headers['X-Webhook-Timestamp'] = timestamp
   }
 
@@ -320,7 +320,7 @@ function resolveProviderConfig(
     const endpoint =
       env.PRAVARA_DISPATCH_URL ?? appendPath(env.PRAVARA_BASE_URL, '/api/v1/fabrication/dispatches')
     const apiKey = env.PRAVARA_API_KEY
-    const hmacSecret = env.PRAVARA_DISPATCH_SECRET ?? env.PHYNECRM_OUTBOUND_SECRET
+    const hmacSecret = env.PRAVARA_DISPATCH_SECRET ?? env.PHYNDCRM_OUTBOUND_SECRET
     return endpoint && (apiKey || hmacSecret) ? { apiKey, endpoint, hmacSecret } : null
   }
 
@@ -328,7 +328,7 @@ function resolveProviderConfig(
     env.SELVA_DISPATCH_URL ??
     appendPath(env.SELVA_API_URL ?? env.SELVA_BASE_URL, '/api/v1/projects/dispatches')
   const apiKey = env.SELVA_API_KEY
-  const hmacSecret = env.SELVA_DISPATCH_SECRET ?? env.PHYNECRM_OUTBOUND_SECRET
+  const hmacSecret = env.SELVA_DISPATCH_SECRET ?? env.PHYNDCRM_OUTBOUND_SECRET
   return endpoint && (apiKey || hmacSecret) ? { apiKey, endpoint, hmacSecret } : null
 }
 

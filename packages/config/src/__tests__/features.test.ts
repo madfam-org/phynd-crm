@@ -12,14 +12,14 @@ beforeEach(() => {
   resetFeatureFlags()
 })
 
-describe('default feature flags (Phase 1 MVP)', () => {
-  it('has federationReadOnly enabled by default', () => {
+describe('default feature flags (Phase 2/3)', () => {
+  it('has federationReadOnly disabled by default', () => {
     const flags = getFeatureFlags()
-    expect(flags.federationReadOnly).toBe(true)
+    expect(flags.federationReadOnly).toBe(false)
   })
 
-  it('has bidirectionalSync disabled by default', () => {
-    expect(getFeatureFlags().bidirectionalSync).toBe(false)
+  it('has bidirectionalSync enabled by default', () => {
+    expect(getFeatureFlags().bidirectionalSync).toBe(true)
   })
 
   it('has leadScoring enabled by default', () => {
@@ -30,8 +30,8 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(getFeatureFlags().aiKanban).toBe(false)
   })
 
-  it('has multiTenancy disabled by default', () => {
-    expect(getFeatureFlags().multiTenancy).toBe(false)
+  it('has multiTenancy enabled by default', () => {
+    expect(getFeatureFlags().multiTenancy).toBe(true)
   })
 
   it('has piiMasking disabled by default', () => {
@@ -67,56 +67,57 @@ describe('default feature flags (Phase 1 MVP)', () => {
     expect(Object.keys(flags)).toHaveLength(14)
   })
 
-  it('7 flags are true in defaults; 7 are false', () => {
+  it('8 flags are true in defaults; 6 are false', () => {
     const flags = getFeatureFlags()
     const trueFlags = Object.entries(flags).filter(([, v]) => v === true)
     const falseFlags = Object.entries(flags).filter(([, v]) => v === false)
 
-    expect(trueFlags).toHaveLength(7)
+    expect(trueFlags).toHaveLength(8)
     expect(trueFlags.map(([k]) => k).sort()).toEqual([
       'analytics',
-      'federationReadOnly',
+      'bidirectionalSync',
       'forjEnabled',
       'funnelManagement',
       'leadScoring',
+      'multiTenancy',
       'referralManagement',
       'visitorTracking',
     ])
-    expect(falseFlags).toHaveLength(7)
+    expect(falseFlags).toHaveLength(6)
   })
 })
 
 describe('isFeatureEnabled', () => {
-  it('returns true for federationReadOnly with default flags', () => {
-    expect(isFeatureEnabled('federationReadOnly')).toBe(true)
+  it('returns false for federationReadOnly with default flags', () => {
+    expect(isFeatureEnabled('federationReadOnly')).toBe(false)
   })
 
   it('returns true for forjEnabled with default flags', () => {
     expect(isFeatureEnabled('forjEnabled')).toBe(true)
   })
 
-  it('returns true for all Sprint 11-enabled features with default flags', () => {
+  it('returns true for enabled features with default flags', () => {
     const enabledFeatures: (keyof FeatureFlags)[] = [
       'visitorTracking',
       'funnelManagement',
       'analytics',
       'leadScoring',
+      'bidirectionalSync',
+      'multiTenancy',
     ]
     for (const flag of enabledFeatures) {
       expect(isFeatureEnabled(flag)).toBe(true)
     }
   })
 
-  it('returns false for all Phase 2/3 features with default flags', () => {
-    const phase2And3: (keyof FeatureFlags)[] = [
-      'bidirectionalSync',
+  it('returns false for disabled features with default flags', () => {
+    const disabled: (keyof FeatureFlags)[] = [
       'aiKanban',
-      'multiTenancy',
       'piiMasking',
       'observability',
       'realtimeUpdates',
     ]
-    for (const flag of phase2And3) {
+    for (const flag of disabled) {
       expect(isFeatureEnabled(flag)).toBe(false)
     }
   })
@@ -128,25 +129,25 @@ describe('isFeatureEnabled', () => {
   })
 
   it('reflects restored defaults after resetFeatureFlags', () => {
-    setFeatureFlags({ multiTenancy: true })
-    expect(isFeatureEnabled('multiTenancy')).toBe(true)
+    setFeatureFlags({ aiKanban: true })
+    expect(isFeatureEnabled('aiKanban')).toBe(true)
 
     resetFeatureFlags()
-    expect(isFeatureEnabled('multiTenancy')).toBe(false)
+    expect(isFeatureEnabled('aiKanban')).toBe(false)
   })
 })
 
 describe('setFeatureFlags', () => {
   it('overrides a single flag while keeping others unchanged', () => {
-    setFeatureFlags({ bidirectionalSync: true })
+    setFeatureFlags({ aiKanban: true })
 
     const flags = getFeatureFlags()
-    expect(flags.bidirectionalSync).toBe(true)
+    expect(flags.aiKanban).toBe(true)
     // All other flags should remain at default values
-    expect(flags.federationReadOnly).toBe(true)
+    expect(flags.federationReadOnly).toBe(false)
     expect(flags.leadScoring).toBe(true)
-    expect(flags.aiKanban).toBe(false)
-    expect(flags.multiTenancy).toBe(false)
+    expect(flags.bidirectionalSync).toBe(true)
+    expect(flags.multiTenancy).toBe(true)
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
@@ -158,24 +159,24 @@ describe('setFeatureFlags', () => {
 
   it('overrides multiple flags simultaneously', () => {
     setFeatureFlags({
-      bidirectionalSync: true,
+      federationReadOnly: true,
       aiKanban: true,
       piiMasking: true,
     })
 
     const flags = getFeatureFlags()
-    expect(flags.bidirectionalSync).toBe(true)
+    expect(flags.federationReadOnly).toBe(true)
     expect(flags.aiKanban).toBe(true)
     expect(flags.piiMasking).toBe(true)
     // Unset flags remain default
-    expect(flags.federationReadOnly).toBe(true)
+    expect(flags.bidirectionalSync).toBe(true)
     expect(flags.leadScoring).toBe(true)
   })
 
   it('can disable a flag that was previously enabled', () => {
-    // federationReadOnly is true by default
-    setFeatureFlags({ federationReadOnly: false })
-    expect(getFeatureFlags().federationReadOnly).toBe(false)
+    // bidirectionalSync is true by default
+    setFeatureFlags({ bidirectionalSync: false })
+    expect(getFeatureFlags().bidirectionalSync).toBe(false)
   })
 
   it('applies overrides cumulatively across multiple calls', () => {
@@ -207,11 +208,11 @@ describe('setFeatureFlags', () => {
 describe('resetFeatureFlags', () => {
   it('restores all flags to their default values', () => {
     setFeatureFlags({
-      federationReadOnly: false,
-      bidirectionalSync: true,
+      federationReadOnly: true,
+      bidirectionalSync: false,
       leadScoring: false,
       aiKanban: true,
-      multiTenancy: true,
+      multiTenancy: false,
       piiMasking: true,
       observability: true,
       realtimeUpdates: true,
@@ -226,11 +227,11 @@ describe('resetFeatureFlags', () => {
     resetFeatureFlags()
 
     const flags = getFeatureFlags()
-    expect(flags.federationReadOnly).toBe(true)
-    expect(flags.bidirectionalSync).toBe(false)
+    expect(flags.federationReadOnly).toBe(false)
+    expect(flags.bidirectionalSync).toBe(true)
     expect(flags.leadScoring).toBe(true)
     expect(flags.aiKanban).toBe(false)
-    expect(flags.multiTenancy).toBe(false)
+    expect(flags.multiTenancy).toBe(true)
     expect(flags.piiMasking).toBe(false)
     expect(flags.observability).toBe(false)
     expect(flags.realtimeUpdates).toBe(false)
@@ -299,12 +300,12 @@ describe('getFeatureFlags', () => {
     const flags = getFeatureFlags() as Record<string, boolean>
     // Object.freeze means mutation throws in strict mode
     expect(() => {
-      flags.federationReadOnly = false
+      flags.aiKanban = true
     }).toThrow()
 
     // Internal state is unaffected
     const fresh = getFeatureFlags()
-    expect(fresh.federationReadOnly).toBe(true)
+    expect(fresh.aiKanban).toBe(false)
   })
 
   it('returns a frozen object', () => {

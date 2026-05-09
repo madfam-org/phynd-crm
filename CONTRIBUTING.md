@@ -1,4 +1,4 @@
-# Contributing to Phyne CRM
+# Contributing to Phynd CRM
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@
 
 ```bash
 git clone <repo-url>
-cd phyne-crm
+cd phynd-crm
 pnpm install
 docker compose -f docker/docker-compose.yml up -d
 pnpm db:generate
@@ -22,11 +22,11 @@ pnpm dev
 ## Package Graph
 
 ```
-apps/web          → @phyne/api, @phyne/config, @phyne/db, @phyne/federation, @phyne/logging, @phyne/services, @phyne/types, @phyne/ui
-apps/worker       → @phyne/config, @phyne/db, @phyne/federation, @phyne/logging, @phyne/services, @phyne/types
-packages/api      → @phyne/config, @phyne/db, @phyne/services, @phyne/types
-packages/services → @phyne/config, @phyne/db, @phyne/types
-packages/federation → @phyne/config, @phyne/types
+apps/web          → @phynd/api, @phynd/config, @phynd/db, @phynd/federation, @phynd/logging, @phynd/services, @phynd/types, @phynd/ui
+apps/worker       → @phynd/config, @phynd/db, @phynd/federation, @phynd/logging, @phynd/services, @phynd/types
+packages/api      → @phynd/config, @phynd/db, @phynd/services, @phynd/types
+packages/services → @phynd/config, @phynd/db, @phynd/types
+packages/federation → @phynd/config, @phynd/types
 packages/config   → (standalone, Zod validation)
 packages/db       → (standalone, Drizzle schema + migrations)
 packages/types    → (standalone, shared TypeScript types)
@@ -115,7 +115,7 @@ When a service modifies an entity's `ownerId`, it creates a notification for the
 Services accept optional `filters?: { ownerId?: string }` parameter. Router `listMine` procedures auto-scope to `ctx.auth.userId`. Frontend uses `enabled` flag on tRPC queries to conditionally fetch "My Deals" vs "All Deals".
 
 ### Feature Flag Enforcement
-Feature-gated routers (`leadScoring`, `visitorTracking`, `analytics`, `offers`, `campaigns`) check `isFeatureEnabled()` at the top of each procedure body. When disabled, they throw `TRPCError({ code: 'PRECONDITION_FAILED' })`. All flags default to `true`, so existing tests pass unchanged. When adding tests for gated routers, mock `@phyne/config/features` with `isFeatureEnabled` returning `true`.
+Feature-gated routers (`leadScoring`, `visitorTracking`, `analytics`, `offers`, `campaigns`) check `isFeatureEnabled()` at the top of each procedure body. When disabled, they throw `TRPCError({ code: 'PRECONDITION_FAILED' })`. All flags default to `true`, so existing tests pass unchanged. When adding tests for gated routers, mock `@phynd/config/features` with `isFeatureEnabled` returning `true`.
 
 ### Pipeline Management
 Pipelines and stages support full CRUD via `PipelinesService` methods (`create`, `update`, `delete`, `createStage`, `updateStage`, `deleteStage`, `reorderStages`). Pipeline delete rejects if `isDefault` (`ValidationError`) or if leads/opportunities reference it (`ConflictError`). Stage delete similarly checks for FK references. Reorder uses a transaction to update all positions atomically. The settings UI at `/settings/pipelines` uses `@hello-pangea/dnd` for drag-to-reorder stages.
@@ -152,7 +152,7 @@ Security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport
 
 Visitors can try the full CRM via `/demo` without signing up. Architecture:
 
-1. **Entry**: `GET /demo` → generates UUID session, sets `phyne-demo` cookie (httpOnly, 4h), seeds demo tenant, redirects to `/overview`
+1. **Entry**: `GET /demo` → generates UUID session, sets `phynd-demo` cookie (httpOnly, 4h), seeds demo tenant, redirects to `/overview`
 2. **Isolation**: Each demo session gets `tenantId = demo-{sessionId}`. All seeded entity IDs are prefixed with the session ID. Demo writes only affect the demo sandbox.
 3. **Auth injection**: Middleware allows demo cookie holders through without real auth. Both `getServerCaller()` and the tRPC route handler check for the demo cookie and inject `createDemoAuth(sessionId)` as auth context.
 4. **Seed data**: ~62 rows per session covering all 14 dashboard pages: user, pipeline, 6 stages, 4 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification. Leads/opps/quotes/orders are backdated across 25 days for analytics trends.

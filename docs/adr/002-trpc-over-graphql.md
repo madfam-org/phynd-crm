@@ -15,7 +15,7 @@ Use **tRPC v11** for the MVP (Phase 1-2). The service layer is kept transport-ag
 ## Rationale
 - **Zero codegen**: Types flow from service → router → client automatically. No schema-first workflow, no code generation step.
 - **Faster iteration**: Adding a new endpoint is a single file with input/output types inferred from Zod schemas.
-- **Monorepo fit**: tRPC works natively with TypeScript project references. The `@phyne/api` package exports `AppRouter` type used directly by `apps/web`.
+- **Monorepo fit**: tRPC works natively with TypeScript project references. The `@phynd/api` package exports `AppRouter` type used directly by `apps/web`.
 - **Cursor-based pagination**: `PaginationInput { cursor?, limit? }` → `PaginatedResult<T> { items, nextCursor, hasMore }` is trivial with tRPC.
 - **MVP velocity**: We need to ship 12+ routers quickly. tRPC's DX advantage is significant for a small team.
 

@@ -1,5 +1,5 @@
-import { validateWebhookSignature } from '@phyne/federation/webhooks'
-import { createLogger } from '@phyne/logging'
+import { validateWebhookSignature } from '@phynd/federation/webhooks'
+import { createLogger } from '@phynd/logging'
 import { NextResponse } from 'next/server'
 import { checkRateLimit } from './rate-limiter'
 

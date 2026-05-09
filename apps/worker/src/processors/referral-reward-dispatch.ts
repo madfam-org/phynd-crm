@@ -6,7 +6,7 @@
  */
 
 import { createHmac } from 'node:crypto'
-import { createLogger } from '@phyne/logging'
+import { createLogger } from '@phynd/logging'
 import type { Job } from 'bullmq'
 
 const logger = createLogger('worker:referral-reward-dispatch')
@@ -72,7 +72,7 @@ export async function processReferralRewardDispatch(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-PhyneCRM-Signature': `sha256=${signature}`,
+      'X-PhyndCRM-Signature': `sha256=${signature}`,
     },
     body: payload,
     signal: AbortSignal.timeout(15_000),

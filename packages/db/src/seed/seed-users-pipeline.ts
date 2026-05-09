@@ -7,7 +7,7 @@ export async function seedUsersAndPipeline(db: Db) {
     .insert(users)
     .values({
       id: 'system',
-      email: 'system@phyne.io',
+      email: 'system@phynd.io',
       name: 'System',
       role: 'admin',
     })

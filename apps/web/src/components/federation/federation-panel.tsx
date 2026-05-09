@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { FederationProviderName } from '@phyne/types/crm'
+import type { FederationProviderName } from '@phynd/types/crm'
 import type {
   CotizaManufacturing,
   DhanamBilling,
@@ -11,7 +11,7 @@ import type {
   JanuaTelemetry,
   PravaraFabrication,
   ProviderStatus,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 import { AssetsPanel } from './assets-panel'
 import { BillingPanel } from './billing-panel'
 import { FabricationPanel } from './fabrication-panel'

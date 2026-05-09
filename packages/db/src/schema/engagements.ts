@@ -65,7 +65,7 @@ export const engagementArtifacts = pgTable(
 
 // Unified project status events. Written by Pravara (fab), Selva
 // (digital), Cotiza (quote/proposal lifecycle), Karafiel (compliance
-// stamping), Dhanam (billing), or 'system' (PhyneCRM-originated).
+// stamping), Dhanam (billing), or 'system' (PhyndCRM-originated).
 // Timeline is built by ORDER BY created_at, merged with activities +
 // stage_transitions for the client portal view.
 export const engagementEvents = pgTable(

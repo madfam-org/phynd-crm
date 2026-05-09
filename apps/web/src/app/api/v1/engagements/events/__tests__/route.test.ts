@@ -2,7 +2,7 @@
  * /api/v1/engagements/events — unified engagement-event webhook.
  *
  * Contract verified:
- *   - 503 when PHYNE_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)
+ *   - 503 when PHYND_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)
  *   - HMAC signature + timestamp validation via shared handleWebhook
  *   - payloads missing engagement_id/source/event_type are dropped silently (no throw)
  *   - explicit dedup_key from caller is preserved
@@ -18,15 +18,15 @@ vi.mock('@/lib/webhooks/rate-limiter', () => ({
 }))
 
 const mockValidateWebhookSignature = vi.fn().mockReturnValue(true)
-vi.mock('@phyne/federation/webhooks', () => ({
+vi.mock('@phynd/federation/webhooks', () => ({
   validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
 }))
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => ({})),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),
@@ -44,7 +44,7 @@ const { mockRecordEvent, EngagementsServiceMock } = vi.hoisted(() => {
   return { mockRecordEvent, EngagementsServiceMock }
 })
 
-vi.mock('@phyne/services', () => ({
+vi.mock('@phynd/services', () => ({
   EngagementsService: EngagementsServiceMock,
 }))
 
@@ -83,7 +83,7 @@ function createSignedRequest(body: object, options: { secret?: string } = {}) {
 describe('POST /api/v1/engagements/events', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET = 'test-events-secret'
+    process.env.PHYND_ENGAGEMENT_EVENTS_SECRET = 'test-events-secret'
     process.env.REDIS_URL = 'redis://localhost:6379'
     mockCheckRateLimit.mockResolvedValue({ allowed: true, remaining: 99 })
     mockValidateWebhookSignature.mockReturnValue(true)
@@ -91,12 +91,12 @@ describe('POST /api/v1/engagements/events', () => {
   })
 
   afterEach(() => {
-    delete process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
+    delete process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
     delete process.env.REDIS_URL
   })
 
-  it('returns 503 when PHYNE_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)', async () => {
-    delete process.env.PHYNE_ENGAGEMENT_EVENTS_SECRET
+  it('returns 503 when PHYND_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)', async () => {
+    delete process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
     const req = createSignedRequest({
       engagement_id: 'eng_1',
       source: 'dhanam',

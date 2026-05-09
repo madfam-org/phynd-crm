@@ -1,7 +1,7 @@
 import { setPortalSession } from '@/lib/portal/session'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
-import { EngagementPortalMagicLinkService } from '@phyne/services'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
+import { EngagementPortalMagicLinkService } from '@phynd/services'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:portal-verify')

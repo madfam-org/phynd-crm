@@ -21,7 +21,7 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   campaigns: { id: 'campaigns.id', status: 'campaigns.status' },
   contacts: {
     deletedAt: 'contacts.deletedAt',
@@ -43,7 +43,7 @@ vi.mock('@phyne/db/schema', () => ({
   stageTransitions: { id: 'stageTransitions.id' },
 }))
 
-vi.mock('@phyne/config/features', () => ({
+vi.mock('@phynd/config/features', () => ({
   isFeatureEnabled: vi.fn().mockReturnValue(false),
 }))
 

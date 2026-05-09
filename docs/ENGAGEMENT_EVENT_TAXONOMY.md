@@ -17,9 +17,9 @@ These appear in portal timelines with prominent visual treatment and can be quer
 
 | Canonical event_name | Semantic meaning | Who emits | Portal status |
 |---|---|---|---|
-| `quote_approved` | Client accepted a proposal | Cotiza / PhyneCRM CRM action | `milestone` |
+| `quote_approved` | Client accepted a proposal | Cotiza / PhyndCRM CRM action | `milestone` |
 | `payment_received` | Payment settled at Dhanam | Dhanam | `milestone` |
-| `payment_reconciled` | Payment matched to a CRM order | PhyneCRM CRM action | `milestone` |
+| `payment_reconciled` | Payment matched to a CRM order | PhyndCRM CRM action | `milestone` |
 | `cfdi_stamped` | Karafiel stamped a CFDI 4.0 for an invoice | Karafiel | `milestone` |
 | `fabrication_started` | Physical build started on the fab floor | Pravara | `milestone` |
 | `prototype_shipped` | Physical prototype left the fab (in transit) | Pravara / external fab | `milestone` |
@@ -35,10 +35,10 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `selva:agent_task_assigned`, `selva:pr_opened` — digital execution checkpoints
 - `karafiel:nom151_stamped` — technical compliance checkpoints
 - `system:contact_linked` — internal housekeeping
-- `system:intake_created` — PhyneCRM created the client/project onboarding skeleton
-- `system:production_order_created` — PhyneCRM created the optional production order during onboarding
-- `system:quote_approved` — PhyneCRM CRM action accepted a quote and moved it to confirmed-order readiness
-- `system:checkout_created` — PhyneCRM created or exposed a Dhanam checkout session for a quote
+- `system:intake_created` — PhyndCRM created the client/project onboarding skeleton
+- `system:production_order_created` — PhyndCRM created the optional production order during onboarding
+- `system:quote_approved` — PhyndCRM CRM action accepted a quote and moved it to confirmed-order readiness
+- `system:checkout_created` — PhyndCRM created or exposed a Dhanam checkout session for a quote
 - `system:payment_reconciled` — Dhanam payment was matched to an order and the order payment state was updated
 - `system:payment_unmatched` — Dhanam payment was received for a known engagement, but no active order could be matched
 - `system:payment_failed` — Dhanam reported a failed payment attempt for a matched order
@@ -46,10 +46,10 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:payment_disputed` — Dhanam reported a dispute or chargeback for a matched order
 - `system:payment_cancelled` — Dhanam reported payment cancellation for a matched order
 - `system:payment_<state>_unmatched` — Dhanam reported a lifecycle change for a known engagement, but no active order could be matched
-- `system:production_dispatch_requested` — PhyneCRM recorded first-slice production dispatch intent for a paid order delivery track
-- `system:production_dispatch_blocked` — PhyneCRM could not infer delivery tracks for a paid order and needs operator routing
-- `system:production_dispatch_sent` — PhyneCRM sent the live Pravara/Selva production dispatch HTTP request
-- `system:production_dispatch_failed` — PhyneCRM attempted live provider dispatch and left the intent retryable
+- `system:production_dispatch_requested` — PhyndCRM recorded first-slice production dispatch intent for a paid order delivery track
+- `system:production_dispatch_blocked` — PhyndCRM could not infer delivery tracks for a paid order and needs operator routing
+- `system:production_dispatch_sent` — PhyndCRM sent the live Pravara/Selva production dispatch HTTP request
+- `system:production_dispatch_failed` — PhyndCRM attempted live provider dispatch and left the intent retryable
 
 ## `status` field semantics
 

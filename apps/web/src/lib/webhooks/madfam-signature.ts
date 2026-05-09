@@ -1,5 +1,5 @@
 /**
- * MADFAM ecosystem signature verifier — PhyneCRM side.
+ * MADFAM ecosystem signature verifier — PhyndCRM side.
  *
  * Mirrors the verifier in `dhanam/apps/api/src/modules/billing/madfam-events.sig.ts`
  * so the two receivers accept exactly the same inputs. If you change the

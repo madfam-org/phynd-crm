@@ -5,20 +5,20 @@
  * ecosystem (RouteCraft, Karafiel, anything that emits through
  * `@routecraft/payments` `emitPaymentSucceeded()`).
  *
- * PhyneCRM is the "attribution" leg of the revenue flywheel — it
+ * PhyndCRM is the "attribution" leg of the revenue flywheel — it
  * records a conversion tied to (lead, billing event) so the autoswarm
  * Thompson-sampling bandit can reward the source agent later.
  *
  * Contract (from `REBRAND_AUTOSWARM_TO_SELVA` + factory manifests):
  *   - Header: `x-madfam-signature: t=<ts>,v1=<hex>`
- *   - Secret: env var `PHYNE_CRM_EVENTS_SECRET`
+ *   - Secret: env var `PHYND_CRM_EVENTS_SECRET`
  *   - Idempotent on `event.event_id` (dedupe against webhook_events table).
  */
 
 import { verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
-import { getDb } from '@phyne/db'
-import { conversions, leads, webhookEvents } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { conversions, leads, webhookEvents } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -44,9 +44,9 @@ interface EcosystemPaymentSucceededEvent {
 }
 
 export async function POST(request: Request) {
-  const secret = process.env.PHYNE_CRM_EVENTS_SECRET
+  const secret = process.env.PHYND_CRM_EVENTS_SECRET
   if (!secret) {
-    logger.warn('PHYNE_CRM_EVENTS_SECRET not configured')
+    logger.warn('PHYND_CRM_EVENTS_SECRET not configured')
     return NextResponse.json({ error: 'secret not configured' }, { status: 503 })
   }
 

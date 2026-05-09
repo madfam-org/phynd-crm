@@ -1,5 +1,5 @@
-import { isFeatureEnabled } from '@phyne/config/features'
-import { AnalyticsService } from '@phyne/services'
+import { isFeatureEnabled } from '@phynd/config/features'
+import { AnalyticsService } from '@phynd/services'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'

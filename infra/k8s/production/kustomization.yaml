@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: phyne-crm
+namespace: phynd-crm
 
 resources:
 - namespace.yaml
@@ -13,9 +13,9 @@ resources:
 - pdb.yaml
 
 images:
-- name: ghcr.io/madfam-org/phyne-crm/web
-  newName: ghcr.io/madfam-org/phyne-crm/web
+- name: ghcr.io/madfam-org/phynd-crm/web
+  newName: ghcr.io/madfam-org/phynd-crm/web
   digest: sha256:724b1a4f87875023f14bf1dd1bb363256fdd9dfc955d7e02cedd30becaf5e122
-- name: ghcr.io/madfam-org/phyne-crm/worker
-  newName: ghcr.io/madfam-org/phyne-crm/worker
+- name: ghcr.io/madfam-org/phynd-crm/worker
+  newName: ghcr.io/madfam-org/phynd-crm/worker
   digest: sha256:128966ae8c4d42196566b9200efc277820b6174bdc56b1eb42be801a257edd68

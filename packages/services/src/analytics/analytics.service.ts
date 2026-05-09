@@ -9,7 +9,7 @@ import {
   quotes,
   stageTransitions,
   visitorSessions,
-} from '@phyne/db/schema'
+} from '@phynd/db/schema'
 import type { SQL } from 'drizzle-orm'
 import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'

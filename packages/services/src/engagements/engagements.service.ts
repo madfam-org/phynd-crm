@@ -4,8 +4,8 @@ import {
   engagementEvents,
   engagements,
   stageTransitions,
-} from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+} from '@phynd/db/schema'
+import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, desc, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError, NotFoundError } from '../errors'

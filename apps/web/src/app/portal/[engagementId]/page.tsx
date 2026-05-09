@@ -1,17 +1,17 @@
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
-import { getDb } from '@phyne/db'
-import { contacts, engagements, orders, quotes } from '@phyne/db/schema'
-import { EngagementsService } from '@phyne/services'
+import { getDb } from '@phynd/db'
+import { contacts, engagements, orders, quotes } from '@phynd/db/schema'
+import { EngagementsService } from '@phynd/services'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 import { paymentStateMessage, portalPaymentAction } from './payment-state'
 
-// Server-rendered portal page. Gates on the phyne-portal-session cookie
+// Server-rendered portal page. Gates on the phynd-portal-session cookie
 // (set by /portal/verify after the Janua magic-link exchange) and
 // double-checks that the session email matches the engagement's contact
 // email so a stale/forged cookie can't access a different engagement.
 //
-// No tRPC here — we read from @phyne/db directly because the client has
+// No tRPC here — we read from @phynd/db directly because the client has
 // no Janua staff session and can't mint a protectedProcedure context.
 
 type PageProps = {

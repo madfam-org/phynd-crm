@@ -1,9 +1,9 @@
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
 import {
   dispatchPendingProductionDispatches,
   dispatchProductionDispatchReference,
-} from '@phyne/services'
+} from '@phynd/services'
 import type { Job } from 'bullmq'
 
 const logger = createLogger('worker:production-dispatch')

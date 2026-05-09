@@ -6,7 +6,7 @@
  *   - cab.member.exited        → unlink (or note exit reason)
  *   - cab.feedback.created     → log as activity (followup PR; v1 logs only)
  *
- * Signature contract (matches Coforma's PhyneCrmRelayService + the
+ * Signature contract (matches Coforma's PhyndCrmRelayService + the
  * RouteCraft / cotiza ecosystem convention):
  *   - Header: `x-madfam-signature: t=<unix-seconds>,v1=<hex-hmac-sha256>`
  *   - HMAC input: `"${ts}.${raw-body}"`
@@ -14,7 +14,7 @@
  *   - Replay window: 5 minutes
  *
  * Tenant resolution:
- *   - Coforma sends `x-coforma-tenant-id`. PhyneCRM is single-tenant in
+ *   - Coforma sends `x-coforma-tenant-id`. PhyndCRM is single-tenant in
  *     Phase 1 (`tenantId='madfam'` hardcoded), so for now we just log
  *     the source tenant and write into the global tenant. Phase 3 will
  *     wire this through a `tenant_external_links` lookup.
@@ -25,10 +25,10 @@
  *     receiver pattern.
  */
 
-import { getDb } from '@phyne/db'
-import { contacts, webhookEvents } from '@phyne/db/schema'
-import { validateMadfamSignature } from '@phyne/federation'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { contacts, webhookEvents } from '@phynd/db/schema'
+import { validateMadfamSignature } from '@phynd/federation'
+import { createLogger } from '@phynd/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -44,7 +44,7 @@ interface MemberJoinedPayload {
   userName: string | null
   company: string | null
   title: string | null
-  phynecrmContactId: string | null
+  phyndcrmContactId: string | null
 }
 
 interface MemberExitedPayload {
@@ -52,7 +52,7 @@ interface MemberExitedPayload {
   cabId: string
   exitedAt: string
   exitNote: string | null
-  phynecrmContactId: string | null
+  phyndcrmContactId: string | null
 }
 
 interface FeedbackCreatedPayload {
@@ -63,7 +63,7 @@ interface FeedbackCreatedPayload {
   title: string
   body: string
   priority: string | null
-  phynecrmContactId: string | null
+  phyndcrmContactId: string | null
 }
 
 type CoformaEvent =

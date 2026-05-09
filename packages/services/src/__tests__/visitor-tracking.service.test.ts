@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { VisitorTrackingService } from '../visitor-tracking/visitor-tracking.service'
 import { type MockDatabase, createTestContext, makePageView, makeVisitorSession } from './helpers'
 
-vi.mock('@phyne/config/features', () => ({
+vi.mock('@phynd/config/features', () => ({
   isFeatureEnabled: vi.fn().mockReturnValue(false),
 }))
 
@@ -14,7 +14,7 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(() => ({ _tag: 'sql' })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   leads: {
     contactId: 'leads.contactId',
     id: 'leads.id',

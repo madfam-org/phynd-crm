@@ -24,7 +24,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   campaigns: {
     id: 'campaigns.id',
     offerId: 'campaigns.offerId',

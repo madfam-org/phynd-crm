@@ -10,11 +10,11 @@ vi.mock('@/lib/portal/session', () => ({
   readAndVerifyPortalSession: readSessionMock,
 }))
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: getDbMock,
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   contacts: {
     email: 'contacts.email',
     id: 'contacts.id',
@@ -39,19 +39,19 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     error: vi.fn(),
   })),
 }))
 
-vi.mock('@phyne/services/payments/dhanam-checkout', () => ({
+vi.mock('@phynd/services/payments/dhanam-checkout', () => ({
   DhanamCheckoutService: vi.fn(() => ({
     createForQuote: checkoutMock,
   })),
 }))
 
-import { FederationError } from '@phyne/services/errors'
+import { FederationError } from '@phynd/services/errors'
 import { POST } from '../route'
 
 describe('POST /portal/[engagementId]/checkout', () => {

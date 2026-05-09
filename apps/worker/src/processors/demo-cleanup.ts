@@ -1,4 +1,4 @@
-import { getDb } from '@phyne/db'
+import { getDb } from '@phynd/db'
 import {
   activities,
   campaigns,
@@ -21,8 +21,8 @@ import {
   users,
   visitorPageViews,
   visitorSessions,
-} from '@phyne/db/schema'
-import { createLogger } from '@phyne/logging'
+} from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
 import type { Job } from 'bullmq'
 import { and, like, lt, sql } from 'drizzle-orm'
 

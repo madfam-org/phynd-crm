@@ -20,11 +20,11 @@ on:
       staging_health_url:
         description: Staging health endpoint to verify before promotion
         required: false
-        default: "https://staging-crm.madfam.io/api/health"
+        default: "https://staging-phynd.app/api/health"
 
 env:
-  WEB_IMAGE: ghcr.io/madfam-org/phyne-crm/web
-  WORKER_IMAGE: ghcr.io/madfam-org/phyne-crm/worker
+  WEB_IMAGE: ghcr.io/madfam-org/phynd-crm/web
+  WORKER_IMAGE: ghcr.io/madfam-org/phynd-crm/worker
   STAGING_KUSTOMIZATION: infra/k8s/overlays/staging/kustomization.yaml
   PRODUCTION_KUSTOMIZATION: infra/k8s/production/kustomization.yaml
 
@@ -145,14 +145,14 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.ENCLII_CALLBACK_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
-              \"repo_full_name\": \"madfam-org/phyne-crm\",
+              \"repo_full_name\": \"madfam-org/phynd-crm\",
               \"commit_sha\": \"${GITHUB_SHA}\",
               \"branch\": \"${GITHUB_REF_NAME}\",
               \"event_type\": \"${EVENT_TYPE}\",
               \"source\": \"ci_callback\",
               \"message\": \"promote-to-prod ${STATUS}\",
               \"metadata\": {
-                \"service\": \"phyne-crm\",
+                \"service\": \"phynd-crm\",
                 \"workflow\": \"promote-to-prod\",
                 \"web_digest\": \"${{ steps.resolve.outputs.web_digest }}\",
                 \"worker_digest\": \"${{ steps.resolve.outputs.worker_digest }}\",

@@ -1,10 +1,10 @@
 apiVersion: enclii.dev/v1
 kind: Service
 metadata:
-  name: phyne-crm
-  project: phyne-crm
+  name: phynd-crm
+  project: phynd-crm
 spec:
-  # status.madfam.io tracking — PhyneCRM declares all 4 canonical
+  # status.madfam.io tracking — PhyndCRM declares all 4 canonical
   # product surfaces (the symbiosis-hcm precedent, PR #8). Surfaces
   # not yet deployed will show red on the status page until first
   # roll-out; this is by design — surfacing the deployment gap is
@@ -21,28 +21,28 @@ spec:
   status:
     enabled: true
     entries:
-      - name: PhyneCRM
-        url: https://crm.madfam.io
-        href: https://crm.madfam.io
+      - name: PhyndCRM
+        url: https://phynd.app
+        href: https://phynd.app
         assertNotContains: 'localhost:3000'
-        group: PhyneCRM
+        group: PhyndCRM
         family: MADFAM Platform
         description: Marketing landing page (currently served by the Next.js app's `/` route)
-      - name: PhyneCRM App
-        url: https://crm-app.madfam.io
-        href: https://crm-app.madfam.io
-        group: PhyneCRM
+      - name: PhyndCRM App
+        url: https://app.phynd.app
+        href: https://app.phynd.app
+        group: PhyndCRM
         family: MADFAM Platform
-        description: Authenticated CRM workspace (planned, not yet deployed — dashboard currently lives at crm.madfam.io/overview)
-      - name: PhyneCRM Admin
-        url: https://crm-admin.madfam.io
-        href: https://crm-admin.madfam.io
-        group: PhyneCRM
+        description: Authenticated CRM workspace (planned, not yet deployed — dashboard currently lives at phynd.app/overview)
+      - name: PhyndCRM Admin
+        url: https://admin.phynd.app
+        href: https://admin.phynd.app
+        group: PhyndCRM
         family: MADFAM Platform
         description: Operator admin console (planned, not yet deployed)
-      - name: PhyneCRM API
-        url: https://crm-api.madfam.io/api/health
-        href: https://crm-api.madfam.io
-        group: PhyneCRM
+      - name: PhyndCRM API
+        url: https://api.phynd.app/api/health
+        href: https://api.phynd.app
+        group: PhyndCRM
         family: MADFAM Platform
         description: Synthetic single pane of glass — federates Janua, Janua Telemetry, Dhanam, Cotiza, PravaraMES, Forj (planned, not yet deployed)

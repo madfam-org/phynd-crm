@@ -19,7 +19,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   conversions: { id: 'conversions.id', type: 'conversions.type' },
   engagementEvents: { id: 'engagementEvents.id' },
   engagements: {

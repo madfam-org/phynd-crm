@@ -71,7 +71,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
         env:
-          DATABASE_URL: postgresql://phyne:phyne@localhost:5432/phyne_crm
+          DATABASE_URL: postgresql://phynd:phynd@localhost:5432/phynd_crm
           REDIS_URL: redis://localhost:6379
           AUTH_SECRET: ci-test-secret-minimum-16
           AUTH_JANUA_ISSUER: https://janua.example.com

@@ -1,4 +1,4 @@
-import { getDb } from '@phyne/db'
+import { getDb } from '@phynd/db'
 import {
   activities,
   campaigns,
@@ -21,7 +21,7 @@ import {
   users,
   visitorPageViews,
   visitorSessions,
-} from '@phyne/db/schema'
+} from '@phynd/db/schema'
 import {
   buildActivityData,
   buildCampaignData,

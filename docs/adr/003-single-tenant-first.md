@@ -4,14 +4,14 @@
 Accepted
 
 ## Context
-Phyne is designed as a SaaS CRM but needs to ship quickly for a single customer (MADFAM ecosystem). Multi-tenancy adds complexity to every layer: auth, data isolation, caching, billing.
+Phynd is designed as a SaaS CRM but needs to ship quickly for a single customer (MADFAM ecosystem). Multi-tenancy adds complexity to every layer: auth, data isolation, caching, billing.
 
 ## Decision
 Phase 1-2: **Single tenant** with `tenantId` hardcoded to `'madfam'` throughout the codebase. Phase 3: Multi-tenant SaaS with tenant extracted from JWT.
 
 ## Rationale
 - **Ship faster**: Skip tenant isolation, row-level security, tenant provisioning, and billing integration in MVP.
-- **Preparation built-in**: `tenantId` appears in `ServiceContext` and Redis cache keys (`phyne:{tenantId}:fed:{provider}:{id}`) from day 1. Migration to multi-tenant requires changing the source of `tenantId`, not adding it.
+- **Preparation built-in**: `tenantId` appears in `ServiceContext` and Redis cache keys (`phynd:{tenantId}:fed:{provider}:{id}`) from day 1. Migration to multi-tenant requires changing the source of `tenantId`, not adding it.
 - **Risk reduction**: Multi-tenant bugs (data leaks, cross-tenant queries) are catastrophic. Better to add tenant isolation deliberately after the data model stabilizes.
 
 ## Consequences
@@ -22,5 +22,5 @@ Phase 1-2: **Single tenant** with `tenantId` hardcoded to `'madfam'` throughout 
 
 ## Implementation
 - `packages/services/src/context.ts` — `ServiceContext.tenantId` set to `'madfam'`
-- `packages/federation/src/core/cache-manager.ts` — Keys prefixed with `phyne:{tenantId}:fed:`
+- `packages/federation/src/core/cache-manager.ts` — Keys prefixed with `phynd:{tenantId}:fed:`
 - `packages/config/src/env.ts` — `AUTH_BYPASS` blocked in production

@@ -1,8 +1,8 @@
 apiVersion: enclii.dev/v1
 kind: Service
 metadata:
-  name: phyne-crm
-  project: phyne-crm
+  name: phynd-crm
+  project: phynd-crm
 promotion:
   pattern: manual
   min_soak_minutes: 30

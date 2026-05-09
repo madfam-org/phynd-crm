@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: phyne-crm-web
-  namespace: phyne-crm
+  name: phynd-crm-web
+  namespace: phynd-crm
   labels:
-    app: phyne-crm-web
-    app.kubernetes.io/name: phyne-crm-web
+    app: phynd-crm-web
+    app.kubernetes.io/name: phynd-crm-web
     app.kubernetes.io/part-of: madfam-platform
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: phyne-crm-web
+      app: phynd-crm-web
   template:
     metadata:
       labels:
-        app: phyne-crm-web
-        app.kubernetes.io/name: phyne-crm-web
+        app: phynd-crm-web
+        app.kubernetes.io/name: phynd-crm-web
         app.kubernetes.io/part-of: madfam-platform
     spec:
       securityContext:
@@ -29,14 +29,14 @@ spec:
         - name: ghcr-credentials
       containers:
         - name: web
-          image: ghcr.io/madfam-org/phyne-crm/web:latest
+          image: ghcr.io/madfam-org/phynd-crm/web:latest
           ports:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: phyne-crm-secrets
+                name: phynd-crm-secrets
             - secretRef:
-                name: phyne-acca-secrets
+                name: phynd-acca-secrets
                 optional: true
           resources:
             requests:

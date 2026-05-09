@@ -22,7 +22,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   leadScores: {
     breakdown: 'leadScores.breakdown',
     id: 'leadScores.id',

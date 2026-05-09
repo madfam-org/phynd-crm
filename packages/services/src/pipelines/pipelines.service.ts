@@ -1,5 +1,5 @@
-import { leads, opportunities, pipelineStages, pipelines } from '@phyne/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phyne/types/crm'
+import { leads, opportunities, pipelineStages, pipelines } from '@phynd/db/schema'
+import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, asc, eq, gt, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError, ValidationError } from '../errors'

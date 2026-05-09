@@ -1,5 +1,5 @@
-import type { getDb } from '@phyne/db'
-import { engagementEvents, engagements, externalReferences, orders } from '@phyne/db/schema'
+import type { getDb } from '@phynd/db'
+import { engagementEvents, engagements, externalReferences, orders } from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { recordProductionDispatchIntent } from '../production/production-dispatch.service'
 

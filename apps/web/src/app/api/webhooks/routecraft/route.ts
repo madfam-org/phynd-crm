@@ -1,8 +1,8 @@
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
-import { getDb } from '@phyne/db'
-import { contacts, conversions, webhookEvents } from '@phyne/db/schema'
-import { validateMadfamSignature } from '@phyne/federation'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { contacts, conversions, webhookEvents } from '@phynd/db/schema'
+import { validateMadfamSignature } from '@phynd/federation'
+import { createLogger } from '@phynd/logging'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -15,7 +15,7 @@ const logger = createLogger('web:webhook:routecraft')
  * MercadoPago):
  *   - Header: `x-madfam-signature: t=<unix-seconds>,v1=<hex-hmac-sha256>`
  *   - HMAC input: `"${ts}.${raw-body}"`
- *   - Secret: `PHYNE_CRM_EVENTS_SECRET`
+ *   - Secret: `PHYND_CRM_EVENTS_SECRET`
  *   - Replay window: 5 minutes.
  *
  * Flow:
@@ -56,7 +56,7 @@ type ReceiveResult =
   | { status: 'duplicate'; event_id: string }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  const secret = process.env.PHYNE_CRM_EVENTS_SECRET
+  const secret = process.env.PHYND_CRM_EVENTS_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
   }

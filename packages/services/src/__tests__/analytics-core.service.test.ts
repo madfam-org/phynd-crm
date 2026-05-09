@@ -26,7 +26,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   campaigns: {
     budget: 'campaigns.budget',
     id: 'campaigns.id',

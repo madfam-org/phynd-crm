@@ -1,5 +1,5 @@
-import { isFeatureEnabled } from '@phyne/config/features'
-import { leads, visitorPageViews, visitorSessions } from '@phyne/db/schema'
+import { isFeatureEnabled } from '@phynd/config/features'
+import { leads, visitorPageViews, visitorSessions } from '@phynd/db/schema'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { LeadScoringService } from '../lead-scoring/lead-scoring.service'

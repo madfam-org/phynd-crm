@@ -1,5 +1,5 @@
-import { notes } from '@phyne/db/schema'
-import type { EntityType } from '@phyne/types/crm'
+import { notes } from '@phynd/db/schema'
+import type { EntityType } from '@phynd/types/crm'
 import { and, eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

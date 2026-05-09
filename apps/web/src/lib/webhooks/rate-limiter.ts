@@ -1,4 +1,4 @@
-import { createLogger } from '@phyne/logging'
+import { createLogger } from '@phynd/logging'
 import Redis from 'ioredis'
 
 const logger = createLogger('webhook-rate-limiter')
@@ -19,7 +19,7 @@ function getRedis(): Redis {
 }
 
 export async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number }> {
-  const key = `phyne:ratelimit:webhook:${ip}`
+  const key = `phynd:ratelimit:webhook:${ip}`
   const client = getRedis()
 
   try {

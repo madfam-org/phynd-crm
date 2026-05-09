@@ -1,4 +1,4 @@
-import type { AuthContext } from '@phyne/types/auth'
+import type { AuthContext } from '@phynd/types/auth'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 // ── Mirrors of apps/web/src/lib/demo.ts ──
 
-const DEMO_COOKIE_NAME = 'phyne-demo'
+const DEMO_COOKIE_NAME = 'phynd-demo'
 const DEMO_COOKIE_MAX_AGE = 14400 // 4 hours
 
 function isDemoSession(cookies: {
@@ -33,7 +33,7 @@ function createDemoAuth(sessionId: string): AuthContext {
 function createDemoUser(sessionId: string) {
   return {
     name: 'Demo Visitor',
-    email: 'demo@phyne.io',
+    email: 'demo@phynd.io',
     id: `demo-${sessionId}`,
   }
 }
@@ -41,8 +41,8 @@ function createDemoUser(sessionId: string) {
 // ── Tests ──
 
 describe('demo constants', () => {
-  it('cookie name is phyne-demo', () => {
-    expect(DEMO_COOKIE_NAME).toBe('phyne-demo')
+  it('cookie name is phynd-demo', () => {
+    expect(DEMO_COOKIE_NAME).toBe('phynd-demo')
   })
 
   it('cookie max age is 4 hours (14400 seconds)', () => {
@@ -132,9 +132,9 @@ describe('createDemoUser', () => {
     expect(user.name).toBe('Demo Visitor')
   })
 
-  it('returns demo@phyne.io as email', () => {
+  it('returns demo@phynd.io as email', () => {
     const user = createDemoUser(sessionId)
-    expect(user.email).toBe('demo@phyne.io')
+    expect(user.email).toBe('demo@phynd.io')
   })
 
   it('returns demo-prefixed id', () => {

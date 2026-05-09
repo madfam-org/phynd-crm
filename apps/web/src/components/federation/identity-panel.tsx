@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { JanuaIdentity } from '@phyne/types/federation'
+import type { JanuaIdentity } from '@phynd/types/federation'
 
 interface IdentityPanelProps {
   data: JanuaIdentity

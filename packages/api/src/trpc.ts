@@ -1,5 +1,5 @@
-import type { ServiceContext } from '@phyne/services/context'
-import type { AuthContext } from '@phyne/types/auth'
+import type { ServiceContext } from '@phynd/services/context'
+import type { AuthContext } from '@phynd/types/auth'
 import { TRPCError, initTRPC } from '@trpc/server'
 import superjson from 'superjson'
 

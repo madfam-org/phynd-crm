@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { FederationProviderName } from '@phyne/types/crm'
+import type { FederationProviderName } from '@phynd/types/crm'
 import { Component, type ReactNode } from 'react'
 
 interface Props {

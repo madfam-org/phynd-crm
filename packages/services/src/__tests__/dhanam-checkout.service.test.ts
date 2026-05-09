@@ -17,7 +17,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   contacts: {
     deletedAt: 'contacts.deletedAt',
     email: 'contacts.email',
@@ -105,7 +105,7 @@ describe('DhanamCheckoutService', () => {
     })
     expect(result).toEqual({
       amountMinor: 42_000,
-      cancelUrl: 'https://crm.madfam.io/portal/eng-001?checkout=cancelled',
+      cancelUrl: 'https://phynd.app/portal/eng-001?checkout=cancelled',
       checkoutUrl: 'https://pay.dhan.am/session/co_001',
       currency: 'MXN',
       engagementId: 'eng-001',
@@ -114,7 +114,7 @@ describe('DhanamCheckoutService', () => {
       quoteId: 'quote-001',
       reused: false,
       sessionId: 'co_001',
-      successUrl: 'https://crm.madfam.io/portal/eng-001?checkout=success',
+      successUrl: 'https://phynd.app/portal/eng-001?checkout=success',
     })
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -122,7 +122,7 @@ describe('DhanamCheckoutService', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'X-PhyneCRM-Signature': expect.stringMatching(/^sha256=/),
+          'X-PhyndCRM-Signature': expect.stringMatching(/^sha256=/),
         }),
         method: 'POST',
       }),
@@ -331,7 +331,7 @@ describe('DhanamCheckoutService', () => {
     ctx.mockDb = mockDb
     ctx.db = mockDb as never
     return new DhanamCheckoutService(ctx, {
-      appUrl: 'https://crm.madfam.io',
+      appUrl: 'https://phynd.app',
       dhanamApiUrl: 'https://api-staging.dhan.am',
       fetch: fetchMock as never,
       signingSecret:

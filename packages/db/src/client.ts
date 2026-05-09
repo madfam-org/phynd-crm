@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema/index'
 
-let db: ReturnType<typeof createClient> | null = null
+const dbCache = new Map<string, ReturnType<typeof createClient>>()
 
 function createClient(connectionString: string) {
   const sql = postgres(connectionString, {
@@ -13,14 +13,30 @@ function createClient(connectionString: string) {
   return drizzle(sql, { schema })
 }
 
-export function getDb(connectionString?: string): ReturnType<typeof createClient> {
-  if (db) return db
-  const url = connectionString ?? process.env.DATABASE_URL
+export function getDb(tenantId = 'madfam'): ReturnType<typeof createClient> {
+  if (dbCache.has(tenantId)) {
+    return dbCache.get(tenantId)!
+  }
+
+  let url = process.env.DATABASE_URL
   if (!url) {
     throw new Error('DATABASE_URL is required')
   }
-  db = createClient(url)
+
+  if (tenantId !== 'madfam') {
+    const tenantEnvVar = `DATABASE_URL_${tenantId.toUpperCase()}`
+    if (process.env[tenantEnvVar]) {
+      url = process.env[tenantEnvVar] as string
+    } else {
+      console.warn(
+        `No specific DATABASE_URL found for tenant ${tenantId}, falling back to default.`,
+      )
+    }
+  }
+
+  const db = createClient(url)
+  dbCache.set(tenantId, db)
   return db
 }
 
-export type Database = ReturnType<typeof getDb>
+export type Database = ReturnType<typeof createClient>

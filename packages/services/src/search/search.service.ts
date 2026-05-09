@@ -1,4 +1,4 @@
-import { contacts, leads, opportunities } from '@phyne/db/schema'
+import { contacts, leads, opportunities } from '@phynd/db/schema'
 import { and, ilike, isNull, or } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

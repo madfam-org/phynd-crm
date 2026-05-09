@@ -17,9 +17,9 @@ import { seedUsersAndPipeline } from './seed-users-pipeline'
 import { seedVisitorData } from './seed-visitor-data'
 import type { SeedIds } from './types'
 
-export async function seed() {
-  const db = getDb()
-  console.log('Seeding database...')
+export async function seed(tenantId = 'madfam') {
+  const db = getDb(tenantId)
+  console.log(`Seeding database for tenant: ${tenantId}...`)
 
   const { adminId, pipelineId, stages, deliveryPipelineId, deliveryStages } =
     await seedUsersAndPipeline(db)

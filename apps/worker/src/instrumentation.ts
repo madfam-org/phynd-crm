@@ -1,5 +1,5 @@
 /**
- * OpenTelemetry instrumentation for phyne-worker.
+ * OpenTelemetry instrumentation for phynd-worker.
  *
  * Call `initInstrumentation()` at the top of the worker entry point
  * (src/index.ts) before any other imports that should be instrumented:
@@ -7,7 +7,7 @@
  *   import { initInstrumentation } from './instrumentation'
  *   await initInstrumentation()
  */
-import { isFeatureEnabled } from '@phyne/config/features'
+import { isFeatureEnabled } from '@phynd/config/features'
 
 export async function initInstrumentation(): Promise<void> {
   if (!isFeatureEnabled('observability')) {
@@ -25,7 +25,7 @@ export async function initInstrumentation(): Promise<void> {
   })
 
   const sdk = new NodeSDK({
-    serviceName: 'phyne-worker',
+    serviceName: 'phynd-worker',
     traceExporter: exporter,
     instrumentations: [
       getNodeAutoInstrumentations({
@@ -48,5 +48,5 @@ export async function initInstrumentation(): Promise<void> {
   process.on('SIGTERM', shutdown)
   process.on('SIGINT', shutdown)
 
-  console.log('[instrumentation] OpenTelemetry initialized for phyne-worker')
+  console.log('[instrumentation] OpenTelemetry initialized for phynd-worker')
 }

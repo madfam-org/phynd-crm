@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Phyne CRM needs to aggregate data from 6 MADFAM ecosystem platforms (Janua, Dhanam, Cotiza, PravaraMES, Forj, Janua Telemetry). The fundamental choice is between:
+Phynd CRM needs to aggregate data from 6 MADFAM ecosystem platforms (Janua, Dhanam, Cotiza, PravaraMES, Forj, Janua Telemetry). The fundamental choice is between:
 
 1. **ETL/Replication**: Copy data into the CRM database, keep it synced
 2. **Data Virtualization**: Query source systems on-demand, cache locally

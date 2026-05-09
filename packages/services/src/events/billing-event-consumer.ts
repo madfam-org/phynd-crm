@@ -1,8 +1,8 @@
 /**
  * Redis Streams consumer for Dhanam billing events.
  *
- * Reads from `madfam:billing-events` using a consumer group (`phyne-crm-consumers`).
- * Processes billing events to update contact/lead data in PhyneCRM.
+ * Reads from `madfam:billing-events` using a consumer group (`phynd-crm-consumers`).
+ * Processes billing events to update contact/lead data in PhyndCRM.
  *
  * Features:
  * - Consumer group with auto-claim for stale messages on startup
@@ -16,8 +16,8 @@
 import Redis from 'ioredis'
 
 const STREAM_KEY = 'madfam:billing-events'
-const CONSUMER_GROUP = 'phyne-crm-consumers'
-const CONSUMER_NAME = `phyne-crm-${process.pid}`
+const CONSUMER_GROUP = 'phynd-crm-consumers'
+const CONSUMER_NAME = `phynd-crm-${process.pid}`
 const DLQ_KEY = `${STREAM_KEY}-dlq`
 const BLOCK_MS = 5000
 const MAX_RETRIES = 3
@@ -25,7 +25,7 @@ const STALE_MS = 60_000 // auto-claim messages idle > 60s
 
 // Canonical types live in @madfam/types — this interface mirrors ServiceEventEnvelope
 // TODO: Replace with `import type { ServiceEventEnvelope } from '@madfam/types'`
-// once the package is published to npm.madfam.io and added to phyne-crm deps.
+// once the package is published to npm.madfam.io and added to phynd-crm deps.
 export interface BillingEvent {
   id: string // Redis Stream entry ID
   event_type: string

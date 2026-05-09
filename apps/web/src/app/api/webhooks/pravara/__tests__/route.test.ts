@@ -21,11 +21,11 @@ vi.mock('@/lib/webhooks/rate-limiter', () => ({
 }))
 
 const mockValidateWebhookSignature = vi.fn().mockReturnValue(true)
-vi.mock('@phyne/federation/webhooks', () => ({
+vi.mock('@phynd/federation/webhooks', () => ({
   validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
 }))
 
-vi.mock('@phyne/federation', () => ({
+vi.mock('@phynd/federation', () => ({
   CacheInvalidator: vi.fn().mockImplementation(() => ({
     invalidate: vi.fn().mockResolvedValue(undefined),
   })),
@@ -65,11 +65,11 @@ const mockDb = {
   insert: vi.fn().mockReturnValue(mockQb),
   select: vi.fn().mockReturnValue(mockQb),
 }
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => mockDb),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   activities: { entityType: 'activities.entityType', entityId: 'activities.entityId' },
   engagements: {
     id: 'engagements.id',
@@ -90,7 +90,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),
@@ -104,7 +104,7 @@ const { mockRecordEvent } = vi.hoisted(() => ({
   mockRecordEvent: vi.fn().mockResolvedValue({ deduplicated: false }),
 }))
 
-vi.mock('@phyne/services', () => ({
+vi.mock('@phynd/services', () => ({
   EngagementsService: vi.fn().mockImplementation(() => ({
     recordEvent: mockRecordEvent,
   })),

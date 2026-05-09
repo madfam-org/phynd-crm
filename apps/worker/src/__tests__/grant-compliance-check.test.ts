@@ -50,11 +50,11 @@ const mockDb = {
   update: vi.fn().mockReturnValue(mockQb),
 }
 
-vi.mock('@phyne/db', () => ({
+vi.mock('@phynd/db', () => ({
   getDb: vi.fn(() => mockDb),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   grantApplications: {
     complianceChecks: 'grantApplications.complianceChecks',
     id: 'grantApplications.id',
@@ -65,7 +65,7 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
 }))
 
-vi.mock('@phyne/logging', () => ({
+vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),

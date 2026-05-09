@@ -19,7 +19,7 @@ vi.mock('drizzle-orm', () => ({
   or: vi.fn((...args: unknown[]) => ({ _tag: 'or', args })),
 }))
 
-vi.mock('@phyne/db/schema', () => ({
+vi.mock('@phynd/db/schema', () => ({
   contacts: {
     company: 'contacts.company',
     email: 'contacts.email',

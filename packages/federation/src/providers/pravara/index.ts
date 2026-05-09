@@ -1,4 +1,4 @@
-import type { PravaraFabrication, PravaraOrderStatus } from '@phyne/types/federation'
+import type { PravaraFabrication, PravaraOrderStatus } from '@phynd/types/federation'
 import type { FederationProvider } from '../../core/types'
 
 interface PravaraRawOrder {

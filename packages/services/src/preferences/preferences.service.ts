@@ -1,4 +1,4 @@
-import { roleViewPreferences } from '@phyne/db/schema'
+import { roleViewPreferences } from '@phynd/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 

@@ -1,10 +1,10 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { CacheInvalidator } from '@phyne/federation'
-import { createLogger } from '@phyne/logging'
-import { ContactsService, createServiceContext } from '@phyne/services'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { CacheInvalidator } from '@phynd/federation'
+import { createLogger } from '@phynd/logging'
+import { ContactsService, createServiceContext } from '@phynd/services'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:webhook:janua')

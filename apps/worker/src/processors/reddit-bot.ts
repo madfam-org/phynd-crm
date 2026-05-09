@@ -1,13 +1,13 @@
-import { DEFAULT_TENANT_ID } from '@phyne/config/constants'
-import { getDb } from '@phyne/db'
-import { createLogger } from '@phyne/logging'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { getDb } from '@phynd/db'
+import { createLogger } from '@phynd/logging'
 import {
   type BotCampaignPayload,
   RedditBotService,
   type RedditPost,
   type ServiceContext,
   createRedditClientFromEnv,
-} from '@phyne/services'
+} from '@phynd/services'
 import type { Job } from 'bullmq'
 import { getCacheManager } from '../lib/federation'
 
@@ -241,7 +241,7 @@ function buildPayload(post: RedditPost): BotCampaignPayload {
 
   return {
     campaign_type: 'reddit_legal_outreach',
-    bot_identity: 'PhyneLegal — asistente legal automatizado (by /u/madfam-bot)',
+    bot_identity: 'PhyndLegal — asistente legal automatizado (by /u/madfam-bot)',
     outreach_target: {
       url: post.permalink,
       author: post.author,

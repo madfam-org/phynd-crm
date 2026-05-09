@@ -1,4 +1,4 @@
-import type { JanuaTelemetry } from '@phyne/types/federation'
+import type { JanuaTelemetry } from '@phynd/types/federation'
 import type { FederationProvider } from '../../core/types'
 
 interface JanuaRawTelemetry {

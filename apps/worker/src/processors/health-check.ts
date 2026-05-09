@@ -1,6 +1,6 @@
-import { getDb } from '@phyne/db'
-import { healthSnapshots } from '@phyne/db/schema'
-import { createLogger } from '@phyne/logging'
+import { getDb } from '@phynd/db'
+import { healthSnapshots } from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
 import type { Job } from 'bullmq'
 import { getHealthChecker } from '../lib/federation'
 

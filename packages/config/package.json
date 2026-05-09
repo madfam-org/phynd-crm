@@ -1,5 +1,5 @@
 {
-  "name": "@phyne/config",
+  "name": "@phynd/config",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "zod": "^3.24.2",
-    "@phyne/types": "workspace:*"
+    "@phynd/types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.12.0",

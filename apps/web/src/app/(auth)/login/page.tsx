@@ -5,7 +5,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="mx-auto w-full max-w-sm space-y-6 p-6">
         <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">Phyne CRM</h1>
+          <h1 className="text-3xl font-bold">Phynd CRM</h1>
           <p className="text-muted-foreground">Sign in with your MADFAM account</p>
         </div>
         <form

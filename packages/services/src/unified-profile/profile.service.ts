@@ -1,5 +1,5 @@
-import { isFeatureEnabled } from '@phyne/config/features'
-import type { FederationCallResult, FederationClient } from '@phyne/federation'
+import { isFeatureEnabled } from '@phynd/config/features'
+import type { FederationCallResult, FederationClient } from '@phynd/federation'
 import type {
   CotizaManufacturing,
   DhanamBilling,
@@ -9,7 +9,7 @@ import type {
   JanuaTelemetry,
   PravaraFabrication,
   ProviderStatus,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
 import { NotFoundError } from '../errors'

@@ -2,7 +2,7 @@ import {
   ClientProjectOnboardingService,
   EngagementPortalMagicLinkService,
   EngagementsService,
-} from '@phyne/services'
+} from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -169,7 +169,7 @@ export const engagementsRouter = router({
     }),
 
   // Staff-initiated. Fires Janua's magic-link email to the engagement's
-  // contact with a redirect_url pointing back at PhyneCRM's /portal/verify.
+  // contact with a redirect_url pointing back at PhyndCRM's /portal/verify.
   // Rate-limiting is handled by Janua (5/hour per email).
   sendPortalLink: protectedProcedure
     .input(z.object({ engagementId: z.string() }))

@@ -2,7 +2,7 @@ import type {
   FederationHealthStatus,
   FederationProviderName,
   ProviderStatus,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 import type { CircuitBreaker } from '../core/circuit-breaker'
 
 interface HealthProbeConfig {

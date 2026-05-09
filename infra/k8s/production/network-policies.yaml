@@ -4,7 +4,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-all
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:
@@ -20,7 +20,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-cloudflared-ingress
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:
@@ -41,7 +41,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-data-egress
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:
@@ -66,7 +66,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns-egress
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:
@@ -89,7 +89,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-https-egress
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:
@@ -106,7 +106,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-intra-namespace
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:
@@ -126,7 +126,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-internal-egress
-  namespace: phyne-crm
+  namespace: phynd-crm
 spec:
   podSelector:
     matchLabels:

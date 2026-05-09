@@ -11,7 +11,7 @@ export function daysFromNow(days: number): Date {
 export function buildUserData(prefix: string) {
   return {
     id: prefix,
-    email: 'demo@phyne.io',
+    email: 'demo@phynd.io',
     name: 'Demo Visitor',
     role: 'admin' as const,
   }
@@ -374,15 +374,15 @@ export function buildPageViewData(prefix: string) {
     {
       id: `${prefix}-vpv1`,
       sessionId: `${prefix}-vs1`,
-      url: 'https://phyne.io/',
-      title: 'Phyne CRM \u2014 Home',
+      url: 'https://phynd.io/',
+      title: 'Phynd CRM \u2014 Home',
       duration: 12000,
       viewedAt: daysAgo(18),
     },
     {
       id: `${prefix}-vpv2`,
       sessionId: `${prefix}-vs1`,
-      url: 'https://phyne.io/pricing',
+      url: 'https://phynd.io/pricing',
       title: 'Pricing',
       duration: 45000,
       viewedAt: daysAgo(18),
@@ -390,7 +390,7 @@ export function buildPageViewData(prefix: string) {
     {
       id: `${prefix}-vpv3`,
       sessionId: `${prefix}-vs2`,
-      url: 'https://phyne.io/features',
+      url: 'https://phynd.io/features',
       title: 'Features',
       duration: 30000,
       viewedAt: daysAgo(10),

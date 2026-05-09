@@ -6,7 +6,7 @@ import type {
   JanuaTelemetry,
   PravaraFabrication,
   ProviderStatus,
-} from '@phyne/types/federation'
+} from '@phynd/types/federation'
 import { getTablacoFederationData } from './tablaco-federation-data'
 
 type FederationEntry<T> = {

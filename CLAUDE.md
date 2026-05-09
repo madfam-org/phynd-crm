@@ -1,7 +1,7 @@
-# Phyne CRM - Project Instructions
+# Phynd CRM - Project Instructions
 
 ## Overview
-Phyne is a phygital CRM — "Synthetic Single Pane of Glass" that federates data from 6 MADFAM ecosystem platforms (Janua, Janua Telemetry, Dhanam, Cotiza, PravaraMES, Forj) without duplicating it. All 6 providers are active.
+Phynd is a phygital CRM — "Synthetic Single Pane of Glass" that federates data from 6 MADFAM ecosystem platforms (Janua, Janua Telemetry, Dhanam, Cotiza, PravaraMES, Forj) without duplicating it. All 6 providers are active.
 
 ## Tech Stack
 - **Monorepo**: Turborepo + pnpm workspaces
@@ -47,7 +47,7 @@ pnpm db:seed          # Seed database
 
 ## Key Patterns
 - **Federation**: `Promise.allSettled()` across 6 providers — partial failures don't block. Each provider has a dedicated contract test at `packages/federation/src/providers/<name>/__tests__/contract.test.ts` that asserts the raw response shape against a JSON Schema AND the `.map()` transformation. 115 tests total in the federation package (35 added 2026-04-17 to close ECOSYSTEM_AUDIT §6.6). Shared validator at `packages/federation/src/__tests__/contract-helpers.ts` (no ajv dep).
-- **Cache**: Redis with tenant-namespaced keys (`phyne:{tenantId}:fed:{provider}:{id}`)
+- **Cache**: Redis with tenant-namespaced keys (`phynd:{tenantId}:fed:{provider}:{id}`)
 - **Circuit Breaker**: CLOSED → OPEN (5 failures/60s) → HALF_OPEN (30s) → CLOSED (3 successes); shared CB instances between FederationClient and HealthChecker
 - **Timeout**: Config-driven via `ProviderConfig.timeout` → `AbortSignal.timeout()` passed to provider `fetch()`; providers accept optional `signal` parameter
 - **tenantId**: Hardcoded to `'madfam'` in Phase 1, extracted from JWT in Phase 3
@@ -60,7 +60,7 @@ pnpm db:seed          # Seed database
 - **Scoring conditions**: source, status, session_count, page_view_count, has_contact, page_url (contains/eq), 3d_asset_views (forj:// URL scheme)
 - **Fabrication activities**: PravaraMES webhook auto-creates CRM activities on fabrication status changes
 - **Routing**: `/` is the public marketing landing page (static); dashboard lives at `/overview` behind auth; middleware allows `/` and `/demo` unauthenticated
-- **Demo mode**: Cookie-based (`phyne-demo={sessionId}`, httpOnly, 4h expiry). `/demo` route generates session, seeds per-session tenant (`demo-{sessionId}`), redirects to `/overview`. Demo users get admin role, isolated tenant. `/demo/exit` clears cookie. Dashboard layout shows DemoBanner + DEMO badge in sidebar. Cleanup via BullMQ job (every 1h, removes data > 4h old)
+- **Demo mode**: Cookie-based (`phynd-demo={sessionId}`, httpOnly, 4h expiry). `/demo` route generates session, seeds per-session tenant (`demo-{sessionId}`), redirects to `/overview`. Demo users get admin role, isolated tenant. `/demo/exit` clears cookie. Dashboard layout shows DemoBanner + DEMO badge in sidebar. Cleanup via BullMQ job (every 1h, removes data > 4h old)
 - **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — transaction orchestrator importing data builders from `demo-seed/data-builders.ts`; creates user, pipeline, 6 stages, 5 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification (~63 rows). Leads/opps/quotes/orders backdated across 25 days for analytics trends. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
@@ -70,8 +70,8 @@ pnpm db:seed          # Seed database
 - **Tezca webhook events**: `interest.created` (feature interest → contact + lead + drip), `newsletter.subscribed` (newsletter signup → contact + lead + drip). Both enqueue `email-drip` BullMQ job on lead creation
 - **Janua webhook linking**: `user.created` checks for existing contact by email (from newsletter/interest) and links `externalJanuaId` instead of creating duplicate
 - **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`); all 6 tenant-side webhook routes use the shared handler
-- **RouteCraft webhook** (`apps/web/src/app/api/webhooks/routecraft/route.ts`): ecosystem payment attribution endpoint — counterpart to `@routecraft/payments::emitPaymentSucceeded`. Uses `validateMadfamSignature()` from `@phyne/federation` (Stripe-style `t=<ts>,v1=<hex>` header, 5-min replay window, timing-safe compare). Idempotent via `webhook_events.payload->>'event_id'` lookup. Inserts a `conversions` row (`type='ecosystem_payment_succeeded'`) with the full attribution blob in metadata and links to `contacts` via `externalJanuaId` when `attribution.source_agent_id` resolves. Secret: `PHYNE_CRM_EVENTS_SECRET` (when unset → 503, same contract as other receivers)
-- **Structured logging**: `@phyne/logging` package (pino); all worker processors and webhook handler use structured JSON logging
+- **RouteCraft webhook** (`apps/web/src/app/api/webhooks/routecraft/route.ts`): ecosystem payment attribution endpoint — counterpart to `@routecraft/payments::emitPaymentSucceeded`. Uses `validateMadfamSignature()` from `@phynd/federation` (Stripe-style `t=<ts>,v1=<hex>` header, 5-min replay window, timing-safe compare). Idempotent via `webhook_events.payload->>'event_id'` lookup. Inserts a `conversions` row (`type='ecosystem_payment_succeeded'`) with the full attribution blob in metadata and links to `contacts` via `externalJanuaId` when `attribution.source_agent_id` resolves. Secret: `PHYND_CRM_EVENTS_SECRET` (when unset → 503, same contract as other receivers)
+- **Structured logging**: `@phynd/logging` package (pino); all worker processors and webhook handler use structured JSON logging
 - **Signal propagation**: All 6 federation providers accept optional `signal?: AbortSignal` parameter, with config-driven fallback timeouts
 - **Owner-scoped queries**: `list()` accepts optional `filters?: { ownerId?: string }`; `listMine` router procedures auto-scope to `ctx.auth.userId`
 - **Timeline**: `TimelineService.getTimeline()` merges activities, stage_transitions, and notes into chronological `TimelineEntry[]`
@@ -110,7 +110,7 @@ pnpm db:seed          # Seed database
 
 ## Tablaco client-engagement flow (2026-04-19)
 
-PhyneCRM is the seam across the MADFAM ecosystem for a single client's cross-platform work (fab + digital). The engagement aggregate + portal shipped with phyne-crm#9 + #10 + #11.
+PhyndCRM is the seam across the MADFAM ecosystem for a single client's cross-platform work (fab + digital). The engagement aggregate + portal shipped with phynd-crm#9 + #10 + #11.
 
 **Engagement aggregate** (3 new tables, migration `0005_medical_genesis.sql`):
 - `engagements` — aggregate root tying a client (`contact_id`) to a project family. Optional `opportunity_id` link. Status: active / completed / paused / cancelled.
@@ -122,11 +122,11 @@ PhyneCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 - Pravara → existing `/api/webhooks/pravara` also writes `engagement_events` when the payload ties to a contact with an active engagement.
 - Selva (future) → will POST milestone completion events the same way.
 - Karafiel (future) → will POST CFDI/NOM-151 stamping events.
-- All writes HMAC-signed, secret `PHYNE_ENGAGEMENT_EVENTS_SECRET`. Idempotent via `dedup_key`.
+- All writes HMAC-signed, secret `PHYND_ENGAGEMENT_EVENTS_SECRET`. Idempotent via `dedup_key`.
 
 **External-client portal via Janua magic link (Phase C):**
 - Staff calls `engagements.sendPortalLink(engagementId)` tRPC mutation → `EngagementPortalMagicLinkService` calls Janua's `/api/v1/auth/magic-link` with `redirect_url=<PORTAL_BASE_URL>/portal/verify?engagement=<id>`. Janua emails the client (5/hour rate limit, 15-min token expiry).
-- Client clicks → `GET /portal/verify?engagement=X&token=Y` exchanges the token via Janua's `/api/v1/auth/magic-link/verify`, double-checks the verified email matches `engagement.contact.email`, seals `phyne-portal-session` httpOnly cookie (14-min TTL, path-scoped to `/portal`), redirects to `/portal/[engagementId]`.
+- Client clicks → `GET /portal/verify?engagement=X&token=Y` exchanges the token via Janua's `/api/v1/auth/magic-link/verify`, double-checks the verified email matches `engagement.contact.email`, seals `phynd-portal-session` httpOnly cookie (14-min TTL, path-scoped to `/portal`), redirects to `/portal/[engagementId]`.
 - Portal page (`/portal/[engagementId]`) is server-rendered — reads the cookie, loads timeline + artifacts, renders read-only view with status badge. Fully isolated from the Auth.js v5 staff OIDC session.
 - Error / expiry paths redirect to `/portal/expired` with reason-keyed copy.
 - `/portal/*` added to middleware `publicPaths` — portal has its own cookie gating.
@@ -134,7 +134,7 @@ PhyneCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 **New env vars:**
 | Var | Purpose |
 |---|---|
-| `PHYNE_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for `/api/v1/engagements/events` + `/artifacts` webhooks (also shared with Cotiza + Pravara + others writing in) |
+| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for `/api/v1/engagements/events` + `/artifacts` webhooks (also shared with Cotiza + Pravara + others writing in) |
 | `PORTAL_BASE_URL` | Base URL for Janua magic-link `redirect_url`. Defaults to `NEXTAUTH_URL` |
 | `JANUA_API_URL` | Janua API base for magic-link calls. Defaults to `AUTH_JANUA_ISSUER` |
 
@@ -181,7 +181,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `funnelManagement: true` — Funnel and offer management
 - `analytics: true` — Analytics dashboard
 - `leadScoring: true` — Configurable lead scoring with auto-recomputation
-- `treasuryHunter: false` — ACCA Treasury Hunter grant lifecycle management (Fortuna → PhyneCRM → Karafiel pipeline)
+- `treasuryHunter: false` — ACCA Treasury Hunter grant lifecycle management (Fortuna → PhyndCRM → Karafiel pipeline)
 - 6 others (bidirectionalSync, aiKanban, multiTenancy, piiMasking, observability, realtimeUpdates) — all `false`
 
 ## Phasing
@@ -247,11 +247,11 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `email-drip`: 4-step drip sequence via Resend (Day 0: welcome, Day 2: legal tip, Day 5: trial invite, Day 14: last chance). Triggered on lead creation from Tezca newsletter/interest events. Each step self-enqueues the next with BullMQ delayed jobs. Dedup by `drip-{leadId}-step-{N}` job ID
 - **LLM routing**: Reddit bot `RedditBotService` supports `OPENAI_BASE_URL` for routing completions through AutoSwarm Nexus (`/v1` OpenAI-compatible endpoint). When unset, falls back to direct OpenAI. Both `web` and `worker` services receive the env var in `docker-compose.prod.yml`
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
-- All processors use structured logging via `@phyne/logging` (pino JSON output)
+- All processors use structured logging via `@phynd/logging` (pino JSON output)
 
 ## ACCA Treasury Hunter Integration
 - **Fortuna webhook**: `POST /api/webhooks/fortuna` — receives `grant.discovered` events, upserts grant_opportunities, creates grant_application at "Discovered" stage, enqueues `grant-compliance-check` job
-- **Karafiel webhook dispatch**: `grant.awarded` event sent when application reaches "Awarded" status (HMAC-SHA256, `X-PhyneCRM-Signature`)
+- **Karafiel webhook dispatch**: `grant.awarded` event sent when application reaches "Awarded" status (HMAC-SHA256, `X-PhyndCRM-Signature`)
 - **HITL gate**: `approveSubmission` requires real `userId` + passing compliance checks (`rfc_active`, `opinion_32d_positive`, `!blacklisted`)
 - **Pipeline**: "Treasury Hunter" pipeline with 8 stages: Discovered (5%) → Evaluating (15%) → Preparing (30%) → HITL Review (50%) → Submitted (65%) → Under Evaluation (75%) → Awarded (95%) → Rejected (0%)
 - **Audit trail**: `grant_signal_audit` table records all lifecycle events with actor + details
@@ -273,8 +273,8 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - `infra/k8s/production/resource-quota.yaml` — Namespace limits (1 CPU/2Gi requests, 3 CPU/4Gi limits, 10 pods)
 - `infra/k8s/production/pdb.yaml` — Pod Disruption Budget (web minAvailable: 1)
 - `infra/k8s/production/secrets-template.yaml` — Template for all env vars (never commit with real values)
-- Secrets: `phyne-crm-secrets` (envFrom, required) + `phyne-acca-secrets` (envFrom, optional)
-- Images: `ghcr.io/madfam-org/phyne-crm/{web,worker}` with cosign-signed digests
+- Secrets: `phynd-crm-secrets` (envFrom, required) + `phynd-acca-secrets` (envFrom, optional)
+- Images: `ghcr.io/madfam-org/phynd-crm/{web,worker}` with cosign-signed digests
 
 ## CI/CD
 - `.github/workflows/ci.yml` — lint + typecheck + test (parallel) → build; `JANUA_TELEMETRY_API_URL` in build env
@@ -286,7 +286,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 
 ## Deployment Pipeline (dev → staging → prod)
 
-PhyneCRM is a **Phase 2** target (lead pipeline priority — the CRM is the
+PhyndCRM is a **Phase 2** target (lead pipeline priority — the CRM is the
 seam across the MADFAM ecosystem webhook graph) for the 3-tier pipeline
 defined in
 [internal-devops/rfcs/0001-dev-staging-prod-pipeline.md](https://github.com/madfam-org/internal-devops/blob/main/rfcs/0001-dev-staging-prod-pipeline.md).
@@ -294,7 +294,7 @@ defined in
 **Current state:** Staging is now in place. Pushes to `main` for app/package
 changes write web and worker digests to
 `infra/k8s/overlays/staging/kustomization.yaml`, which ArgoCD tracks via
-`infra/argocd/phyne-crm-staging-application.yaml`. Production updates are
+`infra/argocd/phynd-crm-staging-application.yaml`. Production updates are
 manual via `promote-to-prod.yml` with soak + smoke checks; emergency
 production reversions use `rollback-prod.yml`.
 
@@ -305,13 +305,13 @@ state and remaining PP.5 follow-up items.
 
 | Divergence | Impact | Resolution PR |
 |---|---|---|
-| Staging subdomain (`staging-crm.madfam.io`) is not yet wired to tunnel/ingress | Can't cross-service smoke-test | Deferred (Cloudflare ops) |
+| Staging subdomain (`staging-phynd.app`) is not yet wired to tunnel/ingress | Can't cross-service smoke-test | Deferred (Cloudflare ops) |
 | Inbound/outbound webhook and provider API routing separation is still pending in dependent services | Staging can still point at production destinations | Deferred (service-by-service coordination) |
 | Nightly prod→staging masked DB refresh not implemented | Staging DB still needs safe fixture/PII-seeded refresh path | Deferred (RFC 0001 open question) |
 
-### PhyneCRM-specific staging constraints
+### PhyndCRM-specific staging constraints
 
-PhyneCRM is the seam across the MADFAM webhook graph. Unlike single-seam
+PhyndCRM is the seam across the MADFAM webhook graph. Unlike single-seam
 services, its staging rollout requires coordinated env separation on
 **both sides** of every webhook:
 
@@ -322,13 +322,13 @@ services, its staging rollout requires coordinated env separation on
   share prod webhook URLs or HMAC secrets at providers**. Re-registering
   prod webhook URLs wholesale to staging would cross-contaminate lead data
   and grant-application rows. Each provider must register a **second**
-  destination for its staging instance → `https://staging-crm.madfam.io/api/webhooks/<provider>` with a **distinct** HMAC secret
+  destination for its staging instance → `https://staging-phynd.app/api/webhooks/<provider>` with a **distinct** HMAC secret
   (`KARAFIEL_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, etc.).
 
-- **Outbound webhooks** (PhyneCRM → Karafiel `grant.awarded`): staging
-  PhyneCRM must dispatch to **staging Karafiel**
+- **Outbound webhooks** (PhyndCRM → Karafiel `grant.awarded`): staging
+  PhyndCRM must dispatch to **staging Karafiel**
   (`https://staging-karafiel.madfam.io`) with a distinct staging
-  `KARAFIEL_WEBHOOK_SECRET`. Never let staging PhyneCRM call prod
+  `KARAFIEL_WEBHOOK_SECRET`. Never let staging PhyndCRM call prod
   Karafiel (would create phantom grants in prod).
 
 - **Federation provider API URLs** (`JANUA_API_URL`, `DHANAM_API_URL`,
@@ -343,14 +343,14 @@ services, its staging rollout requires coordinated env separation on
   addresses. `EMAIL_ALLOWLIST_DOMAINS` is implemented in
   `apps/worker/src/processors/email-drip.ts` as a hardening guard.
 
-See `docs/PP_5_STAGING_AUDIT.md` § PhyneCRM-specific staging constraints
+See `docs/PP_5_STAGING_AUDIT.md` § PhyndCRM-specific staging constraints
 for the full staging-secrets template (all 30+ keys) and the per-provider
 webhook wiring matrix.
 
 ### Promotion pattern
 
-PhyneCRM is **Pattern B — manual gate** per RFC 0001 § Promotion mechanics.
-Reasoning: PhyneCRM owns the ACCA Treasury Hunter HITL approval queue +
+PhyndCRM is **Pattern B — manual gate** per RFC 0001 § Promotion mechanics.
+Reasoning: PhyndCRM owns the ACCA Treasury Hunter HITL approval queue +
 the customer lead pipeline + the conversions table (partial unique
 constraints). A wrong promote can corrupt active grant applications or
 silently break the drip worker. `.enclii.yml` declares:

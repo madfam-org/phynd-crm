@@ -30,11 +30,11 @@ export interface FeatureFlags {
 }
 
 const defaults: FeatureFlags = {
-  federationReadOnly: true,
-  bidirectionalSync: false,
+  federationReadOnly: false,
+  bidirectionalSync: true,
   leadScoring: true,
   aiKanban: false,
-  multiTenancy: false,
+  multiTenancy: true,
   piiMasking: false,
   observability: false,
   realtimeUpdates: false,

@@ -8,7 +8,7 @@ const DEFAULT_BASE_URL = 'https://staging-phynd.app'
 const DEFAULT_EMAIL = 'pp5-probe@staging.madfam.io'
 const DEFAULT_RUN_ID = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
 const DEFAULT_PARALLELISM = 4
-const BATCH_ORDER = ['A', 'B', 'C']
+const BATCH_ORDER = ['A', 'B', 'C', 'D']
 const DEFAULT_OUTPUT_DIR = 'artifacts/pp5'
 const TEMPLATE_PATH = 'docs/PP_5_BATCH_PROBE_EVIDENCE_TEMPLATE.md'
 
@@ -16,11 +16,11 @@ function usage(message) {
   if (message) console.error(`ERROR: ${message}`)
   console.error(`
 Usage:
-  node scripts/pp5-probe-batch-run.mjs [--batches A,B,C] [--base-url URL] [--email EMAIL] [--run-id ID] [--engagement-id ID] [--parallelism N] [--output-dir PATH]
+  node scripts/pp5-probe-batch-run.mjs [--batches A,B,C,D] [--base-url URL] [--email EMAIL] [--run-id ID] [--engagement-id ID] [--parallelism N] [--output-dir PATH]
 
 Examples:
   node scripts/pp5-probe-batch-run.mjs
-  node scripts/pp5-probe-batch-run.mjs --batches A,B --engagement-id <id>
+  node scripts/pp5-probe-batch-run.mjs --batches A,B,D --engagement-id <id>
   node scripts/pp5-probe-batch-run.mjs --base-url https://staging-phynd.app --parallelism 6
 `)
   process.exit(message ? 1 : 0)
@@ -205,7 +205,7 @@ function tableRowForLane(laneRecord) {
   const invalidStatus = statusForResult(invalid)
   const validCode = valid ? (valid.status === null ? 'n/a' : String(valid.status)) : 'n/a'
   const invalidCode = invalid ? (invalid.status === null ? 'n/a' : String(invalid.status)) : 'n/a'
-  const notes = [valid?.reason, invalid?.reason].filter(Boolean).join(' | ') || ''
+  const notes = [...new Set([valid?.reason, invalid?.reason].filter(Boolean))].join(' | ') || ''
   return `| ${laneRecord.lane} | ${validStatus} (${validCode}) | ${invalidStatus} (${invalidCode}) | ${notes || '—'} |`
 }
 

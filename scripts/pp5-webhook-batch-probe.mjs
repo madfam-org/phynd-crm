@@ -9,22 +9,87 @@ const DEFAULT_RUN_ID = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0,
 const DEFAULT_PARALLELISM = 3
 const INVALID_SECRET = '__pp5_invalid_probe_secret__'
 
-const secretEnvByLane = {
-  cotiza: 'COTIZA_WEBHOOK_SECRET',
-  forj: 'FORJ_WEBHOOK_SECRET',
-  pravara: 'PRAVARA_WEBHOOK_SECRET',
-  'janua-telemetry': 'JANUA_TELEMETRY_WEBHOOK_SECRET',
-  janua: 'JANUA_WEBHOOK_SECRET',
-  dhanam: 'DHANAM_WEBHOOK_SECRET',
-  fortuna: 'FORTUNA_WEBHOOK_SECRET',
-  'tezca-interest': 'TEZCA_WEBHOOK_SECRET',
-  'tezca-newsletter': 'TEZCA_WEBHOOK_SECRET',
-  routecraft: 'PHYND_CRM_EVENTS_SECRET',
-  'legacy-payment': 'PHYND_CRM_EVENTS_SECRET',
-  ceq: 'CEQ_WEBHOOK_SECRET',
-  coforma: 'COFORMA_WEBHOOK_SECRET',
-  'engagement-event': 'PHYND_ENGAGEMENT_EVENTS_SECRET',
-  'engagement-artifact': 'PHYND_ENGAGEMENT_EVENTS_SECRET',
+const laneDefinitions = {
+  cotiza: {
+    secretEnv: 'COTIZA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  forj: {
+    secretEnv: 'FORJ_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  pravara: {
+    secretEnv: 'PRAVARA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  'janua-telemetry': {
+    secretEnv: 'JANUA_TELEMETRY_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  janua: {
+    secretEnv: 'JANUA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  dhanam: {
+    secretEnv: 'DHANAM_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  fortuna: {
+    secretEnv: 'FORTUNA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  'tezca-interest': {
+    secretEnv: 'TEZCA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  'tezca-newsletter': {
+    secretEnv: 'TEZCA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  routecraft: {
+    secretEnv: 'PHYND_CRM_EVENTS_SECRET',
+    mode: 'inbound',
+  },
+  'legacy-payment': {
+    secretEnv: 'PHYND_CRM_EVENTS_SECRET',
+    mode: 'inbound',
+  },
+  ceq: {
+    secretEnv: 'CEQ_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  coforma: {
+    secretEnv: 'COFORMA_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
+  'engagement-event': {
+    secretEnv: 'PHYND_ENGAGEMENT_EVENTS_SECRET',
+    mode: 'inbound',
+  },
+  'engagement-artifact': {
+    secretEnv: 'PHYND_ENGAGEMENT_EVENTS_SECRET',
+    mode: 'inbound',
+  },
+  'karafiel-grant-award': {
+    mode: 'outbound',
+    note: 'Manual step: award a staging grant application and verify Karafiel staging receives a non-production callback.',
+    requiresManual: true,
+  },
+  'karafiel-compliance': {
+    mode: 'outbound',
+    note: 'Manual step: execute staged compliance read path for a staging grant and verify production is untouched.',
+    requiresManual: true,
+  },
+  'cotiza-engagement-projection': {
+    mode: 'outbound',
+    note: 'Manual step: complete a staging onboarding flow and verify Cotiza staging receives an engagement projection callback.',
+    requiresManual: true,
+  },
+  'dhanam-referral-reward': {
+    mode: 'outbound',
+    note: 'Manual step: trigger staged Dhanam referral reward and verify only staging receives reward callback.',
+    requiresManual: true,
+  },
 }
 
 const batches = {
@@ -40,6 +105,7 @@ const batches = {
     'engagement-event',
     'engagement-artifact',
   ],
+  D: ['karafiel-grant-award', 'karafiel-compliance', 'cotiza-engagement-projection', 'dhanam-referral-reward'],
 }
 
 function usage(message) {
@@ -52,7 +118,8 @@ Batches:
   A  - Low mutation inbound
   B  - Contact/lead mutation inbound
   C  - Financial/project mutation inbound
-  all - All lanes in batches A/B/C
+  D  - Outbound integration handoff checks (manual)
+  all - All lanes in batches A/B/C/D
 
 Examples:
   node scripts/pp5-webhook-batch-probe.mjs A --base-url https://staging-phynd.app
@@ -134,8 +201,9 @@ function parseArgs(argv) {
   if (target === 'a') selected.push(...batches.A)
   else if (target === 'b') selected.push(...batches.B)
   else if (target === 'c') selected.push(...batches.C)
-  else if (target === 'all') selected.push(...batches.A, ...batches.B, ...batches.C)
-  else if (secretEnvByLane[target]) selected.push(target)
+  else if (target === 'd') selected.push(...batches.D)
+  else if (target === 'all') selected.push(...batches.A, ...batches.B, ...batches.C, ...batches.D)
+  else if (laneDefinitions[target]) selected.push(target)
   else usage(`Unknown batch/lane: ${opts.target}`)
 
   const seen = new Set()
@@ -181,9 +249,27 @@ function commandAsString(args, envName, envValue) {
 }
 
 function maskedCommandForLane(lane, opts, runType) {
-  const secretEnv = secretEnvByLane[lane]
+  const secretEnv = laneDefinitions[lane]?.secretEnv
+  if (!secretEnv) return null
   const value = runType === 'valid' ? `$${secretEnv}` : INVALID_SECRET
   return commandAsString(commandForLane('send', lane, opts), secretEnv, value)
+}
+
+function isManualLane(lane) {
+  return laneDefinitions[lane]?.requiresManual === true
+}
+
+function manualLaneResult(lane) {
+  return {
+    lane,
+    runType: 'manual',
+    passed: null,
+    skipped: true,
+    status: null,
+    reason: laneDefinitions[lane]?.note || 'Manual verification required',
+    detail: laneDefinitions[lane]?.note || 'Manual verification required',
+    command: 'manual',
+  }
 }
 
 function commandForLane(action, lane, opts) {
@@ -209,7 +295,7 @@ function commandForLane(action, lane, opts) {
 async function probeLane(lane, opts, runType, secret, expectStatus) {
   const requiresEngagementId = lane.startsWith('engagement-')
   const engagementMissing = requiresEngagementId && !opts.engagementId
-  const secretEnv = secretEnvByLane[lane]
+  const secretEnv = laneDefinitions[lane]?.secretEnv
 
   if (runType === 'valid' && !secret) {
     return {
@@ -218,7 +304,7 @@ async function probeLane(lane, opts, runType, secret, expectStatus) {
       passed: false,
       skipped: true,
       status: null,
-      reason: `${secretEnvByLane[lane]} missing`,
+      reason: `${secretEnv} missing`,
     }
   }
 
@@ -249,7 +335,7 @@ async function probeLane(lane, opts, runType, secret, expectStatus) {
     command,
     {
       ...process.env,
-      [secretEnvByLane[lane]]: secret,
+      [secretEnv]: secret,
     },
   )
 
@@ -295,17 +381,28 @@ async function main() {
 
   const work = []
   for (const lane of opts.lanes) {
-    const secretEnv = secretEnvByLane[lane]
+    if (isManualLane(lane)) {
+      work.push({
+        lane,
+        type: 'manual',
+        result: manualLaneResult(lane),
+      })
+      continue
+    }
+
+    const secretEnv = laneDefinitions[lane]?.secretEnv
     const secret = process.env[secretEnv]
 
     work.push({
       lane,
+      type: 'probe',
       runType: 'valid',
       secret,
       expectStatus: [200],
     })
     work.push({
       lane,
+      type: 'probe',
       runType: 'invalid',
       secret: INVALID_SECRET,
       expectStatus: [401, 403],
@@ -313,7 +410,9 @@ async function main() {
   }
 
   const results = await runWithConcurrency(work, opts.parallelism, (item) =>
-    probeLane(item.lane, opts, item.runType, item.secret, item.expectStatus),
+    item.type === 'manual'
+      ? Promise.resolve(item.result)
+      : probeLane(item.lane, opts, item.runType, item.secret, item.expectStatus),
   )
 
   let failed = 0
@@ -327,8 +426,14 @@ async function main() {
 
     const key = result.lane
     const item = grouped.get(key) ?? { lane: key, valid: null, invalid: null }
-    if (result.runType === 'valid') item.valid = result
-    else item.invalid = result
+    if (result.runType === 'manual') {
+      item.valid = result
+      item.invalid = result
+    } else if (result.runType === 'valid') {
+      item.valid = result
+    } else {
+      item.invalid = result
+    }
     grouped.set(key, item)
   }
 
@@ -336,8 +441,15 @@ async function main() {
     console.log()
     console.log('PP.5 webhook batch dry-run commands:')
     for (const item of grouped.values()) {
-      const secretEnv = secretEnvByLane[item.lane]
+      const laneDef = laneDefinitions[item.lane]
+      const secretEnv = laneDef?.secretEnv
       const requiresEngagementId = item.lane.startsWith('engagement-')
+
+      if (laneDef?.requiresManual) {
+        console.log(`# ${item.lane}`)
+        console.log(`- manual: ${laneDef.note}`)
+        continue
+      }
 
       if (requiresEngagementId && !opts.engagementId) {
         console.log(`# ${item.lane}`)
@@ -345,13 +457,13 @@ async function main() {
         continue
       }
 
-      const missingSecret = item.valid && item.valid.reason === `${secretEnvByLane[item.lane]} missing`
+      const missingSecret = item.valid && item.valid.reason === `${secretEnv} missing`
       const validCommand = item.valid?.command || `${secretEnv}=$${secretEnv} node ...`
       const invalidCommand = item.invalid?.command || `${secretEnv}=${INVALID_SECRET} node ...`
 
       console.log(`# ${item.lane}`)
-      console.log(`- valid:   ${validCommand}`)
-      console.log(`- invalid: ${invalidCommand}`)
+      console.log(`- valid:   ${validCommand || 'manual path required'}`)
+      console.log(`- invalid: ${invalidCommand || 'manual path required'}`)
       if (missingSecret) {
         console.log('  NOTE: export valid secret before running the valid command')
       }

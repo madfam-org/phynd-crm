@@ -223,8 +223,9 @@ COFORMA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send coforma
 # run all mutating inbound probes in one command:
 pnpm pp5:probe-batch B --parallelism 4
 pnpm pp5:probe-batch C --parallelism 4
+pnpm pp5:probe-batch D --parallelism 2
 pnpm pp5:probe-batch all --parallelism 6
-pnpm pp5:probe-batch-run --batches all --parallelism 6
+pnpm pp5:probe-batch-run --batches A,B,C,D --parallelism 6
 ```
 
 `pnpm pp5:probe-batch-run` executes all requested batches, writes a JSON artifact, and writes a

@@ -135,9 +135,10 @@ node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
 pnpm pp5:branch-protection-check
 pnpm pp5:probe-batch A
+pnpm pp5:probe-batch D
 pnpm pp5:staging-reset
 pnpm pp5:probe-batch all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
-pnpm pp5:probe-batch-run --batches all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
+pnpm pp5:probe-batch-run --batches A,B,C,D --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env
 node scripts/pp5-wave0-check.mjs
 pnpm pp5:readiness --include-wave0
@@ -299,8 +300,9 @@ Actions:
 pnpm pp5:probe-batch A
 pnpm pp5:probe-batch B
 pnpm pp5:probe-batch C
+pnpm pp5:probe-batch D
 pnpm pp5:probe-batch all
-pnpm pp5:probe-batch-run --batches A,B,C
+pnpm pp5:probe-batch-run --batches A,B,C,D
 ```
 
 5. Provider and PhyndCRM attach evidence to the lane ticket.

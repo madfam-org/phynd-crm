@@ -36,6 +36,36 @@ spec:
             matchLabels:
               app: cloudflared
 ---
+# Allow Converge Dash source-reader traffic to the CRM web API.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-converge-dash-ingress
+  namespace: phynd-crm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: phynd-crm-web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: converge-dash
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - converge-api
+                  - converge-worker
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 3000
+---
 # Allow egress to data namespace (postgres 5432, pgbouncer 6432, redis 6379)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

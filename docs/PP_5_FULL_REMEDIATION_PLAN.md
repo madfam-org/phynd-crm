@@ -131,6 +131,7 @@ node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
 pnpm pp5:probe-batch A
 pnpm pp5:probe-batch all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
+pnpm pp5:probe-batch-run --batches all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env
 node scripts/pp5-wave0-check.mjs
 pnpm pp5:data-safety --database-url postgresql://... --allowlist-domains staging.madfam.io,madfam.io
@@ -292,6 +293,7 @@ pnpm pp5:probe-batch A
 pnpm pp5:probe-batch B
 pnpm pp5:probe-batch C
 pnpm pp5:probe-batch all
+pnpm pp5:probe-batch-run --batches A,B,C
 ```
 
 5. Provider and PhyndCRM attach evidence to the lane ticket.

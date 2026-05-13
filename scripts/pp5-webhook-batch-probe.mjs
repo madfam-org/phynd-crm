@@ -46,7 +46,7 @@ function usage(message) {
   if (message) console.error(`ERROR: ${message}`)
   console.error(`
 Usage:
-  node scripts/pp5-webhook-batch-probe.mjs <batch-or-lane> [--base-url URL] [--email EMAIL] [--engagement-id ID] [--run-id ID] [--parallelism N] [--dry-run]
+  node scripts/pp5-webhook-batch-probe.mjs <batch-or-lane> [--base-url URL] [--email EMAIL] [--engagement-id ID] [--run-id ID] [--parallelism N] [--dry-run] [--json]
 
 Batches:
   A  - Low mutation inbound
@@ -69,6 +69,7 @@ function parseArgs(argv) {
     baseUrl: DEFAULT_BASE_URL,
     email: DEFAULT_EMAIL,
     runId: DEFAULT_RUN_ID,
+    json: false,
     parallelism: DEFAULT_PARALLELISM,
     engagementId: undefined,
     dryRun: false,
@@ -117,6 +118,11 @@ function parseArgs(argv) {
 
     if (arg === '--dry-run') {
       opts.dryRun = true
+      continue
+    }
+
+    if (arg === '--json') {
+      opts.json = true
       continue
     }
 
@@ -174,6 +180,12 @@ function commandAsString(args, envName, envValue) {
   return [envExpr, 'node', ...args.map((arg) => shellQuote(arg))].join(' ')
 }
 
+function maskedCommandForLane(lane, opts, runType) {
+  const secretEnv = secretEnvByLane[lane]
+  const value = runType === 'valid' ? `$${secretEnv}` : INVALID_SECRET
+  return commandAsString(commandForLane('send', lane, opts), secretEnv, value)
+}
+
 function commandForLane(action, lane, opts) {
   const args = [
     'scripts/pp5-webhook-probe.mjs',
@@ -228,7 +240,8 @@ async function probeLane(lane, opts, runType, secret, expectStatus) {
       runType,
       passed: null,
       status: null,
-      command: commandAsString(command, secretEnv, runType === 'valid' ? `$${secretEnv}` : INVALID_SECRET),
+      command: maskedCommandForLane(lane, opts, runType),
+      reason: 'dry-run',
     }
   }
 
@@ -243,11 +256,12 @@ async function probeLane(lane, opts, runType, secret, expectStatus) {
   const status = parseStatusLine(child.out || child.err)
   const passed = status !== null && expectStatus.includes(status)
   const detail = child.out || child.err || `exit ${child.code}`
+  const commandTemplate = maskedCommandForLane(lane, opts, runType)
   if (passed) {
-    return { lane, runType, passed: true, status, detail }
+    return { lane, runType, passed: true, status, detail, command: commandTemplate }
   }
 
-  return { lane, runType, passed: false, status, detail }
+  return { lane, runType, passed: false, status, detail, command: commandTemplate }
 }
 
 async function runWithConcurrency(items, limit, fn) {
@@ -306,7 +320,7 @@ async function main() {
   const grouped = new Map()
 
   for (const result of results) {
-    if (!opts.dryRun) {
+    if (!opts.dryRun && !opts.json) {
       printResult(result)
     }
     if (result.passed === false && !result.skipped) failed += 1
@@ -318,7 +332,7 @@ async function main() {
     grouped.set(key, item)
   }
 
-  if (opts.dryRun) {
+  if (opts.dryRun && !opts.json) {
     console.log()
     console.log('PP.5 webhook batch dry-run commands:')
     for (const item of grouped.values()) {
@@ -343,6 +357,27 @@ async function main() {
       }
     }
     console.log('Done')
+    return
+  }
+
+  if (opts.json) {
+    const groupedArray = Array.from(grouped.values())
+    const summary = {
+      ok: failed === 0,
+      failedChecks: failed,
+      target: opts.target,
+      lanes: opts.lanes,
+      parallelism: opts.parallelism,
+      runId: opts.runId,
+      baseUrl: opts.baseUrl,
+      email: opts.email,
+      engagementId: opts.engagementId,
+      checks: results,
+      grouped: groupedArray,
+      startedAt: new Date().toISOString(),
+    }
+    process.stdout.write(`${JSON.stringify(summary)}\n`)
+    if (failed > 0) process.exit(1)
     return
   }
 

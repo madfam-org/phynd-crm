@@ -210,7 +210,11 @@ COFORMA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send coforma
 pnpm pp5:probe-batch B --parallelism 4
 pnpm pp5:probe-batch C --parallelism 4
 pnpm pp5:probe-batch all --parallelism 6
+pnpm pp5:probe-batch-run --batches all --parallelism 6
 ```
+
+`pnpm pp5:probe-batch-run` executes all requested batches, writes a JSON artifact, and writes a
+human-readable Markdown evidence artifact to `artifacts/pp5/<run-id>-pp5-probe-batch-report.md`.
 
 Engagement probes need a real staging engagement ID:
 

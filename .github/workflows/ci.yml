@@ -11,6 +11,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  e2e:
+    name: E2E Tests
+    needs: [lint-typecheck, stability-guardrails]
+    uses: ./.github/workflows/e2e.yml
+    secrets: inherit
+
   networkpolicy-port-lint:
     name: NetworkPolicy port consistency
     runs-on: ubuntu-latest

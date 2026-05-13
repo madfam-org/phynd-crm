@@ -163,7 +163,7 @@ pnpm db:seed          # Seed database
 - **At-risk deals refactoring**: `getAtRiskDeals()` decomposed into `computeTransitionMetrics`, `computeStageAverages`, `identifyAtRiskDeals`
 - **ServiceError mapping**: tRPC middleware auto-maps `ServiceError` subclasses to proper tRPC error codes (NOT_FOUND→NOT_FOUND, VALIDATION_ERROR→BAD_REQUEST, CONFLICT→CONFLICT, FEDERATION_ERROR→INTERNAL_SERVER_ERROR)
 - **Fail-closed rate limiting**: Both API and webhook rate limiters deny requests when Redis is unavailable (fail closed, not fail open)
-- **CI TODO**: Configure GitHub branch protection to require `e2e` workflow as required status check, or merge E2E into `ci.yml` as a dependent job
+- **CI status gate**: E2E is now enforced through `.github/workflows/ci.yml` via reusable workflow call to `.github/workflows/e2e.yml` (`e2e` job). Branch protection should require the `CI` workflow checks.
 
 ## Tablaco client-engagement flow (2026-04-19)
 

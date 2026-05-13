@@ -30,6 +30,7 @@ Repo-owned PP.5 work is ready:
 - Staging env generator exists: `node scripts/pp5-generate-staging-env.mjs`.
 - Staging env validator exists: `node scripts/pp5-validate-staging-env.mjs`.
 - Stability split-gate exists: `pnpm pp5:stability` (`node scripts/pp5-stability-check.mjs`).
+- CI E2E gate exists: `.github/workflows/ci.yml` includes an `e2e` job that calls reusable `.github/workflows/e2e.yml` as a dependent status gate.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
 - Client project onboarding is available through `engagements.onboardClientProject`
@@ -414,6 +415,7 @@ Exit criteria:
 - [x] `node scripts/pp5-staging-audit.mjs` passes.
 - [x] `node scripts/pp5-webhook-probe.mjs list` includes all active lanes.
 - [x] `node scripts/pp5-wave0-check.mjs` exists, includes `pnpm pp5:stability`, and reports current blockers.
+- [x] `ci.yml` now includes `e2e` as a dependent guarded job.
 - [ ] `pnpm pp5:stability` passes on current staging env input.
 - [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
   out-of-tree load restrictions.

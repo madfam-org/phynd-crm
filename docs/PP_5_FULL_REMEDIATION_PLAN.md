@@ -145,6 +145,7 @@ pnpm pp5:readiness --include-wave0
 pnpm pp5:data-safety --database-url postgresql://... --allowlist-domains staging.madfam.io,madfam.io
 pnpm lint
 pnpm typecheck
+pnpm test:pp5
 pnpm test
 pnpm ci:verify-gates
 pnpm --filter @phynd/services test -- client-project-onboarding.service.test.ts
@@ -462,6 +463,7 @@ Exit criteria:
   out-of-tree load restrictions.
 - [x] `phynd-crm-staging` namespace exists.
 - [x] `ghcr-credentials` image pull secret exists in `phynd-crm-staging`.
+- [ ] `pnpm test:pp5` verifies webhook batch script behavior (including Batch D).
 - [ ] `phynd-crm-staging-secrets` is installed with staging-only values.
 - [x] ArgoCD app `phynd-crm-staging` is installed.
 - [x] ArgoCD app `phynd-crm-staging` is `Synced`.

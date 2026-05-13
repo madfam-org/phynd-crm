@@ -24,6 +24,7 @@
     "ci:verify-gates": "node scripts/verify-ci-gates.mjs",
     "pp5:stability": "node scripts/pp5-stability-check.mjs",
     "pp5:readiness": "node scripts/pp5-readiness.mjs",
+    "test:pp5": "node --test scripts/__tests__/pp5-webhook-batch-probe.test.mjs",
     "clean": "turbo clean",
     "prepare": "husky"
   },

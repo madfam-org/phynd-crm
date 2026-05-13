@@ -71,6 +71,8 @@ jobs:
           node-version: 22
       - name: Run PP5 stability guardrails
         run: node scripts/pp5-stability-check.mjs
+      - name: Run PP5 script regression tests
+        run: node --test scripts/__tests__/pp5-webhook-batch-probe.test.mjs
 
   test:
     name: Unit Tests

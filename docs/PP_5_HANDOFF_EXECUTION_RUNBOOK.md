@@ -14,11 +14,16 @@ node scripts/pp5-staging-audit.mjs
 node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-staging.env
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
 pnpm pp5:stability
+DATABASE_URL=postgresql://... pnpm pp5:staging-reset
 node scripts/pp5-wave0-check.mjs
 curl -fsS https://staging-phynd.app/api/health
 kubectl -n phynd-crm-staging get secret ghcr-credentials
 kubectl -n phynd-crm-staging get secret phynd-crm-staging-secrets
 ```
+
+`pp5:staging-reset` is the approved temporary replacement for
+row-19 of `PP_5_STAGING_AUDIT.md` (nightly masked restore). Use it when masked
+restore is unavailable, then run the data-safety checks before mutating probes.
 
 Required outcome:
 
@@ -29,6 +34,8 @@ Required outcome:
 - `phynd-crm-staging-secrets` exists and contains staging-only values.
 - ArgoCD app `phynd-crm-staging` is synced and healthy.
 - Web and worker rollouts are ready.
+- Staging data can be safely reset/reseeded through `pp5:staging-reset` and
+  PP.5 safety checks pass for the fixture baseline.
 
 Observed from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 

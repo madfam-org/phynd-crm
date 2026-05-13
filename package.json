@@ -18,6 +18,7 @@
     "pp5:data-safety": "node scripts/pp5-staging-data-safety.mjs",
     "pp5:probe-batch": "node scripts/pp5-webhook-batch-probe.mjs",
     "pp5:probe-batch-run": "node scripts/pp5-probe-batch-run.mjs",
+    "pp5:staging-reset": "node scripts/pp5-staging-reset.mjs",
     "ci:verify-gates": "node scripts/verify-ci-gates.mjs",
     "pp5:stability": "node scripts/pp5-stability-check.mjs",
     "clean": "turbo clean",

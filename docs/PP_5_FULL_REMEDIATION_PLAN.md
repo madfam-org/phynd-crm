@@ -68,6 +68,8 @@ Repo-owned PP.5 work is ready:
 - The web package declares the `pino` runtime dependency externalized by Next.
 - Playwright E2E runs through the `@phynd/web` workspace and its browser
   assertions are aligned with the CI auth-bypass mode.
+- `pp5:staging-reset` temporary staging bootstrap path exists as a deterministic,
+  non-masking baseline for PP.5 readiness.
 
 Observed blockers from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 
@@ -130,6 +132,7 @@ Actions:
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
 pnpm pp5:probe-batch A
+pnpm pp5:staging-reset
 pnpm pp5:probe-batch all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
 pnpm pp5:probe-batch-run --batches all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env

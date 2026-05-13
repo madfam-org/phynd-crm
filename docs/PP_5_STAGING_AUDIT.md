@@ -25,6 +25,7 @@
   - Staging secrets are still not guaranteed split-safe for all federation/webhook auth paths.
 - No guaranteed staging ingress route (`staging-phynd.app`) in-cluster and in DNS/tunnel plane.
 - No automated, nightly masked prod→staging restore/refresh with deterministic fixture baseline and PII protection checks.
+  Interim: use deterministic staging reset (`pnpm pp5:staging-reset`) to provide a safe, reproducible baseline until masking automation is implemented.
 
 ## Remediation Execution Pattern (Priority Matrix)
 
@@ -87,7 +88,7 @@ The outstanding gaps are now:
 | 16 | Staging namespace convention | `<service>-staging` | PP.5b target: `phynd-crm-staging` | Aligned (by planning) | Document. |
 | 17 | Staging secrets template | Separate `<service>-staging-secrets` covering all env vars | `infra/k8s/staging-secrets-template.yaml` added | Aligned | PP.5b. |
 | 18 | External service sandbox | Staging Janua tenant, test OAuth clients, sandbox webhook secrets per provider | Not fully operationalized across all providers yet | Deferred | In-progress with external provider teams. |
-| 19 | DB: nightly masked restore | 03:00 UTC prod→staging PII-masked | Not implemented | Deferred (RFC 0001 open question) | Seed staging with `pnpm db:seed` (including tablaco fixtures) until masking tool lands. PhyndCRM holds contact / lead PII that must never leak unmasked. |
+| 19 | DB: nightly masked restore | 03:00 UTC prod→staging PII-masked | Partially implemented | Deferred (RFC 0001 open question) | Interim baseline: `pnpm pp5:staging-reset` seeds deterministic fixtures and runs staging PII checks. Replace with masked prod→staging restore when available. |
 | 20 | Promotion pattern declaration | `.enclii.yml` `promotion:` key | `.enclii.yml` contains manual gate + soak + smoke policy | Aligned | PP.5c. |
 | 21 | Decommission bypass path | Phase 4 removal of direct-to-prod commits after 14-day soak | Direct-to-prod promotion path removed; `deploy-*` target staging only | Aligned | PP.5c. |
 

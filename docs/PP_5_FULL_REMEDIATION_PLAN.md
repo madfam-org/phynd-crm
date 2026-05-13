@@ -8,7 +8,7 @@
 > missing Enclii adapter gap.
 
 
-> Last Updated: 2026-05-07 local / 2026-05-08 UTC
+> Last Updated: 2026-05-13 local / 2026-05-13 UTC
 > Audit: [`docs/PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md)
 > Handoff matrix: [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md)
 > Execution runbook: [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md)
@@ -31,6 +31,7 @@ Repo-owned PP.5 work is ready:
 - Staging env validator exists: `node scripts/pp5-validate-staging-env.mjs`.
 - Stability split-gate exists: `pnpm pp5:stability` (`node scripts/pp5-stability-check.mjs`).
 - CI E2E gate exists: `.github/workflows/ci.yml` includes an `e2e` job that calls reusable `.github/workflows/e2e.yml` as a dependent status gate.
+- CI workflow integrity gate exists: `node scripts/verify-ci-gates.mjs` validates that E2E remains reusable and wired only through `ci.yml`.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
 - Client project onboarding is available through `engagements.onboardClientProject`
@@ -133,6 +134,7 @@ node scripts/pp5-wave0-check.mjs
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm ci:verify-gates
 pnpm --filter @phynd/services test -- client-project-onboarding.service.test.ts
 pnpm --filter @phynd/services test -- dhanam-checkout.service.test.ts
 pnpm --filter @phynd/services test -- quotes.service.test.ts
@@ -416,6 +418,7 @@ Exit criteria:
 - [x] `node scripts/pp5-webhook-probe.mjs list` includes all active lanes.
 - [x] `node scripts/pp5-wave0-check.mjs` exists, includes `pnpm pp5:stability`, and reports current blockers.
 - [x] `ci.yml` now includes `e2e` as a dependent guarded job.
+- [x] `ci.yml` now includes a `workflow-integrity` guard for E2E wiring drift.
 - [ ] `pnpm pp5:stability` passes on current staging env input.
 - [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
   out-of-tree load restrictions.

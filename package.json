@@ -15,6 +15,7 @@
     "db:seed": "turbo db:seed --filter=@phynd/db",
     "db:studio": "turbo db:studio --filter=@phynd/db",
     "typecheck": "turbo typecheck",
+    "ci:verify-gates": "node scripts/verify-ci-gates.mjs",
     "pp5:stability": "node scripts/pp5-stability-check.mjs",
     "clean": "turbo clean",
     "prepare": "husky"

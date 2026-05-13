@@ -11,9 +11,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-integrity:
+    name: Workflow integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify E2E remains wired into CI
+        run: node scripts/verify-ci-gates.mjs
+
   e2e:
     name: E2E Tests
-    needs: [lint-typecheck, stability-guardrails]
+    needs: [workflow-integrity, lint-typecheck, stability-guardrails]
     uses: ./.github/workflows/e2e.yml
     secrets: inherit
 

@@ -20,8 +20,23 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      {
+        find: '@phynd/services/payments/payment-reconciliation',
+        replacement: path.resolve(__dirname, '../../packages/services/src/payments/payment-reconciliation.service.ts'),
+      },
+      {
+        find: '@phynd/services/payments/dhanam-checkout',
+        replacement: path.resolve(__dirname, '../../packages/services/src/payments/dhanam-checkout.service.ts'),
+      },
+      {
+        find: /^@phynd\/([^/]+)(\/.*)?$/,
+        replacement: `${path.resolve(__dirname, '../../packages')}/$1/src$2`,
+      },
+      {
+        find: '@',
+        replacement: path.resolve(__dirname, './src'),
+      },
+    ],
   },
 })

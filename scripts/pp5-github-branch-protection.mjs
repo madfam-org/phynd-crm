@@ -43,7 +43,7 @@ function parseCiRequiredChecks(path = DEFAULT_CI_WORKFLOW) {
     if (jobLine) {
       if (inJob && currentJobName) checks.push(currentJobName)
       inJob = true
-      currentJobName = asDisplayCheckName(jobLine[1])
+      currentJobName = null
       continue
     }
 

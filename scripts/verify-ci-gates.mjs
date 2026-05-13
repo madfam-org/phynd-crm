@@ -42,7 +42,7 @@ function collectJobNamesFromWorkflow(ciConfig) {
     if (jobLine) {
       if (inJob && currentJobName) jobNames.add(currentJobName)
       inJob = true
-      currentJobName = asDisplayCheckName(jobLine[1])
+      currentJobName = null
       continue
     }
 

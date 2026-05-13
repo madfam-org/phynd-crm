@@ -131,6 +131,7 @@ node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env
 node scripts/pp5-wave0-check.mjs
+pnpm pp5:data-safety --database-url postgresql://... --allowlist-domains staging.madfam.io,madfam.io
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -349,6 +350,14 @@ PII safety requirements:
 - Mask contact emails, names, phones, notes, visitor identifiers, and free-text metadata that may contain PII.
 - Preserve referential integrity and enough shape for federation/profile/engagement flows.
 - Include a post-refresh validation query set that fails closed if unmasked emails/domains are present outside approved test domains.
+
+Operational requirement:
+
+- Before promoting from a newly refreshed staging dataset, run:
+
+```bash
+pnpm pp5:data-safety --database-url "$DATABASE_URL" --allowlist-domains "$EMAIL_ALLOWLIST_DOMAINS"
+```
 
 Exit criteria:
 

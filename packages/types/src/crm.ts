@@ -238,3 +238,12 @@ export interface PaginatedResult<T> {
   nextCursor: string | null
   hasMore: boolean
 }
+
+export interface ServiceEventEnvelope {
+  id: string
+  event_type: string
+  source: string
+  correlation_id: string
+  timestamp: string
+  payload: Record<string, unknown>
+}

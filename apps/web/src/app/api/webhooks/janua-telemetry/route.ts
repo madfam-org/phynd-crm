@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
-  const secret = process.env.JANUA_TELEMETRY_WEBHOOK_SECRET ?? process.env.JANUA_WEBHOOK_SECRET
+  const secret = process.env.JANUA_TELEMETRY_WEBHOOK_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
   }

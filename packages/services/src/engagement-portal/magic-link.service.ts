@@ -48,7 +48,7 @@ export class EngagementPortalMagicLinkService {
   constructor(private readonly ctx: ServiceContext) {}
 
   private get januaApiUrl(): string {
-    const url = process.env.JANUA_API_URL ?? process.env.AUTH_JANUA_ISSUER
+    const url = process.env.JANUA_API_URL
     if (!url) {
       throw new ServiceError('JANUA_API_URL not configured', 'CONFIGURATION_ERROR', 500)
     }
@@ -56,11 +56,11 @@ export class EngagementPortalMagicLinkService {
   }
 
   private get portalBaseUrl(): string {
-    return (
-      process.env.PORTAL_BASE_URL ??
-      process.env.NEXTAUTH_URL ??
-      'http://localhost:3000'
-    ).replace(/\/$/, '')
+    const base = process.env.PORTAL_BASE_URL ?? process.env.NEXTAUTH_URL
+    if (!base) {
+      throw new ServiceError('PORTAL_BASE_URL or NEXTAUTH_URL not configured', 'CONFIGURATION_ERROR', 500)
+    }
+    return base.replace(/\/$/, '')
   }
 
   // Resolves the target email + redirect URL for the engagement, then

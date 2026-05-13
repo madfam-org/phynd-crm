@@ -11,7 +11,7 @@ import { type JWTPayload, createRemoteJWKSet, jwtVerify } from 'jose'
 let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null
 
 function getJwksUrl(): URL {
-  const base = process.env.JANUA_API_URL ?? process.env.AUTH_JANUA_ISSUER
+  const base = process.env.JANUA_API_URL
   if (!base) {
     throw new Error('JANUA_API_URL not configured for JWKS verification')
   }
@@ -44,7 +44,7 @@ export interface VerifiedJanuaClaims extends JWTPayload {
 // issuer URL, which we compare to JANUA_API_URL. Returns the verified
 // claims or throws.
 export async function verifyJanuaAccessToken(token: string): Promise<VerifiedJanuaClaims> {
-  const issuer = (process.env.JANUA_API_URL ?? process.env.AUTH_JANUA_ISSUER)?.replace(/\/$/, '')
+  const issuer = process.env.JANUA_API_URL?.replace(/\/$/, '')
   const { payload } = await jwtVerify(token, getJwks(), {
     algorithms: ['RS256'],
     ...(issuer ? { issuer } : {}),

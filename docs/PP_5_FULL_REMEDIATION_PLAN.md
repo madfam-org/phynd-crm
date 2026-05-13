@@ -29,6 +29,7 @@ Repo-owned PP.5 work is ready:
 - Staging secret coverage guard exists: `node scripts/pp5-staging-audit.mjs`.
 - Staging env generator exists: `node scripts/pp5-generate-staging-env.mjs`.
 - Staging env validator exists: `node scripts/pp5-validate-staging-env.mjs`.
+- Stability split-gate exists: `pnpm pp5:stability` (`node scripts/pp5-stability-check.mjs`).
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
 - Client project onboarding is available through `engagements.onboardClientProject`
@@ -386,7 +387,6 @@ Status: Backlog after Wave 0-4 completion.
 
 Actions:
 
-- Remove `JANUA_TELEMETRY_WEBHOOK_SECRET` reliance on fallback to `JANUA_WEBHOOK_SECRET` once telemetry split is complete.
 - Decide whether to implement `POST /api/webhooks/karafiel` or remove inbound Karafiel references permanently.
 - Replace placeholder staging provider URLs in `infra/k8s/staging-secrets-template.yaml` with real service domains.
 - Add masked refresh automation when the platform path is settled.
@@ -414,6 +414,7 @@ Exit criteria:
 - [x] `node scripts/pp5-staging-audit.mjs` passes.
 - [x] `node scripts/pp5-webhook-probe.mjs list` includes all active lanes.
 - [x] `node scripts/pp5-wave0-check.mjs` exists and reports current blockers.
+- [ ] `pnpm pp5:stability` passes on current staging env input.
 - [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
   out-of-tree load restrictions.
 - [x] `phynd-crm-staging` namespace exists.

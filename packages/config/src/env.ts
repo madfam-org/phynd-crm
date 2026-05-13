@@ -15,6 +15,7 @@ const envSchemaBase = z.object({
 
   // Federation - External Service URLs
   JANUA_API_URL: z.string().url(),
+  JANUA_TELEMETRY_API_URL: z.string().url(),
   DHANAM_API_URL: z.string().url(),
   COTIZA_API_URL: z.string().url(),
   PRAVARA_BASE_URL: z.string().url(),
@@ -39,18 +40,24 @@ const envSchemaBase = z.object({
 
   // Federation - Webhook Secrets (optional — routes return 503 when unconfigured)
   JANUA_WEBHOOK_SECRET: z.string().min(1).optional(),
+  JANUA_TELEMETRY_WEBHOOK_SECRET: z.string().min(1).optional(),
   DHANAM_WEBHOOK_SECRET: z.string().min(1).optional(),
   COTIZA_WEBHOOK_SECRET: z.string().min(1).optional(),
   PRAVARA_WEBHOOK_SECRET: z.string().min(1).optional(),
   FORJ_WEBHOOK_SECRET: z.string().min(1).optional(),
+  CEQ_WEBHOOK_SECRET: z.string().min(16).optional(),
+  COFORMA_WEBHOOK_SECRET: z.string().min(16).optional(),
+  PHYND_CRM_EVENTS_SECRET: z.string().min(16).optional(),
+  PHYND_ENGAGEMENT_EVENTS_SECRET: z.string().min(16).optional(),
 
-  // Service-to-service auth — Fortuna → Phynd campaign trigger webhook
+  // Service-to-service auth
   FORTUNA_WEBHOOK_SECRET: z.string().min(16).optional(),
 
   // ACCA Treasury Hunter — Karafiel compliance integration
   KARAFIEL_API_URL: z.string().url().optional(),
   KARAFIEL_API_KEY: z.string().min(1).optional(),
   KARAFIEL_WEBHOOK_SECRET: z.string().min(1).optional(),
+  PHYNDCRM_OUTBOUND_SECRET: z.string().min(16).optional(),
 
   // Tenant
   DEFAULT_TENANT_ID: z.string().default('madfam'),

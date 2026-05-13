@@ -5,6 +5,7 @@ import { createTestContext } from './helpers'
 
 const JANUA_URL = 'https://auth.madfam.io'
 const PORTAL_URL = 'https://phynd-phynd.app'
+const NEXTAUTH_FALLBACK_URL = 'https://nextauth-fallback.example'
 
 function makeEngagementRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -83,6 +84,41 @@ describe('EngagementPortalMagicLinkService', () => {
       expect(result.sent).toBe(true)
       // Email is redacted to avoid leaking the address back to the caller
       expect(result.emailRedacted).toBe('ta***@example.com')
+    })
+
+    it('falls back to NEXTAUTH_URL when PORTAL_BASE_URL is missing', async () => {
+      delete process.env.PORTAL_BASE_URL
+      process.env.NEXTAUTH_URL = NEXTAUTH_FALLBACK_URL
+
+      const ctx = createTestContext([makeEngagementRow()])
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => 'OK',
+      } as unknown as Response)
+
+      const service = new EngagementPortalMagicLinkService(ctx)
+      const result = await service.sendPortalLink('eng-tablaco-001')
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(init.body as string)
+      expect(body.redirect_url).toBe(
+        `${NEXTAUTH_FALLBACK_URL}/portal/verify?engagement=eng-tablaco-001`,
+      )
+      expect(result.sent).toBe(true)
+    })
+
+    it('throws SERVICE_ERROR on missing portal base configuration', async () => {
+      delete process.env.PORTAL_BASE_URL
+      delete process.env.NEXTAUTH_URL
+
+      const ctx = createTestContext([makeEngagementRow()])
+      const service = new EngagementPortalMagicLinkService(ctx)
+      await expect(service.sendPortalLink('eng-tablaco-001')).rejects.toSatisfy(
+        (err: unknown) =>
+          err instanceof ServiceError && (err as ServiceError).code === 'CONFIGURATION_ERROR',
+      )
     })
 
     it('maps 429 from Janua to a 429 ServiceError (rate-limit passthrough)', async () => {

@@ -441,9 +441,9 @@ curl -fsS https://staging-phynd.app/api/health
   billing, grant, manufacturing, artifact, or email side effects.
 - Running the onboarding dry run before a staging DB/seed is approved may mix
   test state with unsafe or incomplete data.
-- `JANUA_TELEMETRY_WEBHOOK_SECRET` still has fallback behavior to
-  `JANUA_WEBHOOK_SECRET`; remove reliance on that fallback once telemetry is
-  fully split.
+- Janua telemetry routing is now required to keep `JANUA_TELEMETRY_WEBHOOK_SECRET`
+  distinct from `JANUA_WEBHOOK_SECRET`; the new pp5 stability check fails the
+  rollout if fallback behavior is present.
 - No inbound `POST /api/webhooks/karafiel` route exists in this repo. Current
   Karafiel scope is outbound PhyndCRM to Karafiel unless a real inbound
   contract is added.

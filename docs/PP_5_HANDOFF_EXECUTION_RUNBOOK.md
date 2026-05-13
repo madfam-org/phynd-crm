@@ -13,6 +13,7 @@ Run these before provider teams send synthetic events.
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-staging.env
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
+pnpm pp5:stability
 node scripts/pp5-wave0-check.mjs
 curl -fsS https://staging-phynd.app/api/health
 kubectl -n phynd-crm-staging get secret ghcr-credentials
@@ -34,6 +35,7 @@ Observed from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 - `node scripts/pp5-staging-audit.mjs`: passed.
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
 - `node scripts/pp5-validate-staging-env.mjs /private/tmp/phynd-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
+- `pnpm pp5:stability`: verifies env-chain split gates and production-template parity before rollout.
 - `node scripts/pp5-wave0-check.mjs`: now verifies the staging overlay render,
   namespace, GHCR pull secret, app secret, ArgoCD app/sync, web rollout,
   worker rollout, and DNS/HTTP health.

@@ -286,7 +286,7 @@ Parallel batches:
 
 - Batch A, low mutation: `cotiza`, `forj`, `janua-telemetry`.
 - Batch B, contact/lead mutation: `janua`, `tezca-interest`, `tezca-newsletter`, `ceq`.
-- Batch C, financial/grants/project mutation: `dhanam`, `fortuna`, `pravara`, `routecraft`, `coforma`, engagement event/artifact lanes.
+- Batch C, financial/grants/project mutation: `dhanam`, `fortuna`, `karafiel`, `pravara`, `routecraft`, `coforma`, engagement event/artifact lanes.
 - Batch D, outbound: Karafiel grant award, Karafiel compliance reads, Cotiza engagement projection, Dhanam referral reward.
 
 Actions:
@@ -428,7 +428,7 @@ Status: Backlog after Wave 0-4 completion.
 
 Actions:
 
-- Decide whether to implement `POST /api/webhooks/karafiel` or remove inbound Karafiel references permanently.
+- Verify inbound `POST /api/webhooks/karafiel` acceptance evidence (grant.awarded + duplicate replay handling) is attached, and remove residual Karafiel caveat language from PP.5 docs.
 - Replace placeholder staging provider URLs in `infra/k8s/staging-secrets-template.yaml` with real service domains.
 - Add masked refresh automation when the platform path is settled.
 - Review replica/resource policy when staging and production load grow.

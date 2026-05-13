@@ -118,7 +118,7 @@ destination for its staging instance with a **distinct** HMAC secret:
 
 | Provider → PhyndCRM inbound | Today | Post-PP.5b |
 |---|---|---|
-| Karafiel → PhyndCRM inbound | Not implemented in this repo | Do not hand off until a real receiver route is added; current Karafiel PP.5 scope is outbound PhyndCRM → Karafiel plus compliance reads |
+| Karafiel → PhyndCRM inbound | `POST /api/webhooks/karafiel` is implemented (`grant.awarded` and idempotent handling) | Split staging destination for `grant.awarded` and install distinct `KARAFIEL_WEBHOOK_SECRET` |
 | Fortuna `grant.discovered` → `/api/webhooks/fortuna` | prod → prod | prod → prod AND staging → staging |
 | Tezca `interest.created`, `newsletter.subscribed` → `/api/webhooks/tezca` | prod → prod | prod → prod AND staging → staging |
 | Janua `user.created` → `/api/webhooks/janua` | prod → prod | prod → prod AND staging → staging (unblocks on Janua PP.3b) |
@@ -131,7 +131,7 @@ Inbound HMAC secrets (`FORTUNA_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`,
 `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`
 for RouteCraft) MUST be distinct per env — never reuse prod values in
 staging, never cross-wire. `KARAFIEL_WEBHOOK_SECRET` is currently outbound
-from PhyndCRM to Karafiel unless/until an inbound Karafiel receiver is added.
+from PhyndCRM to Karafiel, with the inbound `/api/webhooks/karafiel` receiver now implemented in PhyndCRM.
 
 ### 2. Outbound webhook (PhyndCRM → Karafiel) needs the same split
 

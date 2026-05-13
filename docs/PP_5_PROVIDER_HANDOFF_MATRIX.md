@@ -51,7 +51,7 @@ Current Wave 0 status observed on 2026-05-07:
 |---|---|---|---|
 | 0 | Platform bootstrap | Platform can run independently | DNS/tunnel, ArgoCD, staging secret, `/api/health`, Enclii callbacks. |
 | 1 | Low-mutation inbound providers | Janua telemetry, Cotiza, Forj can run in parallel | Signed staging webhook returns 200; invalid/prod secret returns 401; cache invalidation path does not error. |
-| 2 | Mutating inbound providers | Janua, Tezca, Dhanam, Fortuna, Pravara, RouteCraft, CEQ, Coforma can run by provider | Expected staging DB rows/jobs/audit entries exist; prod remains unchanged. |
+| 2 | Mutating inbound providers | Janua, Tezca, Dhanam, Fortuna, Pravara, RouteCraft, CEQ, Coforma, Karafiel can run by provider | Expected staging DB rows/jobs/audit entries exist; prod remains unchanged. |
 | 3 | Outbound integrations | Karafiel, Cotiza, Dhanam can run after their staging receivers are ready | PhyndCRM staging sends only to staging provider endpoints with staging secrets. |
 | 4 | Data refresh | DB/platform after provider split risk drops | Nightly masked restore or deterministic staging seed path is approved. |
 
@@ -68,6 +68,7 @@ Current Wave 0 status observed on 2026-05-07:
 | Forj assets | Forj | `POST /api/webhooks/forj` | `FORJ_WEBHOOK_SECRET`, `FORJ_API_URL` | Add staging asset/event destination with fresh secret; expose staging asset API or read-only fallback. | Signed event returns 200 and invalidates Forj federation cache; no prod asset mutation. | External handoff |
 | Tezca interests/newsletter | Tezca | `POST /api/webhooks/tezca` | `TEZCA_WEBHOOK_SECRET`, `TEZCA_API_URL`, `TEZCA_PUBLIC_URL`, `RESEND_API_KEY`, `EMAIL_ALLOWLIST_DOMAINS` | Add staging `interest.created` and `newsletter.subscribed` destination with fresh secret; emit only test emails. | Contact + lead created in staging; `email-drip` job queued; non-allowlisted recipient is skipped by worker. | External handoff |
 | Fortuna grants | Fortuna | `POST /api/webhooks/fortuna` | `FORTUNA_WEBHOOK_SECRET`, `FORTUNA_API_KEY`, `KARAFIEL_API_URL`, `KARAFIEL_API_KEY` | Add staging `grant.discovered` destination with fresh `X-Fortuna-Signature`. | Grant opportunity/application created in staging; compliance-check job targets staging Karafiel API. | External handoff |
+| Karafiel grant outcomes | Karafiel | `POST /api/webhooks/karafiel` | `KARAFIEL_WEBHOOK_SECRET` | Add staging `grant.awarded` destination with fresh `X-PhyndCRM-Signature` and replay protection. | Signed `grant.awarded` creates `webhook_events` row and updates matched staging grant application; duplicate `event_id` returns duplicate status without repeat writes. | External handoff |
 | RouteCraft attribution | RouteCraft | `POST /api/webhooks/routecraft` | `PHYND_CRM_EVENTS_SECRET` | Add staging payment attribution destination with `x-madfam-signature`. | Staging event writes `webhook_events` and `ecosystem_payment_succeeded` conversion; duplicate event is accepted as duplicate. | External handoff |
 | Legacy ecosystem payment event | RouteCraft / ecosystem | `POST /api/v1/events/payment.succeeded` | `PHYND_CRM_EVENTS_SECRET` | Keep only if producers still emit this legacy endpoint; otherwise mark deprecated after RouteCraft cutover. | Synthetic probe payment returns 200 and writes staging audit/conversion where probe lead exists. | Confirm owner |
 | CEQ interest gate | CEQ | `POST /api/webhooks/ceq` | `CEQ_WEBHOOK_SECRET`, `EMAIL_ALLOWLIST_DOMAINS` | Add staging interest destination with fresh secret and test-only emails. | Contact + lead created; optional UTM conversion recorded; drip obeys allowlist. | External handoff |
@@ -104,7 +105,7 @@ Current Wave 0 status observed on 2026-05-07:
 
 | Gap | Owner | Resolution |
 |---|---|---|
-| No implemented `POST /api/webhooks/karafiel` receiver exists in this repo. | PhyndCRM + Karafiel | Treat Karafiel PP.5 scope as outbound PhyndCRM to Karafiel unless a real inbound Karafiel-to-PhyndCRM contract is added. |
+| `POST /api/webhooks/karafiel` caveat cleanup | PhyndCRM + Karafiel | Record Karafiel staging callback evidence (`grant.awarded` + duplicate/idempotent behavior) and remove residual doc/process caveats once validated. |
 | Staging DNS/tunnel route is not in this repo. | Platform / Enclii | Add `staging-phynd.app` route to the cluster service and external monitor. |
 | Nightly masked prod-to-staging restore is not implemented. | Platform / DB | Add masked restore or approved deterministic seed + fixture baseline before broad provider testing. |
 | Regression: `JANUA_TELEMETRY_WEBHOOK_SECRET` fallback to `JANUA_WEBHOOK_SECRET` reintroduced in service or env. | Janua telemetry + PhyndCRM | `node scripts/pp5-stability-check.mjs` and code-level checks block this regression; keep a distinct `JANUA_TELEMETRY_WEBHOOK_SECRET` configured. |

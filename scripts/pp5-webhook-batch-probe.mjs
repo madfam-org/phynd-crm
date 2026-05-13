@@ -14,6 +14,10 @@ const laneDefinitions = {
     secretEnv: 'COTIZA_WEBHOOK_SECRET',
     mode: 'inbound',
   },
+  karafiel: {
+    secretEnv: 'KARAFIEL_WEBHOOK_SECRET',
+    mode: 'inbound',
+  },
   forj: {
     secretEnv: 'FORJ_WEBHOOK_SECRET',
     mode: 'inbound',
@@ -99,6 +103,7 @@ const batches = {
     'dhanam',
     'fortuna',
     'pravara',
+    'karafiel',
     'routecraft',
     'legacy-payment',
     'coforma',

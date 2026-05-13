@@ -32,6 +32,20 @@ const lanes = {
       },
     }),
   },
+  karafiel: {
+    path: '/api/webhooks/karafiel',
+    secretEnv: 'KARAFIEL_WEBHOOK_SECRET',
+    signature: simple,
+    signatureHeader: 'x-phyndcrm-signature',
+    payload: (opts) => ({
+      event: 'grant.awarded',
+      event_id: `pp5-karafiel-award-${opts.runId}`,
+      data: {
+        grantApplicationId: `karafiel-pp5-${opts.runId}`,
+        awardedAmount: '17500.00',
+      },
+    }),
+  },
   forj: {
     path: '/api/webhooks/forj',
     secretEnv: 'FORJ_WEBHOOK_SECRET',

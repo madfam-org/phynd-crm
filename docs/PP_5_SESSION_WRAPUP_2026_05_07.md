@@ -444,9 +444,9 @@ curl -fsS https://staging-phynd.app/api/health
 - Janua telemetry routing is now required to keep `JANUA_TELEMETRY_WEBHOOK_SECRET`
   distinct from `JANUA_WEBHOOK_SECRET`; the new pp5 stability check fails the
   rollout if fallback behavior is present.
-- No inbound `POST /api/webhooks/karafiel` route exists in this repo. Current
-  Karafiel scope is outbound PhyndCRM to Karafiel unless a real inbound
-  contract is added.
+- Inbound `POST /api/webhooks/karafiel` is now implemented for staged
+  `grant.awarded` callbacks; remaining work is staging endpoint registration and
+  proof collection from provider callbacks.
 
 ## Wrap-Up Status
 

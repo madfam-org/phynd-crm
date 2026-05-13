@@ -73,11 +73,12 @@ test('pp5 webhook batch probe all includes Batch D lanes', () => {
   const payload = parseJsonOutput(result)
 
   assert.equal(payload.ok, true)
-  assert.equal(payload.lanes.length, 19)
+  assert.equal(payload.lanes.length, 20)
 
   const requiredLanes = [
     'karafiel-grant-award',
     'karafiel-compliance',
+    'karafiel',
     'cotiza-engagement-projection',
     'dhanam-referral-reward',
   ]

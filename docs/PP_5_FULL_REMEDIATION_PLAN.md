@@ -31,7 +31,7 @@ Repo-owned PP.5 work is ready:
 - Staging env validator exists: `node scripts/pp5-validate-staging-env.mjs`.
 - Stability split-gate exists: `pnpm pp5:stability` (`node scripts/pp5-stability-check.mjs`).
 - CI E2E gate exists: `.github/workflows/ci.yml` includes an `e2e` job that calls reusable `.github/workflows/e2e.yml` as a dependent status gate.
-- CI workflow integrity gate exists: `node scripts/verify-ci-gates.mjs` validates that E2E remains reusable and wired only through `ci.yml`.
+- CI workflow integrity gate exists: `node scripts/verify-ci-gates.mjs` validates E2E reusable wiring and ensures branch-protection required checks match `ci.yml` job names.
 - PP.5 staging baseline is now refreshed nightly by workflow (`.github/workflows/pp5-staging-refresh.yml`), running `pnpm pp5:staging-reset` plus `pnpm pp5:data-safety`.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.

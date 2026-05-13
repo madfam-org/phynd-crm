@@ -61,6 +61,7 @@ These validate signature, routing, and cache-invalidation paths first.
 
 ```bash
 node scripts/pp5-webhook-probe.mjs list
+pnpm pp5:probe-batch A
 COTIZA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs curl cotiza
 FORJ_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs curl forj
 JANUA_TELEMETRY_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs curl janua-telemetry
@@ -68,6 +69,10 @@ JANUA_TELEMETRY_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs curl janua
 
 Use `send` instead of `curl` when the platform route is live and the provider
 team is ready to record evidence:
+
+```bash
+pnpm pp5:probe-batch A --base-url https://staging-phynd.app --run-id $(date -u +%Y%m%d%H%M%S)
+```
 
 ```bash
 COTIZA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send cotiza
@@ -198,6 +203,13 @@ PRAVARA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send pravara
 PHYND_CRM_EVENTS_SECRET=... node scripts/pp5-webhook-probe.mjs send routecraft
 CEQ_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send ceq
 COFORMA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send coforma
+```
+
+```bash
+# run all mutating inbound probes in one command:
+pnpm pp5:probe-batch B --parallelism 4
+pnpm pp5:probe-batch C --parallelism 4
+pnpm pp5:probe-batch all --parallelism 6
 ```
 
 Engagement probes need a real staging engagement ID:

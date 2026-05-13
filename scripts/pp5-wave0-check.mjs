@@ -4,12 +4,8 @@ import { spawnSync } from 'node:child_process'
 
 const checks = [
   {
-    name: 'secret template coverage',
-    command: ['node', 'scripts/pp5-staging-audit.mjs'],
-  },
-  {
-    name: 'webhook probe coverage',
-    command: ['node', 'scripts/pp5-webhook-probe.mjs', 'list'],
+    name: 'stability guardrails',
+    command: ['node', 'scripts/pp5-stability-check.mjs'],
   },
   {
     name: 'staging overlay render',

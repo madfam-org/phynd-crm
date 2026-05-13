@@ -413,7 +413,7 @@ Exit criteria:
 
 - [x] `node scripts/pp5-staging-audit.mjs` passes.
 - [x] `node scripts/pp5-webhook-probe.mjs list` includes all active lanes.
-- [x] `node scripts/pp5-wave0-check.mjs` exists and reports current blockers.
+- [x] `node scripts/pp5-wave0-check.mjs` exists, includes `pnpm pp5:stability`, and reports current blockers.
 - [ ] `pnpm pp5:stability` passes on current staging env input.
 - [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
   out-of-tree load restrictions.

@@ -36,7 +36,8 @@ Observed from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 - `node scripts/pp5-generate-staging-env.mjs`: available for staging-only env generation; operator-owned values still required.
 - `node scripts/pp5-validate-staging-env.mjs /private/tmp/phynd-crm-staging.env`: correctly blocked the generated scaffold until all `REPLACE_ME_*` values are replaced.
 - `pnpm pp5:stability`: verifies env-chain split gates and production-template parity before rollout.
-- `node scripts/pp5-wave0-check.mjs`: now verifies the staging overlay render,
+- `node scripts/pp5-wave0-check.mjs`: now includes the same stability guardrails
+  and then verifies the staging overlay render,
   namespace, GHCR pull secret, app secret, ArgoCD app/sync, web rollout,
   worker rollout, and DNS/HTTP health.
 - `kubectl kustomize infra/k8s/overlays/staging`: passes after making the

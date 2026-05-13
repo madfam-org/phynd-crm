@@ -11,6 +11,13 @@ const STABILITY_FALLBACK_PATTERNS = [
   /process\.env\.JANUA_TELEMETRY_API_URL\s*\?\?\s*process\.env\.JANUA_API_URL/g,
   /process\.env\.JANUA_API_URL\s*\?\?\s*process\.env\.AUTH_JANUA_ISSUER/g,
 ]
+const GENERIC_FALLBACK_REGEX =
+  /process\.env\.([A-Z][A-Z0-9_]*)\s*(\?\?|\|\|)\s*process\.env\.([A-Z][A-Z0-9_]*)/g
+
+const ALLOWED_ENV_FALLBACKS = new Set([
+  'PORTAL_BASE_URL->NEXTAUTH_URL',
+  'UNSUBSCRIBE_SECRET->AUTH_SECRET',
+])
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -73,8 +80,8 @@ function scanWebhookFallbacks() {
 
 function scanSplitFallbacks() {
   const targets = [
-    ...walkFiles('apps/web/src/lib'),
-    ...walkFiles('apps/worker/src/lib'),
+    ...walkFiles('apps/web/src'),
+    ...walkFiles('apps/worker/src'),
     ...walkFiles('packages/services/src'),
   ]
   const matches = []
@@ -86,6 +93,14 @@ function scanSplitFallbacks() {
       if (found) {
         matches.push({ file, snippets: found })
       }
+    }
+
+    const genericMatches = [...text.matchAll(GENERIC_FALLBACK_REGEX)]
+    for (const match of genericMatches) {
+      const [, first, , second] = match
+      const key = `${first}->${second}`
+      if (ALLOWED_ENV_FALLBACKS.has(key)) continue
+      matches.push({ file, snippets: [match[0]] })
     }
   }
 

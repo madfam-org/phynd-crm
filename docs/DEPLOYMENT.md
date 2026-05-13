@@ -90,6 +90,20 @@ Production image movement remains manual through `promote-to-prod.yml`.
 
 ## CI Build Notes
 
+### CI status gate model
+
+`CI` is now the canonical merge gate.
+
+- `CI / PP5 Guardrails` (must pass first)
+- `CI / NetworkPolicy port consistency`
+- `CI / Lint & Typecheck`
+- `CI / Unit Tests`
+- `CI / Build`
+- `CI / E2E Tests`
+
+Branch protection should require the `CI` workflow (and the checks above) so merge
+cannot bypass E2E. Keep `CI / E2E Tests` explicitly visible in your policy during rollout.
+
 Turbo runs in strict env mode. Runtime variables that CI, E2E, build, and
 deploy tasks need are listed in `turbo.json` under `globalPassThroughEnv`.
 Add new runtime-only env vars there when a task needs to read them without
@@ -165,7 +179,7 @@ All responses include security headers configured in `apps/web/next.config.ts`:
 ### Rate Limiting
 - **tRPC API**: 200 requests/minute per IP via Redis sliding window
 - **Webhooks**: 100 requests/minute per IP via Redis sliding window
-- Both fail open if Redis is unavailable (defense-in-depth, not sole control)
+- Both fail closed if Redis is unavailable (defense-in-depth, not sole control)
 - See ADR-005 for design rationale
 
 ### Webhook Security

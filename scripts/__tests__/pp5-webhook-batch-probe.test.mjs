@@ -78,7 +78,6 @@ test('pp5 webhook batch probe all includes Batch D lanes', () => {
   const requiredLanes = [
     'karafiel-grant-award',
     'karafiel-compliance',
-    'karafiel',
     'cotiza-engagement-projection',
     'dhanam-referral-reward',
   ]
@@ -88,6 +87,10 @@ test('pp5 webhook batch probe all includes Batch D lanes', () => {
     assert.ok(record, `missing lane ${lane}`)
     assert.equal(record.valid?.runType, 'manual')
   }
+
+  const runLane = payload.grouped.find((entry) => entry.lane === 'karafiel')
+  assert.ok(runLane, 'missing lane karafiel')
+  assert.equal(runLane.valid?.runType, 'valid')
 })
 
 test('pp5 webhook batch probe rejects unknown lane target', () => {
@@ -122,7 +125,7 @@ test('pp5 batch-run executes Batch D and writes artifacts', () => {
     assert.equal(artifact.batches.length, 1)
     assert.equal(artifact.batches[0].batch, 'D')
     assert.equal(artifact.batches[0].ok, true)
-    assert.equal(artifact.summary.failedChecks, 0)
+    assert.equal(artifact.totals.failedChecks, 0)
 
     const grouped = artifact.batchesRaw[0]?.summary?.grouped ?? []
     const groupedLanes = new Set(grouped.map((entry) => entry.lane))

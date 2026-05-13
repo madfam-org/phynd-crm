@@ -53,6 +53,10 @@ vi.mock('@phynd/federation/webhooks', () => ({
   validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
 }))
 
+vi.mock('@phynd/config/constants', () => ({
+  DEFAULT_TENANT_ID: 'madfam',
+}))
+
 vi.mock('@/lib/federation/clients', () => ({
   getCacheManager: vi.fn(() => ({
     get: vi.fn().mockResolvedValue(null),
@@ -262,4 +266,3 @@ describe('POST /api/webhooks/karafiel', () => {
     expect(body).toMatchObject({ received: true, event_type: 'grant.reviewed' })
   })
 })
-

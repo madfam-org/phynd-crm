@@ -32,6 +32,7 @@ Repo-owned PP.5 work is ready:
 - Stability split-gate exists: `pnpm pp5:stability` (`node scripts/pp5-stability-check.mjs`).
 - CI E2E gate exists: `.github/workflows/ci.yml` includes an `e2e` job that calls reusable `.github/workflows/e2e.yml` as a dependent status gate.
 - CI workflow integrity gate exists: `node scripts/verify-ci-gates.mjs` validates that E2E remains reusable and wired only through `ci.yml`.
+- PP.5 staging baseline is now refreshed nightly by workflow (`.github/workflows/pp5-staging-refresh.yml`), running `pnpm pp5:staging-reset` plus `pnpm pp5:data-safety`.
 - Staging webhook probe generator exists: `node scripts/pp5-webhook-probe.mjs`.
 - Consolidated Wave 0 checker exists: `node scripts/pp5-wave0-check.mjs`.
 - Client project onboarding is available through `engagements.onboardClientProject`
@@ -131,6 +132,7 @@ Actions:
 ```bash
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-webhook-probe.mjs list
+pnpm pp5:branch-protection-check
 pnpm pp5:probe-batch A
 pnpm pp5:staging-reset
 pnpm pp5:probe-batch all --parallelism 5 --run-id "$(date -u +%Y%m%d%H%M%S)"
@@ -354,6 +356,12 @@ Preferred target:
 - PII masking before data is made available to staging app pods.
 - Deterministic fixture overlay after restore, including Tablaco/demo-safe data.
 
+Operational status:
+
+- Interim fallback now runs nightly at 03:00 UTC through
+  `.github/workflows/pp5-staging-refresh.yml` (`pnpm pp5:staging-reset`) while RFC
+  0001 masked restore planning is finalized.
+
 Minimum acceptable interim path:
 
 - Dedicated staging DB.
@@ -445,6 +453,7 @@ Exit criteria:
 - [x] `ci.yml` now includes `e2e` as a dependent guarded job.
 - [x] `ci.yml` now includes a `workflow-integrity` guard for E2E wiring drift.
 - [ ] `pnpm pp5:stability` passes on current staging env input.
+- [ ] `pnpm pp5:branch-protection-check` enforces required status checks on `main`.
 - [x] `kubectl kustomize infra/k8s/overlays/staging` renders without
   out-of-tree load restrictions.
 - [x] `phynd-crm-staging` namespace exists.
@@ -460,7 +469,7 @@ Exit criteria:
 - [ ] Batch C provider probes pass.
 - [ ] Batch D outbound probes pass.
 - [ ] Production isolation evidence exists for every lane.
-- [ ] Staging DB refresh or deterministic seed baseline is approved.
-- [ ] PII safety validation exists.
+- [x] Staging DB refresh/seed is executed nightly via workflow (interim deterministic baseline).
+- [x] PII safety validation exists (`pnpm pp5:data-safety`).
 - [ ] Promotion and rollback workflows are verified.
 - [ ] PP.5 audit status is updated after external work completes.

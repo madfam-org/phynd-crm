@@ -15,6 +15,7 @@ node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-stagin
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
 pnpm pp5:stability
 DATABASE_URL=postgresql://... pnpm pp5:staging-reset
+pnpm pp5:branch-protection-check
 node scripts/pp5-wave0-check.mjs
 curl -fsS https://staging-phynd.app/api/health
 kubectl -n phynd-crm-staging get secret ghcr-credentials
@@ -36,6 +37,10 @@ Required outcome:
 - Web and worker rollouts are ready.
 - Staging data can be safely reset/reseeded through `pp5:staging-reset` and
   PP.5 safety checks pass for the fixture baseline.
+- Nightly PP.5 fallback baseline runs via
+  `.github/workflows/pp5-staging-refresh.yml`; production branch protection is
+  enforced through `pnpm pp5:branch-protection-check` and
+  `pnpm pp5:branch-protection-apply`.
 
 Observed from this workspace on 2026-05-07 local / 2026-05-08 UTC:
 

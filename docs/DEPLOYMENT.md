@@ -104,15 +104,11 @@ Production image movement remains manual through `promote-to-prod.yml`.
 Branch protection should require the `CI` workflow (and the checks above) so merge
 cannot bypass E2E. Keep `CI / E2E Tests` explicitly visible in your policy during rollout.
 
-Reference branch protection command (repo-admin only):
+Reference branch protection commands (repo-admin only):
 
 ```bash
-gh api repos/madfam-org/phynd-crm/branches/main/protection --method PUT \
-  --field required_status_checks='{"strict":true,"contexts":["CI / PP5 Guardrails","CI / NetworkPolicy port consistency","CI / Lint & Typecheck","CI / Unit Tests","CI / Build","CI / E2E Tests"]}' \
-  --field enforce_admins=false \
-  --field required_pull_request_reviews='{"required_approving_review_count":1}' \
-  --field allow_force_pushes=false \
-  --field allow_deletions=false
+pnpm pp5:branch-protection-check
+pnpm pp5:branch-protection-apply -- --repo madfam-org/phynd-crm --branch main --confirm
 ```
 
 This repo also provides `node scripts/verify-ci-gates.mjs` (`pnpm ci:verify-gates`) for local/CI verification that the CI wiring remains intact.

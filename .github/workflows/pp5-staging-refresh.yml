@@ -1,0 +1,70 @@
+name: PP5 Staging Refresh
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      skip_reset:
+        description: Skip deterministic staging reset and run only checks
+        required: false
+        default: "false"
+      sample_limit:
+        description: Email/PII sample window size
+        required: false
+        default: "5"
+      dry_run:
+        description: Print planned commands without mutating staging data
+        required: false
+        default: "false"
+
+jobs:
+  staging-refresh:
+    name: Nightly PP5 staging refresh fallback
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Refresh staging data baseline
+        env:
+          PP5_STAGING_DATABASE_URL: ${{ secrets.PP5_STAGING_DATABASE_URL }}
+          PP5_STAGING_ALLOWLIST_DOMAINS: ${{ vars.PP5_STAGING_ALLOWLIST_DOMAINS }}
+          PP5_STAGING_REFRESH_SAMPLE_LIMIT: ${{ vars.PP5_STAGING_REFRESH_SAMPLE_LIMIT }}
+        run: |
+          if [ -z "${PP5_STAGING_DATABASE_URL}" ]; then
+            echo "Skip: PP5_STAGING_DATABASE_URL not configured"
+            exit 0
+          fi
+
+          ALLOWLIST="${PP5_STAGING_ALLOWLIST_DOMAINS:-staging.madfam.io,madfam.io}"
+          SAMPLE_LIMIT="${{ github.event.inputs.sample_limit }}"
+          if [ -z "${SAMPLE_LIMIT}" ]; then
+            SAMPLE_LIMIT="${PP5_STAGING_REFRESH_SAMPLE_LIMIT:-5}"
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.skip_reset }}" = "true" ]; then
+            echo "Skipping data reset as requested via workflow_dispatch skip_reset=true"
+            exit 0
+          fi
+
+          COMMAND=(pnpm pp5:staging-reset --database-url "${PP5_STAGING_DATABASE_URL}" --allowlist-domains "${ALLOWLIST}" --sample-limit "${SAMPLE_LIMIT}")
+
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            COMMAND+=(--dry-run)
+          fi
+
+          "${COMMAND[@]}"

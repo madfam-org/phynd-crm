@@ -64,7 +64,9 @@ The outstanding gaps are now:
 
 1. **End-to-end environment split** across external services, webhooks, and API URLs.
 2. **Staging ingress/subdomain route** (`staging-phynd.app`) in Cloudflare.
-3. **Nightly masked prod→staging refresh** (including PII safety net).
+3. **Nightly masked prod→staging refresh** (including PII safety net). Interim
+   deterministic fallback now runs nightly via
+   `.github/workflows/pp5-staging-refresh.yml` until masked masking pipeline is approved.
 
 ## Current state vs RFC 0001 — row-by-row
 
@@ -88,7 +90,7 @@ The outstanding gaps are now:
 | 16 | Staging namespace convention | `<service>-staging` | PP.5b target: `phynd-crm-staging` | Aligned (by planning) | Document. |
 | 17 | Staging secrets template | Separate `<service>-staging-secrets` covering all env vars | `infra/k8s/staging-secrets-template.yaml` added | Aligned | PP.5b. |
 | 18 | External service sandbox | Staging Janua tenant, test OAuth clients, sandbox webhook secrets per provider | Not fully operationalized across all providers yet | Deferred | In-progress with external provider teams. |
-| 19 | DB: nightly masked restore | 03:00 UTC prod→staging PII-masked | Partially implemented | Deferred (RFC 0001 open question) | Interim baseline: `pnpm pp5:staging-reset` seeds deterministic fixtures and runs staging PII checks. Replace with masked prod→staging restore when available. |
+| 19 | DB: nightly masked restore | 03:00 UTC prod→staging PII-masked | Partially implemented | In progress | Interim baseline now runs nightly via `.github/workflows/pp5-staging-refresh.yml` using `pnpm pp5:staging-reset`; replace with masked prod→staging restore when available. |
 | 20 | Promotion pattern declaration | `.enclii.yml` `promotion:` key | `.enclii.yml` contains manual gate + soak + smoke policy | Aligned | PP.5c. |
 | 21 | Decommission bypass path | Phase 4 removal of direct-to-prod commits after 14-day soak | Direct-to-prod promotion path removed; `deploy-*` target staging only | Aligned | PP.5c. |
 
@@ -274,7 +276,10 @@ Canonical execution plan: [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REM
 
 ### Priority 3 — Data safety guardrails (blocking for confidence, not code)
 
-- Implement nightly masked prod→staging DB refresh at 03:00 UTC.
+- Implemented interim staged fallback: nightly deterministic `pnpm pp5:staging-reset`
+  + `pp5:data-safety` execution at 03:00 UTC via
+  `.github/workflows/pp5-staging-refresh.yml`; replace with true masked prod→staging
+  restore once approved by RFC 0001.
 - Ensure PII is sanitized before restore and staging fixture path is deterministic.
 - Include tablaco fixture + demo-mode safety checks in seed or restore checks.
 

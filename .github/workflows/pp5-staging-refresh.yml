@@ -56,8 +56,17 @@ jobs:
             SAMPLE_LIMIT="${PP5_STAGING_REFRESH_SAMPLE_LIMIT:-5}"
           fi
 
+          run_safety_checks() {
+            echo "Running PP5 staging data safety checks"
+            pnpm pp5:data-safety \
+              --database-url "${PP5_STAGING_DATABASE_URL}" \
+              --allowlist-domains "${ALLOWLIST}" \
+              --sample-limit "${SAMPLE_LIMIT}"
+          }
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.skip_reset }}" = "true" ]; then
             echo "Skipping data reset as requested via workflow_dispatch skip_reset=true"
+            run_safety_checks
             exit 0
           fi
 
@@ -68,3 +77,5 @@ jobs:
           fi
 
           "${COMMAND[@]}"
+
+          run_safety_checks

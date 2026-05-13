@@ -23,6 +23,7 @@
     "pp5:staging-reset": "node scripts/pp5-staging-reset.mjs",
     "ci:verify-gates": "node scripts/verify-ci-gates.mjs",
     "pp5:stability": "node scripts/pp5-stability-check.mjs",
+    "pp5:readiness": "node scripts/pp5-readiness.mjs",
     "clean": "turbo clean",
     "prepare": "husky"
   },

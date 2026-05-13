@@ -10,6 +10,7 @@
 Run these before provider teams send synthetic events.
 
 ```bash
+pnpm pp5:readiness
 node scripts/pp5-staging-audit.mjs
 node scripts/pp5-generate-staging-env.mjs --output /secure/path/phynd-crm-staging.env
 node scripts/pp5-validate-staging-env.mjs /secure/path/phynd-crm-staging.env --print-apply-command
@@ -17,6 +18,7 @@ pnpm pp5:stability
 DATABASE_URL=postgresql://... pnpm pp5:staging-reset
 pnpm pp5:branch-protection-check
 node scripts/pp5-wave0-check.mjs
+pnpm pp5:readiness --include-wave0
 curl -fsS https://staging-phynd.app/api/health
 kubectl -n phynd-crm-staging get secret ghcr-credentials
 kubectl -n phynd-crm-staging get secret phynd-crm-staging-secrets

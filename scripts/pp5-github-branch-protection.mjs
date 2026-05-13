@@ -69,6 +69,33 @@ function parseCiRequiredChecks(path = DEFAULT_CI_WORKFLOW) {
   return [...new Set(checks)]
 }
 
+function normalizeGitRemoteUrl(remoteUrl) {
+  if (!remoteUrl) return ''
+  const normalized = remoteUrl.trim()
+  if (!normalized) return ''
+
+  const httpsMatch = /^https:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/i.exec(normalized)
+  if (httpsMatch) return httpsMatch[1]
+
+  const sshMatch = /^git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/i.exec(normalized)
+  if (sshMatch) return sshMatch[1]
+
+  const sshUrlMatch = /^ssh:\/\/git@github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/i.exec(normalized)
+  if (sshUrlMatch) return sshUrlMatch[1]
+
+  return ''
+}
+
+function detectRepoFromGit() {
+  const result = spawnSync('git', ['config', '--get', 'remote.origin.url'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+
+  if (result.status !== 0) return ''
+  return normalizeGitRemoteUrl(result.stdout || '')
+}
+
 function usage(message) {
   if (message) console.error(`ERROR: ${message}`)
   console.error(`
@@ -95,7 +122,7 @@ Options:
 function parseArgs(argv) {
   const opts = {
     mode: 'check',
-    repo: process.env.GITHUB_REPOSITORY || process.env.GH_REPO || '',
+    repo: process.env.GITHUB_REPOSITORY || process.env.GH_REPO || detectRepoFromGit(),
     branch: DEFAULT_BRANCH,
     requiredChecks: DEFAULT_REQUIRED_CHECKS,
     requiredApprovals: 1,
@@ -173,7 +200,7 @@ function parseArgs(argv) {
     usage(`Unknown option: ${arg}`)
   }
 
-  if (!opts.repo) usage('Missing --repo and GITHUB_REPOSITORY')
+  if (!opts.repo) usage('Missing --repo')
   if (!opts.branch) usage('Missing branch')
 
   return opts

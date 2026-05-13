@@ -65,22 +65,37 @@ const checks = [
   },
   {
     name: 'staging health DNS/HTTP',
-    command: ['curl', '-fsS', 'https://staging-phynd.app/api/health'],
+    command: ['curl', '-fsS', '--connect-timeout', '5', '--max-time', '12', 'https://staging-phynd.app/api/health'],
   },
 ]
 
 function run(check) {
-  const result = spawnSync(check.command[0], check.command.slice(1), {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  try {
+    const result = spawnSync(check.command[0], check.command.slice(1), {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 18000,
+      killSignal: 'SIGKILL',
+    })
 
-  return {
-    ...check,
-    ok: result.status === 0,
-    stdout: result.stdout.trim(),
-    stderr: result.stderr.trim(),
-    status: result.status,
+    return {
+      ...check,
+      ok: result.status === 0,
+      stdout: result.stdout.trim(),
+      stderr: result.stderr.trim(),
+      status: result.status,
+      timedOut: false,
+    }
+  } catch (error) {
+    const message = error?.message || 'unknown command error'
+    return {
+      ...check,
+      ok: false,
+      stdout: '',
+      stderr: message,
+      status: 1,
+      timedOut: true,
+    }
   }
 }
 
@@ -95,9 +110,10 @@ function main() {
 
     failed += 1
     console.log(`BLOCKED ${check.name}`)
+    const timedOutSuffix = check.timedOut ? ' (timed out)' : ''
     const detail = check.stderr || check.stdout || `exit status ${check.status}`
     for (const line of detail.split('\n').filter(Boolean).slice(0, 4)) {
-      console.log(`  ${line}`)
+      console.log(`  ${line}${timedOutSuffix}`)
     }
   }
 

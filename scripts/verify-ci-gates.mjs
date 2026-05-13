@@ -10,14 +10,25 @@ function asDisplayCheckName(rawName) {
 
 function extractBranchProtectionChecks(scriptPath) {
   const text = fs.readFileSync(scriptPath, 'utf8')
-  const match = text.match(/const\s+DEFAULT_REQUIRED_CHECKS\s*=\s*\[([\s\S]*?)\];/)
-  if (!match) {
+  const definitionIndex = text.indexOf('const DEFAULT_REQUIRED_CHECKS')
+  if (definitionIndex < 0) {
     throw new Error('Unable to read DEFAULT_REQUIRED_CHECKS from branch protection script')
   }
 
-  const checks = [...match[1].matchAll(/'([^']+)'/g)].map((entry) => entry[1])
-  if (checks.length === 0) {
-    throw new Error('No branch protection required checks found in script')
+  const arrayStart = text.indexOf('[', definitionIndex)
+  if (arrayStart < 0) {
+    throw new Error('Unable to read DEFAULT_REQUIRED_CHECKS from branch protection script')
+  }
+
+  const arrayEnd = text.indexOf(']', arrayStart)
+  if (arrayEnd < 0) {
+    throw new Error('Unable to read DEFAULT_REQUIRED_CHECKS from branch protection script')
+  }
+
+  const match = text.slice(arrayStart + 1, arrayEnd)
+  const checks = [...match.matchAll(/'([^']+)'/g)].map((entry) => entry[1])
+  if (!checks.length) {
+    throw new Error('Unable to read DEFAULT_REQUIRED_CHECKS from branch protection script')
   }
 
   return checks

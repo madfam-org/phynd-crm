@@ -2,6 +2,12 @@
 
 import fs from 'node:fs'
 
+function asDisplayCheckName(rawName) {
+  const trimmedName = rawName.trim()
+  if (!trimmedName) return trimmedName
+  return trimmedName.startsWith('CI / ') ? trimmedName : `CI / ${trimmedName}`
+}
+
 function extractBranchProtectionChecks(scriptPath) {
   const text = fs.readFileSync(scriptPath, 'utf8')
   const match = text.match(/const\s+DEFAULT_REQUIRED_CHECKS\s*=\s*\[([\s\S]*?)\];/)
@@ -20,21 +26,42 @@ function extractBranchProtectionChecks(scriptPath) {
 function collectJobNamesFromWorkflow(ciConfig) {
   const lines = ciConfig.split('\n')
   const jobNames = new Set()
+  let inJobs = false
   let inJob = false
+  let currentJobName = null
 
   for (const line of lines) {
+    if (/^jobs:/m.test(line)) {
+      inJobs = true
+      continue
+    }
+
+    if (!inJobs) continue
+
     const jobLine = /^\s{2}([A-Za-z0-9_-]+):\s*$/.exec(line)
     if (jobLine) {
+      if (inJob && currentJobName) jobNames.add(currentJobName)
       inJob = true
+      currentJobName = asDisplayCheckName(jobLine[1])
       continue
     }
 
     const nameLine = /^\s{4}name:\s*(.+)\s*$/.exec(line)
     if (inJob && nameLine) {
-      jobNames.add(nameLine[1])
+      currentJobName = asDisplayCheckName(nameLine[1])
+      continue
+    }
+
+    if (/^ {0,2}\S/.test(line)) {
+      if (inJob && currentJobName) jobNames.add(currentJobName)
       inJob = false
+      currentJobName = null
+      inJobs = false
+      continue
     }
   }
+
+  if (inJob && currentJobName) jobNames.add(currentJobName)
 
   return jobNames
 }

@@ -2,6 +2,7 @@
 
 import { spawnSync } from 'node:child_process'
 import process from 'node:process'
+import fs from 'node:fs'
 
 const DEFAULT_BRANCH = 'main'
 const DEFAULT_REQUIRED_CHECKS = [
@@ -12,20 +13,78 @@ const DEFAULT_REQUIRED_CHECKS = [
   'CI / Build',
   'CI / E2E Tests',
 ]
+const DEFAULT_CI_WORKFLOW = '.github/workflows/ci.yml'
+
+function asDisplayCheckName(rawName) {
+  const trimmedName = rawName.trim()
+  if (!trimmedName) return trimmedName
+  return trimmedName.startsWith('CI / ') ? trimmedName : `CI / ${trimmedName}`
+}
+
+function parseCiRequiredChecks(path = DEFAULT_CI_WORKFLOW) {
+  const ciConfig = fs.readFileSync(path, 'utf8')
+  const lines = ciConfig.split('\n')
+  const checks = []
+  let inJobs = false
+  let inJob = false
+  let currentJobName = null
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+
+    if (/^jobs:/m.test(line)) {
+      inJobs = true
+      continue
+    }
+
+    if (!inJobs) continue
+
+    const jobLine = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line)
+    if (jobLine) {
+      if (inJob && currentJobName) checks.push(currentJobName)
+      inJob = true
+      currentJobName = asDisplayCheckName(jobLine[1])
+      continue
+    }
+
+    if (!inJob) continue
+
+    const nameLine = /^ {4}name:\s*(.+)\s*$/.exec(line)
+    if (nameLine) {
+      currentJobName = asDisplayCheckName(nameLine[1])
+      continue
+    }
+
+    if (/^ {0,2}\S/.test(line)) {
+      if (inJob && currentJobName) checks.push(currentJobName)
+      inJob = false
+      currentJobName = null
+      inJobs = false
+      continue
+    }
+  }
+
+  if (inJob && currentJobName) checks.push(currentJobName)
+
+  return [...new Set(checks)]
+}
 
 function usage(message) {
   if (message) console.error(`ERROR: ${message}`)
   console.error(`
 Usage:
   node scripts/pp5-github-branch-protection.mjs --repo owner/repo [--branch main]
-  node scripts/pp5-github-branch-protection.mjs --mode check --repo owner/repo [--required-checks "A,B,C"]
+  node scripts/pp5-github-branch-protection.mjs --mode check --repo owner/repo [--required-checks "A,B,C" | --required-checks-from-ci [--ci-workflow path]]
+  node scripts/pp5-github-branch-protection.mjs --mode apply --repo owner/repo [--required-checks "A,B,C" | --required-checks-from-ci [--ci-workflow path]]
   node scripts/pp5-github-branch-protection.mjs --mode apply --repo owner/repo --confirm
 
 Options:
   --mode check|apply          Operation mode (default: check)
   --repo owner/repo           Target repository (defaults to GITHUB_REPOSITORY)
   --branch branch-name        Branch name (default: main)
+  --required-checks-from-ci   Use CI workflow job names as required checks
   --required-checks checks    Comma list of required status checks
+  --ci-workflow path         CI workflow path when using --required-checks-from-ci (default: .github/workflows/ci.yml)
   --required-approvals N      Required approving reviews (default: 1)
   --confirm                   Required for --mode apply
   --dry-run                   Print would-be payload for apply mode
@@ -57,6 +116,18 @@ function parseArgs(argv) {
       continue
     }
 
+    if (arg === '--required-checks-from-ci') {
+      opts.requiredChecksFromCi = true
+      continue
+    }
+
+    if (arg === '--ci-workflow') {
+      if (!next) usage('Missing value for --ci-workflow')
+      opts.ciWorkflow = next
+      i += 1
+      continue
+    }
+
     if (arg === '--repo') {
       if (!next) usage('Missing value for --repo')
       opts.repo = next
@@ -78,6 +149,7 @@ function parseArgs(argv) {
         .map((check) => check.trim())
         .filter(Boolean)
       i += 1
+      opts.requiredChecksFromCi = false
       continue
     }
 
@@ -105,6 +177,14 @@ function parseArgs(argv) {
   if (!opts.branch) usage('Missing branch')
 
   return opts
+}
+
+function computeRequiredChecks(opts) {
+  if (opts.requiredChecksFromCi) {
+    return parseCiRequiredChecks(opts.ciWorkflow)
+  }
+
+  return opts.requiredChecks
 }
 
 function runGh(args, input) {
@@ -160,11 +240,17 @@ function inspectBranchProtection(payload, expectedChecks) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2))
+  const requiredChecks = computeRequiredChecks(opts)
+  if (!requiredChecks || requiredChecks.length === 0) {
+    console.error('FAIL: no required checks resolved')
+    process.exit(1)
+  }
+
   const endpoint = `repos/${opts.repo}/branches/${opts.branch}/protection`
   const protection = JSON.parse(runGh(['api', endpoint]))
 
   if (opts.mode === 'check') {
-    const missing = inspectBranchProtection(protection, opts.requiredChecks)
+    const missing = inspectBranchProtection(protection, requiredChecks)
     if (missing.length > 0) {
       console.error('FAIL branch protection policy mismatch')
       for (const line of missing) console.error(`  - ${line}`)
@@ -183,7 +269,7 @@ function main() {
     const payload = {
       required_status_checks: {
         strict: true,
-        contexts: opts.requiredChecks,
+        contexts: requiredChecks,
       },
       enforce_admins: false,
       required_pull_request_reviews: {
@@ -201,7 +287,7 @@ function main() {
   const payload = {
     required_status_checks: {
       strict: true,
-      contexts: opts.requiredChecks,
+      contexts: requiredChecks,
     },
     enforce_admins: false,
     required_pull_request_reviews: {

@@ -108,7 +108,7 @@ Reference branch protection commands (repo-admin only):
 
 ```bash
 pnpm pp5:branch-protection-check
-pnpm pp5:branch-protection-apply -- --repo madfam-org/phynd-crm --branch main --confirm
+pnpm pp5:branch-protection-apply -- --repo madfam-org/phynd-crm --branch main
 ```
 
 This repo also provides `node scripts/verify-ci-gates.mjs` (`pnpm ci:verify-gates`) for local/CI verification that the CI wiring remains intact.

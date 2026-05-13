@@ -43,6 +43,11 @@ const STATIC_CHECKS = [
     description: 'cross-surface env split + webhook secret guardrails',
   },
   {
+    name: 'pp5:test:pp5',
+    command: ['pnpm', 'test:pp5'],
+    description: 'pp5 webhook batch script regression suite',
+  },
+  {
     name: 'ci:verify-gates',
     command: ['pnpm', 'ci:verify-gates'],
     description: 'CI wiring + e2e workflow contract',

@@ -83,3 +83,14 @@ Current evidence:
 - The live Enclii API advertises `apps.retire` and `secrets.refresh`, but dry-runs still report the generic adapter-not-wired warning.
 
 Next required step: publish and deploy the Enclii Switchyard API adapter changes, then retire `phyne-crm-production` and refresh `phynd-crm-secrets` exclusively through Enclii operations.
+
+## 2026-05-14 secret source-of-truth findings
+
+Additional Enclii/Selva evidence gathered after the initial status entry:
+
+- `enclii secrets list --file .enclii.yml --json` returned an empty list for Phynd.
+- `enclii secrets list --file .enclii.yml --env production --json` failed because project `phynd-crm` does not currently have an Enclii environment named `production`.
+- `enclii ops secrets vault --namespace phynd-crm --json` returned zero Vault pods/resources in the Phynd namespace.
+- Selva RFC 0005 already allows `phynd-crm` and `phynd-crm-staging`, so Phynd is not blocked on the Selva namespace allow-list. It is blocked on approved source values and Enclii production environment alignment.
+
+Operational implication: Phynd production cannot become truthful until its environment model and required secret values are established through Enclii/Selva, then `phynd-crm-secrets` is refreshed and the legacy `phyne-crm-production` Argo app is retired through Enclii.

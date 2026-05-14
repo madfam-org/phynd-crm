@@ -26,9 +26,13 @@ export function DeleteCampaignDialog({
   onOpenChange,
 }: DeleteCampaignDialogProps) {
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.campaigns.delete.useMutation({
+  const campaignsRouter = trpc.campaigns as NonNullable<typeof trpc.campaigns>
+  const deleteCampaign = campaignsRouter.delete as NonNullable<typeof campaignsRouter.delete>
+  const campaignsUtils = utils.campaigns as NonNullable<typeof utils.campaigns>
+  const listUtils = campaignsUtils.list as NonNullable<typeof campaignsUtils.list>
+  const deleteMutation = deleteCampaign.useMutation({
     onSuccess: () => {
-      utils.campaigns.list.invalidate()
+      listUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to delete campaign', { description: err.message }),

@@ -50,12 +50,18 @@ export function CreateCampaignDialog() {
   const [endDate, setEndDate] = useState('')
   const [offerId, setOfferId] = useState(NO_OFFER_VALUE)
 
-  const { data: offersData } = trpc.offers.list.useQuery(undefined, { retry: false })
+  const offersRouter = trpc.offers as NonNullable<typeof trpc.offers>
+  const listOffers = offersRouter.list as NonNullable<typeof offersRouter.list>
+  const { data: offersData } = listOffers.useQuery(undefined, { retry: false })
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.campaigns.create.useMutation({
+  const campaignsRouter = trpc.campaigns as NonNullable<typeof trpc.campaigns>
+  const createCampaign = campaignsRouter.create as NonNullable<typeof campaignsRouter.create>
+  const campaignsUtils = utils.campaigns as NonNullable<typeof utils.campaigns>
+  const listUtils = campaignsUtils.list as NonNullable<typeof campaignsUtils.list>
+  const createMutation = createCampaign.useMutation({
     onSuccess: () => {
-      utils.campaigns.list.invalidate()
+      listUtils.invalidate()
       setOpen(false)
       resetForm()
     },

@@ -75,12 +75,18 @@ export function EditCampaignDialog({ campaign, open, onOpenChange }: EditCampaig
   const [endDate, setEndDate] = useState(toDateInputValue(campaign.endDate))
   const [offerId, setOfferId] = useState(campaign.offerId ?? '')
 
-  const { data: offersData } = trpc.offers.list.useQuery(undefined, { retry: false })
+  const offersRouter = trpc.offers as NonNullable<typeof trpc.offers>
+  const listOffers = offersRouter.list as NonNullable<typeof offersRouter.list>
+  const { data: offersData } = listOffers.useQuery(undefined, { retry: false })
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.campaigns.update.useMutation({
+  const campaignsRouter = trpc.campaigns as NonNullable<typeof trpc.campaigns>
+  const updateCampaign = campaignsRouter.update as NonNullable<typeof campaignsRouter.update>
+  const campaignsUtils = utils.campaigns as NonNullable<typeof utils.campaigns>
+  const listUtils = campaignsUtils.list as NonNullable<typeof campaignsUtils.list>
+  const updateMutation = updateCampaign.useMutation({
     onSuccess: () => {
-      utils.campaigns.list.invalidate()
+      listUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update campaign', { description: err.message }),

@@ -53,11 +53,13 @@ function formatBudget(budget: string | null, currency: string | null): string {
 }
 
 export function CampaignsDataTable({ initialData }: CampaignsDataTableProps) {
-  const { data } = trpc.campaigns.list.useQuery(undefined, {
+  const campaignsRouter = trpc.campaigns as NonNullable<typeof trpc.campaigns>
+  const listCampaigns = campaignsRouter.list as NonNullable<typeof campaignsRouter.list>
+  const { data } = listCampaigns.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
   })
-  const campaigns = data?.items ?? []
+  const campaigns: CampaignRow[] = data?.items ?? []
 
   const [editCampaign, setEditCampaign] = useState<CampaignRow | null>(null)
   const [deleteCampaign, setDeleteCampaign] = useState<CampaignRow | null>(null)

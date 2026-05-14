@@ -20,6 +20,7 @@ This runbook is chronological. Older sections preserve the starting condition an
 - Source now contains live-demo canonical-origin remediation: `GET /demo` resolves redirects from trusted Enclii/Cloudflare external host headers and falls back to `https://phynd.app`, so public redirects cannot leak upstream pod hostnames.
 - Source now enables Auth.js trusted-host behavior for Janua behind Enclii/Cloudflare and declares `AUTH_TRUST_HOST=true` in the Enclii service spec.
 - Source now includes demo-dashboard degradation handling so a demo seed/data-read failure does not crash the dashboard shell; visitors see an explicit warming-up message instead.
+- Source now includes a documented tRPC client compatibility bridge for the current tRPC v11 RC Docker build behavior, where the workspace router type widens and blocks typed client property access during `next build`; runtime routing still uses `AppRouter`.
 - Regression coverage was added for trusted external-origin resolution and Auth.js trusted-host config.
 - Root lint passes locally with warning-level technical debt still present.
 - Local root typecheck remains blocked by local workspace installation state: this checkout currently lacks `node_modules/@phynd` workspace symlinks, so packages cannot resolve `@phynd/types` locally. CI should be used as the source of truth after a clean dependency install.

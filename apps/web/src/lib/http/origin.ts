@@ -10,10 +10,12 @@ const TRUSTED_HOSTS = new Set([
 ])
 
 function firstHeaderValue(value: string | null): string | null {
-  return value
-    ?.split(',')
-    .map((part) => part.trim())
-    .find(Boolean) ?? null
+  return (
+    value
+      ?.split(',')
+      .map((part) => part.trim())
+      .find(Boolean) ?? null
+  )
 }
 
 function normalizeHost(value: string | null): string | null {

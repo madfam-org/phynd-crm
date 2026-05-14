@@ -37,10 +37,22 @@ export function AnalyticsTrends() {
     dateTo: new Date(dateTo),
   }
 
-  const { data: leadTrend = [] } = trpc.analytics.leadTrend.useQuery(queryInput)
-  const { data: oppTrend = [] } = trpc.analytics.opportunityTrend.useQuery(queryInput)
-  const { data: convTrend = [] } = trpc.analytics.conversionTrend.useQuery(queryInput)
-  const { data: visitorTrend = [] } = trpc.analytics.visitorTrend.useQuery(queryInput)
+  const analyticsRouter = trpc.analytics as NonNullable<typeof trpc.analytics>
+  const leadTrendQuery = analyticsRouter.leadTrend as NonNullable<typeof analyticsRouter.leadTrend>
+  const opportunityTrendQuery = analyticsRouter.opportunityTrend as NonNullable<
+    typeof analyticsRouter.opportunityTrend
+  >
+  const conversionTrendQuery = analyticsRouter.conversionTrend as NonNullable<
+    typeof analyticsRouter.conversionTrend
+  >
+  const visitorTrendQuery = analyticsRouter.visitorTrend as NonNullable<
+    typeof analyticsRouter.visitorTrend
+  >
+
+  const { data: leadTrend = [] } = leadTrendQuery.useQuery(queryInput)
+  const { data: oppTrend = [] } = opportunityTrendQuery.useQuery(queryInput)
+  const { data: convTrend = [] } = conversionTrendQuery.useQuery(queryInput)
+  const { data: visitorTrend = [] } = visitorTrendQuery.useQuery(queryInput)
 
   return (
     <div className="space-y-6">

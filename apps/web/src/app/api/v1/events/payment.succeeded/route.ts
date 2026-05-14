@@ -121,6 +121,12 @@ export async function POST(request: Request) {
       processedAt: new Date(),
     })
     .returning({ id: webhookEvents.id })
+  const webhookEvent = wh[0]
+
+  if (!webhookEvent) {
+    logger.error({ event_id: event.event_id }, 'webhook event insert returned no row')
+    return NextResponse.json({ error: 'failed to record webhook event' }, { status: 500 })
+  }
 
   // Look up the probe lead (single synthetic lead per tenant) and
   // record a conversion. For non-probe events we currently skip the
@@ -134,17 +140,18 @@ export async function POST(request: Request) {
     .limit(1)
 
   let conversionId: string | null = null
-  if (probeLead.length > 0) {
+  const lead = probeLead[0]
+  if (lead) {
     const amountMajor = (event.amount_minor / 100).toFixed(2)
     const inserted = await db
       .insert(conversions)
       .values({
         type: 'ecosystem_payment',
-        leadId: probeLead[0]!.id,
+        leadId: lead.id,
         value: amountMajor,
         metadata: {
           event_id: event.event_id,
-          webhook_event_id: wh[0]!.id,
+          webhook_event_id: webhookEvent.id,
           provider: event.provider,
           currency: event.currency,
           amount_minor: event.amount_minor,
@@ -156,11 +163,17 @@ export async function POST(request: Request) {
         },
       })
       .returning({ id: conversions.id })
-    conversionId = inserted[0]!.id
+    const conversion = inserted[0]
+    if (!conversion) {
+      logger.error({ event_id: event.event_id, lead_id: lead.id }, 'conversion insert returned no row')
+      return NextResponse.json({ error: 'failed to record conversion' }, { status: 500 })
+    }
+
+    conversionId = conversion.id
     logger.info(
       {
         event_id: event.event_id,
-        lead_id: probeLead[0]!.id,
+        lead_id: lead.id,
         conversion_id: conversionId,
       },
       'ecosystem payment recorded as conversion',
@@ -176,7 +189,7 @@ export async function POST(request: Request) {
     {
       received: true,
       event_id: event.event_id,
-      webhook_event_id: wh[0]!.id,
+      webhook_event_id: webhookEvent.id,
       conversion_id: conversionId,
     },
     { status: 201 },

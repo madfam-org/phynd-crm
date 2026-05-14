@@ -3,10 +3,21 @@ import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/f
 import { schema } from '@phynd/api'
 import { getDb } from '@phynd/db'
 import { createServiceContext } from '@phynd/services/context'
+import type { AuthContext } from '@phynd/types/auth'
+import type { GraphQLSchema } from 'graphql'
 import { createYoga } from 'graphql-yoga'
 
+type PhyndSession = {
+  user?: {
+    id?: string
+    roles?: string[]
+    scopes?: string[]
+  }
+  accessToken?: string
+}
+
 const { handleRequest } = createYoga({
-  schema: schema as any,
+  schema: schema as GraphQLSchema,
   // Define standard context injection matching ServiceContext
   context: async (req) => {
     // Determine tenantId from headers or host for multi-tenancy Phase 3
@@ -18,14 +29,14 @@ const { handleRequest } = createYoga({
         ? subdomain
         : 'madfam'
 
-    const session = await auth()
-    const authCtx = {
+    const session = (await auth()) as PhyndSession | null
+    const authCtx: AuthContext = {
       userId: session?.user?.id ?? '',
       tenantId,
       roles: session?.user?.roles ?? [],
       scopes: session?.user?.scopes ?? [],
       accessToken: session?.accessToken ?? '',
-    } as any
+    }
 
     const db = getDb(tenantId)
     const cache = getCacheManager()

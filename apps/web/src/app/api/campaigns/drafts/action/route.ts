@@ -4,9 +4,65 @@ import { postRedditComment } from '@phynd/services'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
+type Db = ReturnType<typeof getDb>
+type DraftAction = 'approved' | 'rejected'
+type DraftActionBody = {
+  id?: string
+  action?: DraftAction
+}
+
+function draftTextFromDescription(description?: string | null) {
+  const descriptionParts = description?.split('---\nTezca Evidence:') ?? []
+  return descriptionParts[0]?.replace('DRAFT PENDING APPROVAL:\n\n', '').trim() ?? ''
+}
+
+async function approveDraftCampaign(db: Db, id: string) {
+  const [campaign] = await db.select().from(campaigns).where(eq(campaigns.id, id))
+
+  if (!campaign) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
+  const draftText = draftTextFromDescription(campaign.description)
+  const redditPostUrl = campaign.utmSource ?? ''
+  let finalStatus = 'approved'
+  let commentUrl: string | undefined
+
+  if (redditPostUrl && draftText) {
+    console.log(`Posting to Reddit: ${redditPostUrl}`)
+    const result = await postRedditComment(redditPostUrl, draftText)
+
+    if (result.success) {
+      finalStatus = 'posted'
+      commentUrl = result.commentUrl
+      console.log(`✓ Posted to Reddit: ${commentUrl}`)
+    } else {
+      finalStatus = 'approved_pending_post'
+      console.error(`Reddit post failed: ${result.error}`)
+    }
+  } else {
+    finalStatus = 'approved_pending_post'
+    console.warn(`Campaign ${id} approved but missing Reddit URL or draft text.`)
+  }
+
+  await db.update(campaigns).set({ status: finalStatus }).where(eq(campaigns.id, id))
+
+  return NextResponse.json({
+    success: true,
+    id,
+    status: finalStatus,
+    ...(commentUrl && { commentUrl }),
+  })
+}
+
+async function rejectDraftCampaign(db: Db, id: string, action: DraftAction) {
+  await db.update(campaigns).set({ status: action }).where(eq(campaigns.id, id))
+  return NextResponse.json({ success: true, id, status: action })
+}
+
 export async function POST(req: Request) {
   try {
-    const { id, action } = (await req.json()) as { id: string; action: 'approved' | 'rejected' }
+    const { id, action } = (await req.json()) as DraftActionBody
 
     if (!id || !action) {
       return NextResponse.json({ error: 'Missing id or action' }, { status: 400 })
@@ -15,55 +71,10 @@ export async function POST(req: Request) {
     const db = getDb()
 
     if (action === 'approved') {
-      // Fetch the campaign to get the stored Reddit URL and draft text
-      const [campaign] = await db.select().from(campaigns).where(eq(campaigns.id, id))
-
-      if (!campaign) {
-        return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-      }
-
-      // Extract the draft response text (before the "---\nTezca Evidence:" divider)
-      const descriptionParts = campaign.description?.split('---\nTezca Evidence:') ?? []
-      const draftText = descriptionParts[0]?.replace('DRAFT PENDING APPROVAL:\n\n', '').trim() ?? ''
-
-      // The Reddit post URL is stored in utmSource (set by the bot service)
-      const redditPostUrl = campaign.utmSource ?? ''
-
-      let finalStatus = 'approved'
-      let commentUrl: string | undefined
-
-      if (redditPostUrl && draftText) {
-        console.log(`Posting to Reddit: ${redditPostUrl}`)
-        const result = await postRedditComment(redditPostUrl, draftText)
-
-        if (result.success) {
-          finalStatus = 'posted'
-          commentUrl = result.commentUrl
-          console.log(`✓ Posted to Reddit: ${commentUrl}`)
-        } else {
-          // Don't fail the approval — just flag it for manual follow-up
-          finalStatus = 'approved_pending_post'
-          console.error(`Reddit post failed: ${result.error}`)
-        }
-      } else {
-        // No Reddit URL stored — mark approved but not posted
-        finalStatus = 'approved_pending_post'
-        console.warn(`Campaign ${id} approved but missing Reddit URL or draft text.`)
-      }
-
-      await db.update(campaigns).set({ status: finalStatus }).where(eq(campaigns.id, id))
-
-      return NextResponse.json({
-        success: true,
-        id,
-        status: finalStatus,
-        ...(commentUrl && { commentUrl }),
-      })
+      return approveDraftCampaign(db, id)
     }
 
-    // For 'rejected' — just update status, no posting
-    await db.update(campaigns).set({ status: action }).where(eq(campaigns.id, id))
-    return NextResponse.json({ success: true, id, status: action })
+    return rejectDraftCampaign(db, id, action)
   } catch (error) {
     console.error('Draft action failed:', error)
     return NextResponse.json({ error: 'Failed to process campaign action' }, { status: 500 })

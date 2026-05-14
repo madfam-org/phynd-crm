@@ -51,7 +51,8 @@ describe('verifyMadfamSignature', () => {
   })
 
   it('rejects non-numeric timestamps', () => {
-    const hexOnly = signMadfamBody(BODY, SECRET, NOW).split(',')[1]!.slice(3)
+    const [, signaturePart = ''] = signMadfamBody(BODY, SECRET, NOW).split(',')
+    const hexOnly = signaturePart.slice(3)
     expect(
       verifyMadfamSignature(BODY, `t=tuesday,v1=${hexOnly}`, SECRET, {
         nowSec: NOW,

@@ -33,6 +33,11 @@ function unauthorized(reason: string) {
   return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 }
 
+function insertFailed(resource: string) {
+  logger.error({ resource }, 'probe.leads insert returned no row')
+  return NextResponse.json({ error: `failed to create ${resource}` }, { status: 500 })
+}
+
 export async function POST(request: Request) {
   const expectedToken = process.env.PHYND_CRM_PROBE_TOKEN
   if (!expectedToken) {
@@ -68,8 +73,9 @@ export async function POST(request: Request) {
     .limit(1)
 
   let contactId: string
-  if (existingContact.length > 0) {
-    contactId = existingContact[0]!.id
+  const existingContactRow = existingContact[0]
+  if (existingContactRow) {
+    contactId = existingContactRow.id
   } else {
     const inserted = await db
       .insert(contacts)
@@ -81,7 +87,11 @@ export async function POST(request: Request) {
         marketingConsent: false,
       })
       .returning({ id: contacts.id })
-    contactId = inserted[0]!.id
+    const insertedContact = inserted[0]
+    if (!insertedContact) {
+      return insertFailed('probe contact')
+    }
+    contactId = insertedContact.id
   }
 
   // Find any existing probe lead attached to that contact.
@@ -91,17 +101,19 @@ export async function POST(request: Request) {
     .where(and(eq(leads.contactId, contactId), eq(leads.source, PROBE_SOURCE)))
     .limit(1)
 
-  if (existingLead.length > 0) {
+  const existingLeadRow = existingLead[0]
+  if (existingLeadRow) {
     logger.info(
-      { lead_id: existingLead[0]!.id, correlation_id: correlationId },
+      { lead_id: existingLeadRow.id, correlation_id: correlationId },
       'probe.leads reused existing',
     )
-    return NextResponse.json({ lead_id: existingLead[0]!.id, reused: true })
+    return NextResponse.json({ lead_id: existingLeadRow.id, reused: true })
   }
 
   // No probe lead yet — we need a pipeline + stage to insert against.
   const defaultPipeline = await db.select({ id: pipelines.id }).from(pipelines).limit(1)
-  if (defaultPipeline.length === 0) {
+  const pipeline = defaultPipeline[0]
+  if (!pipeline) {
     return NextResponse.json(
       {
         error: 'no pipeline configured — cannot create probe lead',
@@ -110,14 +122,15 @@ export async function POST(request: Request) {
       { status: 503 },
     )
   }
-  const pipelineId = defaultPipeline[0]!.id
+  const pipelineId = pipeline.id
 
   const firstStage = await db
     .select({ id: pipelineStages.id })
     .from(pipelineStages)
     .where(eq(pipelineStages.pipelineId, pipelineId))
     .limit(1)
-  if (firstStage.length === 0) {
+  const stage = firstStage[0]
+  if (!stage) {
     return NextResponse.json(
       {
         error: 'no pipeline stages configured — cannot create probe lead',
@@ -126,7 +139,7 @@ export async function POST(request: Request) {
       { status: 503 },
     )
   }
-  const stageId = firstStage[0]!.id
+  const stageId = stage.id
 
   const inserted = await db
     .insert(leads)
@@ -141,7 +154,12 @@ export async function POST(request: Request) {
       stageId,
     })
     .returning({ id: leads.id })
+  const insertedLead = inserted[0]
 
-  logger.info({ lead_id: inserted[0]!.id, correlation_id: correlationId }, 'probe.leads created')
-  return NextResponse.json({ lead_id: inserted[0]!.id, created: true }, { status: 201 })
+  if (!insertedLead) {
+    return insertFailed('probe lead')
+  }
+
+  logger.info({ lead_id: insertedLead.id, correlation_id: correlationId }, 'probe.leads created')
+  return NextResponse.json({ lead_id: insertedLead.id, created: true }, { status: 201 })
 }

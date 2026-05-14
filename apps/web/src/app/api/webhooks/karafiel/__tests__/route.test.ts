@@ -31,10 +31,7 @@ function createSelectBuilder() {
 
 function createInsertBuilder() {
   return {
-    values: vi.fn(function (
-      this: Record<string, unknown>,
-      values: Record<string, unknown>,
-    ) {
+    values: vi.fn(function (this: Record<string, unknown>, values: Record<string, unknown>) {
       state.insertedWebhookRows.push(values)
       return this
     }),

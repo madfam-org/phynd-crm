@@ -16,65 +16,104 @@ import { validateFederationAuth } from '../_lib/auth'
 
 const logger = createLogger('api:referrals:apply')
 
+type ApplyReferralBody = {
+  code?: string
+  referred_email?: string
+  referred_name?: string
+  source_product?: string
+  target_product?: string
+  referred_janua_id?: string
+}
+
+function validationError(message: string) {
+  return NextResponse.json({ error: message }, { status: 400 })
+}
+
+async function readApplyReferralBody(req: Request) {
+  try {
+    return { body: (await req.json()) as ApplyReferralBody }
+  } catch {
+    return { response: validationError('Invalid JSON') }
+  }
+}
+
+function validateApplyReferralBody(body: ApplyReferralBody) {
+  const { code, referred_email, referred_name, source_product, target_product } = body
+
+  if (!code || typeof code !== 'string') {
+    return validationError('Missing required field: code')
+  }
+  if (!referred_email || typeof referred_email !== 'string') {
+    return validationError('Missing required field: referred_email')
+  }
+  if (!source_product || typeof source_product !== 'string') {
+    return validationError('Missing required field: source_product')
+  }
+  if (!target_product || typeof target_product !== 'string') {
+    return validationError('Missing required field: target_product')
+  }
+
+  return { code, referred_email, referred_name, source_product, target_product }
+}
+
+function serviceAuthForApply(body: ApplyReferralBody): AuthContext {
+  return {
+    userId: body.referred_janua_id ?? 'service:federation',
+    tenantId: DEFAULT_TENANT_ID,
+    roles: ['service'],
+    scopes: [],
+    accessToken: '',
+  }
+}
+
+function applyReferralErrorResponse(err: unknown) {
+  const message = err instanceof Error ? err.message : 'Unknown error'
+
+  if (
+    message.includes('Invalid or expired') ||
+    message.includes('Self-referrals') ||
+    message.includes('Disposable email')
+  ) {
+    return validationError(message)
+  }
+
+  if (message.includes('No default pipeline') || message.includes('No stages found')) {
+    logger.error({ err }, 'Pipeline configuration error during referral apply')
+    return NextResponse.json({ error: message }, { status: 422 })
+  }
+
+  logger.error({ err }, 'Error applying referral')
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+}
+
 export async function POST(req: Request) {
   const authResult = validateFederationAuth(req)
   if (!authResult.valid) {
     return authResult.response
   }
 
-  let body: {
-    code?: string
-    referred_email?: string
-    referred_name?: string
-    source_product?: string
-    target_product?: string
-    referred_janua_id?: string
-  }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  const parsed = await readApplyReferralBody(req)
+  if ('response' in parsed) {
+    return parsed.response
   }
 
-  const { code, referred_email, referred_name, source_product, target_product } = body
-
-  if (!code || typeof code !== 'string') {
-    return NextResponse.json({ error: 'Missing required field: code' }, { status: 400 })
-  }
-  if (!referred_email || typeof referred_email !== 'string') {
-    return NextResponse.json({ error: 'Missing required field: referred_email' }, { status: 400 })
-  }
-  if (!source_product || typeof source_product !== 'string') {
-    return NextResponse.json({ error: 'Missing required field: source_product' }, { status: 400 })
-  }
-  if (!target_product || typeof target_product !== 'string') {
-    return NextResponse.json({ error: 'Missing required field: target_product' }, { status: 400 })
+  const validated = validateApplyReferralBody(parsed.body)
+  if (validated instanceof NextResponse) {
+    return validated
   }
 
   try {
-    // Service context uses the referred user's janua ID if provided,
-    // falling back to federation service identity. The userId is checked
-    // against the referral code owner for anti-abuse (self-referral prevention).
-    const userId = body.referred_janua_id ?? 'service:federation'
-    const serviceAuth: AuthContext = {
-      userId,
-      tenantId: DEFAULT_TENANT_ID,
-      roles: ['service'],
-      scopes: [],
-      accessToken: '',
-    }
-
     const db = getDb()
     const cache = getCacheManager()
-    const ctx = createServiceContext(db, cache, serviceAuth)
+    const ctx = createServiceContext(db, cache, serviceAuthForApply(parsed.body))
     const service = new ReferralService(ctx)
 
     const referral = await service.applyReferral(
-      code,
-      referred_email,
-      referred_name ?? null,
-      source_product,
-      target_product,
+      validated.code,
+      validated.referred_email,
+      validated.referred_name ?? null,
+      validated.source_product,
+      validated.target_product,
     )
 
     return NextResponse.json({
@@ -82,24 +121,6 @@ export async function POST(req: Request) {
       status: 'applied',
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-
-    // Known validation errors return 400
-    if (
-      message.includes('Invalid or expired') ||
-      message.includes('Self-referrals') ||
-      message.includes('Disposable email')
-    ) {
-      return NextResponse.json({ error: message }, { status: 400 })
-    }
-
-    // Pipeline config errors return 422
-    if (message.includes('No default pipeline') || message.includes('No stages found')) {
-      logger.error({ err }, 'Pipeline configuration error during referral apply')
-      return NextResponse.json({ error: message }, { status: 422 })
-    }
-
-    logger.error({ err }, 'Error applying referral')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return applyReferralErrorResponse(err)
   }
 }

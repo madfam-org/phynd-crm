@@ -9,7 +9,7 @@ export const authConfig: NextAuthConfig = {
       issuer: process.env.AUTH_JANUA_ISSUER,
       clientId: process.env.AUTH_JANUA_CLIENT_ID,
       clientSecret: process.env.AUTH_JANUA_CLIENT_SECRET,
-      authorization: { params: { scope: 'openid profile email roles' } },
+      authorization: { params: { scope: 'openid profile email' } },
       profile(profile) {
         return {
           id: profile.sub as string,

@@ -23,7 +23,7 @@ const envSchemaBase = z.object({
   FORJ_API_URL: z.string().url(),
 
   // Federation - API Keys
-  PRAVARA_API_KEY: z.string().min(1),
+  PRAVARA_API_KEY: z.string().min(1).optional(),
   SELVA_API_KEY: z.string().min(1).optional(),
 
   // Paid production dispatch worker

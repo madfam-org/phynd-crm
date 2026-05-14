@@ -33,7 +33,6 @@ spec:
     - COTIZA_API_URL
     - PRAVARA_BASE_URL
     - FORJ_API_URL
-    - PRAVARA_API_KEY
   domains:
     - name: phynd.app
       environment: production

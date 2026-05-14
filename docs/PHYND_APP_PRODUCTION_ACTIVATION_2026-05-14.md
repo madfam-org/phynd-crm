@@ -125,3 +125,31 @@ Truthful next implementation step:
 - Use the approved RFC 0005 Selva secret workflow or a Vault operator bootstrap to populate Vault key `secret/phynd-crm` with the real values above, then run `enclii ops secrets refresh phynd-crm-secrets --namespace phynd-crm --apply`.
 - Do not fabricate placeholder values. A generated `AUTH_SECRET` and Janua OAuth client can be created, but `DATABASE_URL` and `PRAVARA_API_KEY` must come from their real source-of-truth owners or provider APIs.
 - Move `phynd.app` DNS from Porkbun/Pixie to the Enclii-managed Cloudflare tunnel, or configure the Enclii Porkbun adapter so Enclii can own those DNS records.
+
+## Continuation status — Janua login activation
+
+Actions completed:
+
+- Registered Janua OAuth client `Phynd CRM Production` with redirect URIs for `https://phynd.app`, `https://www.phynd.app`, and `https://crm.madfam.io`.
+- Corrected Phynd Auth.js scope request from `openid profile email roles` to `openid profile email`; Janua rejects `roles` as an OAuth scope.
+- Made `PRAVARA_API_KEY` optional so Phynd login/CRM boot is not blocked while Pravara production is unhealthy.
+- Bootstrapped a dedicated shared Postgres database/user for Phynd and applied all Phynd DB migrations as a controlled break-glass action while the Enclii managed Postgres addon path is blocked.
+- Materialized `phynd-crm-secrets` directly as a break-glass runtime secret because Vault/ExternalSecret provider data is still unavailable.
+- Copied `ghcr-credentials` into `phynd-crm` so private GHCR images can pull.
+- Added `AUTH_TRUST_HOST=true`, `AUTH_URL=https://crm.madfam.io`, and `NEXTAUTH_URL=https://crm.madfam.io` to the runtime secret so Auth.js trusts the Cloudflare tunnel host.
+
+Verified:
+
+- `https://crm.madfam.io` returns HTTP 200.
+- `https://crm.madfam.io/api/health` returns `{"status":"ok","service":"phynd-crm","version":"0.1.0"}`.
+- `https://crm.madfam.io/api/auth/providers` returns the Janua provider.
+- `https://crm.madfam.io/api/auth/csrf` returns a CSRF token.
+- Auth.js signin initiation redirects to Janua authorization.
+
+Still blocked:
+
+- `phynd.app` registrar delegation has been moved from Porkbun defaults to the Cloudflare-assigned nameservers `chin.ns.cloudflare.com` and `woz.ns.cloudflare.com`; Cloudflare DNS has proxied tunnel CNAMEs for `phynd.app` and `www.phynd.app`, but the Cloudflare zone is still `pending` until delegation activation completes.
+- The currently deployed image still requests the old `roles` OAuth scope until the patched Phynd image is built and promoted.
+- Worker Redis connectivity is still degraded against the shared Redis services.
+- Pravara production is returning `503`, and its DB had no application tables during break-glass inspection; production dispatch must stay degraded until Pravara is repaired and a real Pravara API key is issued.
+- Enclii managed Postgres addon provisioning remains blocked by CNPG init pods failing to reach the Kubernetes API service from the generated addon namespace.

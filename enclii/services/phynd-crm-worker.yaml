@@ -33,7 +33,6 @@ spec:
     - COTIZA_API_URL
     - PRAVARA_BASE_URL
     - FORJ_API_URL
-    - PRAVARA_API_KEY
 promotion:
   pattern: manual
   min_soak_minutes: 30

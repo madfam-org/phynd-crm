@@ -129,7 +129,7 @@ async function writeKarafielEvent(
   payload: KarafielWebhookPayload,
   eventType: string,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: Tx) => {
     const [whRow] = await tx
       .insert(webhookEvents)
       .values({

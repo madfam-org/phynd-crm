@@ -69,16 +69,21 @@ function statusBadgeVariant(status: string): 'success' | 'secondary' | 'default'
 }
 
 export function ActivitiesDataTable({ initialData }: ActivitiesDataTableProps) {
-  const { data } = trpc.activities.list.useQuery({}, { initialData, refetchInterval: 60_000 })
-  const activities = data?.items ?? []
+  const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
+  const listActivities = activitiesRouter.list as NonNullable<typeof activitiesRouter.list>
+  const completeActivity = activitiesRouter.complete as NonNullable<typeof activitiesRouter.complete>
+  const { data } = listActivities.useQuery({}, { initialData, refetchInterval: 60_000 })
+  const activities: ActivityRow[] = data?.items ?? []
 
   const [editActivity, setEditActivity] = useState<ActivityRow | null>(null)
   const [deleteActivity, setDeleteActivity] = useState<ActivityRow | null>(null)
 
   const utils = trpc.useUtils()
-  const completeMutation = trpc.activities.complete.useMutation({
+  const activitiesUtils = utils.activities as NonNullable<typeof utils.activities>
+  const listUtils = activitiesUtils.list as NonNullable<typeof activitiesUtils.list>
+  const completeMutation = completeActivity.useMutation({
     onSuccess: () => {
-      utils.activities.list.invalidate()
+      listUtils.invalidate()
     },
     onError: (err) => toast.error('Failed to complete activity', { description: err.message }),
   })

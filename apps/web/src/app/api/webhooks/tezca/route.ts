@@ -112,11 +112,7 @@ function createTezcaContext(): TezcaServiceContext {
   return createServiceContext(getDb(), getCacheManager(), botAuth)
 }
 
-async function ensureContact(
-  ctx: TezcaServiceContext,
-  email: string,
-  externalJanuaId?: string,
-) {
+async function ensureContact(ctx: TezcaServiceContext, email: string, externalJanuaId?: string) {
   const contactsService = new ContactsService(ctx)
   let contact = await contactsService.getByEmail(email)
 
@@ -165,7 +161,10 @@ async function handleNewsletter(data: TezcaNewsletterPayload, ctx: TezcaServiceC
 }
 
 async function handleInterest(data: TezcaInterestPayload, ctx: TezcaServiceContext) {
-  logger.info({ email: data.email, featureKey: data.feature_key }, 'Processing Tezca interest event')
+  logger.info(
+    { email: data.email, featureKey: data.feature_key },
+    'Processing Tezca interest event',
+  )
   const contact = await ensureContact(ctx, data.email, data.janua_user_id)
   const source = `tezca_interest:${data.feature_key}`
   const lead = await createDefaultLead(ctx, contact.id, source)

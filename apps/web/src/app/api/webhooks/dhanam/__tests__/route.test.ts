@@ -150,11 +150,11 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     return engagement ? [engagement] : []
   }
 
-    const resolveEngagements = (): unknown[] =>
-      resolveEngagementById() ??
-      resolveEngagementByContact() ??
-      resolveEngagementByOpportunity() ??
-      []
+  const resolveEngagements = (): unknown[] =>
+    resolveEngagementById() ??
+    resolveEngagementByContact() ??
+    resolveEngagementByOpportunity() ??
+    []
 
   const resolveOrders = (): unknown[] => {
     const idIdx = whereIndex('orders.id')
@@ -167,8 +167,8 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     if (quoteIdx >= 0) return state.ordersByQuoteId.get(whereValue(quoteIdx)) ?? []
 
     const opportunityIdx = whereIndex('orders.opportunityId')
-      if (opportunityIdx >= 0)
-        return state.ordersByOpportunityId.get(whereValue(opportunityIdx)) ?? []
+    if (opportunityIdx >= 0)
+      return state.ordersByOpportunityId.get(whereValue(opportunityIdx)) ?? []
 
     const contactIdx = whereIndex('orders.contactId')
     return contactIdx >= 0 ? (state.ordersByContactId.get(whereValue(contactIdx)) ?? []) : []

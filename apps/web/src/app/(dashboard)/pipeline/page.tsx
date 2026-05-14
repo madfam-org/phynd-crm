@@ -10,10 +10,11 @@ export default async function PipelinePage({
   const caller = await getServerCaller()
   const { pipelineId: selectedId } = await searchParams
   const { items: allPipelines } = await caller.pipelines.list({})
+  type PipelineRow = (typeof allPipelines)[number]
 
   const pipeline =
-    allPipelines.find((p) => p.id === selectedId) ??
-    allPipelines.find((p) => p.isDefault) ??
+    allPipelines.find((p: PipelineRow) => p.id === selectedId) ??
+    allPipelines.find((p: PipelineRow) => p.isDefault) ??
     allPipelines[0]
 
   if (!pipeline) {
@@ -33,8 +34,10 @@ export default async function PipelinePage({
     caller.opportunities.list(),
   ])
 
-  const pipelineLeads = leads.items.filter((l) => l.pipelineId === pipeline.id)
-  const pipelineOpps = opportunities.items.filter((o) => o.pipelineId === pipeline.id)
+  type LeadRow = (typeof leads.items)[number]
+  type OpportunityRow = (typeof opportunities.items)[number]
+  const pipelineLeads = leads.items.filter((l: LeadRow) => l.pipelineId === pipeline.id)
+  const pipelineOpps = opportunities.items.filter((o: OpportunityRow) => o.pipelineId === pipeline.id)
 
   return (
     <div className="space-y-6">

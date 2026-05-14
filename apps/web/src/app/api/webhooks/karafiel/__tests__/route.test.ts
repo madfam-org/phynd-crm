@@ -16,10 +16,10 @@ const state = {
 
 function createSelectBuilder() {
   return {
-    from: vi.fn(function () {
+    from: vi.fn(function (this: Record<string, unknown>) {
       return this
     }),
-    where: vi.fn(function () {
+    where: vi.fn(function (this: Record<string, unknown>) {
       return this
     }),
     limit: vi.fn(async () => {
@@ -31,7 +31,10 @@ function createSelectBuilder() {
 
 function createInsertBuilder() {
   return {
-    values: vi.fn(function (values: Record<string, unknown>) {
+    values: vi.fn(function (
+      this: Record<string, unknown>,
+      values: Record<string, unknown>,
+    ) {
       state.insertedWebhookRows.push(values)
       return this
     }),

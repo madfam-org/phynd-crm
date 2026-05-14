@@ -26,7 +26,8 @@ interface KarafielWebhookPayload {
   [key: string]: unknown
 }
 
-type Tx = Parameters<Parameters<typeof getDb>['transaction']>[0]
+type Db = ReturnType<typeof getDb>
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
 export async function POST(req: Request): Promise<NextResponse> {
   const secret = process.env.KARAFIEL_WEBHOOK_SECRET

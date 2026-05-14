@@ -415,7 +415,7 @@ async function persistEvent(event: NormalizedEvent): Promise<PersistResult> {
   const contactId = await resolveContactId(event)
   const leadInfo = contactId ? await resolveLeadAndStage(contactId) : null
 
-  return await db.transaction((tx) => persistEventInTransaction(tx, event, contactId, leadInfo))
+  return await db.transaction((tx: Tx) => persistEventInTransaction(tx, event, contactId, leadInfo))
 }
 
 async function persistEventInTransaction(

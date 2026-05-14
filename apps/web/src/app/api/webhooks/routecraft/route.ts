@@ -7,6 +7,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:webhook:routecraft')
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
 /**
  * Inbound receiver for `@routecraft/payments`'s `emitPaymentSucceeded`.
@@ -144,7 +145,7 @@ async function recordPaymentEvent(event: PaymentSucceededEvent): Promise<Receive
 
   const valueMajor = (event.amount_minor / 100).toFixed(2)
 
-  return await db.transaction(async (tx) => {
+  return await db.transaction(async (tx: Tx) => {
     const [wh] = await tx
       .insert(webhookEvents)
       .values({

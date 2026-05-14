@@ -22,11 +22,21 @@ export default async function DashboardPage() {
     demoDataDegraded,
   ] = await loadDashboardData(caller, !!demoSessionId)
 
-  const openOpps = opportunities.items.filter((o) => o.status === 'open')
-  const pipelineValue = openOpps.reduce((sum, o) => sum + Number(o.value ?? 0), 0)
-  const openQuotes = quotesData.items.filter((q) => q.status === 'draft' || q.status === 'sent')
+  type OpportunityRow = Awaited<ReturnType<typeof caller.opportunities.list>>['items'][number]
+  type QuoteRow = Awaited<ReturnType<typeof caller.quotes.list>>['items'][number]
+  type OrderRow = Awaited<ReturnType<typeof caller.orders.list>>['items'][number]
+  type ActivityRow = Awaited<ReturnType<typeof caller.activities.list>>['items'][number]
+
+  const openOpps = opportunities.items.filter((o: OpportunityRow) => o.status === 'open')
+  const pipelineValue = openOpps.reduce(
+    (sum: number, o: OpportunityRow) => sum + Number(o.value ?? 0),
+    0,
+  )
+  const openQuotes = quotesData.items.filter(
+    (q: QuoteRow) => q.status === 'draft' || q.status === 'sent',
+  )
   const activeOrders = ordersData.items.filter(
-    (o) => o.status !== 'fulfilled' && o.status !== 'cancelled',
+    (o: OrderRow) => o.status !== 'fulfilled' && o.status !== 'cancelled',
   )
 
   return (
@@ -96,7 +106,7 @@ export default async function DashboardPage() {
           <p className="text-sm text-muted-foreground">No recent activities.</p>
         ) : (
           <div className="space-y-3">
-            {activities.items.map((activity) => (
+            {activities.items.map((activity: ActivityRow) => (
               <div
                 key={activity.id}
                 className="flex items-center justify-between rounded-lg border p-3"

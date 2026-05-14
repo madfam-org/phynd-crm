@@ -34,6 +34,15 @@ interface CeqInterestPayload {
   utm_campaign?: string
 }
 
+type CeqEventPayload = {
+  data?: unknown
+  event?: string
+  type?: string
+}
+
+type CeqServiceContext = ReturnType<typeof createServiceContext>
+type CeqContact = NonNullable<Awaited<ReturnType<ContactsService['getByEmail']>>>
+
 function isCeqInterestPayload(data: unknown): data is CeqInterestPayload {
   const d = data as Record<string, unknown>
   return typeof d?.email === 'string' && typeof d?.feature_key === 'string'
@@ -57,6 +66,165 @@ async function enqueueDrip(leadId: string): Promise<void> {
   }
 }
 
+function getInterestPayload(raw: unknown): CeqInterestPayload | null {
+  const payload = raw as CeqEventPayload
+  const eventType = payload.type ?? payload.event ?? 'unknown'
+
+  if (!payload.data) {
+    logger.warn({ payload: raw }, 'ceq event has no data — skipping')
+    return null
+  }
+
+  if (eventType !== 'interest.created') {
+    logger.info({ eventType }, 'Ignoring unhandled ceq event type')
+    return null
+  }
+
+  if (!isCeqInterestPayload(payload.data)) {
+    logger.warn({ payload: raw }, 'ceq interest.created has unrecognized payload shape')
+    return null
+  }
+
+  return payload.data
+}
+
+function createCeqServiceContext(): CeqServiceContext {
+  const db = getDb()
+  const cache = getCacheManager()
+  const auth = {
+    userId: 'system:ceq-webhook',
+    tenantId: DEFAULT_TENANT_ID,
+    roles: ['admin'] as string[],
+    scopes: ['*'] as string[],
+    accessToken: 'internal:ceq-webhook',
+  }
+  return createServiceContext(db, cache, auth)
+}
+
+async function upsertContact(
+  data: CeqInterestPayload,
+  contactsService: ContactsService,
+): Promise<CeqContact> {
+  const existing = await contactsService.getByEmail(data.email)
+  if (existing) return existing
+
+  const contact = await contactsService.create({
+    name: data.email.split('@')[0] ?? data.email,
+    email: data.email,
+    ...(data.janua_user_id ? { externalJanuaId: data.janua_user_id } : {}),
+  })
+  logger.info({ contactId: contact.id }, 'Created contact from ceq interest')
+  return contact
+}
+
+async function resolveInitialPipelineStage(pipelinesService: PipelinesService) {
+  const pipeline = await pipelinesService.getDefault()
+  if (!pipeline) {
+    logger.warn('No default pipeline — skipping lead creation')
+    return null
+  }
+
+  const firstStage = (await pipelinesService.getStages(pipeline.id))[0]
+  if (!firstStage) {
+    logger.warn({ pipelineId: pipeline.id }, 'Default pipeline has no stages')
+    return null
+  }
+
+  return { firstStage, pipeline }
+}
+
+async function recordCampaignAttribution(
+  data: CeqInterestPayload,
+  ctx: CeqServiceContext,
+  contactId: string,
+  leadId: string,
+) {
+  if (!data.utm_campaign) return
+
+  try {
+    const campaignsService = new CampaignsService(ctx)
+    const campaign = await campaignsService.getByUtmCampaign(data.utm_campaign)
+    if (!campaign) {
+      logger.info(
+        { utm_campaign: data.utm_campaign },
+        'No matching campaign for utm_campaign — lead created without attribution',
+      )
+      return
+    }
+
+    const conversionsService = new ConversionsService(ctx)
+    await conversionsService.recordConversion({
+      type: 'paid_lead',
+      contactId,
+      leadId,
+      campaignId: campaign.id,
+      metadata: {
+        utm_source: data.utm_source,
+        utm_medium: data.utm_medium,
+        utm_campaign: data.utm_campaign,
+        source_page: data.source_page,
+        feature_key: data.feature_key,
+      },
+    })
+    logger.info(
+      {
+        leadId,
+        campaignId: campaign.id,
+        utm_campaign: data.utm_campaign,
+      },
+      'Attributed ceq lead to paid campaign',
+    )
+  } catch (err) {
+    // Conversion attribution must not fail the lead creation.
+    logger.warn({ err, leadId }, 'UTM attribution failed — non-blocking')
+  }
+}
+
+async function handleCeqInterestEvent(raw: unknown) {
+  const data = getInterestPayload(raw)
+  if (!data) return
+
+  logger.info(
+    {
+      email: data.email,
+      featureKey: data.feature_key,
+      utm: data.utm_campaign,
+    },
+    'Processing ceq interest.created event',
+  )
+
+  const ctx = createCeqServiceContext()
+  const contactsService = new ContactsService(ctx)
+  const leadsService = new LeadsService(ctx)
+  const pipelinesService = new PipelinesService(ctx)
+
+  const contact = await upsertContact(data, contactsService)
+  const stageConfig = await resolveInitialPipelineStage(pipelinesService)
+  if (!stageConfig) return
+
+  // Source string carries the feature_key so the funnel report can segment by
+  // which premium template drove the conversion.
+  const source = `ceq_interest:${data.feature_key}`
+  const lead = await leadsService.create({
+    contactId: contact.id,
+    source,
+    pipelineId: stageConfig.pipeline.id,
+    stageId: stageConfig.firstStage.id,
+  })
+
+  logger.info(
+    {
+      contactId: contact.id,
+      source,
+      utm_campaign: data.utm_campaign,
+    },
+    'Created lead from ceq interest event',
+  )
+
+  await enqueueDrip(lead.id)
+  await recordCampaignAttribution(data, ctx, contact.id, lead.id)
+}
+
 export async function POST(req: Request) {
   const secret = process.env.CEQ_WEBHOOK_SECRET
   if (!secret) {
@@ -65,138 +233,6 @@ export async function POST(req: Request) {
 
   return handleWebhook(req, {
     secret,
-    onEvent: async (raw) => {
-      const payload = raw as { type?: string; event?: string; data?: unknown }
-      const eventType = (payload.type ?? payload.event ?? 'unknown') as string
-
-      const data = payload.data
-      if (!data) {
-        logger.warn({ payload: raw }, 'ceq event has no data — skipping')
-        return
-      }
-
-      if (eventType !== 'interest.created') {
-        logger.info({ eventType }, 'Ignoring unhandled ceq event type')
-        return
-      }
-
-      if (!isCeqInterestPayload(data)) {
-        logger.warn({ payload: raw }, 'ceq interest.created has unrecognized payload shape')
-        return
-      }
-
-      logger.info(
-        {
-          email: data.email,
-          featureKey: data.feature_key,
-          utm: data.utm_campaign,
-        },
-        'Processing ceq interest.created event',
-      )
-
-      const db = getDb()
-      const cache = getCacheManager()
-      const auth = {
-        userId: 'system:ceq-webhook',
-        tenantId: DEFAULT_TENANT_ID,
-        roles: ['admin'] as string[],
-        scopes: ['*'] as string[],
-        accessToken: 'internal:ceq-webhook',
-      }
-      const ctx = createServiceContext(db, cache, auth)
-
-      const contactsService = new ContactsService(ctx)
-      const leadsService = new LeadsService(ctx)
-      const pipelinesService = new PipelinesService(ctx)
-
-      // Upsert contact by email — Janua linking when available.
-      let contact = await contactsService.getByEmail(data.email)
-      if (!contact) {
-        contact = await contactsService.create({
-          name: data.email.split('@')[0] ?? data.email,
-          email: data.email,
-          ...(data.janua_user_id ? { externalJanuaId: data.janua_user_id } : {}),
-        })
-        logger.info({ contactId: contact.id }, 'Created contact from ceq interest')
-      }
-
-      const pipeline = await pipelinesService.getDefault()
-      if (!pipeline) {
-        logger.warn('No default pipeline — skipping lead creation')
-        return
-      }
-      const stages = await pipelinesService.getStages(pipeline.id)
-      const firstStage = stages[0]
-      if (!firstStage) {
-        logger.warn({ pipelineId: pipeline.id }, 'Default pipeline has no stages')
-        return
-      }
-
-      // Source string carries the feature_key so the funnel report can
-      // segment by which premium template drove the conversion.
-      const source = `ceq_interest:${data.feature_key}`
-
-      const lead = await leadsService.create({
-        contactId: contact.id,
-        source,
-        pipelineId: pipeline.id,
-        stageId: firstStage.id,
-      })
-
-      logger.info(
-        {
-          contactId: contact.id,
-          source,
-          utm_campaign: data.utm_campaign,
-        },
-        'Created lead from ceq interest event',
-      )
-
-      await enqueueDrip(lead.id)
-
-      // UTM attribution: when ceq's landing page carried utm_campaign,
-      // look up the matching campaign row and write a conversion record
-      // linking the lead to it. The conversions table's partial unique
-      // index `conversions_type_lead_uniq` makes this idempotent — repeat
-      // webhooks for the same lead won't create duplicate conversions.
-      if (data.utm_campaign) {
-        try {
-          const campaignsService = new CampaignsService(ctx)
-          const campaign = await campaignsService.getByUtmCampaign(data.utm_campaign)
-          if (campaign) {
-            const conversionsService = new ConversionsService(ctx)
-            await conversionsService.recordConversion({
-              type: 'paid_lead',
-              contactId: contact.id,
-              leadId: lead.id,
-              campaignId: campaign.id,
-              metadata: {
-                utm_source: data.utm_source,
-                utm_medium: data.utm_medium,
-                utm_campaign: data.utm_campaign,
-                source_page: data.source_page,
-                feature_key: data.feature_key,
-              },
-            })
-            logger.info(
-              {
-                leadId: lead.id,
-                campaignId: campaign.id,
-                utm_campaign: data.utm_campaign,
-              },
-              'Attributed ceq lead to paid campaign',
-            )
-          } else {
-            logger.info(
-              { utm_campaign: data.utm_campaign },
-              'No matching campaign for utm_campaign — lead created without attribution',
-            )
-          }
-        } catch (err) {
-          // Conversion attribution must not fail the lead creation.
-          logger.warn({ err, leadId: lead.id }, 'UTM attribution failed — non-blocking')
-        }
-      }
-    },
+    onEvent: handleCeqInterestEvent,
   })
 }

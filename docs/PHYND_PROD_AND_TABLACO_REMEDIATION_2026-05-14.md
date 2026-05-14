@@ -43,3 +43,22 @@ Phynd has substantial application-level implementation, but neither `phynd.app` 
 - Portal magic links redirect to the correct host.
 - Quote acceptance, Dhanam checkout, payment reconciliation, and production dispatch tests pass.
 - Tablaco engagement pricing remains draft-only until the upstream strict quote is market verified.
+
+## 2026-05-14 follow-up evidence
+
+Current production-domain evidence:
+
+- `https://phynd.app/` fails TLS handshake and is not serving Phynd production.
+- `http://phynd.app/` returns HTTP 200 from a generic PHP/openresty parked-style surface, not the Phynd app.
+- Enclii Cloudflare DNS read for `phynd.app` reports no Cloudflare zone found.
+- Enclii Porkbun read for `phynd.app` reports `adapter_unconfigured`.
+- `https://crm.madfam.io/` returns Cloudflare HTTP 502.
+- Enclii Cloudflare tunnel maps `crm.madfam.io` to `http://phyne-crm-web.phyne-crm.svc.cluster.local:80`, so the route exists but the origin is not healthy/reachable publicly.
+
+Current local service evidence:
+
+```bash
+pnpm --filter @phynd/services test -- client-project-onboarding.service.test.ts dhanam-checkout.service.test.ts payment-reconciliation.service.test.ts production-dispatch-http.service.test.ts
+```
+
+Result: 26 tests passed. The service-layer fulfillment path remains locally healthy, but production domain readiness is blocked on provider ownership and route/origin health.

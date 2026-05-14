@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: phynd-crm-web
   project: phynd-crm
-  description: Phynd CRM production web app and Janua-backed client/admin portal.
+  description: Phynd CRM production web app, API routes, and Janua Auth.js login.
 spec:
   build:
     type: dockerfile
@@ -22,6 +22,18 @@ spec:
     NODE_ENV: production
     NEXT_PUBLIC_APP_URL: https://phynd.app
     AUTH_JANUA_ISSUER: https://auth.madfam.io
+  secrets:
+    - AUTH_SECRET
+    - AUTH_JANUA_CLIENT_ID
+    - AUTH_JANUA_CLIENT_SECRET
+    - DATABASE_URL
+    - REDIS_URL
+    - JANUA_API_URL
+    - DHANAM_API_URL
+    - COTIZA_API_URL
+    - PRAVARA_BASE_URL
+    - FORJ_API_URL
+    - PRAVARA_API_KEY
   domains:
     - name: phynd.app
       environment: production

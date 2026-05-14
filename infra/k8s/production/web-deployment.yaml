@@ -29,7 +29,7 @@ spec:
         - name: ghcr-credentials
       containers:
         - name: web
-          image: ghcr.io/madfam-org/phynd-crm/web:latest
+          image: ghcr.io/madfam-org/phynd-crm/web@sha256:436b2511c19b3d1ddc854006a564d9d397051e29a894504b908423b10c1cf773
           ports:
             - containerPort: 3000
           envFrom:

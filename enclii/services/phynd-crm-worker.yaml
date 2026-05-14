@@ -1,37 +1,39 @@
 apiVersion: enclii.dev/v1
 kind: Service
 metadata:
-  name: phynd-crm-web
+  name: phynd-crm-worker
   project: phynd-crm
-  description: Phynd CRM production web app and Janua-backed client/admin portal.
+  description: Phynd CRM background worker for workflow and integration jobs.
 spec:
   build:
     type: dockerfile
     context: .
-    dockerfile: docker/Dockerfile.web
+    dockerfile: docker/Dockerfile.worker
     source:
       git:
         repository: https://github.com/madfam-org/phynd-crm
         branch: main
         autoDeploy: true
   runtime:
-    port: 3000
-    replicas: 2
-    healthCheck: /api/health
+    port: 3001
+    replicas: 1
+    healthCheck: /health
   environment:
     NODE_ENV: production
     NEXT_PUBLIC_APP_URL: https://phynd.app
     AUTH_JANUA_ISSUER: https://auth.madfam.io
-  domains:
-    - name: phynd.app
-      environment: production
-      tlsEnabled: true
-    - name: www.phynd.app
-      environment: production
-      tlsEnabled: true
-    - name: crm.madfam.io
-      environment: production
-      tlsEnabled: true
+  secrets:
+    - AUTH_SECRET
+    - AUTH_JANUA_CLIENT_ID
+    - AUTH_JANUA_CLIENT_SECRET
+    - DATABASE_URL
+    - REDIS_URL
+    - JANUA_API_URL
+    - DHANAM_API_URL
+    - COTIZA_API_URL
+    - PRAVARA_BASE_URL
+    - FORJ_API_URL
+    - PRAVARA_API_KEY
 promotion:
   pattern: manual
   min_soak_minutes: 30

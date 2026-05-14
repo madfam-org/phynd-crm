@@ -29,7 +29,7 @@ spec:
         - name: ghcr-credentials
       containers:
         - name: worker
-          image: ghcr.io/madfam-org/phynd-crm/worker:latest
+          image: ghcr.io/madfam-org/phynd-crm/worker@sha256:b3249871cc4d4cac65e4d11173b709e4c0dd660efd0d3d98836fb01d63aeb7e6
           ports:
             - name: health
               containerPort: 3001

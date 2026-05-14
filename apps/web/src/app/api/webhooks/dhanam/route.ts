@@ -641,7 +641,8 @@ async function resolveLeadAndStage(contactId: string): Promise<LeadStageInfo | n
     .innerJoin(pipelines, eq(pipelineStages.pipelineId, pipelines.id))
     .where(eq(pipelineStages.pipelineId, lead.pipelineId))
 
-  const closedWon = stageRows.find((s) => s.name.toLowerCase() === 'closed won')
+  type StageRow = (typeof stageRows)[number]
+  const closedWon = stageRows.find((s: StageRow) => s.name.toLowerCase() === 'closed won')
   return {
     leadId: lead.id,
     pipelineId: lead.pipelineId,

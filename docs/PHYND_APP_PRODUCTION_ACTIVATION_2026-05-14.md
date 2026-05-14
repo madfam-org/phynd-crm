@@ -23,17 +23,17 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 - Enclii junctions now exist for `phynd.app`, `www.phynd.app`, and `crm.madfam.io`.
 - Active Cloudflare tunnel inventory now includes `phynd.app` and `www.phynd.app` routed to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`.
 - `crm.madfam.io` still resolves to the legacy `phyne-crm-web.phyne-crm.svc.cluster.local` route in active Cloudflare tunnel config; the newly-added Enclii junction does not override the existing legacy route.
-- ArgoCD shows `phynd-crm-services` as Degraded/OutOfSync because legacy app `phyne-crm-production` still owns shared resources in the same namespace.
+- `phyne-crm-production` has been retired through Enclii with orphan propagation.
+- ArgoCD shows `phynd-crm-services` as `Synced`, but still `Degraded` because `phynd-crm-secrets` is not materialized.
 - `phynd-crm-services` has successfully synced commit `e5c51bab9ace0ee0194677e26a84f51d4337faef`, including the production ExternalSecret, but shared-resource warnings remain for the web/worker Deployments, ExternalSecret, namespace, network policies, quota, limits, service, and PDB.
 - Enclii secret inspection now sees `ExternalSecret/phynd-crm-secrets`, but it is `Ready=False` with `SecretSyncedError` because Vault/provider data is not yet available.
 - Pod logs cannot start because web and worker containers are still waiting on `CreateContainerConfigError` while `phynd-crm-secrets` is not materialized.
 - Local `.env.local` is development/example material and must not be used for production; it points several services to `*.example.com` and `NEXT_PUBLIC_APP_URL` to localhost.
 - `infra/k8s/production/external-secret.yaml` now declares `phynd-crm-secrets` backed by `ClusterSecretStore/vault-store` at Vault key `secret/phynd-crm`.
 - The production kustomization now includes the ExternalSecret manifest, so Argo can materialize `phynd-crm-secrets` once real Vault values are written.
-- Live Enclii API capabilities now advertise `ops.apps.retire`.
-- A production apply of `ops.apps.retire` reached the adapter but failed because `system:serviceaccount:enclii:switchyard-api` lacked `delete` on `applications.argoproj.io` in namespace `argocd`.
-- Enclii RBAC must grant `switchyard-api` the narrowly-scoped Application delete verb before the legacy app can be retired without break-glass access.
-- The same Enclii RBAC release should grant `patch` on `external-secrets.io/externalsecrets` so `phynd-crm-secrets` can be refreshed through Enclii after real Vault provider data is present.
+- Live Enclii API capabilities now advertise `ops.apps.retire`, and the legacy app retirement was completed through that path.
+- Enclii RBAC now grants `switchyard-api` the narrowly-scoped Application delete verb and ExternalSecret patch verb needed for audited retire/refresh operations.
+- `ops.secrets.refresh` successfully patches `phynd-crm-secrets`, but the provider still reports `could not get secret data from provider`.
 - Installed Enclii `services-sync` must not be pointed at the repository root for this repo because it can treat Kubernetes manifests as service specs. Use `enclii/services/` only.
 
 ## Deployment contract added in repo
@@ -51,13 +51,7 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - Alternate path: configure the Enclii Porkbun provider adapter so Enclii can manage records at Porkbun.
    - Direct registrar or DNS console edits are break-glass only.
 
-2. Remove legacy ArgoCD ownership.
-   - Release Enclii RBAC with `delete` on `argoproj.io/applications` and `patch` on `external-secrets.io/externalsecrets` for the `switchyard-api` service account.
-   - Retire `phyne-crm-production` through Enclii/GitOps using orphan propagation.
-   - Confirm `phynd-crm-services` is the only application managing namespace `phynd-crm`.
-   - Re-sync `phynd-crm-services` and verify health is no longer Degraded/OutOfSync.
-
-3. Restore or create production secrets through Enclii.
+2. Restore or create production secrets through Enclii.
    - Vault key: `secret/phynd-crm`
    - `AUTH_SECRET`
    - `AUTH_JANUA_CLIENT_ID`
@@ -73,19 +67,19 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - `NEXT_PUBLIC_APP_URL=https://phynd.app`
    - `NODE_ENV=production`
 
-4. Configure Janua OIDC for Phynd.
+3. Configure Janua OIDC for Phynd.
    - Issuer: `https://auth.madfam.io`
    - Production callback: `https://phynd.app/api/auth/callback/janua`
    - Temporary MADFAM slice callback: `https://crm.madfam.io/api/auth/callback/janua`
    - Confirm `admin@madfam.io` has tenant/admin claims accepted by Phynd.
 
-5. Reconcile Cloudflare tunnel routes through Enclii.
+4. Reconcile Cloudflare tunnel routes through Enclii.
    - `phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` is present.
    - `www.phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` is present.
    - `api.phynd.app` -> `http://phynd-crm-api.phynd-crm.svc.cluster.local:80` if the API service is split later.
    - `crm.madfam.io` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` remains blocked by the existing legacy `phyne-crm` tunnel route.
 
-6. Run production smoke checks.
+5. Run production smoke checks.
    - `https://phynd.app/api/health` returns healthy.
    - `https://phynd.app/login` renders the Janua login action.
    - Janua redirects back to `/overview` after admin login.

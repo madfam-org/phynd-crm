@@ -28,7 +28,9 @@ interface ContactsDataTableProps {
 }
 
 export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
-  const { data: contacts } = trpc.contacts.list.useQuery(undefined, {
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
+  const { data: contacts } = listContacts.useQuery(undefined, {
     initialData,
     refetchInterval: 120_000,
   })

@@ -33,6 +33,7 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
     quote.opportunityId ? caller.opportunities.getById({ id: quote.opportunityId }) : null,
     caller.orders.listByQuoteId({ quoteId: id }),
   ])
+  type RelatedOrder = (typeof relatedOrders.items)[number]
 
   return (
     <div className="space-y-6">
@@ -99,7 +100,7 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
         <div className="rounded-lg border bg-card p-6">
           <h3 className="mb-4 text-lg font-semibold">Related Orders</h3>
           <div className="space-y-2">
-            {relatedOrders.items.map((order) => (
+            {relatedOrders.items.map((order: RelatedOrder) => (
               <div
                 key={order.id}
                 className="flex items-center justify-between rounded-lg border p-3"

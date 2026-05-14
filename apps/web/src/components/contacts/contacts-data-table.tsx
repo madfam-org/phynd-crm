@@ -40,7 +40,10 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
 
   function handleExport() {
     const items = contacts?.items ?? []
-    const toExport = selectedKeys.size > 0 ? items.filter((c) => selectedKeys.has(c.id)) : items
+    const toExport =
+      selectedKeys.size > 0
+        ? items.filter((c: ContactRow) => selectedKeys.has(c.id))
+        : items
     exportToCsv(
       toExport,
       [

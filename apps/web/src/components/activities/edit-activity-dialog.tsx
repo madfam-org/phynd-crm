@@ -35,9 +35,13 @@ export function EditActivityDialog({ activity, open, onOpenChange }: EditActivit
   )
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.activities.update.useMutation({
+  const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
+  const updateActivity = activitiesRouter.update as NonNullable<typeof activitiesRouter.update>
+  const activitiesUtils = utils.activities as NonNullable<typeof utils.activities>
+  const listUtils = activitiesUtils.list as NonNullable<typeof activitiesUtils.list>
+  const updateMutation = updateActivity.useMutation({
     onSuccess: () => {
-      utils.activities.list.invalidate()
+      listUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update activity', { description: err.message }),

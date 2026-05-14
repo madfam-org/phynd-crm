@@ -48,9 +48,13 @@ export function CreateActivityDialog() {
   const [entityId, setEntityId] = useState('')
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.activities.create.useMutation({
+  const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
+  const createActivity = activitiesRouter.create as NonNullable<typeof activitiesRouter.create>
+  const activitiesUtils = utils.activities as NonNullable<typeof utils.activities>
+  const listUtils = activitiesUtils.list as NonNullable<typeof activitiesUtils.list>
+  const createMutation = createActivity.useMutation({
     onSuccess: () => {
-      utils.activities.list.invalidate()
+      listUtils.invalidate()
       setOpen(false)
       resetForm()
     },

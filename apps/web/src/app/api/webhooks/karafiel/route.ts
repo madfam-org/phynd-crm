@@ -215,7 +215,7 @@ async function processGrantAward(
 
   const cache = getCacheManager()
   const ctx = createServiceContext(
-    txDb,
+    txDb as unknown as Db,
     cache,
     {
       userId: 'service:karafiel-webhook',

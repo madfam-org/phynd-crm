@@ -52,6 +52,7 @@ async function recordFabricationActivity(payload: Record<string, unknown>) {
       cancelled: 'Fabrication cancelled',
     }
 
+    const externalId = payload.externalId as string | undefined
     const orderId = (payload.orderId ?? externalId ?? 'unknown') as string
     const title = statusLabels[status] ?? `Fabrication status: ${status}`
 
@@ -135,6 +136,7 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
       return
     }
 
+    const externalId = payload.externalId as string | undefined
     const orderId = (payload.orderId ?? externalId ?? 'unknown') as string
     const statusMessages: Record<string, string> = {
       queued: 'Fabrication job queued',

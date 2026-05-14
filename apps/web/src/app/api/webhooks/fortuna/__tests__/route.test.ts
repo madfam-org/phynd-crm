@@ -236,24 +236,31 @@ describe('Fortuna webhook route', () => {
     delete process.env.REDIS_URL
   })
 
+  function requireResponse(res: Awaited<ReturnType<typeof POST>>): Response {
+    if (!res) {
+      throw new Error('Expected Fortuna webhook response')
+    }
+    return res
+  }
+
   it('returns 503 when webhook secret is not configured', async () => {
     delete process.env.FORTUNA_WEBHOOK_SECRET
     const req = createSignedRequest(validPayload)
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(503)
   })
 
   it('returns 429 when rate limited', async () => {
     mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
     const req = createSignedRequest(validPayload)
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(429)
   })
 
   it('returns 401 when signature is invalid', async () => {
     mockValidateWebhookSignature.mockReturnValue(false)
     const req = createSignedRequest(validPayload)
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(401)
   })
 
@@ -271,13 +278,13 @@ describe('Fortuna webhook route', () => {
       body: bodyStr,
     })
 
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(401)
   })
 
   it('processes grant.discovered event successfully', async () => {
     const req = createSignedRequest(validPayload)
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(200)
 
     const json = await res.json()
@@ -287,7 +294,7 @@ describe('Fortuna webhook route', () => {
   it('ignores non-grant.discovered events', async () => {
     const payload = { type: 'grant.updated', data: {} }
     const req = createSignedRequest(payload)
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(200)
 
     const json = await res.json()
@@ -297,7 +304,7 @@ describe('Fortuna webhook route', () => {
   it('returns 400 for malformed payload', async () => {
     const payload = { type: 'grant.discovered', data: {} }
     const req = createSignedRequest(payload)
-    const res = await POST(req)
+    const res = requireResponse(await POST(req))
     expect(res.status).toBe(400)
   })
 

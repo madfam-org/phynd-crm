@@ -15,6 +15,8 @@
 import crypto from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+type Row = { id: string }
+
 // ---------------------------------------------------------------------------
 // Hoisted mocks — must come before route import.
 // ---------------------------------------------------------------------------

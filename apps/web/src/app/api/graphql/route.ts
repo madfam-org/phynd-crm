@@ -23,7 +23,7 @@ const { handleRequest } = createYoga({
     // Determine tenantId from headers or host for multi-tenancy Phase 3
     const host = req.request.headers.get('host') || ''
     // Assuming subdomain as tenant ID (e.g. madfam.phynd.app), defaulting to madfam
-    const subdomain = host.split('.')[0]
+    const subdomain = host.split('.')[0] ?? ''
     const tenantId =
       subdomain !== 'app' && subdomain !== 'api' && subdomain !== 'localhost:3000'
         ? subdomain

@@ -25,11 +25,14 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 - Active Cloudflare tunnel inventory now includes `phynd.app` and `www.phynd.app` routed to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`.
 - `crm.madfam.io` still resolves to the legacy `phyne-crm-web.phyne-crm.svc.cluster.local` route in active Cloudflare tunnel config; the newly-added Enclii junction does not override the existing legacy route.
 - ArgoCD shows `phynd-crm-services` as Degraded/OutOfSync because legacy app `phyne-crm-production` still owns shared resources in the same namespace.
-- Enclii secret inspection reports zero ExternalSecrets in namespace `phynd-crm`.
-- Pod logs cannot start because web and worker containers are waiting on `CreateContainerConfigError`.
+- `phynd-crm-services` has successfully synced commit `e5c51bab9ace0ee0194677e26a84f51d4337faef`, including the production ExternalSecret, but shared-resource warnings remain for the web/worker Deployments, ExternalSecret, namespace, network policies, quota, limits, service, and PDB.
+- Enclii secret inspection now sees `ExternalSecret/phynd-crm-secrets`, but it is `Ready=False` with `SecretSyncedError` because Vault/provider data is not yet available.
+- Pod logs cannot start because web and worker containers are still waiting on `CreateContainerConfigError` while `phynd-crm-secrets` is not materialized.
 - Local `.env.local` is development/example material and must not be used for production; it points several services to `*.example.com` and `NEXT_PUBLIC_APP_URL` to localhost.
 - `infra/k8s/production/external-secret.yaml` now declares `phynd-crm-secrets` backed by `ClusterSecretStore/vault-store` at Vault key `secret/phynd-crm`.
 - The production kustomization now includes the ExternalSecret manifest, so Argo can materialize `phynd-crm-secrets` once real Vault values are written.
+- Live Enclii API capabilities do not yet advertise `ops.apps.retire`; the code exists in Enclii, but the Switchyard API production deployment is still serving the previous capability set.
+- Enclii release history for Switchyard API shows the retire-operation commit queued/building, while older build records are timing out after missing callbacks. Roundhouse pods are running and some callbacks succeed, but failed jobs also show invalid Dockerfile path errors for other services, so the release queue must be stabilized before relying on the new retire operation in production.
 - Installed Enclii `services-sync` must not be pointed at the repository root for this repo because it can treat Kubernetes manifests as service specs. Use `enclii/services/` only.
 
 ## Deployment contract added in repo
@@ -48,7 +51,8 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - Direct registrar or DNS console edits are break-glass only.
 
 2. Remove legacy ArgoCD ownership.
-   - Retire or delete `phyne-crm-production` through Enclii/GitOps.
+   - Release Enclii Switchyard API with `ops.apps.retire`.
+   - Retire `phyne-crm-production` through Enclii/GitOps using orphan propagation.
    - Confirm `phynd-crm-services` is the only application managing namespace `phynd-crm`.
    - Re-sync `phynd-crm-services` and verify health is no longer Degraded/OutOfSync.
 

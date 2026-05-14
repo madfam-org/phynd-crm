@@ -77,107 +77,115 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     }
   }
 
-  const resolveSelectResult = (): unknown[] => {
-    const from = pendingSelectFrom
-    const cols = pendingWhereCols
-    const vals = pendingWhereVals
+  const whereIndex = (column: string): number => pendingWhereCols.findIndex((c) => c === column)
+  const whereValue = (index: number): string => String(pendingWhereVals[index])
+  const rowById = (id: string): Row => ({ id })
 
-    if (from === 'webhook_events') {
-      const eventId = String(vals[vals.length - 1] ?? '')
-      return state.priorEventIds.has(eventId) ? [{ id: 'wh_existing' }] : []
+  const resolveWebhookEvents = (): unknown[] => {
+    const eventId = String(pendingWhereVals[pendingWhereVals.length - 1] ?? '')
+    return state.priorEventIds.has(eventId) ? [rowById('wh_existing')] : []
+  }
+
+  const resolveContacts = (): unknown[] => {
+    const januaIdx = whereIndex('contacts.externalJanuaId')
+    if (januaIdx >= 0) {
+      const id = state.contactByJanuaId.get(whereValue(januaIdx))
+      return id ? [rowById(id)] : []
     }
-    if (from === 'contacts') {
-      // Two strategies — janua match first, email fallback.
-      const januaIdx = cols.findIndex((c) => c === 'contacts.externalJanuaId')
-      if (januaIdx >= 0) {
-        const id = state.contactByJanuaId.get(String(vals[januaIdx]))
-        return id ? [{ id }] : []
-      }
-      const emailIdx = cols.findIndex((c) => c === 'contacts.email')
-      if (emailIdx >= 0) {
-        const id = state.contactByEmail.get(String(vals[emailIdx]))
-        return id ? [{ id }] : []
-      }
-      return []
+
+    const emailIdx = whereIndex('contacts.email')
+    const id = emailIdx >= 0 ? state.contactByEmail.get(whereValue(emailIdx)) : undefined
+    return id ? [rowById(id)] : []
+  }
+
+  const resolveLeads = (): unknown[] => {
+    const contactIdx = whereIndex('leads.contactId')
+    if (contactIdx < 0) return []
+    const lead = state.leadByContactId.get(whereValue(contactIdx))
+    return lead ? [{ id: lead.id, pipelineId: lead.pipelineId }] : []
+  }
+
+  const resolvePipelineStages = (): unknown[] => {
+    const pipelineIdx = whereIndex('pipelineStages.pipelineId')
+    return pipelineIdx >= 0 ? (state.stagesByPipelineId.get(whereValue(pipelineIdx)) ?? []) : []
+  }
+
+  const resolveReferralCodes = (): unknown[] => {
+    const codeIdx = whereIndex('referralCodes.code')
+    const codeId = codeIdx >= 0 ? state.referralCodeByCode.get(whereValue(codeIdx)) : undefined
+    return codeId ? [rowById(codeId)] : []
+  }
+
+  const resolveReferrals = (): unknown[] => {
+    const codeIdIdx = whereIndex('referrals.referralCodeId')
+    if (codeIdIdx < 0) return []
+    const emailIdx = whereIndex('referrals.referredEmail')
+    const email = emailIdx >= 0 ? whereValue(emailIdx) : ''
+    const refId = state.referralByCodeIdAndEmail.get(`${whereValue(codeIdIdx)}|${email}`)
+    return refId ? [rowById(refId)] : []
+  }
+
+  const resolveEngagements = (): unknown[] => {
+    const idIdx = whereIndex('engagements.id')
+    if (idIdx >= 0) {
+      const engagement = state.engagementById.get(whereValue(idIdx))
+      return engagement ? [engagement] : []
     }
-    if (from === 'leads') {
-      const cIdx = cols.findIndex((c) => c === 'leads.contactId')
-      if (cIdx >= 0) {
-        const lead = state.leadByContactId.get(String(vals[cIdx]))
-        return lead ? [{ id: lead.id, pipelineId: lead.pipelineId }] : []
-      }
-      return []
+
+    const contactIdx = whereIndex('engagements.contactId')
+    if (contactIdx >= 0) {
+      const id = state.engagementByContactId.get(whereValue(contactIdx))
+      const engagement = id ? state.engagementById.get(id) : undefined
+      return engagement ? [engagement] : id ? [rowById(id)] : []
     }
-    if (from === 'pipeline_stages') {
-      const pIdx = cols.findIndex((c) => c === 'pipelineStages.pipelineId')
-      if (pIdx >= 0) {
-        return state.stagesByPipelineId.get(String(vals[pIdx])) ?? []
-      }
-      return []
+
+    const opportunityIdx = whereIndex('engagements.opportunityId')
+    if (opportunityIdx < 0) return []
+    const opportunityId = whereValue(opportunityIdx)
+    const engagement = [...state.engagementById.values()].find(
+      (row) => row.opportunityId === opportunityId,
+    )
+    return engagement ? [engagement] : []
+  }
+
+  const resolveOrders = (): unknown[] => {
+    const idIdx = whereIndex('orders.id')
+    if (idIdx >= 0) {
+      const order = state.ordersById.get(whereValue(idIdx))
+      return order ? [order] : []
     }
-    if (from === 'referral_codes') {
-      const idx = cols.findIndex((c) => c === 'referralCodes.code')
-      if (idx >= 0) {
-        const codeId = state.referralCodeByCode.get(String(vals[idx]))
-        return codeId ? [{ id: codeId }] : []
-      }
-      return []
+
+    const quoteIdx = whereIndex('orders.quoteId')
+    if (quoteIdx >= 0) return state.ordersByQuoteId.get(whereValue(quoteIdx)) ?? []
+
+    const opportunityIdx = whereIndex('orders.opportunityId')
+    if (opportunityIdx >= 0) return state.ordersByOpportunityId.get(whereValue(opportunityIdx)) ?? []
+
+    const contactIdx = whereIndex('orders.contactId')
+    return contactIdx >= 0 ? (state.ordersByContactId.get(whereValue(contactIdx)) ?? []) : []
+  }
+
+  const resolveSelectResult = (): unknown[] => {
+    switch (pendingSelectFrom) {
+      case 'webhook_events':
+        return resolveWebhookEvents()
+      case 'contacts':
+        return resolveContacts()
+      case 'leads':
+        return resolveLeads()
+      case 'pipeline_stages':
+        return resolvePipelineStages()
+      case 'referral_codes':
+        return resolveReferralCodes()
+      case 'referrals':
+        return resolveReferrals()
+      case 'engagements':
+        return resolveEngagements()
+      case 'orders':
+        return resolveOrders()
+      default:
+        return []
     }
-    if (from === 'referrals') {
-      const codeIdIdx = cols.findIndex((c) => c === 'referrals.referralCodeId')
-      const emailIdx = cols.findIndex((c) => c === 'referrals.referredEmail')
-      if (codeIdIdx >= 0) {
-        const codeId = String(vals[codeIdIdx])
-        const email = emailIdx >= 0 ? String(vals[emailIdx]) : ''
-        const refId = state.referralByCodeIdAndEmail.get(`${codeId}|${email}`)
-        return refId ? [{ id: refId }] : []
-      }
-      return []
-    }
-    if (from === 'engagements') {
-      const idIdx = cols.findIndex((c) => c === 'engagements.id')
-      if (idIdx >= 0) {
-        const engagement = state.engagementById.get(String(vals[idIdx]))
-        return engagement ? [engagement] : []
-      }
-      const idx = cols.findIndex((c) => c === 'engagements.contactId')
-      if (idx >= 0) {
-        const id = state.engagementByContactId.get(String(vals[idx]))
-        if (!id) return []
-        const engagement = state.engagementById.get(id)
-        return engagement ? [engagement] : [{ id }]
-      }
-      const opportunityIdx = cols.findIndex((c) => c === 'engagements.opportunityId')
-      if (opportunityIdx >= 0) {
-        const opportunityId = String(vals[opportunityIdx])
-        const engagement = [...state.engagementById.values()].find(
-          (row) => row.opportunityId === opportunityId,
-        )
-        return engagement ? [engagement] : []
-      }
-      return []
-    }
-    if (from === 'orders') {
-      const idIdx = cols.findIndex((c) => c === 'orders.id')
-      if (idIdx >= 0) {
-        const order = state.ordersById.get(String(vals[idIdx]))
-        return order ? [order] : []
-      }
-      const quoteIdx = cols.findIndex((c) => c === 'orders.quoteId')
-      if (quoteIdx >= 0) {
-        return state.ordersByQuoteId.get(String(vals[quoteIdx])) ?? []
-      }
-      const opportunityIdx = cols.findIndex((c) => c === 'orders.opportunityId')
-      if (opportunityIdx >= 0) {
-        return state.ordersByOpportunityId.get(String(vals[opportunityIdx])) ?? []
-      }
-      const contactIdx = cols.findIndex((c) => c === 'orders.contactId')
-      if (contactIdx >= 0) {
-        return state.ordersByContactId.get(String(vals[contactIdx])) ?? []
-      }
-      return []
-    }
-    return []
   }
 
   // Drizzle query-builder shim — every chained method returns the same

@@ -15,8 +15,7 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 - Enclii Cloudflare provider has no `phynd.app` zone.
 - Enclii Porkbun provider is present as a command surface but the adapter is not configured.
 - The active Cloudflare tunnel routes `crm.madfam.io` to `phyne-crm-web.phyne-crm.svc.cluster.local`, not `phynd-crm-web.phynd-crm.svc.cluster.local`.
-- Enclii project inventory does not currently include `phynd-crm`.
-- `enclii projects create --name "Phynd CRM" --slug phynd-crm` currently returns `402 tier_limit_exceeded`; Enclii API tier middleware must allow trusted MADFAM `admin`/`superadmin` operators to create self-hosted internal projects.
+- Enclii project inventory includes `phynd-crm` with project id `c72121bb-5952-417e-a3a9-57c7d2bc76c2`.
 - `enclii onboard --repo madfam-org/phynd-crm --project phynd-crm --manifest-path infra/k8s/production --skip-postgres --skip-r2 --skip-secrets` initially stopped at the image gate because the base production Deployment manifests used `:latest`; those manifests are now digest-pinned directly.
 - A second onboarding attempt still returned the same image-gate error because `enclii onboard` validates the GitHub repository state, not uncommitted local edits. Commit and push the digest-pinned manifests before re-running onboarding.
 - After commit `0561285`, Enclii onboarding completed and created namespace `phynd-crm`, ArgoCD app `phynd-crm-services`, and Enclii auto-commit `b22f63bd8178a4acac2abc71e56b55de8b22039a`.
@@ -31,8 +30,10 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 - Local `.env.local` is development/example material and must not be used for production; it points several services to `*.example.com` and `NEXT_PUBLIC_APP_URL` to localhost.
 - `infra/k8s/production/external-secret.yaml` now declares `phynd-crm-secrets` backed by `ClusterSecretStore/vault-store` at Vault key `secret/phynd-crm`.
 - The production kustomization now includes the ExternalSecret manifest, so Argo can materialize `phynd-crm-secrets` once real Vault values are written.
-- Live Enclii API capabilities do not yet advertise `ops.apps.retire`; the code exists in Enclii, but the Switchyard API production deployment is still serving the previous capability set.
-- Enclii release history for Switchyard API shows the retire-operation commit queued/building, while older build records are timing out after missing callbacks. Roundhouse pods are running and some callbacks succeed, but failed jobs also show invalid Dockerfile path errors for other services, so the release queue must be stabilized before relying on the new retire operation in production.
+- Live Enclii API capabilities now advertise `ops.apps.retire`.
+- A production apply of `ops.apps.retire` reached the adapter but failed because `system:serviceaccount:enclii:switchyard-api` lacked `delete` on `applications.argoproj.io` in namespace `argocd`.
+- Enclii RBAC must grant `switchyard-api` the narrowly-scoped Application delete verb before the legacy app can be retired without break-glass access.
+- The same Enclii RBAC release should grant `patch` on `external-secrets.io/externalsecrets` so `phynd-crm-secrets` can be refreshed through Enclii after real Vault provider data is present.
 - Installed Enclii `services-sync` must not be pointed at the repository root for this repo because it can treat Kubernetes manifests as service specs. Use `enclii/services/` only.
 
 ## Deployment contract added in repo
@@ -51,7 +52,7 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - Direct registrar or DNS console edits are break-glass only.
 
 2. Remove legacy ArgoCD ownership.
-   - Release Enclii Switchyard API with `ops.apps.retire`.
+   - Release Enclii RBAC with `delete` on `argoproj.io/applications` and `patch` on `external-secrets.io/externalsecrets` for the `switchyard-api` service account.
    - Retire `phyne-crm-production` through Enclii/GitOps using orphan propagation.
    - Confirm `phynd-crm-services` is the only application managing namespace `phynd-crm`.
    - Re-sync `phynd-crm-services` and verify health is no longer Degraded/OutOfSync.

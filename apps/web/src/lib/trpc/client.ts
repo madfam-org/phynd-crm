@@ -69,16 +69,25 @@ type UtilsCompat = {
   }
 }
 
+type LooseProcedureCompat = ProcedureCompat<unknown, any>
+type RequiredRouterNamespaceCompat = {
+  [TRouter in keyof RouterOutputs]-?: Record<string, LooseProcedureCompat>
+}
+type RequiredUtilsNamespaceCompat = {
+  [TRouter in keyof RouterOutputs]-?: Record<string, { invalidate: (input?: unknown) => Promise<void> }>
+}
+
 type TrpcProviderCompat = ComponentType<{
   children?: ReactNode
   client: unknown
   queryClient: unknown
 }>
 
-type TrpcBuildCompat = RouterCompat & {
+type TrpcBuildCompat = RequiredRouterNamespaceCompat &
+  RouterCompat & {
   Provider: TrpcProviderCompat
   createClient: (options: unknown) => unknown
-  useUtils: () => UtilsCompat
+  useUtils: () => RequiredUtilsNamespaceCompat & UtilsCompat
 }
 
 // tRPC v11 RC can widen the workspace router record during Dockerized Next builds,

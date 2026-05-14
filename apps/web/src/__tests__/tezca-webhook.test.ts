@@ -78,7 +78,12 @@ function setupOnEventCapture() {
     },
   )
   return {
-    getCapturedOnEvent: () => capturedOnEvent!,
+    getCapturedOnEvent: () => {
+      if (!capturedOnEvent) {
+        throw new Error('Expected handleWebhook onEvent callback to be captured')
+      }
+      return capturedOnEvent
+    },
   }
 }
 

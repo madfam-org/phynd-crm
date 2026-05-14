@@ -76,6 +76,10 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
   const opportunities = oppsData?.items ?? []
   const quotes = quotesData?.items ?? []
   const orders = ordersData?.items ?? []
+  type LeadRow = NonNullable<typeof leadsData>['items'][number]
+  type OpportunityRow = NonNullable<typeof oppsData>['items'][number]
+  type QuoteRow = NonNullable<typeof quotesData>['items'][number]
+  type OrderRow = NonNullable<typeof ordersData>['items'][number]
 
   return (
     <div className="space-y-6">
@@ -86,7 +90,7 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
           <p className="text-sm text-muted-foreground">No related leads.</p>
         ) : (
           <div className="space-y-2">
-            {leads.map((lead) => (
+            {leads.map((lead: LeadRow) => (
               <div
                 key={lead.id}
                 className="flex items-center justify-between rounded-lg border p-3"
@@ -115,7 +119,7 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
           <p className="text-sm text-muted-foreground">No related opportunities.</p>
         ) : (
           <div className="space-y-2">
-            {opportunities.map((opp) => (
+            {opportunities.map((opp: OpportunityRow) => (
               <div key={opp.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -141,7 +145,7 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
           <p className="text-sm text-muted-foreground">No related quotes.</p>
         ) : (
           <div className="space-y-2">
-            {quotes.map((quote) => (
+            {quotes.map((quote: QuoteRow) => (
               <div
                 key={quote.id}
                 className="flex items-center justify-between rounded-lg border p-3"
@@ -172,7 +176,7 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
           <p className="text-sm text-muted-foreground">No related orders.</p>
         ) : (
           <div className="space-y-2">
-            {orders.map((order) => (
+            {orders.map((order: OrderRow) => (
               <div
                 key={order.id}
                 className="flex items-center justify-between rounded-lg border p-3"

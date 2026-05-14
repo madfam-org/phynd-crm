@@ -28,6 +28,8 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 - Enclii secret inspection reports zero ExternalSecrets in namespace `phynd-crm`.
 - Pod logs cannot start because web and worker containers are waiting on `CreateContainerConfigError`.
 - Local `.env.local` is development/example material and must not be used for production; it points several services to `*.example.com` and `NEXT_PUBLIC_APP_URL` to localhost.
+- `infra/k8s/production/external-secret.yaml` now declares `phynd-crm-secrets` backed by `ClusterSecretStore/vault-store` at Vault key `secret/phynd-crm`.
+- The production kustomization now includes the ExternalSecret manifest, so Argo can materialize `phynd-crm-secrets` once real Vault values are written.
 - Installed Enclii `services-sync` must not be pointed at the repository root for this repo because it can treat Kubernetes manifests as service specs. Use `enclii/services/` only.
 
 ## Deployment contract added in repo
@@ -51,6 +53,7 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - Re-sync `phynd-crm-services` and verify health is no longer Degraded/OutOfSync.
 
 3. Restore or create production secrets through Enclii.
+   - Vault key: `secret/phynd-crm`
    - `AUTH_SECRET`
    - `AUTH_JANUA_CLIENT_ID`
    - `AUTH_JANUA_CLIENT_SECRET`
@@ -62,6 +65,8 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - `PRAVARA_BASE_URL`
    - `FORJ_API_URL`
    - `PRAVARA_API_KEY`
+   - `NEXT_PUBLIC_APP_URL=https://phynd.app`
+   - `NODE_ENV=production`
 
 4. Configure Janua OIDC for Phynd.
    - Issuer: `https://auth.madfam.io`

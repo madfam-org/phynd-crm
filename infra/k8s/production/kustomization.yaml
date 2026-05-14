@@ -4,13 +4,14 @@ kind: Kustomization
 namespace: phynd-crm
 
 resources:
-- namespace.yaml
-- web-deployment.yaml
-- web-service.yaml
-- worker-deployment.yaml
-- network-policies.yaml
-- resource-quota.yaml
-- pdb.yaml
+  - external-secret.yaml
+  - namespace.yaml
+  - web-deployment.yaml
+  - web-service.yaml
+  - worker-deployment.yaml
+  - network-policies.yaml
+  - resource-quota.yaml
+  - pdb.yaml
 
 images:
 - name: ghcr.io/madfam-org/phynd-crm/web

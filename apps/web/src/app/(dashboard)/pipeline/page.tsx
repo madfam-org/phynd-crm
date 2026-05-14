@@ -37,7 +37,9 @@ export default async function PipelinePage({
   type LeadRow = (typeof leads.items)[number]
   type OpportunityRow = (typeof opportunities.items)[number]
   const pipelineLeads = leads.items.filter((l: LeadRow) => l.pipelineId === pipeline.id)
-  const pipelineOpps = opportunities.items.filter((o: OpportunityRow) => o.pipelineId === pipeline.id)
+  const pipelineOpps = opportunities.items.filter(
+    (o: OpportunityRow) => o.pipelineId === pipeline.id,
+  )
 
   return (
     <div className="space-y-6">

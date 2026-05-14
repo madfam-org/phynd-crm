@@ -29,26 +29,27 @@ interface KarafielWebhookPayload {
 type Db = ReturnType<typeof getDb>
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
-export async function POST(req: Request): Promise<NextResponse> {
-  const secret = process.env.KARAFIEL_WEBHOOK_SECRET
-  if (!secret) {
-    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
-  }
-
-  // 1) Rate limit by source IP.
+async function checkKarafielRateLimit(req: Request) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
   const { allowed, remaining } = await checkRateLimit(ip)
   if (!allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded' },
-      {
-        status: 429,
-        headers: { 'Retry-After': '60', 'X-RateLimit-Remaining': '0' },
-      },
-    )
+    return {
+      ip,
+      remaining,
+      response: NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        {
+          status: 429,
+          headers: { 'Retry-After': '60', 'X-RateLimit-Remaining': '0' },
+        },
+      ),
+    }
   }
 
-  // 2) Signature + anti-replay checks.
+  return { ip, remaining, response: null }
+}
+
+function validateKarafielTimestamp(req: Request): NextResponse | null {
   const timestampHeader = req.headers.get('x-webhook-timestamp')
   if (!timestampHeader) {
     return NextResponse.json({ error: 'Missing x-webhook-timestamp header' }, { status: 401 })
@@ -64,54 +65,108 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Webhook timestamp expired' }, { status: 401 })
   }
 
-  const rawBody = await req.text()
-  const signature = req.headers.get('x-phyndcrm-signature') ?? ''
+  return null
+}
+
+function validateKarafielSignature(
+  rawBody: string,
+  signature: string,
+  secret: string,
+  ip: string,
+): NextResponse | null {
   if (!signature || !validateWebhookSignature(rawBody, signature, secret)) {
     logger.warn({ ip, hasSignature: Boolean(signature) }, 'rejected karafiel webhook signature')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
-  // 3) Parse payload and provide a normalized event type.
-  let payload: KarafielWebhookPayload
+  return null
+}
+
+function parseKarafielPayload(rawBody: string): KarafielWebhookPayload | NextResponse {
   try {
-    payload = JSON.parse(rawBody) as KarafielWebhookPayload
+    const payload = JSON.parse(rawBody) as KarafielWebhookPayload
+    if (!payload || typeof payload !== 'object') {
+      return NextResponse.json({ error: 'Malformed payload' }, { status: 400 })
+    }
+    return payload
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
+}
 
-  if (!payload || typeof payload !== 'object') {
-    return NextResponse.json({ error: 'Malformed payload' }, { status: 400 })
-  }
-
+function karafielEventType(payload: KarafielWebhookPayload): string {
   const eventType =
     (typeof payload.event === 'string' ? payload.event.trim() : '') ||
     (typeof payload.type === 'string' ? payload.type.trim() : '') ||
     (typeof payload.event_type === 'string' ? payload.event_type.trim() : '')
+  return eventType
+}
 
+function karafielEventId(payload: KarafielWebhookPayload): string | undefined {
+  return typeof payload.event_id === 'string' && payload.event_id.trim()
+    ? payload.event_id.trim()
+    : undefined
+}
+
+async function existingKarafielEvent(db: Db, eventId: string | undefined): Promise<boolean> {
+  if (!eventId) return false
+  const prior = await db
+    .select({ id: webhookEvents.id })
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.provider, 'karafiel'),
+        sql`${webhookEvents.payload} ->> 'event_id' = ${eventId}`,
+      ),
+    )
+    .limit(1)
+
+  return prior.length > 0
+}
+
+async function writeKarafielEvent(
+  db: Db,
+  payload: KarafielWebhookPayload,
+  eventType: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [whRow] = await tx
+      .insert(webhookEvents)
+      .values({
+        provider: 'karafiel',
+        eventType,
+        payload: {
+          ...payload,
+          _received_at: new Date().toISOString(),
+        },
+        processedAt: new Date(),
+      })
+      .returning({ id: webhookEvents.id })
+
+    const webhookEventId = whRow?.id ?? null
+
+    if (eventType === 'grant.awarded') {
+      await processGrantAward(payload, tx, webhookEventId)
+    }
+  })
+}
+
+async function handleKarafielPayload(
+  rawBody: string,
+  remaining: number,
+): Promise<NextResponse> {
+  const payload = parseKarafielPayload(rawBody)
+  if (payload instanceof NextResponse) return payload
+
+  const eventType = karafielEventType(payload)
   if (!eventType) {
     return NextResponse.json({ error: 'Missing event type' }, { status: 400 })
   }
 
-  const eventId =
-    typeof payload.event_id === 'string' && payload.event_id.trim()
-      ? payload.event_id.trim()
-      : undefined
-
+  const eventId = karafielEventId(payload)
   const db = getDb()
-
   if (eventId) {
-    const prior = await db
-      .select({ id: webhookEvents.id })
-      .from(webhookEvents)
-      .where(
-        and(
-          eq(webhookEvents.provider, 'karafiel'),
-          sql`${webhookEvents.payload} ->> 'event_id' = ${eventId}`,
-        ),
-      )
-      .limit(1)
-
-    if (prior.length > 0) {
+    if (await existingKarafielEvent(db, eventId)) {
       return NextResponse.json(
         { status: 'duplicate', event_id: eventId },
         { headers: { 'X-RateLimit-Remaining': String(remaining) } },
@@ -120,27 +175,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   try {
-    await db.transaction(async (tx) => {
-      const [whRow] = await tx
-        .insert(webhookEvents)
-        .values({
-          provider: 'karafiel',
-          eventType,
-          payload: {
-            ...payload,
-            _received_at: new Date().toISOString(),
-          },
-          processedAt: new Date(),
-        })
-        .returning({ id: webhookEvents.id })
-
-      const webhookEventId = whRow?.id ?? null
-
-      if (eventType === 'grant.awarded') {
-        await processGrantAward(payload, tx, webhookEventId)
-      }
-    })
-
+    await writeKarafielEvent(db, payload, eventType)
     return NextResponse.json(
       { received: true, event_type: eventType },
       { headers: { 'X-RateLimit-Remaining': String(remaining) } },
@@ -149,6 +184,26 @@ export async function POST(req: Request): Promise<NextResponse> {
     logger.error({ err: error, eventType }, 'karafiel webhook processing failed')
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
+}
+
+export async function POST(req: Request): Promise<NextResponse> {
+  const secret = process.env.KARAFIEL_WEBHOOK_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
+  }
+
+  const { ip, remaining, response } = await checkKarafielRateLimit(req)
+  if (response) return response
+
+  const timestampError = validateKarafielTimestamp(req)
+  if (timestampError) return timestampError
+
+  const rawBody = await req.text()
+  const signature = req.headers.get('x-phyndcrm-signature') ?? ''
+  const signatureError = validateKarafielSignature(rawBody, signature, secret, ip)
+  if (signatureError) return signatureError
+
+  return handleKarafielPayload(rawBody, remaining)
 }
 
 async function processGrantAward(

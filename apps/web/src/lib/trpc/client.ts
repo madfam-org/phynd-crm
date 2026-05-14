@@ -5,6 +5,8 @@ import type { ComponentType, ReactNode } from 'react'
 
 type RouterInputs = inferRouterInputs<AppRouter>
 type RouterOutputs = inferRouterOutputs<AppRouter>
+type RouterInputRecord<TRouter extends keyof RouterInputs> = NonNullable<RouterInputs[TRouter]>
+type RouterOutputRecord<TRouter extends keyof RouterOutputs> = NonNullable<RouterOutputs[TRouter]>
 
 interface QueryOptions<TOutput> {
   enabled?: boolean
@@ -50,16 +52,18 @@ interface ProcedureCompat<TInput, TOutput> {
 
 type RouterCompat = {
   [TRouter in keyof RouterOutputs]-?: {
-    [TProcedure in keyof RouterOutputs[TRouter]]-?: ProcedureCompat<
-      TProcedure extends keyof RouterInputs[TRouter] ? RouterInputs[TRouter][TProcedure] : never,
-      RouterOutputs[TRouter][TProcedure]
+    [TProcedure in keyof RouterOutputRecord<TRouter>]-?: ProcedureCompat<
+      TProcedure extends keyof RouterInputRecord<TRouter>
+        ? RouterInputRecord<TRouter>[TProcedure]
+        : never,
+      RouterOutputRecord<TRouter>[TProcedure]
     >
   }
 }
 
 type UtilsCompat = {
   [TRouter in keyof RouterOutputs]-?: {
-    [TProcedure in keyof RouterOutputs[TRouter]]-?: {
+    [TProcedure in keyof RouterOutputRecord<TRouter>]-?: {
       invalidate: (input?: unknown) => Promise<void>
     }
   }

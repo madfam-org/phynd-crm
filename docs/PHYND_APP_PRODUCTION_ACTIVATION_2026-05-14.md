@@ -88,3 +88,40 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 ## Break-glass boundary
 
 Direct `kubectl`, direct Cloudflare dashboard edits, direct registrar edits, and direct container shell access are only allowed when Enclii is unavailable and production recovery cannot wait. Any such action must be documented afterward and reconciled back into Enclii.
+
+## Continuation status — 2026-05-14
+
+Verified through Enclii-first operations:
+
+- Retired legacy Argo application `phyne-crm-production` through `enclii ops apps retire`.
+- Recreated the `crm.madfam.io` junction through Enclii with id `15118c4b-aaf1-4c7a-bba7-27e58c688e96`.
+- Active Cloudflare tunnel desired route now targets `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` for `crm.madfam.io`, `phynd.app`, and `www.phynd.app`.
+- Public DNS for `crm.madfam.io` resolves to Cloudflare A records, but HTTPS still returns Cloudflare `502` because the upstream Phynd pods are not yet runnable.
+- Public DNS for `phynd.app` and `www.phynd.app` still resolves to Porkbun/Pixie infrastructure, so `https://phynd.app` fails TLS before it reaches the Enclii tunnel.
+- `phynd-crm-services` is `Synced` but `Degraded`.
+- `ExternalSecret/phynd-crm-secrets` remains `Ready=False` with `SecretSyncedError: could not get secret data from provider`.
+
+Current hard blocker:
+
+- `phynd-crm-secrets` is not materialized. Enclii/Selva secret namespace lookup for `phynd-crm` returned `404`, and Vault status previously reported unreachable/uninitialized from the Enclii inspection path.
+
+Minimum secret contract still required before pods can start:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `AUTH_SECRET`
+- `AUTH_JANUA_ISSUER`
+- `AUTH_JANUA_CLIENT_ID`
+- `AUTH_JANUA_CLIENT_SECRET`
+- `JANUA_API_URL`
+- `DHANAM_API_URL`
+- `COTIZA_API_URL`
+- `PRAVARA_BASE_URL`
+- `FORJ_API_URL`
+- `PRAVARA_API_KEY`
+
+Truthful next implementation step:
+
+- Use the approved RFC 0005 Selva secret workflow or a Vault operator bootstrap to populate Vault key `secret/phynd-crm` with the real values above, then run `enclii ops secrets refresh phynd-crm-secrets --namespace phynd-crm --apply`.
+- Do not fabricate placeholder values. A generated `AUTH_SECRET` and Janua OAuth client can be created, but `DATABASE_URL` and `PRAVARA_API_KEY` must come from their real source-of-truth owners or provider APIs.
+- Move `phynd.app` DNS from Porkbun/Pixie to the Enclii-managed Cloudflare tunnel, or configure the Enclii Porkbun adapter so Enclii can own those DNS records.

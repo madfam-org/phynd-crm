@@ -2,13 +2,10 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
-import type { RouterOutputs } from '@phynd/api'
 
 interface ContactActivitiesProps {
   contactId: string
 }
-
-type ContactActivity = RouterOutputs['activities']['listForEntity'][number]
 
 export function ContactActivities({ contactId }: ContactActivitiesProps) {
   const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
@@ -19,6 +16,7 @@ export function ContactActivities({ contactId }: ContactActivitiesProps) {
     entityType: 'contact',
     entityId: contactId,
   })
+  type ContactActivity = NonNullable<typeof activities>[number]
 
   if (!activities?.length) {
     return <p className="text-sm text-muted-foreground">No activities yet.</p>

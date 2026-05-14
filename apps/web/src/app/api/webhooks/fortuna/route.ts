@@ -106,7 +106,8 @@ async function resolveTreasuryStage(db: ReturnType<typeof getDb>) {
     .from(pipelineStages)
     .where(eq(pipelineStages.pipelineId, treasuryPipeline.id))
 
-  const discoveredStage = stages.find((s) => s.name === 'Discovered')
+  type StageRow = (typeof stages)[number]
+  const discoveredStage = stages.find((s: StageRow) => s.name === 'Discovered')
   if (!discoveredStage) {
     logger.error('Discovered stage not found in Treasury Hunter pipeline')
     return { error: NextResponse.json({ error: 'Stage not configured' }, { status: 500 }) }

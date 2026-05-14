@@ -2,6 +2,18 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
+
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type LeadListByContactOutput = RouterOutputs['leads']['listByContactId']
+type OpportunityListByContactOutput = RouterOutputs['opportunities']['listByContactId']
+type QuoteListByContactOutput = RouterOutputs['quotes']['listByContactId']
+type OrderListByContactOutput = RouterOutputs['orders']['listByContactId']
+type LeadRow = LeadListByContactOutput['items'][number]
+type OpportunityRow = OpportunityListByContactOutput['items'][number]
+type QuoteRow = QuoteListByContactOutput['items'][number]
+type OrderRow = OrderListByContactOutput['items'][number]
 
 interface ContactRelatedProps {
   contactId: string
@@ -72,14 +84,10 @@ export function ContactRelated({ contactId }: ContactRelatedProps) {
   const { data: quotesData } = listQuotesByContactId.useQuery({ contactId })
   const { data: ordersData } = listOrdersByContactId.useQuery({ contactId })
 
-  const leads = leadsData?.items ?? []
-  const opportunities = oppsData?.items ?? []
-  const quotes = quotesData?.items ?? []
-  const orders = ordersData?.items ?? []
-  type LeadRow = NonNullable<typeof leadsData>['items'][number]
-  type OpportunityRow = NonNullable<typeof oppsData>['items'][number]
-  type QuoteRow = NonNullable<typeof quotesData>['items'][number]
-  type OrderRow = NonNullable<typeof ordersData>['items'][number]
+  const leads = (leadsData as LeadListByContactOutput | undefined)?.items ?? []
+  const opportunities = (oppsData as OpportunityListByContactOutput | undefined)?.items ?? []
+  const quotes = (quotesData as QuoteListByContactOutput | undefined)?.items ?? []
+  const orders = (ordersData as OrderListByContactOutput | undefined)?.items ?? []
 
   return (
     <div className="space-y-6">

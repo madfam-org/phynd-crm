@@ -10,10 +10,13 @@ import {
   RedditBotService,
   createServiceContext,
 } from '@phynd/services'
+import type { AuthContext } from '@phynd/types/auth'
 import { Queue } from 'bullmq'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:webhook:tezca')
+type TezcaServiceContext = ReturnType<typeof createServiceContext>
+type TezcaWebhookPayload = { type?: string; event?: string; data?: unknown }
 
 /**
  * Reddit bot payload shape — has outreach_target + legal_context.
@@ -97,6 +100,136 @@ async function enqueueDrip(leadId: string): Promise<void> {
   }
 }
 
+function createTezcaContext(): TezcaServiceContext {
+  const botAuth: AuthContext = {
+    userId: 'system:tezca-bot',
+    tenantId: DEFAULT_TENANT_ID,
+    roles: ['admin'],
+    scopes: ['*'],
+    accessToken: 'internal:tezca-webhook',
+  }
+
+  return createServiceContext(getDb(), getCacheManager(), botAuth)
+}
+
+async function ensureContact(
+  ctx: TezcaServiceContext,
+  email: string,
+  externalJanuaId?: string,
+) {
+  const contactsService = new ContactsService(ctx)
+  let contact = await contactsService.getByEmail(email)
+
+  if (!contact) {
+    contact = await contactsService.create({
+      name: email.split('@')[0] ?? email,
+      email,
+      ...(externalJanuaId ? { externalJanuaId } : {}),
+    })
+    logger.info({ contactId: contact.id }, 'Created contact from Tezca webhook')
+  }
+
+  return contact
+}
+
+async function createDefaultLead(ctx: TezcaServiceContext, contactId: string, source: string) {
+  const leadsService = new LeadsService(ctx)
+  const pipelinesService = new PipelinesService(ctx)
+  const pipeline = await pipelinesService.getDefault()
+  if (!pipeline) return null
+
+  const stages = await pipelinesService.getStages(pipeline.id)
+  const firstStage = stages[0]
+  if (!firstStage) return null
+
+  const lead = await leadsService.create({
+    contactId,
+    source,
+    pipelineId: pipeline.id,
+    stageId: firstStage.id,
+  })
+  await enqueueDrip(lead.id)
+  return lead
+}
+
+async function handleNewsletter(data: TezcaNewsletterPayload, ctx: TezcaServiceContext) {
+  logger.info({ email: data.email }, 'Processing Tezca newsletter subscription')
+  const contact = await ensureContact(ctx, data.email)
+  const lead = await createDefaultLead(ctx, contact.id, 'tezca_newsletter')
+  if (lead) {
+    logger.info(
+      { contactId: contact.id, source: 'tezca_newsletter' },
+      'Created lead from Tezca newsletter subscription',
+    )
+  }
+}
+
+async function handleInterest(data: TezcaInterestPayload, ctx: TezcaServiceContext) {
+  logger.info({ email: data.email, featureKey: data.feature_key }, 'Processing Tezca interest event')
+  const contact = await ensureContact(ctx, data.email, data.janua_user_id)
+  const source = `tezca_interest:${data.feature_key}`
+  const lead = await createDefaultLead(ctx, contact.id, source)
+  if (lead) {
+    logger.info({ contactId: contact.id, source }, 'Created lead from Tezca interest event')
+  }
+}
+
+async function handleRedditBot(data: RedditBotPayload, ctx: TezcaServiceContext, raw: unknown) {
+  if (!data.outreach_target.url || !data.legal_context.core_legal_problem) {
+    logger.warn({ payload: raw }, 'Malformed Reddit bot payload — skipping')
+    return
+  }
+
+  const botService = new RedditBotService(ctx)
+
+  logger.info(
+    { url: data.outreach_target.url, domain: data.legal_context.domain },
+    'Processing Reddit bot interest.created event',
+  )
+
+  const result = await botService.processWebhook(data)
+
+  logger.info(
+    { campaignId: result.draft_stage_id, contactId: result.contactId },
+    'Interest event processed — draft staged for approval',
+  )
+}
+
+async function handleTezcaEvent(raw: Record<string, unknown>) {
+  const payload = raw as TezcaWebhookPayload
+  const eventType = (payload.type ?? payload.event ?? 'unknown') as string
+  const data = payload.data
+
+  if (!data) {
+    logger.warn({ payload: raw }, 'Tezca event has no data — skipping')
+    return
+  }
+
+  const ctx = createTezcaContext()
+
+  if (eventType === 'newsletter.subscribed' && isTezcaNewsletterPayload(data)) {
+    await handleNewsletter(data, ctx)
+    return
+  }
+
+  if (eventType !== 'interest.created') {
+    logger.info({ eventType }, 'Ignoring unhandled event type')
+    return
+  }
+
+  if (isTezcaInterestPayload(data)) {
+    await handleInterest(data, ctx)
+    return
+  }
+
+  if (isRedditBotPayload(data)) {
+    await handleRedditBot(data, ctx, raw)
+    return
+  }
+
+  logger.warn({ payload: raw }, 'interest.created event has unrecognized payload shape — skipping')
+}
+
 export async function POST(req: Request) {
   const secret = process.env.TEZCA_WEBHOOK_SECRET
   if (!secret) {
@@ -105,143 +238,6 @@ export async function POST(req: Request) {
 
   return handleWebhook(req, {
     secret,
-    onEvent: async (raw) => {
-      const payload = raw as { type?: string; event?: string; data?: unknown }
-      const eventType = (payload.type ?? payload.event ?? 'unknown') as string
-
-      const data = payload.data
-      if (!data) {
-        logger.warn({ payload: raw }, 'Tezca event has no data — skipping')
-        return
-      }
-
-      const db = getDb()
-      const cache = getCacheManager()
-      const botAuth = {
-        userId: 'system:tezca-bot',
-        tenantId: DEFAULT_TENANT_ID,
-        roles: ['admin'] as string[],
-        scopes: ['*'] as string[],
-        accessToken: 'internal:tezca-webhook',
-      }
-      const ctx = createServiceContext(db, cache, botAuth)
-
-      // ── Branch 0: Newsletter subscription ──
-      if (eventType === 'newsletter.subscribed' && isTezcaNewsletterPayload(data)) {
-        logger.info({ email: data.email }, 'Processing Tezca newsletter subscription')
-
-        const contactsService = new ContactsService(ctx)
-        const leadsService = new LeadsService(ctx)
-        const pipelinesService = new PipelinesService(ctx)
-
-        let contact = await contactsService.getByEmail(data.email)
-        if (!contact) {
-          contact = await contactsService.create({
-            name: data.email.split('@')[0] ?? data.email,
-            email: data.email,
-          })
-          logger.info({ contactId: contact.id }, 'Created contact from Tezca newsletter')
-        }
-
-        const pipeline = await pipelinesService.getDefault()
-        if (pipeline) {
-          const stages = await pipelinesService.getStages(pipeline.id)
-          const firstStage = stages[0]
-          if (firstStage) {
-            const lead = await leadsService.create({
-              contactId: contact.id,
-              source: 'tezca_newsletter',
-              pipelineId: pipeline.id,
-              stageId: firstStage.id,
-            })
-            logger.info(
-              { contactId: contact.id, source: 'tezca_newsletter' },
-              'Created lead from Tezca newsletter subscription',
-            )
-            await enqueueDrip(lead.id)
-          }
-        }
-
-        return
-      }
-
-      if (eventType !== 'interest.created') {
-        logger.info({ eventType }, 'Ignoring unhandled event type')
-        return
-      }
-
-      // ── Branch 1: Tezca landing page interest (email + feature_key) ──
-      if (isTezcaInterestPayload(data)) {
-        logger.info(
-          { email: data.email, featureKey: data.feature_key },
-          'Processing Tezca interest event',
-        )
-
-        const contactsService = new ContactsService(ctx)
-        const leadsService = new LeadsService(ctx)
-        const pipelinesService = new PipelinesService(ctx)
-
-        // Upsert contact by email
-        let contact = await contactsService.getByEmail(data.email)
-        if (!contact) {
-          contact = await contactsService.create({
-            name: data.email.split('@')[0] ?? data.email,
-            email: data.email,
-            ...(data.janua_user_id ? { externalJanuaId: data.janua_user_id } : {}),
-          })
-          logger.info({ contactId: contact.id }, 'Created contact from Tezca interest')
-        }
-
-        // Create lead in default pipeline
-        const pipeline = await pipelinesService.getDefault()
-        if (pipeline) {
-          const stages = await pipelinesService.getStages(pipeline.id)
-          const firstStage = stages[0]
-          if (firstStage) {
-            const lead = await leadsService.create({
-              contactId: contact.id,
-              source: `tezca_interest:${data.feature_key}`,
-              pipelineId: pipeline.id,
-              stageId: firstStage.id,
-            })
-            logger.info(
-              { contactId: contact.id, source: `tezca_interest:${data.feature_key}` },
-              'Created lead from Tezca interest event',
-            )
-            await enqueueDrip(lead.id)
-          }
-        }
-
-        return
-      }
-
-      // ── Branch 2: Reddit bot payload (outreach_target + legal_context) ──
-      if (isRedditBotPayload(data)) {
-        if (!data.outreach_target.url || !data.legal_context.core_legal_problem) {
-          logger.warn({ payload: raw }, 'Malformed Reddit bot payload — skipping')
-          return
-        }
-
-        const botService = new RedditBotService(ctx)
-
-        logger.info(
-          { url: data.outreach_target.url, domain: data.legal_context.domain },
-          'Processing Reddit bot interest.created event',
-        )
-
-        const result = await botService.processWebhook(data)
-
-        logger.info(
-          { campaignId: result.draft_stage_id, contactId: result.contactId },
-          'Interest event processed — draft staged for approval',
-        )
-        return
-      }
-
-      logger.warn(
-        { payload: raw },
-        'interest.created event has unrecognized payload shape — skipping',
-      )
-    },
+    onEvent: handleTezcaEvent,
   })
 }

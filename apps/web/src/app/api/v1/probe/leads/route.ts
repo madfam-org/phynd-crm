@@ -38,7 +38,7 @@ function insertFailed(resource: string) {
   return NextResponse.json({ error: `failed to create ${resource}` }, { status: 500 })
 }
 
-export async function POST(request: Request) {
+function probeAuthResponse(request: Request) {
   const expectedToken = process.env.PHYND_CRM_PROBE_TOKEN
   if (!expectedToken) {
     return NextResponse.json({ error: 'PHYND_CRM_PROBE_TOKEN not configured' }, { status: 503 })
@@ -50,6 +50,19 @@ export async function POST(request: Request) {
     return unauthorized('missing_or_bad_bearer')
   }
 
+  return null
+}
+
+function probeCorrelationId(body: Record<string, unknown>, request: Request) {
+  return (body.correlation_id as string) || request.headers.get('x-probe-correlation-id') || ''
+}
+
+export async function POST(request: Request) {
+  const authResponse = probeAuthResponse(request)
+  if (authResponse) {
+    return authResponse
+  }
+
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -57,8 +70,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
 
-  const correlationId =
-    (body.correlation_id as string) || request.headers.get('x-probe-correlation-id') || ''
+  const correlationId = probeCorrelationId(body, request)
   if (!correlationId) {
     return NextResponse.json({ error: 'correlation_id required' }, { status: 400 })
   }

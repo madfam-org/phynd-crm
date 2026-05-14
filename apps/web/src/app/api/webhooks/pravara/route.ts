@@ -9,6 +9,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:pravara-webhook')
+type Db = ReturnType<typeof getDb>
 
 export async function POST(req: Request) {
   const secret = process.env.PRAVARA_WEBHOOK_SECRET
@@ -37,18 +38,7 @@ async function recordFabricationActivity(payload: Record<string, unknown>) {
     if (!event || !status) return
 
     const db = getDb()
-
-    // Try to find the contact linked to this fabrication order
-    let contactId = payload.contactId as string | undefined
-    const externalId = payload.externalId as string | undefined
-    if (!contactId && externalId) {
-      const [ref] = await db
-        .select({ entityId: externalReferences.entityId })
-        .from(externalReferences)
-        .where(eq(externalReferences.externalId, externalId))
-        .limit(1)
-      if (ref) contactId = ref.entityId
-    }
+    const contactId = await resolvePravaraContactId(db, payload)
 
     if (!contactId) return
 
@@ -78,6 +68,51 @@ async function recordFabricationActivity(payload: Record<string, unknown>) {
   }
 }
 
+async function resolvePravaraContactId(db: Db, payload: Record<string, unknown>) {
+  const contactId = payload.contactId as string | undefined
+  const externalId = payload.externalId as string | undefined
+  if (contactId || !externalId) return contactId
+
+  const [ref] = await db
+    .select({ entityId: externalReferences.entityId })
+    .from(externalReferences)
+    .where(eq(externalReferences.externalId, externalId))
+    .limit(1)
+
+  return ref?.entityId
+}
+
+async function resolvePravaraEngagementId(
+  db: Db,
+  payload: Record<string, unknown>,
+  contactId: string,
+) {
+  const explicitEngagementId =
+    (payload.engagementId as string | undefined) ?? (payload.engagement_id as string | undefined)
+  if (explicitEngagementId) return explicitEngagementId
+
+  const [row] = await db
+    .select({ id: engagements.id })
+    .from(engagements)
+    .where(
+      and(
+        eq(engagements.contactId, contactId),
+        eq(engagements.status, 'active'),
+        isNull(engagements.deletedAt),
+      ),
+    )
+    .orderBy(engagements.createdAt)
+    .limit(1)
+
+  return row?.id
+}
+
+function canonicalPravaraMilestone(status: string) {
+  if (status === 'shipped') return 'prototype_shipped'
+  if (status === 'delivered') return 'deliverable_received'
+  return null
+}
+
 // Phase D-5: also feed the client portal timeline. If this Pravara
 // order ties to an active engagement for the contact, append an
 // engagement_event so the status update shows up in /portal/[id]. No
@@ -89,41 +124,15 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
     if (!event || !status) return
 
     const db = getDb()
-
-    let contactId = payload.contactId as string | undefined
-    const externalId = payload.externalId as string | undefined
-    if (!contactId && externalId) {
-      const [ref] = await db
-        .select({ entityId: externalReferences.entityId })
-        .from(externalReferences)
-        .where(eq(externalReferences.externalId, externalId))
-        .limit(1)
-      if (ref) contactId = ref.entityId
-    }
+    const contactId = await resolvePravaraContactId(db, payload)
     if (!contactId) return
 
     // Pick the first active (non-deleted) engagement for this contact.
     // Future enhancement: Pravara payload carries `engagementId` directly
     // once Cotiza → Pravara dispatch is wired (Phase D-4).
-    const explicitEngagementId =
-      (payload.engagementId as string | undefined) ?? (payload.engagement_id as string | undefined)
-
-    let engagementId = explicitEngagementId
+    const engagementId = await resolvePravaraEngagementId(db, payload, contactId)
     if (!engagementId) {
-      const [row] = await db
-        .select({ id: engagements.id })
-        .from(engagements)
-        .where(
-          and(
-            eq(engagements.contactId, contactId),
-            eq(engagements.status, 'active'),
-            isNull(engagements.deletedAt),
-          ),
-        )
-        .orderBy(engagements.createdAt)
-        .limit(1)
-      if (!row) return
-      engagementId = row.id
+      return
     }
 
     const orderId = (payload.orderId ?? externalId ?? 'unknown') as string
@@ -156,12 +165,7 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
     // physical-deliverable handoff uses `<source>:prototype_shipped` so
     // we can group across Pravara / external fab shops / field install
     // crews uniformly. See docs/ENGAGEMENT_EVENT_TAXONOMY.md.
-    const canonicalMilestoneEvent =
-      status === 'shipped'
-        ? 'prototype_shipped'
-        : status === 'delivered'
-          ? 'deliverable_received'
-          : null
+    const canonicalMilestoneEvent = canonicalPravaraMilestone(status)
 
     const service = new EngagementsService({
       db,

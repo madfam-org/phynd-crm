@@ -43,6 +43,27 @@ interface EcosystemPaymentSucceededEvent {
   metadata?: Record<string, unknown>
 }
 
+const REQUIRED_PAYMENT_FIELDS = [
+  'event_id',
+  'provider',
+  'subscription_id',
+  'organization_id',
+  'amount_minor',
+  'currency',
+  'occurred_at',
+] as const
+
+function missingRequiredPaymentField(event: EcosystemPaymentSucceededEvent) {
+  for (const required of REQUIRED_PAYMENT_FIELDS) {
+    const value = event[required]
+    if (value === undefined || value === null || value === '') {
+      return required
+    }
+  }
+
+  return null
+}
+
 export async function POST(request: Request) {
   const secret = process.env.PHYND_CRM_EVENTS_SECRET
   if (!secret) {
@@ -71,19 +92,9 @@ export async function POST(request: Request) {
       { status: 400 },
     )
   }
-  for (const required of [
-    'event_id',
-    'provider',
-    'subscription_id',
-    'organization_id',
-    'amount_minor',
-    'currency',
-    'occurred_at',
-  ] as const) {
-    const v = event[required]
-    if (v === undefined || v === null || v === '') {
-      return NextResponse.json({ error: `missing required field: ${required}` }, { status: 400 })
-    }
+  const missingField = missingRequiredPaymentField(event)
+  if (missingField) {
+    return NextResponse.json({ error: `missing required field: ${missingField}` }, { status: 400 })
   }
 
   const db = getDb()
@@ -165,7 +176,10 @@ export async function POST(request: Request) {
       .returning({ id: conversions.id })
     const conversion = inserted[0]
     if (!conversion) {
-      logger.error({ event_id: event.event_id, lead_id: lead.id }, 'conversion insert returned no row')
+      logger.error(
+        { event_id: event.event_id, lead_id: lead.id },
+        'conversion insert returned no row',
+      )
       return NextResponse.json({ error: 'failed to record conversion' }, { status: 500 })
     }
 

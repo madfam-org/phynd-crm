@@ -151,10 +151,7 @@ async function writeKarafielEvent(
   })
 }
 
-async function handleKarafielPayload(
-  rawBody: string,
-  remaining: number,
-): Promise<NextResponse> {
+async function handleKarafielPayload(rawBody: string, remaining: number): Promise<NextResponse> {
   const payload = parseKarafielPayload(rawBody)
   if (payload instanceof NextResponse) return payload
 

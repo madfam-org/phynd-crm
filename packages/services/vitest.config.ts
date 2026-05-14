@@ -1,6 +1,27 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: '@phynd/db/schema',
+        replacement: fileURLToPath(new URL('../db/src/schema/index.ts', import.meta.url)),
+      },
+      {
+        find: '@phynd/db/client',
+        replacement: fileURLToPath(new URL('../db/src/client.ts', import.meta.url)),
+      },
+      {
+        find: '@phynd/db',
+        replacement: fileURLToPath(new URL('../db/src/index.ts', import.meta.url)),
+      },
+      {
+        find: '@phynd/logging',
+        replacement: fileURLToPath(new URL('../logging/src/index.ts', import.meta.url)),
+      },
+    ],
+  },
   test: {
     globals: true,
     environment: 'node',

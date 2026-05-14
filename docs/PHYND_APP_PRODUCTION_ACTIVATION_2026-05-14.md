@@ -19,6 +19,15 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
 - `enclii projects create --name "Phynd CRM" --slug phynd-crm` currently returns `402 tier_limit_exceeded`; Enclii API tier middleware must allow trusted MADFAM `admin`/`superadmin` operators to create self-hosted internal projects.
 - `enclii onboard --repo madfam-org/phynd-crm --project phynd-crm --manifest-path infra/k8s/production --skip-postgres --skip-r2 --skip-secrets` initially stopped at the image gate because the base production Deployment manifests used `:latest`; those manifests are now digest-pinned directly.
 - A second onboarding attempt still returned the same image-gate error because `enclii onboard` validates the GitHub repository state, not uncommitted local edits. Commit and push the digest-pinned manifests before re-running onboarding.
+- After commit `0561285`, Enclii onboarding completed and created namespace `phynd-crm`, ArgoCD app `phynd-crm-services`, and Enclii auto-commit `b22f63bd8178a4acac2abc71e56b55de8b22039a`.
+- `enclii services-sync --dir enclii/services --project phynd-crm` registered `phynd-crm-web` (`55d2ba51-d6b3-481c-ae56-e5410c3b5a6d`) and `phynd-crm-worker` (`5e1a20e4-2302-4aa0-a37e-fa7dc9fa87ea`).
+- Enclii junctions now exist for `phynd.app`, `www.phynd.app`, and `crm.madfam.io`.
+- Active Cloudflare tunnel inventory now includes `phynd.app` and `www.phynd.app` routed to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`.
+- `crm.madfam.io` still resolves to the legacy `phyne-crm-web.phyne-crm.svc.cluster.local` route in active Cloudflare tunnel config; the newly-added Enclii junction does not override the existing legacy route.
+- ArgoCD shows `phynd-crm-services` as Degraded/OutOfSync because legacy app `phyne-crm-production` still owns shared resources in the same namespace.
+- Enclii secret inspection reports zero ExternalSecrets in namespace `phynd-crm`.
+- Pod logs cannot start because web and worker containers are waiting on `CreateContainerConfigError`.
+- Local `.env.local` is development/example material and must not be used for production; it points several services to `*.example.com` and `NEXT_PUBLIC_APP_URL` to localhost.
 - Installed Enclii `services-sync` must not be pointed at the repository root for this repo because it can treat Kubernetes manifests as service specs. Use `enclii/services/` only.
 
 ## Deployment contract added in repo
@@ -36,10 +45,10 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - Alternate path: configure the Enclii Porkbun provider adapter so Enclii can manage records at Porkbun.
    - Direct registrar or DNS console edits are break-glass only.
 
-2. Register the Phynd project in Enclii.
-   - Project slug: `phynd-crm`.
-   - Services: `phynd-crm-web`, `phynd-crm-worker`.
-   - Service sync source: `enclii/services/`.
+2. Remove legacy ArgoCD ownership.
+   - Retire or delete `phyne-crm-production` through Enclii/GitOps.
+   - Confirm `phynd-crm-services` is the only application managing namespace `phynd-crm`.
+   - Re-sync `phynd-crm-services` and verify health is no longer Degraded/OutOfSync.
 
 3. Restore or create production secrets through Enclii.
    - `AUTH_SECRET`
@@ -61,10 +70,10 @@ Bring `https://phynd.app` online as the canonical production Phynd CRM domain, w
    - Confirm `admin@madfam.io` has tenant/admin claims accepted by Phynd.
 
 5. Reconcile Cloudflare tunnel routes through Enclii.
-   - `phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`
-   - `www.phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`
+   - `phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` is present.
+   - `www.phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` is present.
    - `api.phynd.app` -> `http://phynd-crm-api.phynd-crm.svc.cluster.local:80` if the API service is split later.
-   - `crm.madfam.io` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`
+   - `crm.madfam.io` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` remains blocked by the existing legacy `phyne-crm` tunnel route.
 
 6. Run production smoke checks.
    - `https://phynd.app/api/health` returns healthy.

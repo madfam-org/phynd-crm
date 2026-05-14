@@ -1,9 +1,19 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import type { TenantBrand } from '@/lib/branding/tenant-brand'
 import Link from 'next/link'
 import { DashboardPreview } from './dashboard-preview'
 
-export function HeroSection() {
+export function HeroSection({ brand }: { brand?: TenantBrand }) {
+  const badges = brand?.badges ?? ['Open Source', 'Self-Hostable', 'MIT Licensed']
+  const heroPrefix = brand?.heroPrefix ?? 'The CRM Built for'
+  const heroHighlight = brand?.heroHighlight ?? 'Physical + Digital'
+  const heroDescription =
+    brand?.heroDescription ??
+    'Phynd federates real-time data from your entire ecosystem into one unified view. No data duplication. No vendor lock-in. No per-seat pricing.'
+  const primaryCta = brand?.primaryCta ?? 'Get Started Free'
+  const secondaryCta = brand?.secondaryCta ?? 'Try Live Demo'
+
   return (
     <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-28">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -11,29 +21,30 @@ export function HeroSection() {
           {/* Text content */}
           <div className="text-center lg:text-left">
             <div className="mb-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-              <Badge variant="secondary">Open Source</Badge>
-              <Badge variant="secondary">Self-Hostable</Badge>
-              <Badge variant="secondary">MIT Licensed</Badge>
+              {badges.map((badge) => (
+                <Badge key={badge} variant="secondary">
+                  {badge}
+                </Badge>
+              ))}
             </div>
 
             <h1 className="text-5xl font-bold tracking-tight md:text-6xl lg:text-7xl">
-              The CRM Built for{' '}
+              {heroPrefix}{' '}
               <span className="bg-gradient-to-r from-accent-blue via-accent-violet to-accent-rose bg-clip-text text-transparent">
-                Physical + Digital
+                {heroHighlight}
               </span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Phynd federates real-time data from your entire ecosystem into one unified view. No
-              data duplication. No vendor lock-in. No per-seat pricing.
+              {heroDescription}
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row lg:justify-start">
               <Button size="lg" asChild>
-                <Link href="/login">Get Started Free</Link>
+                <Link href="/login">{primaryCta}</Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/demo">Try Live Demo</Link>
+                <Link href="/demo">{secondaryCta}</Link>
               </Button>
               <Button size="lg" variant="ghost" asChild>
                 <a href="https://github.com/madfam/phynd" target="_blank" rel="noopener noreferrer">

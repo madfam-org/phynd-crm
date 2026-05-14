@@ -1,4 +1,5 @@
 import { Separator } from '@/components/ui/separator'
+import type { TenantBrand } from '@/lib/branding/tenant-brand'
 import Link from 'next/link'
 
 const columns = [
@@ -40,7 +41,9 @@ const columns = [
   },
 ]
 
-export function Footer() {
+export function Footer({ brand }: { brand?: TenantBrand }) {
+  const copyrightName = brand?.tenantId === 'madfam' ? 'MADFAM' : 'Phynd'
+
   return (
     <footer className="border-t bg-muted/30">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
@@ -68,7 +71,8 @@ export function Footer() {
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} MADFAM. All rights reserved.
+            &copy; {new Date().getFullYear()} {copyrightName}. All rights reserved.
+            {brand?.poweredBy ? <span className="ml-2">{brand.poweredBy}.</span> : null}
           </p>
           <div className="flex items-center gap-4">
             <a

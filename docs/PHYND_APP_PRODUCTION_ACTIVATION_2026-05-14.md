@@ -145,11 +145,14 @@ Verified:
 - `https://crm.madfam.io/api/auth/providers` returns the Janua provider.
 - `https://crm.madfam.io/api/auth/csrf` returns a CSRF token.
 - Auth.js signin initiation redirects to Janua authorization.
+- Cloudflare activation check for `phynd.app` now returns `Zone verified!` after Porkbun delegation to `chin.ns.cloudflare.com` and `woz.ns.cloudflare.com`.
+- Source now contains host-aware branding so `phynd.app` resolves to generic Phynd positioning while `crm.madfam.io` resolves to the MADFAM-labelled PhyndCRM tenant shell.
 
 Still blocked:
 
-- `phynd.app` registrar delegation has been moved from Porkbun defaults to the Cloudflare-assigned nameservers `chin.ns.cloudflare.com` and `woz.ns.cloudflare.com`; Cloudflare DNS has proxied tunnel CNAMEs for `phynd.app` and `www.phynd.app`, but the Cloudflare zone is still `pending` until delegation activation completes.
-- The currently deployed image still requests the old `roles` OAuth scope until the patched Phynd image is built and promoted.
+- `phynd.app` public DNS/HTTPS must be rechecked after Cloudflare edge propagation; prior checks still returned tunnel/ULA answers instead of reachable Cloudflare edge responses.
+- The currently deployed image still requests the old `roles` OAuth scope until the patched Phynd web image is built and promoted.
+- CI/deploy were blocked on a worker Biome formatting issue and a Next.js route-handler type error; both are fixed in source and covered by follow-up validation.
 - Worker Redis connectivity is still degraded against the shared Redis services.
 - Pravara production is returning `503`, and its DB had no application tables during break-glass inspection; production dispatch must stay degraded until Pravara is repaired and a real Pravara API key is issued.
 - Enclii managed Postgres addon provisioning remains blocked by CNPG init pods failing to reach the Kubernetes API service from the generated addon namespace.

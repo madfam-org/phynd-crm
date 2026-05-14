@@ -9,14 +9,46 @@ import { Navbar } from '@/components/marketing/navbar'
 import { PainPointsSection } from '@/components/marketing/pain-points-section'
 import { PricingSection } from '@/components/marketing/pricing-section'
 import { SocialProofSection } from '@/components/marketing/social-proof-section'
+import { getBrandForHost } from '@/lib/branding/tenant-brand'
+import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 
-export const dynamic = 'force-static'
+export const dynamic = 'force-dynamic'
 
-export default function MarketingPage() {
+async function getRequestBrand() {
+  const requestHeaders = await headers()
+  return getBrandForHost(requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host'))
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getRequestBrand()
+
+  return {
+    title: brand.title,
+    description: brand.description,
+    openGraph: {
+      title: brand.title,
+      description: brand.description,
+      url: brand.ogUrl,
+      images: [`${brand.ogUrl}/og-image.png`],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: brand.title,
+      description: brand.description,
+      images: [`${brand.ogUrl}/og-image.png`],
+    },
+  }
+}
+
+export default async function MarketingPage() {
+  const brand = await getRequestBrand()
+
   return (
     <div className="min-h-screen">
-      <Navbar />
-      <HeroSection />
+      <Navbar brand={brand} />
+      <HeroSection brand={brand} />
       <PainPointsSection />
       <FeaturesSection />
       <EcosystemDiagram />
@@ -25,7 +57,7 @@ export default function MarketingPage() {
       <ComparisonTable />
       <PricingSection />
       <CtaSection />
-      <Footer />
+      <Footer brand={brand} />
     </div>
   )
 }

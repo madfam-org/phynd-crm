@@ -50,10 +50,27 @@ const ORDER_STATUS_VARIANT: Record<
 }
 
 export function ContactRelated({ contactId }: ContactRelatedProps) {
-  const { data: leadsData } = trpc.leads.listByContactId.useQuery({ contactId })
-  const { data: oppsData } = trpc.opportunities.listByContactId.useQuery({ contactId })
-  const { data: quotesData } = trpc.quotes.listByContactId.useQuery({ contactId })
-  const { data: ordersData } = trpc.orders.listByContactId.useQuery({ contactId })
+  const leadsRouter = trpc.leads as NonNullable<typeof trpc.leads>
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const quotesRouter = trpc.quotes as NonNullable<typeof trpc.quotes>
+  const ordersRouter = trpc.orders as NonNullable<typeof trpc.orders>
+  const listLeadsByContactId = leadsRouter.listByContactId as NonNullable<
+    typeof leadsRouter.listByContactId
+  >
+  const listOpportunitiesByContactId = opportunitiesRouter.listByContactId as NonNullable<
+    typeof opportunitiesRouter.listByContactId
+  >
+  const listQuotesByContactId = quotesRouter.listByContactId as NonNullable<
+    typeof quotesRouter.listByContactId
+  >
+  const listOrdersByContactId = ordersRouter.listByContactId as NonNullable<
+    typeof ordersRouter.listByContactId
+  >
+
+  const { data: leadsData } = listLeadsByContactId.useQuery({ contactId })
+  const { data: oppsData } = listOpportunitiesByContactId.useQuery({ contactId })
+  const { data: quotesData } = listQuotesByContactId.useQuery({ contactId })
+  const { data: ordersData } = listOrdersByContactId.useQuery({ contactId })
 
   const leads = leadsData?.items ?? []
   const opportunities = oppsData?.items ?? []

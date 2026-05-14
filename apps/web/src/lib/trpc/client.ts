@@ -69,7 +69,7 @@ type UtilsCompat = {
   }
 }
 
-type LooseProcedureCompat = ProcedureCompat<unknown, any>
+type LooseProcedureCompat = ProcedureCompat<unknown, unknown>
 type RequiredRouterNamespaceCompat = {
   [TRouter in keyof RouterOutputs]-?: Record<string, LooseProcedureCompat>
 }

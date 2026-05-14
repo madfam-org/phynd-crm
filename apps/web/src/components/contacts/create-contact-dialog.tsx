@@ -24,9 +24,13 @@ export function CreateContactDialog() {
   const [company, setCompany] = useState('')
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.contacts.create.useMutation({
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const createContact = contactsRouter.create as NonNullable<typeof contactsRouter.create>
+  const contactsUtils = utils.contacts as NonNullable<typeof utils.contacts>
+  const listContactsUtils = contactsUtils.list as NonNullable<typeof contactsUtils.list>
+  const createMutation = createContact.useMutation({
     onSuccess: () => {
-      utils.contacts.list.invalidate()
+      listContactsUtils.invalidate()
       setOpen(false)
       resetForm()
     },

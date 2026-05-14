@@ -34,9 +34,13 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [company, setCompany] = useState(contact.company ?? '')
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.contacts.update.useMutation({
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const updateContact = contactsRouter.update as NonNullable<typeof contactsRouter.update>
+  const contactsUtils = utils.contacts as NonNullable<typeof utils.contacts>
+  const listContactsUtils = contactsUtils.list as NonNullable<typeof contactsUtils.list>
+  const updateMutation = updateContact.useMutation({
     onSuccess: () => {
-      utils.contacts.list.invalidate()
+      listContactsUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update contact', { description: err.message }),

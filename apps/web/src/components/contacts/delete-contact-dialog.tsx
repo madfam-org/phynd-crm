@@ -26,9 +26,13 @@ export function DeleteContactDialog({
   onOpenChange,
 }: DeleteContactDialogProps) {
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.contacts.delete.useMutation({
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const deleteContact = contactsRouter.delete as NonNullable<typeof contactsRouter.delete>
+  const contactsUtils = utils.contacts as NonNullable<typeof utils.contacts>
+  const listContactsUtils = contactsUtils.list as NonNullable<typeof contactsUtils.list>
+  const deleteMutation = deleteContact.useMutation({
     onSuccess: () => {
-      utils.contacts.list.invalidate()
+      listContactsUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to delete contact', { description: err.message }),

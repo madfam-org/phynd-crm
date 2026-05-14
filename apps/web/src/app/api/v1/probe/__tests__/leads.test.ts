@@ -102,7 +102,7 @@ beforeEach(() => {
       },
       where: () => chain,
       orderBy: () => chain,
-      limit: () => Promise.resolve(db[tableKey!] ?? []),
+      limit: () => Promise.resolve(tableKey ? db[tableKey] : []),
     }
     return chain
   })

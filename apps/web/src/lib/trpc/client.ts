@@ -74,7 +74,10 @@ type RequiredRouterNamespaceCompat = {
   [TRouter in keyof RouterOutputs]-?: Record<string, LooseProcedureCompat>
 }
 type RequiredUtilsNamespaceCompat = {
-  [TRouter in keyof RouterOutputs]-?: Record<string, { invalidate: (input?: unknown) => Promise<void> }>
+  [TRouter in keyof RouterOutputs]-?: Record<
+    string,
+    { invalidate: (input?: unknown) => Promise<void> }
+  >
 }
 
 type TrpcProviderCompat = ComponentType<{
@@ -85,10 +88,10 @@ type TrpcProviderCompat = ComponentType<{
 
 type TrpcBuildCompat = RequiredRouterNamespaceCompat &
   RouterCompat & {
-  Provider: TrpcProviderCompat
-  createClient: (options: unknown) => unknown
-  useUtils: () => RequiredUtilsNamespaceCompat & UtilsCompat
-}
+    Provider: TrpcProviderCompat
+    createClient: (options: unknown) => unknown
+    useUtils: () => RequiredUtilsNamespaceCompat & UtilsCompat
+  }
 
 // tRPC v11 RC can widen the workspace router record during Dockerized Next builds,
 // exposing the protected-intersection collision sentinel instead of the decorated

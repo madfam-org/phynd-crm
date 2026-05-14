@@ -8,7 +8,8 @@ interface ContactActivitiesProps {
 }
 
 export function ContactActivities({ contactId }: ContactActivitiesProps) {
-  const { data: activities } = trpc.activities.listForEntity.useQuery({
+  const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
+  const { data: activities } = activitiesRouter.listForEntity.useQuery({
     entityType: 'contact',
     entityId: contactId,
   })

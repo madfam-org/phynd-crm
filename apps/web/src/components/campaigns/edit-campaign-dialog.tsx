@@ -268,7 +268,7 @@ export function EditCampaignDialog({ campaign, open, onOpenChange }: EditCampaig
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(offersData?.items ?? []).map((o) => (
+                  {(offersData?.items ?? []).map((o: { id: string; name: string }) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
                     </SelectItem>

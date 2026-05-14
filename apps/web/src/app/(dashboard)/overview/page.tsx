@@ -2,10 +2,13 @@ import { AtRiskDealsCard } from '@/components/analytics/at-risk-deals-card'
 import { ConversionFunnelChart } from '@/components/analytics/conversion-funnel-chart'
 import { RevenueByStatusChart } from '@/components/analytics/revenue-by-status-chart'
 import { Badge } from '@/components/ui/badge'
+import { isDemoSession } from '@/lib/demo'
 import { getServerCaller } from '@/lib/trpc/server'
+import { cookies } from 'next/headers'
 
 export default async function DashboardPage() {
   const caller = await getServerCaller()
+  const demoSessionId = isDemoSession(await cookies())
   const [
     contacts,
     leads,
@@ -16,17 +19,8 @@ export default async function DashboardPage() {
     weighted,
     quotesData,
     ordersData,
-  ] = await Promise.all([
-    caller.contacts.list(),
-    caller.leads.list(),
-    caller.opportunities.list(),
-    caller.analytics.conversionMetrics(),
-    caller.analytics.revenueByStatus(),
-    caller.activities.list({ limit: 5 }),
-    caller.analytics.weightedPipelineValue(),
-    caller.quotes.list(),
-    caller.orders.list(),
-  ])
+    demoDataDegraded,
+  ] = await loadDashboardData(caller, !!demoSessionId)
 
   const openOpps = opportunities.items.filter((o) => o.status === 'open')
   const pipelineValue = openOpps.reduce((sum, o) => sum + Number(o.value ?? 0), 0)
@@ -41,6 +35,12 @@ export default async function DashboardPage() {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Welcome to Phynd CRM</p>
       </div>
+      {demoDataDegraded ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Demo data is still warming up. The workspace is available, and cards will populate as
+          seeded records become reachable.
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           title="Contacts"
@@ -115,6 +115,41 @@ export default async function DashboardPage() {
       </div>
     </div>
   )
+}
+
+async function loadDashboardData(
+  caller: Awaited<ReturnType<typeof getServerCaller>>,
+  isDemo: boolean,
+) {
+  try {
+    const result = await Promise.all([
+      caller.contacts.list(),
+      caller.leads.list(),
+      caller.opportunities.list(),
+      caller.analytics.conversionMetrics(),
+      caller.analytics.revenueByStatus(),
+      caller.activities.list({ limit: 5 }),
+      caller.analytics.weightedPipelineValue(),
+      caller.quotes.list(),
+      caller.orders.list(),
+    ])
+    return [...result, false] as const
+  } catch (error) {
+    if (!isDemo) throw error
+    console.error('Demo dashboard data failed to load', error)
+    return [
+      { items: [] },
+      { items: [] },
+      { items: [] },
+      { visitorToLead: 0, leadToOpportunity: 0, opportunityToWon: 0 },
+      [],
+      { items: [] },
+      { weightedValue: 0 },
+      { items: [] },
+      { items: [] },
+      true,
+    ] as const
+  }
 }
 
 function DashboardCard({

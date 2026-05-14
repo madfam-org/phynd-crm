@@ -33,7 +33,7 @@ spec:
         href: https://app.phynd.app
         group: PhyndCRM
         family: MADFAM Platform
-        description: Authenticated CRM workspace (planned, not yet deployed — dashboard currently lives at phynd.app/overview)
+        description: Authenticated CRM workspace routed through Enclii
       - name: PhyndCRM Admin
         url: https://admin.phynd.app
         href: https://admin.phynd.app

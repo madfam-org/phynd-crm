@@ -21,12 +21,22 @@ spec:
   environment:
     NODE_ENV: production
     NEXT_PUBLIC_APP_URL: https://phynd.app
+    AUTH_TRUST_HOST: "true"
     AUTH_JANUA_ISSUER: https://auth.madfam.io
   domains:
     - name: phynd.app
       environment: production
       tlsEnabled: true
     - name: www.phynd.app
+      environment: production
+      tlsEnabled: true
+    - name: app.phynd.app
+      environment: production
+      tlsEnabled: true
+    - name: admin.phynd.app
+      environment: production
+      tlsEnabled: true
+    - name: api.phynd.app
       environment: production
       tlsEnabled: true
     - name: crm.madfam.io

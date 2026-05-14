@@ -1,7 +1,7 @@
 # ADR-007: Demo Mode Strategy
 
 ## Status
-Accepted
+Accepted, amended 2026-05-14
 
 ## Context
 Visitors to the Phynd landing page can't experience the product without signing up via Janua OIDC — a friction point that blocks conversion. The marketing site shows text and diagrams but no interactive product preview. We need a way for visitors to explore the full CRM without creating an account, while keeping demo data completely isolated from production data.
@@ -12,7 +12,9 @@ Implement a **cookie-based interactive demo mode** with per-session tenant isola
 ### Architecture
 
 #### Entry Flow
-- `GET /demo` → generates UUID session ID, sets `phynd-demo={sessionId}` cookie (httpOnly, sameSite=lax, maxAge=4h), seeds demo tenant, redirects to `/overview`
+- `GET /demo` → generates UUID session ID, sets `phynd-demo={sessionId}` cookie (httpOnly, sameSite=lax, maxAge=4h), seeds demo tenant, redirects to `/overview` on the trusted external origin
+- Redirect origins are resolved from trusted Enclii/Cloudflare headers (`x-forwarded-host`, `x-original-host`, `host`) and fall back to `NEXT_PUBLIC_APP_URL` / `https://phynd.app`
+- The public `Location` header must never contain internal pod or service names such as `phynd-crm-web-*.svc` or `phynd-crm-web-*:3000`
 - Middleware allows demo cookie holders through without real auth
 - Both `getServerCaller()` and tRPC route handler inject `createDemoAuth(sessionId)` as auth context
 
@@ -27,6 +29,7 @@ Implement a **cookie-based interactive demo mode** with per-session tenant isola
 - Entities: 1 user, 1 pipeline, 6 stages, 4 contacts, 3 leads, 3 opportunities, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 lead scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags + 3 taggables, 1 notification
 - Leads/opps/quotes/orders are backdated across 25 days so analytics trend charts show meaningful data
 - Non-blocking: `seedDemoTenant().catch(() => {})` — dashboard pages handle empty state gracefully
+- The overview dashboard must degrade gracefully for demo sessions if seeded data is not readable yet; it should show the dashboard shell and a warming-up notice instead of a server-component crash
 
 #### Cleanup
 - `demo-cleanup` BullMQ processor runs every hour (`0 * * * *`)
@@ -42,6 +45,7 @@ Implement a **cookie-based interactive demo mode** with per-session tenant isola
 - `apps/web/src/lib/demo-seed.ts` — Seed function
 - `apps/web/src/app/demo/route.ts` — Entry route handler
 - `apps/web/src/app/demo/exit/route.ts` — Exit route handler
+- `apps/web/src/lib/http/origin.ts` — Trusted external-origin resolution behind Enclii/Cloudflare
 - `apps/web/src/components/demo/demo-banner.tsx` — UI banner
 - `apps/worker/src/processors/demo-cleanup.ts` — Cleanup processor
 

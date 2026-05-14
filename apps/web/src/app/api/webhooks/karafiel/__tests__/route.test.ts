@@ -81,7 +81,9 @@ vi.mock('@phynd/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ _and: args }),
   eq: (col: unknown, val: unknown) => ({ _eq: [col, val] }),
-  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ _sql: String.raw(strings, ...values) }),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    _sql: String.raw(strings, ...values),
+  }),
 }))
 
 vi.mock('@phynd/services', () => ({
@@ -111,11 +113,7 @@ function createRequest(
   const body = JSON.stringify(payload)
   const timestamp = options.timestamp === undefined ? new Date().toISOString() : options.timestamp
   const signature =
-    options.signature ??
-    crypto
-      .createHmac('sha256', SECRET)
-      .update(body)
-      .digest('hex')
+    options.signature ?? crypto.createHmac('sha256', SECRET).update(body).digest('hex')
 
   if (typeof payload.event_id === 'string') {
     state.currentEventId = payload.event_id

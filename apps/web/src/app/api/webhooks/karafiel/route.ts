@@ -50,26 +50,17 @@ export async function POST(req: Request): Promise<NextResponse> {
   // 2) Signature + anti-replay checks.
   const timestampHeader = req.headers.get('x-webhook-timestamp')
   if (!timestampHeader) {
-    return NextResponse.json(
-      { error: 'Missing x-webhook-timestamp header' },
-      { status: 401 },
-    )
+    return NextResponse.json({ error: 'Missing x-webhook-timestamp header' }, { status: 401 })
   }
 
   const eventAtMs = Date.parse(timestampHeader)
   if (Number.isNaN(eventAtMs)) {
-    return NextResponse.json(
-      { error: 'Invalid x-webhook-timestamp header' },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: 'Invalid x-webhook-timestamp header' }, { status: 400 })
   }
 
   const ageMs = Date.now() - eventAtMs
   if (ageMs < 0 || ageMs > MAX_TIMESTAMP_AGE_MS) {
-    return NextResponse.json(
-      { error: 'Webhook timestamp expired' },
-      { status: 401 },
-    )
+    return NextResponse.json({ error: 'Webhook timestamp expired' }, { status: 401 })
   }
 
   const rawBody = await req.text()
@@ -101,7 +92,9 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const eventId =
-    typeof payload.event_id === 'string' && payload.event_id.trim() ? payload.event_id.trim() : undefined
+    typeof payload.event_id === 'string' && payload.event_id.trim()
+      ? payload.event_id.trim()
+      : undefined
 
   const db = getDb()
 
@@ -192,7 +185,10 @@ async function processGrantAward(
 
     const updated = await grantsService.markAwarded(grantApplicationId, awarded)
     if (!updated) {
-      logger.warn({ grantApplicationId, webhookEventId }, 'grant.awarded had no matching application')
+      logger.warn(
+        { grantApplicationId, webhookEventId },
+        'grant.awarded had no matching application',
+      )
     }
   } catch (error) {
     logger.warn(

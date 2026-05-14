@@ -13,8 +13,8 @@
  * Reference: autoswarm-office/packages/redis-pool/src/autoswarm_redis_pool/task_stream.py
  */
 
+import type { ServiceEventEnvelope } from '@phynd/types'
 import Redis from 'ioredis'
-import { type ServiceEventEnvelope } from '@phynd/types'
 
 const STREAM_KEY = 'madfam:billing-events'
 const CONSUMER_GROUP = 'phynd-crm-consumers'

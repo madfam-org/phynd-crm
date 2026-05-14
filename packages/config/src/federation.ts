@@ -1,4 +1,4 @@
-import type { FederationProviderName, ProviderConfig } from '@phynd/types/federation'
+import type { FederationProviderName, ProviderConfig } from '@phynd/types'
 
 export function getFederationConfig(baseUrls: {
   janua: string

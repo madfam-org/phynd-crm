@@ -1,6 +1,6 @@
 import { DEMO_COOKIE_NAME } from '@/lib/demo'
 import { cookies } from 'next/headers'
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()

@@ -30,8 +30,7 @@ function getBaseUrls() {
     pravara: process.env.PRAVARA_BASE_URL ?? 'http://localhost:4004',
     forj: process.env.FORJ_API_URL ?? 'http://localhost:4005',
     tezca: process.env.TEZCA_API_URL ?? 'http://tezca:8000',
-    'janua-telemetry':
-      process.env.JANUA_TELEMETRY_API_URL ?? 'http://localhost:4001',
+    'janua-telemetry': process.env.JANUA_TELEMETRY_API_URL ?? 'http://localhost:4001',
   }
 }
 

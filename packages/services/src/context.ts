@@ -35,9 +35,9 @@ export function createServiceContext(
   db: Database,
   cache: CacheManager,
   auth: AuthContext,
-  tenantId?: string
+  tenantId?: string,
 ): ServiceContext {
-  const resolvedTenantId = tenantId || (auth as any).tenantId || DEFAULT_TENANT_ID;
+  const resolvedTenantId = tenantId || (auth as any).tenantId || DEFAULT_TENANT_ID
   return {
     db,
     cache,

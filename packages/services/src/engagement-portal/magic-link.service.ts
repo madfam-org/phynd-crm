@@ -58,7 +58,11 @@ export class EngagementPortalMagicLinkService {
   private get portalBaseUrl(): string {
     const base = process.env.PORTAL_BASE_URL ?? process.env.NEXTAUTH_URL
     if (!base) {
-      throw new ServiceError('PORTAL_BASE_URL or NEXTAUTH_URL not configured', 'CONFIGURATION_ERROR', 500)
+      throw new ServiceError(
+        'PORTAL_BASE_URL or NEXTAUTH_URL not configured',
+        'CONFIGURATION_ERROR',
+        500,
+      )
     }
     return base.replace(/\/$/, '')
   }

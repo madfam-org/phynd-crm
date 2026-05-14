@@ -29,6 +29,18 @@ export interface SignatureResult {
   reason?: SignatureFailureReason
 }
 
+function parseSignatureHeader(signatureHeader: string): Record<string, string> {
+  const parts: Record<string, string> = {}
+  for (const seg of signatureHeader.split(',')) {
+    const eq = seg.indexOf('=')
+    if (eq === -1) continue
+    const k = seg.slice(0, eq).trim()
+    const v = seg.slice(eq + 1).trim()
+    if (k && v) parts[k] = v
+  }
+  return parts
+}
+
 export function verifyMadfamSignature(
   rawBody: string,
   signatureHeader: string | undefined | null,
@@ -38,15 +50,7 @@ export function verifyMadfamSignature(
   if (!secret) return { ok: false, reason: 'missing_secret' }
   if (!signatureHeader) return { ok: false, reason: 'missing_signature_header' }
 
-  const parts: Record<string, string> = {}
-  for (const seg of signatureHeader.split(',')) {
-    const eq = seg.indexOf('=')
-    if (eq === -1) continue
-    const k = seg.slice(0, eq).trim()
-    const v = seg.slice(eq + 1).trim()
-    if (k && v) parts[k] = v
-  }
-
+  const parts = parseSignatureHeader(signatureHeader)
   const tsStr = parts.t
   const v1 = parts.v1
   if (!tsStr || !v1) return { ok: false, reason: 'malformed_signature_header' }

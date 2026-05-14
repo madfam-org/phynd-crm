@@ -24,16 +24,14 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const lead = await caller.leads.getById({ id })
   if (!lead) notFound()
 
-  const [contact, pipelines] = await Promise.all([
-    lead.contactId ? caller.contacts.getById({ id: lead.contactId }) : null,
-    caller.pipelines.list(),
-  ])
+  const contact = lead.contactId ? await caller.contacts.getById({ id: lead.contactId }) : null
 
   // Resolve stage name from pipeline stages
   let stageName: string | null = null
   if (lead.pipelineId) {
     const stages = await caller.pipelines.getStages({ pipelineId: lead.pipelineId })
-    const stage = stages.find((s) => s.id === lead.stageId)
+    type PipelineStage = (typeof stages)[number]
+    const stage = stages.find((s: PipelineStage) => s.id === lead.stageId)
     stageName = stage?.name ?? null
   }
 

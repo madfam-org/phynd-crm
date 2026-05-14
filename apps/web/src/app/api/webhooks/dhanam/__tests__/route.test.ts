@@ -125,28 +125,33 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     return refId ? [rowById(refId)] : []
   }
 
-  const resolveEngagements = (): unknown[] => {
+  const resolveEngagementById = (): unknown[] | null => {
     const idIdx = whereIndex('engagements.id')
-    if (idIdx >= 0) {
-      const engagement = state.engagementById.get(whereValue(idIdx))
-      return engagement ? [engagement] : []
-    }
+    if (idIdx < 0) return null
+    const engagement = state.engagementById.get(whereValue(idIdx))
+    return engagement ? [engagement] : []
+  }
 
+  const resolveEngagementByContact = (): unknown[] | null => {
     const contactIdx = whereIndex('engagements.contactId')
-    if (contactIdx >= 0) {
-      const id = state.engagementByContactId.get(whereValue(contactIdx))
-      const engagement = id ? state.engagementById.get(id) : undefined
-      return engagement ? [engagement] : id ? [rowById(id)] : []
-    }
+    if (contactIdx < 0) return null
+    const id = state.engagementByContactId.get(whereValue(contactIdx))
+    const engagement = id ? state.engagementById.get(id) : undefined
+    return engagement ? [engagement] : id ? [rowById(id)] : []
+  }
 
+  const resolveEngagementByOpportunity = (): unknown[] | null => {
     const opportunityIdx = whereIndex('engagements.opportunityId')
-    if (opportunityIdx < 0) return []
+    if (opportunityIdx < 0) return null
     const opportunityId = whereValue(opportunityIdx)
     const engagement = [...state.engagementById.values()].find(
       (row) => row.opportunityId === opportunityId,
     )
     return engagement ? [engagement] : []
   }
+
+  const resolveEngagements = (): unknown[] =>
+    resolveEngagementById() ?? resolveEngagementByContact() ?? resolveEngagementByOpportunity() ?? []
 
   const resolveOrders = (): unknown[] => {
     const idIdx = whereIndex('orders.id')

@@ -6,6 +6,27 @@ Date: 2026-05-14
 
 Bring `https://phynd.app` online as the canonical production Phynd CRM domain, with Janua-powered login for `admin@madfam.io`, while keeping all infrastructure changes Enclii-first.
 
+## Latest verified status — 2026-05-14
+
+This runbook is chronological. Older sections preserve the starting condition and remediation trail; this section is the current source of truth for the live edge.
+
+- `https://phynd.app/` returns HTTP 200 through the Cloudflare edge when pinned to the Cloudflare A record `104.21.14.180`.
+- `https://phynd.app/api/health` returns HTTP 200 through the same Cloudflare edge path.
+- `https://crm.madfam.io/` returns HTTP 200.
+- `https://crm.madfam.io/api/health` returns HTTP 200.
+- `https://phynd.app/api/auth/signin/janua?callbackUrl=https%3A%2F%2Fphynd.app%2Fdashboard` currently returns HTTP 400 and sets the Auth.js callback-url cookie to `https://crm.madfam.io`, which proves the live runtime is still carrying a CRM canonical URL for Auth.js.
+- Source now contains host-aware marketing/metadata branding so `phynd.app` serves generic Phynd positioning and `crm.madfam.io` serves the MADFAM-labelled PhyndCRM tenant shell after the patched web image is promoted.
+- Source now contains CI/deploy unblockers for the worker Biome formatting issue, the Next.js GraphQL route-handler signature, services lint formatting/import issues, and web lint formatting/import issues.
+- Root lint passes locally with warning-level technical debt still present.
+- Local root typecheck remains blocked by local workspace installation state: this checkout currently lacks `node_modules/@phynd` workspace symlinks, so packages cannot resolve `@phynd/types` locally. CI should be used as the source of truth after a clean dependency install.
+
+Remaining production blockers:
+
+- Promote the patched web image and verify Janua initiation on both `phynd.app` and `crm.madfam.io`.
+- Remove or replace the hard-coded runtime `AUTH_URL=https://crm.madfam.io` and `NEXTAUTH_URL=https://crm.madfam.io` values so Auth.js can trust the active host for both canonical Phynd and the MADFAM slice.
+- Keep production dispatch degraded until Pravara is repaired and a real Pravara API key is issued.
+- Reconcile the break-glass runtime secret and DB bootstrap back into Enclii/Vault once the Enclii-managed secret and Postgres addon paths are repaired.
+
 ## Current verified state
 
 - `https://phynd.app` is not serving Phynd. TLS handshakes fail.
@@ -150,9 +171,9 @@ Verified:
 
 Still blocked:
 
-- `phynd.app` public DNS/HTTPS must be rechecked after Cloudflare edge propagation; prior checks still returned tunnel/ULA answers instead of reachable Cloudflare edge responses.
-- The currently deployed image still requests the old `roles` OAuth scope until the patched Phynd web image is built and promoted.
-- CI/deploy were blocked on a worker Biome formatting issue and a Next.js route-handler type error; both are fixed in source and covered by follow-up validation.
+- `phynd.app` now serves Phynd over the Cloudflare edge, but Janua signin initiation on `phynd.app` still returns HTTP 400 while the runtime Auth.js callback-url cookie points at `https://crm.madfam.io`.
+- The patched Phynd web image still needs to be built, promoted, and smoke-tested before Janua login can be considered truthful on both `phynd.app` and `crm.madfam.io`.
+- CI/deploy were blocked on Biome formatting/import issues and a Next.js route-handler type error; source fixes are committed locally and root lint passes.
 - Worker Redis connectivity is still degraded against the shared Redis services.
 - Pravara production is returning `503`, and its DB had no application tables during break-glass inspection; production dispatch must stay degraded until Pravara is repaired and a real Pravara API key is issued.
 - Enclii managed Postgres addon provisioning remains blocked by CNPG init pods failing to reach the Kubernetes API service from the generated addon namespace.

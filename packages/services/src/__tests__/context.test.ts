@@ -56,20 +56,18 @@ describe('createServiceContext', () => {
     expect(ctx.auth.roles).toEqual(['sales_rep'])
   })
 
-  it('always sets tenantId to "madfam" for Phase 1 MVP', () => {
+  it('defaults tenantId to "madfam" when auth does not override it', () => {
     const auth = createMockAuth()
     const ctx = createServiceContext(mockDb, mockCache, auth)
 
     expect(ctx.tenantId).toBe('madfam')
   })
 
-  it('ignores the tenantId from the auth context and hardcodes "madfam"', () => {
+  it('uses the tenantId from the auth context when provided', () => {
     const auth = createMockAuth({ tenantId: 'some-other-tenant' })
     const ctx = createServiceContext(mockDb, mockCache, auth)
 
-    // Even when auth carries a different tenantId, the service context
-    // must use the hardcoded Phase 1 value
-    expect(ctx.tenantId).toBe('madfam')
+    expect(ctx.tenantId).toBe('some-other-tenant')
   })
 
   it('returns exactly four properties (no extra fields)', () => {

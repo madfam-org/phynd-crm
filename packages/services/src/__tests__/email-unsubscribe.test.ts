@@ -73,7 +73,7 @@ describe('unsubscribe-token', () => {
       const original = process.env.NEXT_PUBLIC_APP_URL
       delete process.env.NEXT_PUBLIC_APP_URL
       const url = buildUnsubscribeUrl('lead-000')
-      expect(url).toMatch(/^https:\/\/crm\.madfam\.io\/api\/unsubscribe/)
+      expect(url).toMatch(/^https:\/\/phynd\.app\/api\/unsubscribe/)
       process.env.NEXT_PUBLIC_APP_URL = original
     })
   })

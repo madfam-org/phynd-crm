@@ -49,8 +49,8 @@ interface ProcedureCompat<TInput, TOutput> {
 }
 
 type RouterCompat = {
-  [TRouter in keyof RouterOutputs]: {
-    [TProcedure in keyof RouterOutputs[TRouter]]: ProcedureCompat<
+  [TRouter in keyof RouterOutputs]-?: {
+    [TProcedure in keyof RouterOutputs[TRouter]]-?: ProcedureCompat<
       TProcedure extends keyof RouterInputs[TRouter] ? RouterInputs[TRouter][TProcedure] : never,
       RouterOutputs[TRouter][TProcedure]
     >
@@ -58,8 +58,8 @@ type RouterCompat = {
 }
 
 type UtilsCompat = {
-  [TRouter in keyof RouterOutputs]: {
-    [TProcedure in keyof RouterOutputs[TRouter]]: {
+  [TRouter in keyof RouterOutputs]-?: {
+    [TProcedure in keyof RouterOutputs[TRouter]]-?: {
       invalidate: (input?: unknown) => Promise<void>
     }
   }

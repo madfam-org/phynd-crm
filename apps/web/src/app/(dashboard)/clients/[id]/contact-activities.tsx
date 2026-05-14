@@ -2,10 +2,13 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { RouterOutputs } from '@phynd/api'
 
 interface ContactActivitiesProps {
   contactId: string
 }
+
+type ContactActivity = RouterOutputs['activities']['listForEntity'][number]
 
 export function ContactActivities({ contactId }: ContactActivitiesProps) {
   const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
@@ -23,7 +26,7 @@ export function ContactActivities({ contactId }: ContactActivitiesProps) {
 
   return (
     <div className="space-y-3">
-      {activities.map((activity) => (
+      {activities.map((activity: ContactActivity) => (
         <div key={activity.id} className="flex items-center justify-between rounded-lg border p-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">

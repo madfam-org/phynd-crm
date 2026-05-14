@@ -445,6 +445,14 @@ import { POST } from '../route'
 
 const SECRET = 'whsec_test_dhanam_2026'
 
+function expectArrayItem<T>(items: T[], index: number, label: string): T {
+  const item = items[index]
+  if (!item) {
+    throw new Error(`Expected ${label} at index ${index}`)
+  }
+  return item
+}
+
 function signedRequest(body: string, headerOverride?: string | null): Request {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -634,14 +642,14 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
     // webhook_events written with the event_id at the top-level for
     // idempotency lookups.
     expect(state.inserts.webhookEvents).toHaveLength(1)
-    const wh = state.inserts.webhookEvents[0]!
+    const wh = expectArrayItem(state.inserts.webhookEvents, 0, 'webhook event insert')
     expect(wh.provider).toBe('dhanam')
     expect(wh.eventType).toBe('checkout.session.completed')
     expect((wh.payload as Record<string, unknown>).event_id).toBe('evt_checkout_1')
 
     // conversions row carries the right type + revenue + metadata.
     expect(state.inserts.conversions).toHaveLength(1)
-    const conv = state.inserts.conversions[0]!
+    const conv = expectArrayItem(state.inserts.conversions, 0, 'conversion insert')
     expect(conv.type).toBe('dhanam_checkout_completed')
     expect(conv.contactId).toBe('contact_tablaco')
     expect(conv.leadId).toBe('lead_tablaco')
@@ -660,25 +668,33 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
 
     // Lead promoted to Closed Won + status converted.
     expect(state.updates.leads).toHaveLength(1)
-    expect(state.updates.leads[0]!.values).toMatchObject({
+    expect(expectArrayItem(state.updates.leads, 0, 'lead update').values).toMatchObject({
       status: 'converted',
       stageId: 'stage_closed_won',
     })
 
     // Engagement events surfaced for the portal timeline.
     expect(state.inserts.engagementEvents).toHaveLength(3)
-    const ee = state.inserts.engagementEvents[0]!
+    const ee = expectArrayItem(state.inserts.engagementEvents, 0, 'engagement event insert')
     expect(ee.engagementId).toBe('eng_tablaco')
     expect(ee.source).toBe('dhanam')
     expect(ee.eventType).toBe('dhanam:payment_succeeded')
     expect(ee.dedupKey).toBe('dhanam:evt_checkout_1')
 
-    const reconciled = state.inserts.engagementEvents[1]!
+    const reconciled = expectArrayItem(
+      state.inserts.engagementEvents,
+      1,
+      'reconciled engagement event insert',
+    )
     expect(reconciled.source).toBe('system')
     expect(reconciled.eventType).toBe('system:payment_reconciled')
     expect(reconciled.dedupKey).toBe('payment:evt_checkout_1:reconciled')
 
-    const dispatchBlocked = state.inserts.engagementEvents[2]!
+    const dispatchBlocked = expectArrayItem(
+      state.inserts.engagementEvents,
+      2,
+      'dispatch blocked engagement event insert',
+    )
     expect(dispatchBlocked.source).toBe('system')
     expect(dispatchBlocked.eventType).toBe('system:production_dispatch_blocked')
     expect(dispatchBlocked.status).toBe('blocked')
@@ -742,8 +758,9 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
 
     // Lead status promoted to converted but stage left alone (no Closed Won).
     expect(state.updates.leads).toHaveLength(1)
-    expect(state.updates.leads[0]!.values).toMatchObject({ status: 'converted' })
-    expect(state.updates.leads[0]!.values.stageId).toBeUndefined()
+    const leadUpdate = expectArrayItem(state.updates.leads, 0, 'lead update')
+    expect(leadUpdate.values).toMatchObject({ status: 'converted' })
+    expect(leadUpdate.values.stageId).toBeUndefined()
   })
 })
 
@@ -778,7 +795,7 @@ describe('POST /api/webhooks/dhanam — orphan path', () => {
     expect(json.status).toBe('recorded')
     expect(json.lead_id).toBeNull()
     expect(state.inserts.conversions).toHaveLength(1)
-    expect(state.inserts.conversions[0]!.leadId).toBeNull()
+    expect(expectArrayItem(state.inserts.conversions, 0, 'conversion insert').leadId).toBeNull()
   })
 
   it('records a blocked engagement event when payment cannot match an order', async () => {
@@ -834,7 +851,7 @@ describe('POST /api/webhooks/dhanam — referral attribution', () => {
     await new Promise((r) => setTimeout(r, 0))
 
     expect(state.updates.referrals).toHaveLength(1)
-    const update = state.updates.referrals[0]!
+    const update = expectArrayItem(state.updates.referrals, 0, 'referral update')
     expect(update.id).toBe('ref_001')
     expect(update.values).toMatchObject({
       status: 'converted',
@@ -942,7 +959,7 @@ describe('POST /api/webhooks/dhanam — Janua-shape envelope (flat data.*)', () 
     expect(json.status).toBe('recorded')
 
     expect(state.inserts.conversions).toHaveLength(1)
-    const conv = state.inserts.conversions[0]!
+    const conv = expectArrayItem(state.inserts.conversions, 0, 'conversion insert')
     expect(conv.type).toBe('dhanam_subscription_created')
     // amount: '499.00' (major) → 49900 minor.
     expect((conv.metadata as Record<string, unknown>).amount_minor).toBe(49900)
@@ -1049,7 +1066,9 @@ describe('POST /api/webhooks/dhanam — non-paid event types', () => {
 
     // Conversion recorded for analytics.
     expect(state.inserts.conversions).toHaveLength(1)
-    expect(state.inserts.conversions[0]!.type).toBe('dhanam_customer_subscription_updated')
+    expect(expectArrayItem(state.inserts.conversions, 0, 'conversion insert').type).toBe(
+      'dhanam_customer_subscription_updated',
+    )
     // Lead untouched — tier shuffles aren't won-state changes.
     expect(state.updates.leads).toHaveLength(0)
   })

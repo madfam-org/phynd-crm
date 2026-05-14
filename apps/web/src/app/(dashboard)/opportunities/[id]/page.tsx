@@ -30,7 +30,10 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
     caller.orders.listByOpportunityId({ opportunityId: id }),
   ])
 
-  const stageName = stages.find((s) => s.id === opp.stageId)?.name ?? null
+  type PipelineStage = (typeof stages)[number]
+  type RelatedQuote = (typeof relatedQuotes.items)[number]
+  type RelatedOrder = (typeof relatedOrders.items)[number]
+  const stageName = stages.find((s: PipelineStage) => s.id === opp.stageId)?.name ?? null
 
   return (
     <div className="space-y-6">
@@ -90,7 +93,7 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
             <div className="rounded-lg border bg-card p-6">
               <h3 className="mb-4 text-lg font-semibold">Related Quotes</h3>
               <div className="space-y-2">
-                {relatedQuotes.items.map((quote) => (
+                {relatedQuotes.items.map((quote: RelatedQuote) => (
                   <div
                     key={quote.id}
                     className="flex items-center justify-between rounded-lg border p-3"
@@ -122,7 +125,7 @@ export default async function OpportunityDetailPage({ params }: OpportunityDetai
             <div className="rounded-lg border bg-card p-6">
               <h3 className="mb-4 text-lg font-semibold">Related Orders</h3>
               <div className="space-y-2">
-                {relatedOrders.items.map((order) => (
+                {relatedOrders.items.map((order: RelatedOrder) => (
                   <div
                     key={order.id}
                     className="flex items-center justify-between rounded-lg border p-3"

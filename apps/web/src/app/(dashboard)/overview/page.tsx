@@ -137,9 +137,7 @@ async function loadDashboardData(
   } catch (error) {
     if (!isDemo) throw error
     console.error('Demo dashboard data failed to load', error)
-    const emptyRevenueByStatus: Awaited<
-      ReturnType<typeof caller.analytics.revenueByStatus>
-    > = []
+    const emptyRevenueByStatus: Awaited<ReturnType<typeof caller.analytics.revenueByStatus>> = []
     return [
       { items: [] },
       { items: [] },

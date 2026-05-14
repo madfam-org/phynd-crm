@@ -2,6 +2,11 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
+
+type ContactActivitiesOutput = inferRouterOutputs<AppRouter>['activities']['listForEntity']
+type ContactActivity = ContactActivitiesOutput[number]
 
 interface ContactActivitiesProps {
   contactId: string
@@ -12,11 +17,11 @@ export function ContactActivities({ contactId }: ContactActivitiesProps) {
   const listForEntity = activitiesRouter.listForEntity as NonNullable<
     typeof activitiesRouter.listForEntity
   >
-  const { data: activities } = listForEntity.useQuery({
+  const { data } = listForEntity.useQuery({
     entityType: 'contact',
     entityId: contactId,
   })
-  type ContactActivity = NonNullable<typeof activities>[number]
+  const activities = (data ?? []) as ContactActivitiesOutput
 
   if (!activities?.length) {
     return <p className="text-sm text-muted-foreground">No activities yet.</p>

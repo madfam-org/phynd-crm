@@ -71,6 +71,9 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
     findPortalQuotes(db, row.engagement),
   ])
   const quoteCards = await buildQuoteCards(db, portalQuotes)
+  type QuoteCard = (typeof quoteCards)[number]
+  type Artifact = (typeof artifacts)[number]
+  type TimelineEntry = (typeof timeline)[number]
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -98,7 +101,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ul className="space-y-3">
-              {quoteCards.map((card) => (
+              {quoteCards.map((card: QuoteCard) => (
                 <li
                   key={card.quote.id}
                   className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -149,7 +152,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ul className="space-y-2">
-              {artifacts.map((a) => (
+              {artifacts.map((a: Artifact) => (
                 <li
                   key={a.id}
                   className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -190,7 +193,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ol className="space-y-3">
-              {timeline.map((entry) => (
+              {timeline.map((entry: TimelineEntry) => (
                 <li
                   key={entry.id}
                   className="flex gap-3 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
@@ -234,12 +237,12 @@ async function findPortalQuotes(
         .orderBy(desc(quotes.createdAt))
         .limit(10)
 
-  return rows.filter((quote) => ['draft', 'sent', 'accepted'].includes(quote.status))
+  return rows.filter((quote: PortalQuote) => ['draft', 'sent', 'accepted'].includes(quote.status))
 }
 
 async function buildQuoteCards(db: ReturnType<typeof getDb>, portalQuotes: PortalQuote[]) {
   return Promise.all(
-    portalQuotes.map(async (quote) => {
+    portalQuotes.map(async (quote: PortalQuote) => {
       const [order] = await db
         .select()
         .from(orders)

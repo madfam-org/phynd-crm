@@ -71,7 +71,9 @@ function statusBadgeVariant(status: string): 'success' | 'secondary' | 'default'
 export function ActivitiesDataTable({ initialData }: ActivitiesDataTableProps) {
   const activitiesRouter = trpc.activities as NonNullable<typeof trpc.activities>
   const listActivities = activitiesRouter.list as NonNullable<typeof activitiesRouter.list>
-  const completeActivity = activitiesRouter.complete as NonNullable<typeof activitiesRouter.complete>
+  const completeActivity = activitiesRouter.complete as NonNullable<
+    typeof activitiesRouter.complete
+  >
   const { data } = listActivities.useQuery({}, { initialData, refetchInterval: 60_000 })
   const activities: ActivityRow[] = data?.items ?? []
 

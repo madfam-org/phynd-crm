@@ -5,14 +5,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { trpc } from '@/lib/trpc/client'
 import { DragDropContext, Draggable, type DropResult, Droppable } from '@hello-pangea/dnd'
-import type { AppRouter } from '@phynd/api'
-import type { inferRouterOutputs } from '@trpc/server'
 import { GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-type StagesOutput = inferRouterOutputs<AppRouter>['pipelines']['getStages']
-type Stage = StagesOutput[number]
+interface Stage {
+  id: string
+  name: string
+  position: number
+  probability: number | null
+}
 
 interface PipelineStagesPanelProps {
   pipelineId: string
@@ -38,7 +40,7 @@ export function PipelineStagesPanel({ pipelineId }: PipelineStagesPanelProps) {
   const pipelinesUtils = utils.pipelines as NonNullable<typeof utils.pipelines>
   const getStagesUtils = pipelinesUtils.getStages as NonNullable<typeof pipelinesUtils.getStages>
   const { data: stagesData } = getStages.useQuery({ pipelineId })
-  const stages = (stagesData as StagesOutput | undefined) ?? []
+  const stages = (stagesData as Stage[] | undefined) ?? []
 
   const createStageMutation = createStage.useMutation({
     onSuccess: () => {

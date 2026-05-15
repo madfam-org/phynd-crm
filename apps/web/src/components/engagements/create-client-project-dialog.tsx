@@ -34,6 +34,7 @@ type DeliveryTrack = 'digital_experience' | 'digital_twin' | 'fabrication' | 'fu
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type PipelinesListOutput = RouterOutputs['pipelines']['list']
 type PipelineStagesOutput = RouterOutputs['pipelines']['getStages']
+type PipelineRow = PipelinesListOutput['items'][number]
 
 function getOnboardedEngagementId(row: unknown): string | undefined {
   if (!row || typeof row !== 'object') return undefined
@@ -86,16 +87,13 @@ export function CreateClientProjectDialog() {
   >
 
   const { data: pipelinesData } = listPipelines.useQuery(undefined, { enabled: open })
-  const { data: stagesData } = getStages.useQuery(
-    { pipelineId },
-    { enabled: open && !!pipelineId },
-  )
+  const { data: stagesData } = getStages.useQuery({ pipelineId }, { enabled: open && !!pipelineId })
   const pipelines = (pipelinesData as PipelinesListOutput | undefined)?.items ?? []
   const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
 
   useEffect(() => {
     if (!open || pipelineId || !pipelines.length) return
-    const defaultPipeline = pipelines.find((p) => p.isDefault) ?? pipelines[0]
+    const defaultPipeline = pipelines.find((p: PipelineRow) => p.isDefault) ?? pipelines[0]
     if (defaultPipeline) setPipelineId(defaultPipeline.id)
   }, [open, pipelineId, pipelines])
 

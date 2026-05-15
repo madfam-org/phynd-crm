@@ -22,9 +22,17 @@ Date: 2026-05-15
 - Middleware enforces app-host root redirects before public-path handling.
 - Login copy is host-aware: MADFAM slice users see MADFAM Janua SSO language, while generic app users see generic Janua SSO language.
 - Public GitHub links must point to `https://github.com/madfam-org/phynd-crm`.
+- The marketing dashboard preview must use `phynd.app`, not the retired `phynd.io` copy.
 
 ## Status-page expectations
 
 - `status.madfam.io` should treat `phynd.app` as the public landing.
 - `status.madfam.io` should assert that `crm.madfam.io` reaches the MADFAM Janua SSO login surface, not a generic landing.
 - `status.madfam.io` should track `app.phyne.app` as the generic app host. Until DNS and Enclii routing exist, that entry should truthfully show outage rather than being hidden or represented by `app.phynd.app`.
+
+## 2026-05-15 live verification note
+
+- `https://phynd.app/` returns HTTP 200 and includes the canonical repository link `https://github.com/madfam-org/phynd-crm`.
+- `https://crm.madfam.io/` redirects unauthenticated visitors to `/login` and renders `MADFAM CRM` with `Sign in with your MADFAM Janua SSO account`.
+- `https://app.phyne.app/` does not resolve publicly yet, so it is not production-functional.
+- `https://status.madfam.io/` is still serving the older 60-service projection; the corrected PhyndCRM status entries need status-regeneration and production promotion before the public page reflects this policy.

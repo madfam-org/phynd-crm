@@ -18,4 +18,9 @@ describe('authenticated app host routing', () => {
     expect(isAuthenticatedAppHost('phynd.app')).toBe(false)
     expect(getAuthenticatedAppRootRedirect('phynd.app', '/', false)).toBeNull()
   })
+
+  it('does not treat app.phynd.app as a generic app host', () => {
+    expect(isAuthenticatedAppHost('app.phynd.app')).toBe(false)
+    expect(getAuthenticatedAppRootRedirect('app.phynd.app', '/', false)).toBeNull()
+  })
 })

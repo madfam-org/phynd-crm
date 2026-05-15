@@ -37,6 +37,15 @@ describe('externalOriginForRequest', () => {
     expect(externalUrl('/overview', request).toString()).toBe('https://app.phyne.app/overview')
   })
 
+  it('rejects the retired app.phynd.app host and falls back to phynd.app', () => {
+    const request = requestWithHeaders({
+      'x-forwarded-host': 'app.phynd.app',
+      'x-forwarded-proto': 'https',
+    })
+
+    expect(externalUrl('/overview', request).toString()).toBe('https://phynd.app/overview')
+  })
+
   it('falls back to the public Phynd origin for untrusted hosts', () => {
     const request = requestWithHeaders({
       host: 'phynd-crm-web-955d6b8cd-ftq9q:3000',

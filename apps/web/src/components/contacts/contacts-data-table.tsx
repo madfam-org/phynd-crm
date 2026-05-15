@@ -34,12 +34,13 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
     initialData,
     refetchInterval: 120_000,
   })
+  const contactItems = (contacts as ContactsListOutput | undefined)?.items ?? []
   const [editContact, setEditContact] = useState<ContactRow | null>(null)
   const [deleteContact, setDeleteContact] = useState<ContactRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
 
   function handleExport() {
-    const items = (contacts as ContactsListOutput | undefined)?.items ?? []
+    const items = contactItems
     const toExport =
       selectedKeys.size > 0 ? items.filter((c: ContactRow) => selectedKeys.has(c.id)) : items
     exportToCsv(
@@ -108,7 +109,7 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
       </div>
       <DataTable
         columns={columns}
-        data={contacts?.items ?? []}
+        data={contactItems}
         getRowKey={(row) => row.id}
         searchKey="name"
         searchPlaceholder="Search contacts..."

@@ -51,7 +51,7 @@ export async function seedDemoTenant(sessionId: string) {
   const prefix = `demo-${sessionId}`
   const userId = prefix
 
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: typeof db) => {
     await tx.insert(users).values(buildUserData(prefix))
 
     const [pipeline] = await tx.insert(pipelines).values(buildPipelineData(prefix)).returning()

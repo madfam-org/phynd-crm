@@ -13,14 +13,28 @@ interface TagsPanelProps {
   entityId: string
 }
 
+interface EntityTag {
+  id: string
+  name: string
+  color: string | null
+}
+
 export function TagsPanel({ entityType, entityId }: TagsPanelProps) {
-  const { data: entityTags, isLoading } = trpc.tags.getForEntity.useQuery({ entityType, entityId })
+  const tagsRouter = trpc.tags as NonNullable<typeof trpc.tags>
+  const getTagsForEntity = tagsRouter.getForEntity as NonNullable<typeof tagsRouter.getForEntity>
+  const removeTagFromEntity = tagsRouter.removeFromEntity as NonNullable<
+    typeof tagsRouter.removeFromEntity
+  >
+  const { data: entityTagsData, isLoading } = getTagsForEntity.useQuery({ entityType, entityId })
+  const entityTags = (entityTagsData as EntityTag[] | undefined) ?? []
 
   const utils = trpc.useUtils()
+  const tagsUtils = utils.tags as NonNullable<typeof utils.tags>
+  const getTagsForEntityUtils = tagsUtils.getForEntity as NonNullable<typeof tagsUtils.getForEntity>
 
-  const removeMutation = trpc.tags.removeFromEntity.useMutation({
+  const removeMutation = removeTagFromEntity.useMutation({
     onSuccess: () => {
-      utils.tags.getForEntity.invalidate({ entityType, entityId })
+      getTagsForEntityUtils.invalidate({ entityType, entityId })
     },
     onError: (err) => toast.error('Failed to remove tag', { description: err.message }),
   })
@@ -36,7 +50,7 @@ export function TagsPanel({ entityType, entityId }: TagsPanelProps) {
         <AddTagDialog entityType={entityType} entityId={entityId} />
       </div>
 
-      {!entityTags || entityTags.length === 0 ? (
+      {entityTags.length === 0 ? (
         <p className="text-sm text-muted-foreground">No tags yet.</p>
       ) : (
         <div className="flex flex-wrap gap-2" aria-label="Tags">

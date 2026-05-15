@@ -23,42 +23,75 @@ interface AddTagDialogProps {
   entityId: string
 }
 
+interface TagOption {
+  id: string
+  name: string
+  color: string | null
+}
+
+interface TagsListOutput {
+  items: TagOption[]
+}
+
+function getCreatedTagId(value: unknown): string | null {
+  if (value && typeof value === 'object' && 'id' in value) {
+    const id = (value as { id: unknown }).id
+    return typeof id === 'string' ? id : null
+  }
+  return null
+}
+
 export function AddTagDialog({ entityType, entityId }: AddTagDialogProps) {
   const [open, setOpen] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('')
 
   const utils = trpc.useUtils()
+  const tagsRouter = trpc.tags as NonNullable<typeof trpc.tags>
+  const listTags = tagsRouter.list as NonNullable<typeof tagsRouter.list>
+  const getTagsForEntity = tagsRouter.getForEntity as NonNullable<typeof tagsRouter.getForEntity>
+  const addTagToEntity = tagsRouter.addToEntity as NonNullable<typeof tagsRouter.addToEntity>
+  const createTag = tagsRouter.create as NonNullable<typeof tagsRouter.create>
+  const tagsUtils = utils.tags as NonNullable<typeof utils.tags>
+  const listTagsUtils = tagsUtils.list as NonNullable<typeof tagsUtils.list>
+  const getTagsForEntityUtils = tagsUtils.getForEntity as NonNullable<typeof tagsUtils.getForEntity>
 
-  const { data: allTags } = trpc.tags.list.useQuery(undefined, {
+  const { data: allTagsData } = listTags.useQuery(undefined, {
     enabled: open,
   })
 
-  const { data: entityTags } = trpc.tags.getForEntity.useQuery(
+  const { data: entityTagsData } = getTagsForEntity.useQuery(
     { entityType, entityId },
     { enabled: open },
   )
+  const allTags = (allTagsData as TagsListOutput | undefined)?.items ?? []
+  const entityTags = (entityTagsData as TagOption[] | undefined) ?? []
 
-  const addToEntityMutation = trpc.tags.addToEntity.useMutation({
+  const addToEntityMutation = addTagToEntity.useMutation({
     onSuccess: () => {
-      utils.tags.getForEntity.invalidate({ entityType, entityId })
+      getTagsForEntityUtils.invalidate({ entityType, entityId })
     },
     onError: (err) => toast.error('Failed to add tag', { description: err.message }),
   })
 
-  const createMutation = trpc.tags.create.useMutation({
-    onSuccess: (newTag) => {
-      utils.tags.list.invalidate()
-      addToEntityMutation.mutate({ tagId: newTag.id, entityType, entityId })
+  const createMutation = createTag.useMutation({
+    onSuccess: (newTag: unknown) => {
+      const tagId = getCreatedTagId(newTag)
+      if (!tagId) {
+        toast.error('Failed to create tag', { description: 'Created tag response is missing id' })
+        return
+      }
+      listTagsUtils.invalidate()
+      addToEntityMutation.mutate({ tagId, entityType, entityId })
       setNewTagName('')
       setNewTagColor('')
     },
     onError: (err) => toast.error('Failed to create tag', { description: err.message }),
   })
 
-  const entityTagIds = new Set((entityTags ?? []).map((t) => t.id))
+  const entityTagIds = new Set(entityTags.map((tag) => tag.id))
 
-  const availableTags = (allTags?.items ?? []).filter((tag) => !entityTagIds.has(tag.id))
+  const availableTags = allTags.filter((tag) => !entityTagIds.has(tag.id))
 
   function handleCreateTag(e: React.FormEvent) {
     e.preventDefault()

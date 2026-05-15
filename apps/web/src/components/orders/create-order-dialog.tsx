@@ -47,9 +47,7 @@ export function CreateOrderDialog() {
   const quotesRouter = trpc.quotes as NonNullable<typeof trpc.quotes>
   const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
   const ordersRouter = trpc.orders as NonNullable<typeof trpc.orders>
-  const listOpportunities = opportunitiesRouter.list as NonNullable<
-    typeof opportunitiesRouter.list
-  >
+  const listOpportunities = opportunitiesRouter.list as NonNullable<typeof opportunitiesRouter.list>
   const listQuotes = quotesRouter.list as NonNullable<typeof quotesRouter.list>
   const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
   const createOrder = ordersRouter.create as NonNullable<typeof ordersRouter.create>

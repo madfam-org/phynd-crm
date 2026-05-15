@@ -29,24 +29,36 @@ export function KanbanBoard({
   const [opportunities, setOpportunities] = useState(initialOpps)
 
   const utils = trpc.useUtils()
+  const leadsRouter = trpc.leads as NonNullable<typeof trpc.leads>
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const moveLeadToStage = leadsRouter.moveToStage as NonNullable<typeof leadsRouter.moveToStage>
+  const moveOpportunityToStage = opportunitiesRouter.moveToStage as NonNullable<
+    typeof opportunitiesRouter.moveToStage
+  >
+  const leadsUtils = utils.leads as NonNullable<typeof utils.leads>
+  const opportunitiesUtils = utils.opportunities as NonNullable<typeof utils.opportunities>
+  const listLeadsUtils = leadsUtils.list as NonNullable<typeof leadsUtils.list>
+  const listOpportunitiesUtils = opportunitiesUtils.list as NonNullable<
+    typeof opportunitiesUtils.list
+  >
 
-  const moveLeadMutation = trpc.leads.moveToStage.useMutation({
+  const moveLeadMutation = moveLeadToStage.useMutation({
     onSuccess: () => {
-      utils.leads.list.invalidate()
+      listLeadsUtils.invalidate()
     },
     onError: (error) => {
       toast.error(`Failed to move lead: ${error.message}`)
-      utils.leads.list.invalidate()
+      listLeadsUtils.invalidate()
     },
   })
 
-  const moveOppMutation = trpc.opportunities.moveToStage.useMutation({
+  const moveOppMutation = moveOpportunityToStage.useMutation({
     onSuccess: () => {
-      utils.opportunities.list.invalidate()
+      listOpportunitiesUtils.invalidate()
     },
     onError: (error) => {
       toast.error(`Failed to move opportunity: ${error.message}`)
-      utils.opportunities.list.invalidate()
+      listOpportunitiesUtils.invalidate()
     },
   })
 

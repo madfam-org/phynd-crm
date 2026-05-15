@@ -16,21 +16,32 @@ const typeConfig = {
   note: { icon: FileText, label: 'Note', variant: 'default' as const },
 }
 
+interface TimelineEntry {
+  id: string
+  type: keyof typeof typeConfig
+  title: string
+  description?: string | null
+  timestamp: Date | string
+}
+
 function formatDate(date: Date | string): string {
   return new Date(date).toLocaleString()
 }
 
 export function EntityTimeline({ entityType, entityId }: EntityTimelineProps) {
-  const { data: timeline, isLoading } = trpc.timeline.getTimeline.useQuery({
+  const timelineRouter = trpc.timeline as NonNullable<typeof trpc.timeline>
+  const getTimeline = timelineRouter.getTimeline as NonNullable<typeof timelineRouter.getTimeline>
+  const { data: timelineData, isLoading } = getTimeline.useQuery({
     entityType,
     entityId,
   })
+  const timeline = (timelineData as TimelineEntry[] | undefined) ?? []
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading timeline...</p>
   }
 
-  if (!timeline || timeline.length === 0) {
+  if (timeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No timeline events yet.</p>
   }
 

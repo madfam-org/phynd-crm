@@ -35,7 +35,9 @@ export function PipelineSettings({ initialPipelines }: PipelineSettingsProps) {
 
   const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
   const listPipelines = pipelinesRouter.list as NonNullable<typeof pipelinesRouter.list>
-  const deletePipelineProcedure = pipelinesRouter.delete as NonNullable<typeof pipelinesRouter.delete>
+  const deletePipelineProcedure = pipelinesRouter.delete as NonNullable<
+    typeof pipelinesRouter.delete
+  >
   const { data: pipelinesData } = listPipelines.useQuery(undefined, {
     initialData: { hasMore: false, items: initialPipelines, nextCursor: null },
   })

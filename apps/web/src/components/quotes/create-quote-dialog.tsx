@@ -43,9 +43,7 @@ export function CreateQuoteDialog() {
   const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
   const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
   const quotesRouter = trpc.quotes as NonNullable<typeof trpc.quotes>
-  const listOpportunities = opportunitiesRouter.list as NonNullable<
-    typeof opportunitiesRouter.list
-  >
+  const listOpportunities = opportunitiesRouter.list as NonNullable<typeof opportunitiesRouter.list>
   const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
   const createQuote = quotesRouter.create as NonNullable<typeof quotesRouter.create>
   const { data: opportunitiesData } = listOpportunities.useQuery()

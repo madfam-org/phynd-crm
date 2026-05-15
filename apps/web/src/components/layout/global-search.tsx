@@ -3,11 +3,15 @@
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const DEBOUNCE_MS = 300
 const BLUR_DELAY_MS = 200
+type SearchResultsOutput = inferRouterOutputs<AppRouter>['search']['search']
+type SearchResult = SearchResultsOutput[number]
 
 const ENTITY_BADGE_VARIANTS: Record<string, { label: string; className: string }> = {
   contact: {
@@ -65,10 +69,13 @@ export function GlobalSearch() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const { data: results } = trpc.search.search.useQuery(
+  const searchRouter = trpc.search as NonNullable<typeof trpc.search>
+  const searchQuery = searchRouter.search as NonNullable<typeof searchRouter.search>
+  const { data } = searchQuery.useQuery(
     { query: debouncedQuery },
     { enabled: debouncedQuery.length > 0 },
   )
+  const results = (data as SearchResultsOutput | undefined) ?? []
 
   const handleSelect = useCallback(
     (entityType: string, id: string) => {
@@ -118,9 +125,9 @@ export function GlobalSearch() {
           className="absolute top-full z-50 mt-1 w-full rounded-md border bg-popover shadow-lg"
           aria-label="Search results"
         >
-          {results && results.length > 0 ? (
+          {results.length > 0 ? (
             <ul className="max-h-64 overflow-y-auto py-1">
-              {results.map((result) => {
+              {results.map((result: SearchResult) => {
                 const badgeConfig = ENTITY_BADGE_VARIANTS[result.entityType]
                 return (
                   <li key={`${result.entityType}-${result.id}`}>
@@ -149,7 +156,7 @@ export function GlobalSearch() {
                 )
               })}
             </ul>
-          ) : results && results.length === 0 ? (
+          ) : results.length === 0 ? (
             <p className="px-3 py-4 text-center text-sm text-muted-foreground">No results found.</p>
           ) : (
             <p className="px-3 py-4 text-center text-sm text-muted-foreground">Searching...</p>

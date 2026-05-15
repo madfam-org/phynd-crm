@@ -52,10 +52,14 @@ const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'seconda
 }
 
 export function OffersDataTable({ initialData }: OffersDataTableProps) {
-  const { data: offers } = trpc.offers.list.useQuery(undefined, {
+  const offersRouter = trpc.offers as NonNullable<typeof trpc.offers>
+  const listOffers = offersRouter.list as NonNullable<typeof offersRouter.list>
+  const createOffer = offersRouter.create as NonNullable<typeof offersRouter.create>
+  const { data: offersData } = listOffers.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
   })
+  const offers = (offersData as OffersListOutput | undefined)?.items ?? []
   const [createOpen, setCreateOpen] = useState(false)
   const [editOffer, setEditOffer] = useState<OfferRow | null>(null)
   const [deleteOffer, setDeleteOffer] = useState<OfferRow | null>(null)
@@ -69,6 +73,8 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
   const [createMaxRedemptions, setCreateMaxRedemptions] = useState('')
 
   const utils = trpc.useUtils()
+  const offersUtils = utils.offers as NonNullable<typeof utils.offers>
+  const listOffersUtils = offersUtils.list as NonNullable<typeof offersUtils.list>
 
   function resetCreateForm() {
     setCreateName('')
@@ -81,9 +87,9 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
     setCreateMaxRedemptions('')
   }
 
-  const createMutation = trpc.offers.create.useMutation({
+  const createMutation = createOffer.useMutation({
     onSuccess: () => {
-      utils.offers.list.invalidate()
+      listOffersUtils.invalidate()
       setCreateOpen(false)
       resetCreateForm()
     },
@@ -265,7 +271,7 @@ export function OffersDataTable({ initialData }: OffersDataTableProps) {
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={offers?.items ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={offers} getRowKey={(row) => row.id} />
       {editOffer && (
         <EditOfferDialog
           offer={editOffer}

@@ -26,9 +26,13 @@ export function DeleteOfferDialog({
   onOpenChange,
 }: DeleteOfferDialogProps) {
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.offers.delete.useMutation({
+  const offersRouter = trpc.offers as NonNullable<typeof trpc.offers>
+  const deleteOffer = offersRouter.delete as NonNullable<typeof offersRouter.delete>
+  const offersUtils = utils.offers as NonNullable<typeof utils.offers>
+  const listOffersUtils = offersUtils.list as NonNullable<typeof offersUtils.list>
+  const deleteMutation = deleteOffer.useMutation({
     onSuccess: () => {
-      utils.offers.list.invalidate()
+      listOffersUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to delete offer', { description: err.message }),

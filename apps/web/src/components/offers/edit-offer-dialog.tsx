@@ -60,9 +60,13 @@ export function EditOfferDialog({ offer, open, onOpenChange }: EditOfferDialogPr
   const [status, setStatus] = useState(offer.status)
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.offers.update.useMutation({
+  const offersRouter = trpc.offers as NonNullable<typeof trpc.offers>
+  const updateOffer = offersRouter.update as NonNullable<typeof offersRouter.update>
+  const offersUtils = utils.offers as NonNullable<typeof utils.offers>
+  const listOffersUtils = offersUtils.list as NonNullable<typeof offersUtils.list>
+  const updateMutation = updateOffer.useMutation({
     onSuccess: () => {
-      utils.offers.list.invalidate()
+      listOffersUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update offer', { description: err.message }),

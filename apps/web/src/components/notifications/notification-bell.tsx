@@ -23,9 +23,7 @@ export function NotificationBell() {
   const unreadCountQuery = notificationsRouter.unreadCount as NonNullable<
     typeof notificationsRouter.unreadCount
   >
-  const listNotifications = notificationsRouter.list as NonNullable<
-    typeof notificationsRouter.list
-  >
+  const listNotifications = notificationsRouter.list as NonNullable<typeof notificationsRouter.list>
   const markAsRead = notificationsRouter.markAsRead as NonNullable<
     typeof notificationsRouter.markAsRead
   >

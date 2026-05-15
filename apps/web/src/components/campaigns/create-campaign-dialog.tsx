@@ -53,6 +53,8 @@ export function CreateCampaignDialog() {
   const offersRouter = trpc.offers as NonNullable<typeof trpc.offers>
   const listOffers = offersRouter.list as NonNullable<typeof offersRouter.list>
   const { data: offersData } = listOffers.useQuery(undefined, { retry: false })
+  const offerOptions =
+    (offersData as { items?: { id: string; name: string }[] } | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
   const campaignsRouter = trpc.campaigns as NonNullable<typeof trpc.campaigns>
@@ -239,7 +241,7 @@ export function CreateCampaignDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NO_OFFER_VALUE}>None</SelectItem>
-                  {(offersData?.items ?? []).map((o: { id: string; name: string }) => (
+                  {offerOptions.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
                     </SelectItem>

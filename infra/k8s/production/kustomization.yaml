@@ -4,19 +4,19 @@ kind: Kustomization
 namespace: phynd-crm
 
 resources:
-  - external-secret.yaml
-  - namespace.yaml
-  - web-deployment.yaml
-  - web-service.yaml
-  - worker-deployment.yaml
-  - network-policies.yaml
-  - resource-quota.yaml
-  - pdb.yaml
+- external-secret.yaml
+- namespace.yaml
+- web-deployment.yaml
+- web-service.yaml
+- worker-deployment.yaml
+- network-policies.yaml
+- resource-quota.yaml
+- pdb.yaml
 
 images:
-- name: ghcr.io/madfam-org/phynd-crm/web
+- digest: sha256:606f906955cd03c8255e7c2aa8a2ea946b464564e64a253bb7244f2a0e463426
+  name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
-  digest: sha256:436b2511c19b3d1ddc854006a564d9d397051e29a894504b908423b10c1cf773
-- name: ghcr.io/madfam-org/phynd-crm/worker
+- digest: sha256:b3249871cc4d4cac65e4d11173b709e4c0dd660efd0d3d98836fb01d63aeb7e6
+  name: ghcr.io/madfam-org/phynd-crm/worker
   newName: ghcr.io/madfam-org/phynd-crm/worker
-  digest: sha256:b3249871cc4d4cac65e4d11173b709e4c0dd660efd0d3d98836fb01d63aeb7e6

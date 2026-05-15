@@ -30,6 +30,7 @@ import { EditOrderDialog } from './edit-order-dialog'
 
 type OrdersListOutput = inferRouterOutputs<AppRouter>['orders']['list']
 type OrderRow = OrdersListOutput['items'][number]
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
 
 interface OrdersDataTableProps {
   initialData: OrdersListOutput
@@ -66,34 +67,46 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [deleteOrder, setDeleteOrder] = useState<OrderRow | null>(null)
 
-  const { data: allOrders } = trpc.orders.list.useQuery(undefined, {
+  const ordersRouter = trpc.orders as NonNullable<typeof trpc.orders>
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const listOrders = ordersRouter.list as NonNullable<typeof ordersRouter.list>
+  const listMineOrders = ordersRouter.listMine as NonNullable<typeof ordersRouter.listMine>
+  const deleteOrderMutation = ordersRouter.delete as NonNullable<typeof ordersRouter.delete>
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+
+  const { data: allOrdersData } = listOrders.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
     enabled: viewMode === 'all',
   })
-  const { data: myOrders } = trpc.orders.listMine.useQuery(undefined, {
+  const { data: myOrdersData } = listMineOrders.useQuery(undefined, {
     refetchInterval: 60_000,
     enabled: viewMode === 'mine',
   })
 
-  const orders = viewMode === 'mine' ? myOrders : allOrders
-  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
+  const ordersData = viewMode === 'mine' ? myOrdersData : allOrdersData
+  const orders = (ordersData as OrdersListOutput | undefined)?.items ?? []
+  const { data: usersData } = listUsers.useQuery(undefined, { retry: false })
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
   const [editOrder, setEditOrder] = useState<OrderRow | null>(null)
 
   const userMap = useMemo(() => {
     const map = new Map<string, string>()
-    for (const u of usersData?.items ?? []) {
+    for (const u of users) {
       map.set(u.id, u.name ?? u.email)
     }
     return map
-  }, [usersData])
+  }, [users])
 
   const utils = trpc.useUtils()
+  const ordersUtils = utils.orders as NonNullable<typeof utils.orders>
+  const listOrdersUtils = ordersUtils.list as NonNullable<typeof ordersUtils.list>
+  const listMineOrdersUtils = ordersUtils.listMine as NonNullable<typeof ordersUtils.listMine>
   const invalidateOrders = () => {
-    utils.orders.list.invalidate()
-    utils.orders.listMine.invalidate()
+    listOrdersUtils.invalidate()
+    listMineOrdersUtils.invalidate()
   }
-  const deleteMutation = trpc.orders.delete.useMutation({
+  const deleteMutation = deleteOrderMutation.useMutation({
     onSuccess: () => {
       invalidateOrders()
       setDeleteOrder(null)
@@ -177,7 +190,7 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
   ]
 
   function handleExport() {
-    const items = orders?.items ?? []
+    const items = orders
     exportToCsv(
       items,
       [
@@ -219,7 +232,7 @@ export function OrdersDataTable({ initialData }: OrdersDataTableProps) {
         </div>
         <CreateOrderDialog />
       </div>
-      <DataTable columns={columns} data={orders?.items ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={orders} getRowKey={(row) => row.id} />
       {editOrder && (
         <EditOrderDialog
           order={editOrder}

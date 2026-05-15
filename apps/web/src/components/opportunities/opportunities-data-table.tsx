@@ -224,9 +224,7 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
   function handleExport() {
     const items = opportunities
     const toExport =
-      selectedKeys.size > 0
-        ? items.filter((o: OpportunityRow) => selectedKeys.has(o.id))
-        : items
+      selectedKeys.size > 0 ? items.filter((o: OpportunityRow) => selectedKeys.has(o.id)) : items
     exportToCsv(
       toExport,
       [

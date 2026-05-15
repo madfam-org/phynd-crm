@@ -19,8 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
+type UserOption = UsersListOutput['items'][number]
 
 interface EditOrderDialogProps {
   order: {
@@ -54,13 +59,21 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
   )
   const [ownerId, setOwnerId] = useState(order.ownerId ?? '')
 
-  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const ordersRouter = trpc.orders as NonNullable<typeof trpc.orders>
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+  const updateOrder = ordersRouter.update as NonNullable<typeof ordersRouter.update>
+  const { data: usersData } = listUsers.useQuery(undefined, { retry: false })
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.orders.update.useMutation({
+  const ordersUtils = utils.orders as NonNullable<typeof utils.orders>
+  const listOrdersUtils = ordersUtils.list as NonNullable<typeof ordersUtils.list>
+  const listMineOrdersUtils = ordersUtils.listMine as NonNullable<typeof ordersUtils.listMine>
+  const updateMutation = updateOrder.useMutation({
     onSuccess: () => {
-      utils.orders.list.invalidate()
-      utils.orders.listMine.invalidate()
+      listOrdersUtils.invalidate()
+      listMineOrdersUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update order', { description: err.message }),
@@ -162,7 +175,7 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Unassigned</SelectItem>
-                  {(usersData?.items ?? []).map((u) => (
+                  {users.map((u: UserOption) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.name ?? u.email}
                     </SelectItem>

@@ -20,8 +20,18 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type OpportunitiesListOutput = RouterOutputs['opportunities']['list']
+type QuotesListOutput = RouterOutputs['quotes']['list']
+type ContactsListOutput = RouterOutputs['contacts']['list']
+type OpportunityOption = OpportunitiesListOutput['items'][number]
+type QuoteOption = QuotesListOutput['items'][number]
+type ContactOption = ContactsListOutput['items'][number]
 
 export function CreateOrderDialog() {
   const [open, setOpen] = useState(false)
@@ -33,14 +43,29 @@ export function CreateOrderDialog() {
   const [quoteId, setQuoteId] = useState('')
   const [contactId, setContactId] = useState('')
 
-  const { data: opportunities } = trpc.opportunities.list.useQuery()
-  const { data: quotesData } = trpc.quotes.list.useQuery()
-  const { data: contacts } = trpc.contacts.list.useQuery()
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const quotesRouter = trpc.quotes as NonNullable<typeof trpc.quotes>
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const ordersRouter = trpc.orders as NonNullable<typeof trpc.orders>
+  const listOpportunities = opportunitiesRouter.list as NonNullable<
+    typeof opportunitiesRouter.list
+  >
+  const listQuotes = quotesRouter.list as NonNullable<typeof quotesRouter.list>
+  const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
+  const createOrder = ordersRouter.create as NonNullable<typeof ordersRouter.create>
+  const { data: opportunitiesData } = listOpportunities.useQuery()
+  const { data: quotesData } = listQuotes.useQuery()
+  const { data: contactsData } = listContacts.useQuery()
+  const opportunities = (opportunitiesData as OpportunitiesListOutput | undefined)?.items ?? []
+  const quotes = (quotesData as QuotesListOutput | undefined)?.items ?? []
+  const contacts = (contactsData as ContactsListOutput | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.orders.create.useMutation({
+  const ordersUtils = utils.orders as NonNullable<typeof utils.orders>
+  const listOrdersUtils = ordersUtils.list as NonNullable<typeof ordersUtils.list>
+  const createMutation = createOrder.useMutation({
     onSuccess: () => {
-      utils.orders.list.invalidate()
+      listOrdersUtils.invalidate()
       setOpen(false)
       resetForm()
     },
@@ -129,7 +154,7 @@ export function CreateOrderDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(opportunities?.items ?? []).map((o) => (
+                  {opportunities.map((o: OpportunityOption) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
                     </SelectItem>
@@ -145,7 +170,7 @@ export function CreateOrderDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(quotesData?.items ?? []).map((q) => (
+                  {quotes.map((q: QuoteOption) => (
                     <SelectItem key={q.id} value={q.id}>
                       {q.quoteNumber}
                     </SelectItem>
@@ -161,7 +186,7 @@ export function CreateOrderDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(contacts?.items ?? []).map((c) => (
+                  {contacts.map((c: ContactOption) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>

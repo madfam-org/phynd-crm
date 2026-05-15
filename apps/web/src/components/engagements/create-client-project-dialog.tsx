@@ -108,13 +108,20 @@ export function CreateClientProjectDialog() {
   const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
   const quotesUtils = utils.quotes as NonNullable<typeof utils.quotes>
   const ordersUtils = utils.orders as NonNullable<typeof utils.orders>
+  const listContactsUtils = contactsUtils.list as NonNullable<typeof contactsUtils.list>
+  const listOpportunitiesUtils = opportunitiesUtils.list as NonNullable<
+    typeof opportunitiesUtils.list
+  >
+  const listEngagementsUtils = engagementsUtils.list as NonNullable<typeof engagementsUtils.list>
+  const listQuotesUtils = quotesUtils.list as NonNullable<typeof quotesUtils.list>
+  const listOrdersUtils = ordersUtils.list as NonNullable<typeof ordersUtils.list>
   const createMutation = onboardClientProject.useMutation({
     onSuccess: (row) => {
-      contactsUtils.list.invalidate()
-      opportunitiesUtils.list.invalidate()
-      engagementsUtils.list.invalidate()
-      quotesUtils.list.invalidate()
-      ordersUtils.list.invalidate()
+      listContactsUtils.invalidate()
+      listOpportunitiesUtils.invalidate()
+      listEngagementsUtils.invalidate()
+      listQuotesUtils.invalidate()
+      listOrdersUtils.invalidate()
       toast.success('Client project onboarded')
       setOpen(false)
       resetForm()

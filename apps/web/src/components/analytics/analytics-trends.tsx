@@ -26,6 +26,14 @@ function defaultDateTo() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function isChartRow(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function toChartRows(data: unknown): Record<string, unknown>[] {
+  return Array.isArray(data) ? data.filter(isChartRow) : []
+}
+
 export function AnalyticsTrends() {
   const [dateFrom, setDateFrom] = useState(defaultDateFrom)
   const [dateTo, setDateTo] = useState(defaultDateTo)
@@ -49,10 +57,14 @@ export function AnalyticsTrends() {
     typeof analyticsRouter.visitorTrend
   >
 
-  const { data: leadTrend = [] } = leadTrendQuery.useQuery(queryInput)
-  const { data: oppTrend = [] } = opportunityTrendQuery.useQuery(queryInput)
-  const { data: convTrend = [] } = conversionTrendQuery.useQuery(queryInput)
-  const { data: visitorTrend = [] } = visitorTrendQuery.useQuery(queryInput)
+  const { data: leadTrendData } = leadTrendQuery.useQuery(queryInput)
+  const { data: oppTrendData } = opportunityTrendQuery.useQuery(queryInput)
+  const { data: convTrendData } = conversionTrendQuery.useQuery(queryInput)
+  const { data: visitorTrendData } = visitorTrendQuery.useQuery(queryInput)
+  const leadTrend = toChartRows(leadTrendData)
+  const oppTrend = toChartRows(oppTrendData)
+  const convTrend = toChartRows(convTrendData)
+  const visitorTrend = toChartRows(visitorTrendData)
 
   return (
     <div className="space-y-6">

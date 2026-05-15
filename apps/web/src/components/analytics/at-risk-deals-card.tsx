@@ -2,14 +2,20 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import Link from 'next/link'
+
+type AtRiskDealsOutput = inferRouterOutputs<AppRouter>['analytics']['atRiskDeals']
+type AtRiskDeal = AtRiskDealsOutput[number]
 
 export function AtRiskDealsCard() {
   const analyticsRouter = trpc.analytics as NonNullable<typeof trpc.analytics>
   const atRiskDealsQuery = analyticsRouter.atRiskDeals as NonNullable<
     typeof analyticsRouter.atRiskDeals
   >
-  const { data: atRiskDeals, isLoading } = atRiskDealsQuery.useQuery()
+  const { data, isLoading } = atRiskDealsQuery.useQuery()
+  const atRiskDeals = (data ?? []) as AtRiskDealsOutput
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading at-risk deals...</p>
@@ -18,8 +24,6 @@ export function AtRiskDealsCard() {
   if (!atRiskDeals || atRiskDeals.length === 0) {
     return <p className="text-sm text-muted-foreground">No at-risk deals.</p>
   }
-
-  type AtRiskDeal = (typeof atRiskDeals)[number]
 
   return (
     <div className="space-y-3">

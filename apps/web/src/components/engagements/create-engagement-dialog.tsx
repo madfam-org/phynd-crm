@@ -30,6 +30,8 @@ const ENGAGEMENT_STATUSES = ['active', 'completed', 'paused', 'cancelled'] as co
 type RouterOutputs = inferRouterOutputs<AppRouter>
 type ContactsListOutput = RouterOutputs['contacts']['list']
 type OpportunitiesByContactOutput = RouterOutputs['opportunities']['listByContactId']
+type ContactOption = ContactsListOutput['items'][number]
+type OpportunityOption = OpportunitiesByContactOutput['items'][number]
 
 function getCreatedEngagementId(row: unknown): string | undefined {
   if (!row || typeof row !== 'object') return undefined
@@ -150,7 +152,7 @@ export function CreateEngagementDialog({
                     <SelectValue placeholder="Select contact" />
                   </SelectTrigger>
                   <SelectContent>
-                    {contactOptions.map((c) => (
+                    {contactOptions.map((c: ContactOption) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                         {c.email ? ` · ${c.email}` : ''}
@@ -194,7 +196,7 @@ export function CreateEngagementDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {opportunityOptions.map((o) => (
+                  {opportunityOptions.map((o: OpportunityOption) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
                     </SelectItem>

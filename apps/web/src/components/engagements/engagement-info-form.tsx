@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 
 const ENGAGEMENT_STATUSES = ['active', 'completed', 'paused', 'cancelled'] as const
 type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
+type UserOption = UsersListOutput['items'][number]
 
 interface EngagementInfoFormProps {
   engagement: {
@@ -114,7 +115,7 @@ export function EngagementInfoForm({ engagement }: EngagementInfoFormProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Unassigned</SelectItem>
-              {users.map((u) => (
+              {users.map((u: UserOption) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name ?? u.email}
                 </SelectItem>

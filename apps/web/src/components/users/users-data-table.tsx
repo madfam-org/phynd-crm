@@ -40,16 +40,22 @@ const roleLabel: Record<string, string> = {
 }
 
 export function UsersDataTable({ initialData }: UsersDataTableProps) {
-  const { data: users } = trpc.users.list.useQuery(undefined, {
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+  const deleteUser = usersRouter.delete as NonNullable<typeof usersRouter.delete>
+  const { data: usersData } = listUsers.useQuery(undefined, {
     initialData,
     refetchInterval: 120_000,
   })
+  const users = (usersData as UsersListOutput | undefined) ?? initialData
   const [editUser, setEditUser] = useState<UserRow | null>(null)
 
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.users.delete.useMutation({
+  const usersUtils = utils.users as NonNullable<typeof utils.users>
+  const listUsersUtils = usersUtils.list as NonNullable<typeof usersUtils.list>
+  const deleteMutation = deleteUser.useMutation({
     onSuccess: () => {
-      utils.users.list.invalidate()
+      listUsersUtils.invalidate()
       toast.success('User deleted')
     },
     onError: (err) => toast.error('Failed to delete user', { description: err.message }),
@@ -119,7 +125,7 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
       </div>
       <DataTable
         columns={columns}
-        data={users?.items ?? []}
+        data={users.items}
         getRowKey={(row) => row.id}
         searchKey="email"
         searchPlaceholder="Search by email..."

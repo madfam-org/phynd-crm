@@ -34,9 +34,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const [role, setRole] = useState(user.role)
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.users.update.useMutation({
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const updateUser = usersRouter.update as NonNullable<typeof usersRouter.update>
+  const usersUtils = utils.users as NonNullable<typeof utils.users>
+  const listUsersUtils = usersUtils.list as NonNullable<typeof usersUtils.list>
+  const updateMutation = updateUser.useMutation({
     onSuccess: () => {
-      utils.users.list.invalidate()
+      listUsersUtils.invalidate()
       onOpenChange(false)
       toast.success('User updated')
     },

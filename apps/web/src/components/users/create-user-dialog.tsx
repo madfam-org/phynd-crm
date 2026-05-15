@@ -37,9 +37,13 @@ export function CreateUserDialog() {
   const [role, setRole] = useState<string>('viewer')
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.users.create.useMutation({
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const createUser = usersRouter.create as NonNullable<typeof usersRouter.create>
+  const usersUtils = utils.users as NonNullable<typeof utils.users>
+  const listUsersUtils = usersUtils.list as NonNullable<typeof usersUtils.list>
+  const createMutation = createUser.useMutation({
     onSuccess: () => {
-      utils.users.list.invalidate()
+      listUsersUtils.invalidate()
       setOpen(false)
       resetForm()
       toast.success('User created')

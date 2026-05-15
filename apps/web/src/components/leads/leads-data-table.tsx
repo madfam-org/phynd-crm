@@ -30,6 +30,9 @@ import { EditLeadDialog } from './edit-lead-dialog'
 
 type LeadsListOutput = inferRouterOutputs<AppRouter>['leads']['list']
 type LeadRow = LeadsListOutput['items'][number]
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
+type PipelineDefaultOutput = inferRouterOutputs<AppRouter>['pipelines']['getDefault']
+type PipelineStagesOutput = inferRouterOutputs<AppRouter>['pipelines']['getStages']
 
 interface LeadsDataTableProps {
   initialData: LeadsListOutput
@@ -50,56 +53,78 @@ type ViewMode = 'all' | 'mine'
 export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('all')
 
-  const { data: allLeads } = trpc.leads.list.useQuery(undefined, {
+  const leadsRouter = trpc.leads as NonNullable<typeof trpc.leads>
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const listLeads = leadsRouter.list as NonNullable<typeof leadsRouter.list>
+  const listMineLeads = leadsRouter.listMine as NonNullable<typeof leadsRouter.listMine>
+  const deleteLead = leadsRouter.delete as NonNullable<typeof leadsRouter.delete>
+  const bulkUpdateLeadStatus = leadsRouter.bulkUpdateStatus as NonNullable<
+    typeof leadsRouter.bulkUpdateStatus
+  >
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+  const getDefaultPipeline = pipelinesRouter.getDefault as NonNullable<
+    typeof pipelinesRouter.getDefault
+  >
+  const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
+
+  const { data: allLeadsData } = listLeads.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
     enabled: viewMode === 'all',
   })
-  const { data: myLeads } = trpc.leads.listMine.useQuery(undefined, {
+  const { data: myLeadsData } = listMineLeads.useQuery(undefined, {
     refetchInterval: 60_000,
     enabled: viewMode === 'mine',
   })
 
-  const leads = viewMode === 'mine' ? myLeads : allLeads
-  const { data: usersData } = trpc.users.list.useQuery(undefined, {
+  const leadsData = viewMode === 'mine' ? myLeadsData : allLeadsData
+  const leads = (leadsData as LeadsListOutput | undefined)?.items ?? []
+  const { data: usersData } = listUsers.useQuery(undefined, {
     retry: false,
   })
-  const { data: defaultPipeline } = trpc.pipelines.getDefault.useQuery()
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
+  const { data: defaultPipelineData } = getDefaultPipeline.useQuery()
+  const defaultPipeline = defaultPipelineData as PipelineDefaultOutput | undefined
   const pipelineId = defaultPipeline?.id ?? ''
-  const { data: stagesData } = trpc.pipelines.getStages.useQuery(
+  const { data: stagesData } = getStages.useQuery(
     { pipelineId },
     { enabled: !!defaultPipeline?.id },
   )
+  const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
   const [editLead, setEditLead] = useState<LeadRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
 
   const userMap = useMemo(() => {
     const map = new Map<string, string>()
-    for (const u of usersData?.items ?? []) {
+    for (const u of users) {
       map.set(u.id, u.name ?? u.email)
     }
     return map
-  }, [usersData])
+  }, [users])
 
   const stageMap = useMemo(() => {
     const map = new Map<string, string>()
-    for (const s of stagesData ?? []) {
+    for (const s of stages) {
       map.set(s.id, s.name)
     }
     return map
-  }, [stagesData])
+  }, [stages])
 
   const utils = trpc.useUtils()
+  const leadsUtils = utils.leads as NonNullable<typeof utils.leads>
+  const listLeadsUtils = leadsUtils.list as NonNullable<typeof leadsUtils.list>
+  const listMineLeadsUtils = leadsUtils.listMine as NonNullable<typeof leadsUtils.listMine>
   const invalidateLeads = () => {
-    utils.leads.list.invalidate()
-    utils.leads.listMine.invalidate()
+    listLeadsUtils.invalidate()
+    listMineLeadsUtils.invalidate()
   }
-  const deleteMutation = trpc.leads.delete.useMutation({
+  const deleteMutation = deleteLead.useMutation({
     onSuccess: invalidateLeads,
     onError: (err) => toast.error('Failed to delete lead', { description: err.message }),
   })
-  const bulkUpdateMutation = trpc.leads.bulkUpdateStatus.useMutation({
+  const bulkUpdateMutation = bulkUpdateLeadStatus.useMutation({
     onSuccess: () => {
       invalidateLeads()
       setSelectedKeys(new Set())
@@ -178,8 +203,9 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   }
 
   function handleExport() {
-    const items = leads?.items ?? []
-    const toExport = selectedKeys.size > 0 ? items.filter((l) => selectedKeys.has(l.id)) : items
+    const items = leads
+    const toExport =
+      selectedKeys.size > 0 ? items.filter((l: LeadRow) => selectedKeys.has(l.id)) : items
     exportToCsv(
       toExport,
       [
@@ -240,7 +266,7 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
       )}
       <DataTable
         columns={columns}
-        data={leads?.items ?? []}
+        data={leads}
         getRowKey={(row) => row.id}
         selectable
         onSelectionChange={setSelectedKeys}

@@ -20,8 +20,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type PipelinesListOutput = RouterOutputs['pipelines']['list']
+type PipelineStagesOutput = RouterOutputs['pipelines']['getStages']
+type PipelineRow = PipelinesListOutput['items'][number]
+type PipelineStageRow = PipelineStagesOutput[number]
 
 export function CreateLeadDialog() {
   const [open, setOpen] = useState(false)
@@ -29,16 +37,22 @@ export function CreateLeadDialog() {
   const [pipelineId, setPipelineId] = useState('')
   const [stageId, setStageId] = useState('')
 
-  const { data: pipelines } = trpc.pipelines.list.useQuery()
-  const { data: stages } = trpc.pipelines.getStages.useQuery(
-    { pipelineId },
-    { enabled: !!pipelineId },
-  )
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const leadsRouter = trpc.leads as NonNullable<typeof trpc.leads>
+  const listPipelines = pipelinesRouter.list as NonNullable<typeof pipelinesRouter.list>
+  const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
+  const createLead = leadsRouter.create as NonNullable<typeof leadsRouter.create>
+  const { data: pipelinesData } = listPipelines.useQuery()
+  const { data: stagesData } = getStages.useQuery({ pipelineId }, { enabled: !!pipelineId })
+  const pipelines = (pipelinesData as PipelinesListOutput | undefined)?.items ?? []
+  const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.leads.create.useMutation({
+  const leadsUtils = utils.leads as NonNullable<typeof utils.leads>
+  const listLeadsUtils = leadsUtils.list as NonNullable<typeof leadsUtils.list>
+  const createMutation = createLead.useMutation({
     onSuccess: () => {
-      utils.leads.list.invalidate()
+      listLeadsUtils.invalidate()
       setOpen(false)
       resetForm()
     },
@@ -95,7 +109,7 @@ export function CreateLeadDialog() {
                   <SelectValue placeholder="Select pipeline" />
                 </SelectTrigger>
                 <SelectContent>
-                  {pipelines?.items.map((p) => (
+                  {pipelines.map((p: PipelineRow) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                     </SelectItem>
@@ -111,7 +125,7 @@ export function CreateLeadDialog() {
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stages?.map((s) => (
+                    {stages.map((s: PipelineStageRow) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name}
                       </SelectItem>

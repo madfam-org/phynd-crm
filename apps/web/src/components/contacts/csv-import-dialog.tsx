@@ -60,13 +60,16 @@ export function CsvImportDialog() {
 
   const utils = trpc.useUtils()
   const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
-  const bulkCreateContacts = contactsRouter.bulkCreate as NonNullable<typeof contactsRouter.bulkCreate>
+  const bulkCreateContacts = contactsRouter.bulkCreate as NonNullable<
+    typeof contactsRouter.bulkCreate
+  >
   const contactsUtils = utils.contacts as NonNullable<typeof utils.contacts>
   const listContactsUtils = contactsUtils.list as NonNullable<typeof contactsUtils.list>
   const bulkCreateMutation = bulkCreateContacts.useMutation({
     onSuccess: (created) => {
+      const createdContacts = Array.isArray(created) ? created : []
       listContactsUtils.invalidate()
-      toast.success(`Imported ${created.length} contacts`)
+      toast.success(`Imported ${createdContacts.length} contacts`)
       handleClose()
     },
     onError: (err) => toast.error('Import failed', { description: err.message }),

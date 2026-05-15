@@ -39,7 +39,7 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
 
   function handleExport() {
-    const items = contacts?.items ?? []
+    const items = (contacts as ContactsListOutput | undefined)?.items ?? []
     const toExport =
       selectedKeys.size > 0 ? items.filter((c: ContactRow) => selectedKeys.has(c.id)) : items
     exportToCsv(

@@ -20,8 +20,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type PipelinesListOutput = RouterOutputs['pipelines']['list']
+type PipelineStagesOutput = RouterOutputs['pipelines']['getStages']
+type PipelineRow = PipelinesListOutput['items'][number]
+type PipelineStageRow = PipelineStagesOutput[number]
 
 export function CreateOpportunityDialog() {
   const [open, setOpen] = useState(false)
@@ -31,16 +39,26 @@ export function CreateOpportunityDialog() {
   const [pipelineId, setPipelineId] = useState('')
   const [stageId, setStageId] = useState('')
 
-  const { data: pipelines } = trpc.pipelines.list.useQuery()
-  const { data: stages } = trpc.pipelines.getStages.useQuery(
-    { pipelineId },
-    { enabled: !!pipelineId },
-  )
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const listPipelines = pipelinesRouter.list as NonNullable<typeof pipelinesRouter.list>
+  const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
+  const createOpportunity = opportunitiesRouter.create as NonNullable<
+    typeof opportunitiesRouter.create
+  >
+  const { data: pipelinesData } = listPipelines.useQuery()
+  const { data: stagesData } = getStages.useQuery({ pipelineId }, { enabled: !!pipelineId })
+  const pipelines = (pipelinesData as PipelinesListOutput | undefined)?.items ?? []
+  const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.opportunities.create.useMutation({
+  const opportunitiesUtils = utils.opportunities as NonNullable<typeof utils.opportunities>
+  const listOpportunitiesUtils = opportunitiesUtils.list as NonNullable<
+    typeof opportunitiesUtils.list
+  >
+  const createMutation = createOpportunity.useMutation({
     onSuccess: () => {
-      utils.opportunities.list.invalidate()
+      listOpportunitiesUtils.invalidate()
       setOpen(false)
       resetForm()
     },
@@ -124,7 +142,7 @@ export function CreateOpportunityDialog() {
                   <SelectValue placeholder="Select pipeline" />
                 </SelectTrigger>
                 <SelectContent>
-                  {pipelines?.items.map((p) => (
+                  {pipelines.map((p: PipelineRow) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                     </SelectItem>
@@ -140,7 +158,7 @@ export function CreateOpportunityDialog() {
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stages?.map((s) => (
+                    {stages.map((s: PipelineStageRow) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name}
                       </SelectItem>

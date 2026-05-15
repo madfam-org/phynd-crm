@@ -30,6 +30,9 @@ import { EditOpportunityDialog } from './edit-opportunity-dialog'
 
 type OpportunitiesListOutput = inferRouterOutputs<AppRouter>['opportunities']['list']
 type OpportunityRow = OpportunitiesListOutput['items'][number]
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
+type PipelineDefaultOutput = inferRouterOutputs<AppRouter>['pipelines']['getDefault']
+type PipelineStagesOutput = inferRouterOutputs<AppRouter>['pipelines']['getStages']
 
 interface OpportunitiesDataTableProps {
   initialData: OpportunitiesListOutput
@@ -48,56 +51,86 @@ type ViewMode = 'all' | 'mine'
 export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTableProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('all')
 
-  const { data: allOpportunities } = trpc.opportunities.list.useQuery(undefined, {
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const listOpportunities = opportunitiesRouter.list as NonNullable<typeof opportunitiesRouter.list>
+  const listMineOpportunities = opportunitiesRouter.listMine as NonNullable<
+    typeof opportunitiesRouter.listMine
+  >
+  const deleteOpportunity = opportunitiesRouter.delete as NonNullable<
+    typeof opportunitiesRouter.delete
+  >
+  const bulkUpdateOpportunityStatus = opportunitiesRouter.bulkUpdateStatus as NonNullable<
+    typeof opportunitiesRouter.bulkUpdateStatus
+  >
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+  const getDefaultPipeline = pipelinesRouter.getDefault as NonNullable<
+    typeof pipelinesRouter.getDefault
+  >
+  const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
+
+  const { data: allOpportunitiesData } = listOpportunities.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
     enabled: viewMode === 'all',
   })
-  const { data: myOpportunities } = trpc.opportunities.listMine.useQuery(undefined, {
+  const { data: myOpportunitiesData } = listMineOpportunities.useQuery(undefined, {
     refetchInterval: 60_000,
     enabled: viewMode === 'mine',
   })
 
-  const opportunities = viewMode === 'mine' ? myOpportunities : allOpportunities
-  const { data: usersData } = trpc.users.list.useQuery(undefined, {
+  const opportunitiesData = viewMode === 'mine' ? myOpportunitiesData : allOpportunitiesData
+  const opportunities = (opportunitiesData as OpportunitiesListOutput | undefined)?.items ?? []
+  const { data: usersData } = listUsers.useQuery(undefined, {
     retry: false,
   })
-  const { data: defaultPipeline } = trpc.pipelines.getDefault.useQuery()
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
+  const { data: defaultPipelineData } = getDefaultPipeline.useQuery()
+  const defaultPipeline = defaultPipelineData as PipelineDefaultOutput | undefined
   const pipelineId = defaultPipeline?.id ?? ''
-  const { data: stagesData } = trpc.pipelines.getStages.useQuery(
+  const { data: stagesData } = getStages.useQuery(
     { pipelineId },
     { enabled: !!defaultPipeline?.id },
   )
+  const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
   const [editOpp, setEditOpp] = useState<OpportunityRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
 
   const userMap = useMemo(() => {
     const map = new Map<string, string>()
-    for (const u of usersData?.items ?? []) {
+    for (const u of users) {
       map.set(u.id, u.name ?? u.email)
     }
     return map
-  }, [usersData])
+  }, [users])
 
   const stageMap = useMemo(() => {
     const map = new Map<string, string>()
-    for (const s of stagesData ?? []) {
+    for (const s of stages) {
       map.set(s.id, s.name)
     }
     return map
-  }, [stagesData])
+  }, [stages])
 
   const utils = trpc.useUtils()
+  const opportunitiesUtils = utils.opportunities as NonNullable<typeof utils.opportunities>
+  const listOpportunitiesUtils = opportunitiesUtils.list as NonNullable<
+    typeof opportunitiesUtils.list
+  >
+  const listMineOpportunitiesUtils = opportunitiesUtils.listMine as NonNullable<
+    typeof opportunitiesUtils.listMine
+  >
   const invalidateOpportunities = () => {
-    utils.opportunities.list.invalidate()
-    utils.opportunities.listMine.invalidate()
+    listOpportunitiesUtils.invalidate()
+    listMineOpportunitiesUtils.invalidate()
   }
-  const deleteMutation = trpc.opportunities.delete.useMutation({
+  const deleteMutation = deleteOpportunity.useMutation({
     onSuccess: invalidateOpportunities,
     onError: (err) => toast.error('Failed to delete opportunity', { description: err.message }),
   })
-  const bulkUpdateMutation = trpc.opportunities.bulkUpdateStatus.useMutation({
+  const bulkUpdateMutation = bulkUpdateOpportunityStatus.useMutation({
     onSuccess: () => {
       invalidateOpportunities()
       setSelectedKeys(new Set())
@@ -189,8 +222,11 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
   }
 
   function handleExport() {
-    const items = opportunities?.items ?? []
-    const toExport = selectedKeys.size > 0 ? items.filter((o) => selectedKeys.has(o.id)) : items
+    const items = opportunities
+    const toExport =
+      selectedKeys.size > 0
+        ? items.filter((o: OpportunityRow) => selectedKeys.has(o.id))
+        : items
     exportToCsv(
       toExport,
       [
@@ -252,7 +288,7 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
       )}
       <DataTable
         columns={columns}
-        data={opportunities?.items ?? []}
+        data={opportunities}
         getRowKey={(row) => row.id}
         selectable
         onSelectionChange={setSelectedKeys}

@@ -19,8 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
+type UserOption = UsersListOutput['items'][number]
 
 interface EditOpportunityDialogProps {
   opportunity: {
@@ -46,12 +51,23 @@ export function EditOpportunityDialog({
   const [status, setStatus] = useState(opportunity.status)
   const [ownerId, setOwnerId] = useState(opportunity.ownerId ?? '')
 
-  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+  const updateOpportunity = opportunitiesRouter.update as NonNullable<
+    typeof opportunitiesRouter.update
+  >
+  const { data: usersData } = listUsers.useQuery(undefined, { retry: false })
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.opportunities.update.useMutation({
+  const opportunitiesUtils = utils.opportunities as NonNullable<typeof utils.opportunities>
+  const listOpportunitiesUtils = opportunitiesUtils.list as NonNullable<
+    typeof opportunitiesUtils.list
+  >
+  const updateMutation = updateOpportunity.useMutation({
     onSuccess: () => {
-      utils.opportunities.list.invalidate()
+      listOpportunitiesUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update opportunity', { description: err.message }),
@@ -130,7 +146,7 @@ export function EditOpportunityDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Unassigned</SelectItem>
-                  {(usersData?.items ?? []).map((u) => (
+                  {users.map((u: UserOption) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.name ?? u.email}
                     </SelectItem>

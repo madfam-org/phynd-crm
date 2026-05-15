@@ -4,21 +4,34 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 const DEFAULT_PANELS = ['janua', 'dhanam', 'cotiza', 'pravara', 'forj', 'tezca', 'janua-telemetry']
+type PreferencesForRoleOutput = inferRouterOutputs<AppRouter>['preferences']['getForRole']
 
 export function PanelOrderSettings() {
-  const { data: prefs, isLoading } = trpc.preferences.getForRole.useQuery({ role: 'admin' })
+  const preferencesRouter = trpc.preferences as NonNullable<typeof trpc.preferences>
+  const getPreferencesForRole = preferencesRouter.getForRole as NonNullable<
+    typeof preferencesRouter.getForRole
+  >
+  const upsertPreferences = preferencesRouter.upsert as NonNullable<typeof preferencesRouter.upsert>
+  const { data: prefsData, isLoading } = getPreferencesForRole.useQuery({ role: 'admin' })
+  const prefs = prefsData as PreferencesForRoleOutput | undefined
   const [panelOrder, setPanelOrder] = useState<string[]>([])
   const [defaultTab, setDefaultTab] = useState('')
   const [initialized, setInitialized] = useState(false)
 
   const utils = trpc.useUtils()
-  const upsertMutation = trpc.preferences.upsert.useMutation({
+  const preferencesUtils = utils.preferences as NonNullable<typeof utils.preferences>
+  const getPreferencesForRoleUtils = preferencesUtils.getForRole as NonNullable<
+    typeof preferencesUtils.getForRole
+  >
+  const upsertMutation = upsertPreferences.useMutation({
     onSuccess: () => {
-      utils.preferences.getForRole.invalidate()
+      getPreferencesForRoleUtils.invalidate()
       toast.success('Preferences saved')
     },
     onError: (err) => toast.error('Failed to save', { description: err.message }),

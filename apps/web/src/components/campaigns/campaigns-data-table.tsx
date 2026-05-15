@@ -59,7 +59,7 @@ export function CampaignsDataTable({ initialData }: CampaignsDataTableProps) {
     initialData,
     refetchInterval: 60_000,
   })
-  const campaigns: CampaignRow[] = data?.items ?? []
+  const campaigns = (data as typeof initialData | undefined)?.items ?? []
 
   const [editCampaign, setEditCampaign] = useState<CampaignRow | null>(null)
   const [deleteCampaign, setDeleteCampaign] = useState<CampaignRow | null>(null)

@@ -26,9 +26,17 @@ export function DeleteScoringRuleDialog({
   onOpenChange,
 }: DeleteScoringRuleDialogProps) {
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.leadScoring.deleteRule.useMutation({
+  const leadScoringRouter = trpc.leadScoring as NonNullable<typeof trpc.leadScoring>
+  const deleteRule = leadScoringRouter.deleteRule as NonNullable<
+    typeof leadScoringRouter.deleteRule
+  >
+  const leadScoringUtils = utils.leadScoring as NonNullable<typeof utils.leadScoring>
+  const listRulesUtils = leadScoringUtils.listRules as NonNullable<
+    typeof leadScoringUtils.listRules
+  >
+  const deleteMutation = deleteRule.useMutation({
     onSuccess: () => {
-      utils.leadScoring.listRules.invalidate()
+      listRulesUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to delete rule', { description: err.message }),

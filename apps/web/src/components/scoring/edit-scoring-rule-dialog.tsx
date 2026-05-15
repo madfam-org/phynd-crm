@@ -67,9 +67,17 @@ export function EditScoringRuleDialog({ rule, open, onOpenChange }: EditScoringR
   const [isActive, setIsActive] = useState(rule.isActive)
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.leadScoring.updateRule.useMutation({
+  const leadScoringRouter = trpc.leadScoring as NonNullable<typeof trpc.leadScoring>
+  const updateRule = leadScoringRouter.updateRule as NonNullable<
+    typeof leadScoringRouter.updateRule
+  >
+  const leadScoringUtils = utils.leadScoring as NonNullable<typeof utils.leadScoring>
+  const listRulesUtils = leadScoringUtils.listRules as NonNullable<
+    typeof leadScoringUtils.listRules
+  >
+  const updateMutation = updateRule.useMutation({
     onSuccess: () => {
-      utils.leadScoring.listRules.invalidate()
+      listRulesUtils.invalidate()
       onOpenChange(false)
     },
     onError: (err) => toast.error('Failed to update rule', { description: err.message }),

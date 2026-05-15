@@ -48,7 +48,13 @@ const categoryVariant: Record<string, 'default' | 'success' | 'warning'> = {
 }
 
 export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
-  const { data: rules } = trpc.leadScoring.listRules.useQuery(undefined, { initialData })
+  const leadScoringRouter = trpc.leadScoring as NonNullable<typeof trpc.leadScoring>
+  const listRules = leadScoringRouter.listRules as NonNullable<typeof leadScoringRouter.listRules>
+  const createRule = leadScoringRouter.createRule as NonNullable<
+    typeof leadScoringRouter.createRule
+  >
+  const { data: rules } = listRules.useQuery(undefined, { initialData })
+  const rulesList = (rules as RulesListOutput | undefined) ?? initialData
   const [createOpen, setCreateOpen] = useState(false)
   const [editRule, setEditRule] = useState<RuleRow | null>(null)
   const [deleteRule, setDeleteRule] = useState<RuleRow | null>(null)
@@ -56,9 +62,13 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
   const [operator, setOperator] = useState<string>('eq')
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.leadScoring.createRule.useMutation({
+  const leadScoringUtils = utils.leadScoring as NonNullable<typeof utils.leadScoring>
+  const listRulesUtils = leadScoringUtils.listRules as NonNullable<
+    typeof leadScoringUtils.listRules
+  >
+  const createMutation = createRule.useMutation({
     onSuccess: () => {
-      utils.leadScoring.listRules.invalidate()
+      listRulesUtils.invalidate()
       setCreateOpen(false)
       setCategory('demographic')
       setOperator('eq')
@@ -213,7 +223,7 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={rules?.items ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={rulesList.items} getRowKey={(row) => row.id} />
       {editRule && (
         <EditScoringRuleDialog
           rule={editRule}

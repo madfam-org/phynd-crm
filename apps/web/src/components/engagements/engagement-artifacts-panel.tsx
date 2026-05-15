@@ -2,20 +2,30 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { AddArtifactDialog } from './add-artifact-dialog'
 
 interface EngagementArtifactsPanelProps {
   engagementId: string
 }
 
+type ArtifactsOutput = inferRouterOutputs<AppRouter>['engagements']['listArtifacts']
+type ArtifactRow = ArtifactsOutput[number]
+
 function formatDate(date: Date | string): string {
   return new Date(date).toLocaleString()
 }
 
 export function EngagementArtifactsPanel({ engagementId }: EngagementArtifactsPanelProps) {
-  const { data: artifacts, isLoading } = trpc.engagements.listArtifacts.useQuery({
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const listArtifacts = engagementsRouter.listArtifacts as NonNullable<
+    typeof engagementsRouter.listArtifacts
+  >
+  const { data, isLoading } = listArtifacts.useQuery({
     engagementId,
   })
+  const artifacts = (data as ArtifactsOutput | undefined) ?? []
 
   return (
     <div className="space-y-4">
@@ -28,13 +38,13 @@ export function EngagementArtifactsPanel({ engagementId }: EngagementArtifactsPa
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading artifacts...</p>}
 
-      {!isLoading && (!artifacts || artifacts.length === 0) && (
+      {!isLoading && artifacts.length === 0 && (
         <p className="text-sm text-muted-foreground">No artifacts yet.</p>
       )}
 
-      {!isLoading && artifacts && artifacts.length > 0 && (
+      {!isLoading && artifacts.length > 0 && (
         <ul className="space-y-2" aria-label="Artifacts">
-          {artifacts.map((a) => (
+          {artifacts.map((a: ArtifactRow) => (
             <li
               key={a.id}
               className="flex items-center justify-between gap-3 rounded-md border bg-card p-3"

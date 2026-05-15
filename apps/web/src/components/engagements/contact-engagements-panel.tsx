@@ -2,6 +2,8 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import Link from 'next/link'
 import { CreateEngagementDialog } from './create-engagement-dialog'
 
@@ -19,9 +21,16 @@ const statusVariant: Record<
   cancelled: 'destructive',
 }
 
+type EngagementsByContactOutput = inferRouterOutputs<AppRouter>['engagements']['listByContactId']
+type ContactEngagementRow = EngagementsByContactOutput['items'][number]
+
 export function ContactEngagementsPanel({ contactId }: ContactEngagementsPanelProps) {
-  const { data, isLoading } = trpc.engagements.listByContactId.useQuery({ contactId })
-  const engagements = data?.items ?? []
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const listByContactId = engagementsRouter.listByContactId as NonNullable<
+    typeof engagementsRouter.listByContactId
+  >
+  const { data, isLoading } = listByContactId.useQuery({ contactId })
+  const engagements = (data as EngagementsByContactOutput | undefined)?.items ?? []
 
   return (
     <div className="space-y-4">
@@ -50,7 +59,7 @@ export function ContactEngagementsPanel({ contactId }: ContactEngagementsPanelPr
 
       {!isLoading && engagements.length > 0 && (
         <ul className="space-y-2" aria-label="Contact engagements">
-          {engagements.map((e) => (
+          {engagements.map((e: ContactEngagementRow) => (
             <li key={e.id}>
               <Link
                 href={`/engagements/${e.id}`}

@@ -21,10 +21,21 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 const ENGAGEMENT_STATUSES = ['active', 'completed', 'paused', 'cancelled'] as const
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type ContactsListOutput = RouterOutputs['contacts']['list']
+type OpportunitiesByContactOutput = RouterOutputs['opportunities']['listByContactId']
+
+function getCreatedEngagementId(row: unknown): string | undefined {
+  if (!row || typeof row !== 'object') return undefined
+  const candidate = row as { id?: unknown }
+  return typeof candidate.id === 'string' ? candidate.id : undefined
+}
 
 interface CreateEngagementDialogProps {
   // When provided, the contact select is hidden and the engagement is
@@ -47,26 +58,44 @@ export function CreateEngagementDialog({
   const [opportunityId, setOpportunityId] = useState('')
   const [status, setStatus] = useState<(typeof ENGAGEMENT_STATUSES)[number]>('active')
 
-  const { data: contactsData } = trpc.contacts.list.useQuery(undefined, {
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
+  const listOpportunitiesByContactId = opportunitiesRouter.listByContactId as NonNullable<
+    typeof opportunitiesRouter.listByContactId
+  >
+  const createEngagement = engagementsRouter.create as NonNullable<typeof engagementsRouter.create>
+
+  const { data: contactsData } = listContacts.useQuery(undefined, {
     enabled: open && !lockedContactId,
   })
-  const { data: opportunitiesData } = trpc.opportunities.listByContactId.useQuery(
+  const { data: opportunitiesData } = listOpportunitiesByContactId.useQuery(
     { contactId: contactId },
     { enabled: open && !!contactId },
   )
+  const contactOptions = (contactsData as ContactsListOutput | undefined)?.items ?? []
+  const opportunityOptions =
+    (opportunitiesData as OpportunitiesByContactOutput | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.engagements.create.useMutation({
+  const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
+  const listEngagementsUtils = engagementsUtils.list as NonNullable<typeof engagementsUtils.list>
+  const listByContactUtils = engagementsUtils.listByContactId as NonNullable<
+    typeof engagementsUtils.listByContactId
+  >
+  const createMutation = createEngagement.useMutation({
     onSuccess: (row) => {
-      utils.engagements.list.invalidate()
+      listEngagementsUtils.invalidate()
       if (lockedContactId) {
-        utils.engagements.listByContactId.invalidate({ contactId: lockedContactId })
+        listByContactUtils.invalidate({ contactId: lockedContactId })
       }
       toast.success('Engagement created')
       setOpen(false)
       resetForm()
-      if (row?.id) {
-        onCreated?.(row.id)
+      const createdId = getCreatedEngagementId(row)
+      if (createdId) {
+        onCreated?.(createdId)
       }
     },
     onError: (err) => toast.error('Failed to create engagement', { description: err.message }),
@@ -121,7 +150,7 @@ export function CreateEngagementDialog({
                     <SelectValue placeholder="Select contact" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(contactsData?.items ?? []).map((c) => (
+                    {contactOptions.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                         {c.email ? ` · ${c.email}` : ''}
@@ -165,7 +194,7 @@ export function CreateEngagementDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(opportunitiesData?.items ?? []).map((o) => (
+                  {opportunityOptions.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
                     </SelectItem>

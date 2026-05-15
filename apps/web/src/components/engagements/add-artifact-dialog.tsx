@@ -44,9 +44,17 @@ export function AddArtifactDialog({ engagementId }: AddArtifactDialogProps) {
   const [url, setUrl] = useState('')
 
   const utils = trpc.useUtils()
-  const addMutation = trpc.engagements.addArtifact.useMutation({
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const addArtifact = engagementsRouter.addArtifact as NonNullable<
+    typeof engagementsRouter.addArtifact
+  >
+  const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
+  const listArtifactsUtils = engagementsUtils.listArtifacts as NonNullable<
+    typeof engagementsUtils.listArtifacts
+  >
+  const addMutation = addArtifact.useMutation({
     onSuccess: () => {
-      utils.engagements.listArtifacts.invalidate({ engagementId })
+      listArtifactsUtils.invalidate({ engagementId })
       toast.success('Artifact added')
       setOpen(false)
       resetForm()

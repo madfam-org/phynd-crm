@@ -12,10 +12,13 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 const ENGAGEMENT_STATUSES = ['active', 'completed', 'paused', 'cancelled'] as const
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
 
 interface EngagementInfoFormProps {
   engagement: {
@@ -33,13 +36,21 @@ export function EngagementInfoForm({ engagement }: EngagementInfoFormProps) {
   const [status, setStatus] = useState(engagement.status)
   const [ownerId, setOwnerId] = useState(engagement.ownerId ?? '')
 
-  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+  const updateEngagement = engagementsRouter.update as NonNullable<typeof engagementsRouter.update>
+  const { data: usersData } = listUsers.useQuery(undefined, { retry: false })
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.engagements.update.useMutation({
+  const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
+  const listEngagementsUtils = engagementsUtils.list as NonNullable<typeof engagementsUtils.list>
+  const getByIdUtils = engagementsUtils.getById as NonNullable<typeof engagementsUtils.getById>
+  const updateMutation = updateEngagement.useMutation({
     onSuccess: () => {
-      utils.engagements.list.invalidate()
-      utils.engagements.getById.invalidate({ id: engagement.id })
+      listEngagementsUtils.invalidate()
+      getByIdUtils.invalidate({ id: engagement.id })
       toast.success('Engagement updated')
     },
     onError: (err) => toast.error('Failed to update engagement', { description: err.message }),
@@ -103,7 +114,7 @@ export function EngagementInfoForm({ engagement }: EngagementInfoFormProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Unassigned</SelectItem>
-              {(usersData?.items ?? []).map((u) => (
+              {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name ?? u.email}
                 </SelectItem>

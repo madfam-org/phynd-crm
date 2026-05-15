@@ -10,11 +10,21 @@ interface SendPortalLinkButtonProps {
   disabled?: boolean
 }
 
+function getEmailRedacted(result: unknown): string {
+  if (!result || typeof result !== 'object') return 'the client'
+  const candidate = result as { emailRedacted?: unknown }
+  return typeof candidate.emailRedacted === 'string' ? candidate.emailRedacted : 'the client'
+}
+
 export function SendPortalLinkButton({ engagementId, disabled }: SendPortalLinkButtonProps) {
-  const sendMutation = trpc.engagements.sendPortalLink.useMutation({
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const sendPortalLink = engagementsRouter.sendPortalLink as NonNullable<
+    typeof engagementsRouter.sendPortalLink
+  >
+  const sendMutation = sendPortalLink.useMutation({
     onSuccess: (result) => {
       toast.success('Portal link sent', {
-        description: `Magic-link email dispatched via Janua to ${result.emailRedacted}.`,
+        description: `Magic-link email dispatched via Janua to ${getEmailRedacted(result)}.`,
       })
     },
     onError: (err) => toast.error('Failed to send portal link', { description: err.message }),

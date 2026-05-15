@@ -2,26 +2,36 @@
 
 import { Badge } from '@/components/ui/badge'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { Activity, ArrowRight, Zap } from 'lucide-react'
 
 interface EngagementTimelineProps {
   engagementId: string
 }
 
+type TimelineOutput = inferRouterOutputs<AppRouter>['engagements']['getTimeline']
+type TimelineEntry = TimelineOutput[number]
+
 function formatDate(date: Date | string): string {
   return new Date(date).toLocaleString()
 }
 
 export function EngagementTimeline({ engagementId }: EngagementTimelineProps) {
-  const { data: timeline, isLoading } = trpc.engagements.getTimeline.useQuery({
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const getTimeline = engagementsRouter.getTimeline as NonNullable<
+    typeof engagementsRouter.getTimeline
+  >
+  const { data, isLoading } = getTimeline.useQuery({
     engagementId,
   })
+  const timeline = (data as TimelineOutput | undefined) ?? []
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading timeline...</p>
   }
 
-  if (!timeline || timeline.length === 0) {
+  if (timeline.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
         No timeline events yet. Ecosystem webhooks (Cotiza, Pravara, Selva, Karafiel) will populate
@@ -34,7 +44,7 @@ export function EngagementTimeline({ engagementId }: EngagementTimelineProps) {
     <div className="relative space-y-0">
       <div className="absolute left-4 top-0 bottom-0 w-px bg-border" aria-hidden="true" />
       <ul className="space-y-4" aria-label="Engagement timeline">
-        {timeline.map((entry) => {
+        {timeline.map((entry: TimelineEntry) => {
           if (entry.kind === 'event') {
             return (
               <li key={`event-${entry.id}`} className="relative pl-10">

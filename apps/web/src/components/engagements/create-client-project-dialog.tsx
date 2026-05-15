@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { Rocket } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -29,6 +31,15 @@ import { toast } from 'sonner'
 
 type ProjectKind = 'digital' | 'physical' | 'phygital'
 type DeliveryTrack = 'digital_experience' | 'digital_twin' | 'fabrication' | 'fulfillment' | 'kiosk'
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type PipelinesListOutput = RouterOutputs['pipelines']['list']
+type PipelineStagesOutput = RouterOutputs['pipelines']['getStages']
+
+function getOnboardedEngagementId(row: unknown): string | undefined {
+  if (!row || typeof row !== 'object') return undefined
+  const engagement = (row as { engagement?: { id?: unknown } }).engagement
+  return typeof engagement?.id === 'string' ? engagement.id : undefined
+}
 
 const DELIVERY_TRACKS: Array<{ label: string; value: DeliveryTrack }> = [
   { label: 'Digital experience', value: 'digital_experience' },
@@ -66,15 +77,25 @@ export function CreateClientProjectDialog() {
   const [orderNumber, setOrderNumber] = useState('')
   const [estimatedCompletion, setEstimatedCompletion] = useState('')
 
-  const { data: pipelines } = trpc.pipelines.list.useQuery(undefined, { enabled: open })
-  const { data: stages } = trpc.pipelines.getStages.useQuery(
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const listPipelines = pipelinesRouter.list as NonNullable<typeof pipelinesRouter.list>
+  const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
+  const onboardClientProject = engagementsRouter.onboardClientProject as NonNullable<
+    typeof engagementsRouter.onboardClientProject
+  >
+
+  const { data: pipelinesData } = listPipelines.useQuery(undefined, { enabled: open })
+  const { data: stagesData } = getStages.useQuery(
     { pipelineId },
     { enabled: open && !!pipelineId },
   )
+  const pipelines = (pipelinesData as PipelinesListOutput | undefined)?.items ?? []
+  const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
 
   useEffect(() => {
-    if (!open || pipelineId || !pipelines?.items.length) return
-    const defaultPipeline = pipelines.items.find((p) => p.isDefault) ?? pipelines.items[0]
+    if (!open || pipelineId || !pipelines.length) return
+    const defaultPipeline = pipelines.find((p) => p.isDefault) ?? pipelines[0]
     if (defaultPipeline) setPipelineId(defaultPipeline.id)
   }, [open, pipelineId, pipelines])
 
@@ -84,17 +105,25 @@ export function CreateClientProjectDialog() {
   }, [open, pipelineId, stageId, stages])
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.engagements.onboardClientProject.useMutation({
+  const contactsUtils = utils.contacts as NonNullable<typeof utils.contacts>
+  const opportunitiesUtils = utils.opportunities as NonNullable<typeof utils.opportunities>
+  const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
+  const quotesUtils = utils.quotes as NonNullable<typeof utils.quotes>
+  const ordersUtils = utils.orders as NonNullable<typeof utils.orders>
+  const createMutation = onboardClientProject.useMutation({
     onSuccess: (row) => {
-      utils.contacts.list.invalidate()
-      utils.opportunities.list.invalidate()
-      utils.engagements.list.invalidate()
-      utils.quotes.list.invalidate()
-      utils.orders.list.invalidate()
+      contactsUtils.list.invalidate()
+      opportunitiesUtils.list.invalidate()
+      engagementsUtils.list.invalidate()
+      quotesUtils.list.invalidate()
+      ordersUtils.list.invalidate()
       toast.success('Client project onboarded')
       setOpen(false)
       resetForm()
-      router.push(`/engagements/${row.engagement.id}`)
+      const engagementId = getOnboardedEngagementId(row)
+      if (engagementId) {
+        router.push(`/engagements/${engagementId}`)
+      }
     },
     onError: (err) => toast.error('Failed to onboard client project', { description: err.message }),
   })
@@ -320,7 +349,7 @@ export function CreateClientProjectDialog() {
                       <SelectValue placeholder="Select pipeline" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(pipelines?.items ?? []).map((pipeline) => (
+                      {pipelines.map((pipeline) => (
                         <SelectItem key={pipeline.id} value={pipeline.id}>
                           {pipeline.name}
                         </SelectItem>

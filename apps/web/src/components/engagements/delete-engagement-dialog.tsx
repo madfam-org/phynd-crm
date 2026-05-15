@@ -30,11 +30,18 @@ export function DeleteEngagementDialog({
   onDeleted,
 }: DeleteEngagementDialogProps) {
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.engagements.delete.useMutation({
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const deleteEngagement = engagementsRouter.delete as NonNullable<typeof engagementsRouter.delete>
+  const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
+  const listEngagementsUtils = engagementsUtils.list as NonNullable<typeof engagementsUtils.list>
+  const listByContactUtils = engagementsUtils.listByContactId as NonNullable<
+    typeof engagementsUtils.listByContactId
+  >
+  const deleteMutation = deleteEngagement.useMutation({
     onSuccess: () => {
-      utils.engagements.list.invalidate()
+      listEngagementsUtils.invalidate()
       if (contactId) {
-        utils.engagements.listByContactId.invalidate({ contactId })
+        listByContactUtils.invalidate({ contactId })
       }
       toast.success('Engagement deleted')
       onOpenChange(false)

@@ -85,16 +85,26 @@ function buildDisplayRows(
 export function EngagementsDataTable({ initialData }: EngagementsDataTableProps) {
   const [deleteTarget, setDeleteTarget] = useState<DisplayRow | null>(null)
 
-  const { data: engagementsData } = trpc.engagements.list.useQuery(undefined, {
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const listEngagements = engagementsRouter.list as NonNullable<typeof engagementsRouter.list>
+  const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
+  const listOpportunities = opportunitiesRouter.list as NonNullable<typeof opportunitiesRouter.list>
+
+  const { data: engagementsData } = listEngagements.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
   })
-  const { data: contactsData } = trpc.contacts.list.useQuery()
-  const { data: opportunitiesData } = trpc.opportunities.list.useQuery()
+  const { data: contactsData } = listContacts.useQuery()
+  const { data: opportunitiesData } = listOpportunities.useQuery()
+  const engagementRows = (engagementsData as EngagementsListOutput | undefined)?.items ?? []
+  const contacts = contactsData as ContactsListOutput | undefined
+  const opportunities = opportunitiesData as OpportunitiesListOutput | undefined
 
   const rows = useMemo(
-    () => buildDisplayRows(engagementsData?.items ?? [], contactsData, opportunitiesData),
-    [engagementsData, contactsData, opportunitiesData],
+    () => buildDisplayRows(engagementRows, contacts, opportunities),
+    [engagementRows, contacts, opportunities],
   )
 
   const columns: ColumnDef<DisplayRow>[] = [

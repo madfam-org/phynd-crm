@@ -4,6 +4,7 @@ const TRUSTED_HOSTS = new Set([
   'phynd.app',
   'www.phynd.app',
   'app.phynd.app',
+  'app.phyne.app',
   'admin.phynd.app',
   'api.phynd.app',
   'crm.madfam.io',

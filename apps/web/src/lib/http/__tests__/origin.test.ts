@@ -28,6 +28,15 @@ describe('externalOriginForRequest', () => {
     expect(externalUrl('/overview', request).toString()).toBe('https://crm.madfam.io/overview')
   })
 
+  it('supports the generic authenticated PhyneCRM app host', () => {
+    const request = requestWithHeaders({
+      'x-forwarded-host': 'app.phyne.app',
+      'x-forwarded-proto': 'https',
+    })
+
+    expect(externalUrl('/overview', request).toString()).toBe('https://app.phyne.app/overview')
+  })
+
   it('falls back to the public Phynd origin for untrusted hosts', () => {
     const request = requestWithHeaders({
       host: 'phynd-crm-web-955d6b8cd-ftq9q:3000',

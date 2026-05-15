@@ -70,7 +70,11 @@ export function PricingSection() {
           </CardContent>
           <CardFooter>
             <Button className="w-full" variant="outline" asChild>
-              <a href="https://github.com/madfam/phynd" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://github.com/madfam-org/phynd-crm"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Deploy Now
               </a>
             </Button>

@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth'
 import { DEMO_COOKIE_NAME } from '@/lib/demo'
+import { getAuthenticatedAppRootRedirect } from '@/lib/http/app-host'
 import { NextResponse } from 'next/server'
 
 const publicPaths = ['/', '/login', '/callback', '/demo']
@@ -19,6 +20,12 @@ export default auth((req) => {
     pathname.startsWith('/portal')
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/callback')
   const hasDemoCookie = !!req.cookies.get(DEMO_COOKIE_NAME)?.value
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
+  const appRootRedirect = getAuthenticatedAppRootRedirect(host, pathname, isLoggedIn)
+
+  if (appRootRedirect) {
+    return NextResponse.redirect(new URL(appRootRedirect, req.nextUrl))
+  }
 
   // Demo users can access dashboard pages without auth
   if (!isPublic && !isLoggedIn && hasDemoCookie) {

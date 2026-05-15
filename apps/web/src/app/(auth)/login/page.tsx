@@ -1,12 +1,23 @@
 import { signIn } from '@/lib/auth'
+import { getBrandForHost } from '@/lib/branding/tenant-brand'
+import { headers } from 'next/headers'
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const requestHeaders = await headers()
+  const brand = getBrandForHost(
+    requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host'),
+  )
+  const signInCopy =
+    brand.tenantId === 'madfam'
+      ? 'Sign in with your MADFAM Janua SSO account'
+      : 'Sign in with Janua SSO'
+
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="mx-auto w-full max-w-sm space-y-6 p-6">
         <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">Phynd CRM</h1>
-          <p className="text-muted-foreground">Sign in with your MADFAM account</p>
+          <h1 className="text-3xl font-bold">{brand.productName}</h1>
+          <p className="text-muted-foreground">{signInCopy}</p>
         </div>
         <form
           action={async () => {

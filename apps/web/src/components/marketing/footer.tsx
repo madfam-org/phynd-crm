@@ -76,7 +76,7 @@ export function Footer({ brand }: { brand?: TenantBrand }) {
           </p>
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com/madfam/phynd"
+              href="https://github.com/madfam-org/phynd-crm"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground transition-colors hover:text-foreground"

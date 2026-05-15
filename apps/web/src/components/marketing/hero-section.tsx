@@ -47,7 +47,11 @@ export function HeroSection({ brand }: { brand?: TenantBrand }) {
                 <Link href="/demo">{secondaryCta}</Link>
               </Button>
               <Button size="lg" variant="ghost" asChild>
-                <a href="https://github.com/madfam/phynd" target="_blank" rel="noopener noreferrer">
+                <a
+                  href="https://github.com/madfam-org/phynd-crm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <svg
                     className="mr-2 h-5 w-5"
                     fill="currentColor"

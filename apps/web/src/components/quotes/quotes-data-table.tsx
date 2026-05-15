@@ -30,6 +30,7 @@ import { EditQuoteDialog } from './edit-quote-dialog'
 
 type QuotesListOutput = inferRouterOutputs<AppRouter>['quotes']['list']
 type QuoteRow = QuotesListOutput['items'][number]
+type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
 
 interface QuotesDataTableProps {
   initialData: QuotesListOutput
@@ -52,47 +53,70 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [deleteQuote, setDeleteQuote] = useState<QuoteRow | null>(null)
 
-  const { data: allQuotes } = trpc.quotes.list.useQuery(undefined, {
+  const quotesRouter = trpc.quotes as NonNullable<typeof trpc.quotes>
+  const usersRouter = trpc.users as NonNullable<typeof trpc.users>
+  const listQuotes = quotesRouter.list as NonNullable<typeof quotesRouter.list>
+  const listMineQuotes = quotesRouter.listMine as NonNullable<typeof quotesRouter.listMine>
+  const deleteQuoteMutation = quotesRouter.delete as NonNullable<typeof quotesRouter.delete>
+  const acceptQuote = quotesRouter.accept as NonNullable<typeof quotesRouter.accept>
+  const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
+
+  const { data: allQuotesData } = listQuotes.useQuery(undefined, {
     initialData,
     refetchInterval: 60_000,
     enabled: viewMode === 'all',
   })
-  const { data: myQuotes } = trpc.quotes.listMine.useQuery(undefined, {
+  const { data: myQuotesData } = listMineQuotes.useQuery(undefined, {
     refetchInterval: 60_000,
     enabled: viewMode === 'mine',
   })
 
-  const quotes = viewMode === 'mine' ? myQuotes : allQuotes
-  const { data: usersData } = trpc.users.list.useQuery(undefined, { retry: false })
+  const quotesData = viewMode === 'mine' ? myQuotesData : allQuotesData
+  const quotes = (quotesData as QuotesListOutput | undefined)?.items ?? []
+  const { data: usersData } = listUsers.useQuery(undefined, { retry: false })
+  const users = (usersData as UsersListOutput | undefined)?.items ?? []
   const [editQuote, setEditQuote] = useState<QuoteRow | null>(null)
 
   const userMap = useMemo(() => {
     const map = new Map<string, string>()
-    for (const u of usersData?.items ?? []) {
+    for (const u of users) {
       map.set(u.id, u.name ?? u.email)
     }
     return map
-  }, [usersData])
+  }, [users])
 
   const utils = trpc.useUtils()
+  const quotesUtils = utils.quotes as NonNullable<typeof utils.quotes>
+  const ordersUtils = utils.orders as NonNullable<typeof utils.orders>
+  const opportunitiesUtils = utils.opportunities as NonNullable<typeof utils.opportunities>
+  const listQuotesUtils = quotesUtils.list as NonNullable<typeof quotesUtils.list>
+  const listMineQuotesUtils = quotesUtils.listMine as NonNullable<typeof quotesUtils.listMine>
+  const listOrdersUtils = ordersUtils.list as NonNullable<typeof ordersUtils.list>
+  const listMineOrdersUtils = ordersUtils.listMine as NonNullable<typeof ordersUtils.listMine>
+  const listOpportunitiesUtils = opportunitiesUtils.list as NonNullable<
+    typeof opportunitiesUtils.list
+  >
+  const listMineOpportunitiesUtils = opportunitiesUtils.listMine as NonNullable<
+    typeof opportunitiesUtils.listMine
+  >
   const invalidateQuotes = () => {
-    utils.quotes.list.invalidate()
-    utils.quotes.listMine.invalidate()
+    listQuotesUtils.invalidate()
+    listMineQuotesUtils.invalidate()
   }
-  const deleteMutation = trpc.quotes.delete.useMutation({
+  const deleteMutation = deleteQuoteMutation.useMutation({
     onSuccess: () => {
       invalidateQuotes()
       setDeleteQuote(null)
     },
     onError: (err) => toast.error('Failed to delete quote', { description: err.message }),
   })
-  const acceptMutation = trpc.quotes.accept.useMutation({
+  const acceptMutation = acceptQuote.useMutation({
     onSuccess: () => {
       invalidateQuotes()
-      utils.orders.list.invalidate()
-      utils.orders.listMine.invalidate()
-      utils.opportunities.list.invalidate()
-      utils.opportunities.listMine.invalidate()
+      listOrdersUtils.invalidate()
+      listMineOrdersUtils.invalidate()
+      listOpportunitiesUtils.invalidate()
+      listMineOpportunitiesUtils.invalidate()
       toast.success('Quote accepted')
     },
     onError: (err) => toast.error('Failed to accept quote', { description: err.message }),
@@ -167,7 +191,7 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
   ]
 
   function handleExport() {
-    const items = quotes?.items ?? []
+    const items = quotes
     exportToCsv(
       items,
       [
@@ -209,7 +233,7 @@ export function QuotesDataTable({ initialData }: QuotesDataTableProps) {
         </div>
         <CreateQuoteDialog />
       </div>
-      <DataTable columns={columns} data={quotes?.items ?? []} getRowKey={(row) => row.id} />
+      <DataTable columns={columns} data={quotes} getRowKey={(row) => row.id} />
       {editQuote && (
         <EditQuoteDialog
           quote={editQuote}

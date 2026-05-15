@@ -20,8 +20,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+
+type RouterOutputs = inferRouterOutputs<AppRouter>
+type OpportunitiesListOutput = RouterOutputs['opportunities']['list']
+type ContactsListOutput = RouterOutputs['contacts']['list']
+type OpportunityOption = OpportunitiesListOutput['items'][number]
+type ContactOption = ContactsListOutput['items'][number]
 
 export function CreateQuoteDialog() {
   const [open, setOpen] = useState(false)
@@ -32,13 +40,25 @@ export function CreateQuoteDialog() {
   const [opportunityId, setOpportunityId] = useState('')
   const [contactId, setContactId] = useState('')
 
-  const { data: opportunities } = trpc.opportunities.list.useQuery()
-  const { data: contacts } = trpc.contacts.list.useQuery()
+  const opportunitiesRouter = trpc.opportunities as NonNullable<typeof trpc.opportunities>
+  const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
+  const quotesRouter = trpc.quotes as NonNullable<typeof trpc.quotes>
+  const listOpportunities = opportunitiesRouter.list as NonNullable<
+    typeof opportunitiesRouter.list
+  >
+  const listContacts = contactsRouter.list as NonNullable<typeof contactsRouter.list>
+  const createQuote = quotesRouter.create as NonNullable<typeof quotesRouter.create>
+  const { data: opportunitiesData } = listOpportunities.useQuery()
+  const { data: contactsData } = listContacts.useQuery()
+  const opportunities = (opportunitiesData as OpportunitiesListOutput | undefined)?.items ?? []
+  const contacts = (contactsData as ContactsListOutput | undefined)?.items ?? []
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.quotes.create.useMutation({
+  const quotesUtils = utils.quotes as NonNullable<typeof utils.quotes>
+  const listQuotesUtils = quotesUtils.list as NonNullable<typeof quotesUtils.list>
+  const createMutation = createQuote.useMutation({
     onSuccess: () => {
-      utils.quotes.list.invalidate()
+      listQuotesUtils.invalidate()
       setOpen(false)
       resetForm()
     },
@@ -125,7 +145,7 @@ export function CreateQuoteDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(opportunities?.items ?? []).map((o) => (
+                  {opportunities.map((o: OpportunityOption) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
                     </SelectItem>
@@ -141,7 +161,7 @@ export function CreateQuoteDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {(contacts?.items ?? []).map((c) => (
+                  {contacts.map((c: ContactOption) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>

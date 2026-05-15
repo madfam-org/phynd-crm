@@ -40,7 +40,7 @@ export function PipelineSettings({ initialPipelines }: PipelineSettingsProps) {
     initialData: { hasMore: false, items: initialPipelines, nextCursor: null },
   })
 
-  const pipelinesList =
+  const pipelinesList: Pipeline[] =
     (pipelinesData as RouterOutputs['pipelines']['list'] | undefined)?.items ?? initialPipelines
 
   const utils = trpc.useUtils()

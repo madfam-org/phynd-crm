@@ -14,7 +14,12 @@ interface VisitorsDataTableProps {
 }
 
 export function VisitorsDataTable({ initialData }: VisitorsDataTableProps) {
-  const { data: sessions } = trpc.visitorTracking.list.useQuery(undefined, { initialData })
+  const visitorTrackingRouter = trpc.visitorTracking as NonNullable<typeof trpc.visitorTracking>
+  const listVisitorSessions = visitorTrackingRouter.list as NonNullable<
+    typeof visitorTrackingRouter.list
+  >
+  const { data: sessionsData } = listVisitorSessions.useQuery(undefined, { initialData })
+  const sessions = (sessionsData as SessionRow[] | undefined) ?? initialData
 
   const columns: ColumnDef<SessionRow>[] = [
     {
@@ -63,5 +68,5 @@ export function VisitorsDataTable({ initialData }: VisitorsDataTableProps) {
     },
   ]
 
-  return <DataTable columns={columns} data={sessions ?? []} getRowKey={(row) => row.id} />
+  return <DataTable columns={columns} data={sessions} getRowKey={(row) => row.id} />
 }

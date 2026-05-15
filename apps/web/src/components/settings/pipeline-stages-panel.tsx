@@ -5,16 +5,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { trpc } from '@/lib/trpc/client'
 import { DragDropContext, Draggable, type DropResult, Droppable } from '@hello-pangea/dnd'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import { GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-interface Stage {
-  id: string
-  name: string
-  position: number
-  probability: number | null
-}
+type StagesOutput = inferRouterOutputs<AppRouter>['pipelines']['getStages']
+type Stage = StagesOutput[number]
 
 interface PipelineStagesPanelProps {
   pipelineId: string
@@ -29,11 +27,22 @@ export function PipelineStagesPanel({ pipelineId }: PipelineStagesPanelProps) {
   const [editProbability, setEditProbability] = useState('')
 
   const utils = trpc.useUtils()
-  const { data: stages = [] } = trpc.pipelines.getStages.useQuery({ pipelineId })
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
+  const createStage = pipelinesRouter.createStage as NonNullable<typeof pipelinesRouter.createStage>
+  const updateStage = pipelinesRouter.updateStage as NonNullable<typeof pipelinesRouter.updateStage>
+  const deleteStage = pipelinesRouter.deleteStage as NonNullable<typeof pipelinesRouter.deleteStage>
+  const reorderStages = pipelinesRouter.reorderStages as NonNullable<
+    typeof pipelinesRouter.reorderStages
+  >
+  const pipelinesUtils = utils.pipelines as NonNullable<typeof utils.pipelines>
+  const getStagesUtils = pipelinesUtils.getStages as NonNullable<typeof pipelinesUtils.getStages>
+  const { data: stagesData } = getStages.useQuery({ pipelineId })
+  const stages = (stagesData as StagesOutput | undefined) ?? []
 
-  const createStageMutation = trpc.pipelines.createStage.useMutation({
+  const createStageMutation = createStage.useMutation({
     onSuccess: () => {
-      utils.pipelines.getStages.invalidate({ pipelineId })
+      getStagesUtils.invalidate({ pipelineId })
       setShowAdd(false)
       setNewName('')
       setNewProbability('')
@@ -41,24 +50,24 @@ export function PipelineStagesPanel({ pipelineId }: PipelineStagesPanelProps) {
     onError: (err) => toast.error('Failed to create stage', { description: err.message }),
   })
 
-  const updateStageMutation = trpc.pipelines.updateStage.useMutation({
+  const updateStageMutation = updateStage.useMutation({
     onSuccess: () => {
-      utils.pipelines.getStages.invalidate({ pipelineId })
+      getStagesUtils.invalidate({ pipelineId })
       setEditingStage(null)
     },
     onError: (err) => toast.error('Failed to update stage', { description: err.message }),
   })
 
-  const deleteStageMutation = trpc.pipelines.deleteStage.useMutation({
+  const deleteStageMutation = deleteStage.useMutation({
     onSuccess: () => {
-      utils.pipelines.getStages.invalidate({ pipelineId })
+      getStagesUtils.invalidate({ pipelineId })
     },
     onError: (err) => toast.error('Failed to delete stage', { description: err.message }),
   })
 
-  const reorderMutation = trpc.pipelines.reorderStages.useMutation({
+  const reorderMutation = reorderStages.useMutation({
     onSuccess: () => {
-      utils.pipelines.getStages.invalidate({ pipelineId })
+      getStagesUtils.invalidate({ pipelineId })
     },
     onError: (err) => toast.error('Failed to reorder stages', { description: err.message }),
   })

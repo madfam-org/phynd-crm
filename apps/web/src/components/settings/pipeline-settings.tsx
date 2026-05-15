@@ -33,16 +33,22 @@ export function PipelineSettings({ initialPipelines }: PipelineSettingsProps) {
   const [editPipeline, setEditPipeline] = useState<Pipeline | null>(null)
   const [deletePipeline, setDeletePipeline] = useState<Pipeline | null>(null)
 
-  const { data: pipelinesData } = trpc.pipelines.list.useQuery(undefined, {
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const listPipelines = pipelinesRouter.list as NonNullable<typeof pipelinesRouter.list>
+  const deletePipelineProcedure = pipelinesRouter.delete as NonNullable<typeof pipelinesRouter.delete>
+  const { data: pipelinesData } = listPipelines.useQuery(undefined, {
     initialData: { hasMore: false, items: initialPipelines, nextCursor: null },
   })
 
-  const pipelinesList = pipelinesData?.items ?? initialPipelines
+  const pipelinesList =
+    (pipelinesData as RouterOutputs['pipelines']['list'] | undefined)?.items ?? initialPipelines
 
   const utils = trpc.useUtils()
-  const deleteMutation = trpc.pipelines.delete.useMutation({
+  const pipelinesUtils = utils.pipelines as NonNullable<typeof utils.pipelines>
+  const listPipelinesUtils = pipelinesUtils.list as NonNullable<typeof pipelinesUtils.list>
+  const deleteMutation = deletePipelineProcedure.useMutation({
     onSuccess: () => {
-      utils.pipelines.list.invalidate()
+      listPipelinesUtils.invalidate()
       setDeletePipeline(null)
       if (selectedId === deletePipeline?.id) {
         setSelectedId(null)

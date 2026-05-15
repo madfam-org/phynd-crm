@@ -23,9 +23,13 @@ export function CreatePipelineDialog() {
   const [isDefault, setIsDefault] = useState(false)
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.pipelines.create.useMutation({
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const createPipeline = pipelinesRouter.create as NonNullable<typeof pipelinesRouter.create>
+  const pipelinesUtils = utils.pipelines as NonNullable<typeof utils.pipelines>
+  const listPipelinesUtils = pipelinesUtils.list as NonNullable<typeof pipelinesUtils.list>
+  const createMutation = createPipeline.useMutation({
     onSuccess: () => {
-      utils.pipelines.list.invalidate()
+      listPipelinesUtils.invalidate()
       setOpen(false)
       setName('')
       setIsDefault(false)

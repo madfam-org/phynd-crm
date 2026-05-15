@@ -33,9 +33,13 @@ export function EditPipelineDialog({ pipeline, onClose }: EditPipelineDialogProp
   }, [pipeline])
 
   const utils = trpc.useUtils()
-  const updateMutation = trpc.pipelines.update.useMutation({
+  const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
+  const updatePipeline = pipelinesRouter.update as NonNullable<typeof pipelinesRouter.update>
+  const pipelinesUtils = utils.pipelines as NonNullable<typeof utils.pipelines>
+  const listPipelinesUtils = pipelinesUtils.list as NonNullable<typeof pipelinesUtils.list>
+  const updateMutation = updatePipeline.useMutation({
     onSuccess: () => {
-      utils.pipelines.list.invalidate()
+      listPipelinesUtils.invalidate()
       onClose()
     },
     onError: (err) => toast.error('Failed to update pipeline', { description: err.message }),

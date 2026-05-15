@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages ./packages
 COPY . .
 # Next.js needs NEXT_PUBLIC_* vars at build time for static optimization
 ARG NEXT_PUBLIC_APP_URL=https://phynd.app

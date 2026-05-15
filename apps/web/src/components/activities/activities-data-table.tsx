@@ -75,7 +75,7 @@ export function ActivitiesDataTable({ initialData }: ActivitiesDataTableProps) {
     typeof activitiesRouter.complete
   >
   const { data } = listActivities.useQuery({}, { initialData, refetchInterval: 60_000 })
-  const activities: ActivityRow[] = data?.items ?? []
+  const activities = (data as ActivitiesListOutput | undefined)?.items ?? []
 
   const [editActivity, setEditActivity] = useState<ActivityRow | null>(null)
   const [deleteActivity, setDeleteActivity] = useState<ActivityRow | null>(null)

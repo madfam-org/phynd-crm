@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/button'
 import { trpc } from '@/lib/trpc/client'
+import type { AppRouter } from '@phynd/api'
+import type { inferRouterOutputs } from '@trpc/server'
 import type { EntityType } from '@phynd/types/crm'
 import { Pin, PinOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -12,31 +14,43 @@ interface NotesPanelProps {
   entityId: string
 }
 
+type NotesOutput = inferRouterOutputs<AppRouter>['notes']['listForEntity']
+type NoteRow = NotesOutput[number]
+
 function formatDate(date: Date | string | null): string {
   if (!date) return ''
   return new Date(date).toLocaleString()
 }
 
 export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
-  const { data: notes, isLoading } = trpc.notes.listForEntity.useQuery({ entityType, entityId })
+  const notesRouter = trpc.notes as NonNullable<typeof trpc.notes>
+  const listForEntity = notesRouter.listForEntity as NonNullable<typeof notesRouter.listForEntity>
+  const deleteNote = notesRouter.delete as NonNullable<typeof notesRouter.delete>
+  const togglePin = notesRouter.togglePin as NonNullable<typeof notesRouter.togglePin>
+  const { data, isLoading } = listForEntity.useQuery({ entityType, entityId })
+  const notes = (data as NotesOutput | undefined) ?? []
 
   const utils = trpc.useUtils()
+  const notesUtils = utils.notes as NonNullable<typeof utils.notes>
+  const listForEntityUtils = notesUtils.listForEntity as NonNullable<
+    typeof notesUtils.listForEntity
+  >
 
-  const deleteMutation = trpc.notes.delete.useMutation({
+  const deleteMutation = deleteNote.useMutation({
     onSuccess: () => {
-      utils.notes.listForEntity.invalidate({ entityType, entityId })
+      listForEntityUtils.invalidate({ entityType, entityId })
     },
     onError: (err) => toast.error('Failed to delete note', { description: err.message }),
   })
 
-  const togglePinMutation = trpc.notes.togglePin.useMutation({
+  const togglePinMutation = togglePin.useMutation({
     onSuccess: () => {
-      utils.notes.listForEntity.invalidate({ entityType, entityId })
+      listForEntityUtils.invalidate({ entityType, entityId })
     },
     onError: (err) => toast.error('Failed to toggle pin', { description: err.message }),
   })
 
-  const sortedNotes = [...(notes ?? [])].sort((a, b) => {
+  const sortedNotes = [...notes].sort((a: NoteRow, b: NoteRow) => {
     if (a.isPinned && !b.isPinned) return -1
     if (!a.isPinned && b.isPinned) return 1
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -57,7 +71,7 @@ export function NotesPanel({ entityType, entityId }: NotesPanelProps) {
         <p className="text-sm text-muted-foreground">No notes yet.</p>
       ) : (
         <ul className="space-y-3" aria-label="Notes list">
-          {sortedNotes.map((note) => (
+          {sortedNotes.map((note: NoteRow) => (
             <li key={note.id} className="rounded-md border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">

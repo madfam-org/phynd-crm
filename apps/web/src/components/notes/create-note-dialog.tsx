@@ -28,9 +28,15 @@ export function CreateNoteDialog({ entityType, entityId }: CreateNoteDialogProps
   const [isPinned, setIsPinned] = useState(false)
 
   const utils = trpc.useUtils()
-  const createMutation = trpc.notes.create.useMutation({
+  const notesRouter = trpc.notes as NonNullable<typeof trpc.notes>
+  const createNote = notesRouter.create as NonNullable<typeof notesRouter.create>
+  const notesUtils = utils.notes as NonNullable<typeof utils.notes>
+  const listForEntityUtils = notesUtils.listForEntity as NonNullable<
+    typeof notesUtils.listForEntity
+  >
+  const createMutation = createNote.useMutation({
     onSuccess: () => {
-      utils.notes.listForEntity.invalidate({ entityType, entityId })
+      listForEntityUtils.invalidate({ entityType, entityId })
       setOpen(false)
       resetForm()
     },

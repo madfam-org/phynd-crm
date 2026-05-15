@@ -35,6 +35,7 @@ type RouterOutputs = inferRouterOutputs<AppRouter>
 type PipelinesListOutput = RouterOutputs['pipelines']['list']
 type PipelineStagesOutput = RouterOutputs['pipelines']['getStages']
 type PipelineRow = PipelinesListOutput['items'][number]
+type PipelineStageRow = PipelineStagesOutput[number]
 
 function getOnboardedEngagementId(row: unknown): string | undefined {
   if (!row || typeof row !== 'object') return undefined
@@ -354,7 +355,7 @@ export function CreateClientProjectDialog() {
                       <SelectValue placeholder="Select pipeline" />
                     </SelectTrigger>
                     <SelectContent>
-                      {pipelines.map((pipeline) => (
+                      {pipelines.map((pipeline: PipelineRow) => (
                         <SelectItem key={pipeline.id} value={pipeline.id}>
                           {pipeline.name}
                         </SelectItem>
@@ -371,7 +372,7 @@ export function CreateClientProjectDialog() {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {(stages ?? []).map((stage) => (
+                      {stages.map((stage: PipelineStageRow) => (
                         <SelectItem key={stage.id} value={stage.id}>
                           {stage.name}
                         </SelectItem>

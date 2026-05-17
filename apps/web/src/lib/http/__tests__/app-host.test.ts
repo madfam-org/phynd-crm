@@ -9,9 +9,9 @@ describe('authenticated app host routing', () => {
     expect(getAuthenticatedAppRootRedirect('crm.madfam.io', '/', true)).toBe('/overview')
   })
 
-  it('treats app.phyne.app as the generic authenticated app host', () => {
-    expect(isAuthenticatedAppHost('app.phyne.app')).toBe(true)
-    expect(getAuthenticatedAppRootRedirect('app.phyne.app', '/', false)).toBe('/login')
+  it('treats crm.phyne.app as the generic authenticated app host', () => {
+    expect(isAuthenticatedAppHost('crm.phyne.app')).toBe(true)
+    expect(getAuthenticatedAppRootRedirect('crm.phyne.app', '/', false)).toBe('/login')
   })
 
   it('leaves phynd.app as the public marketing host', () => {

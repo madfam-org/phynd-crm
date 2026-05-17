@@ -1,6 +1,6 @@
 import { normalizeHost } from '@/lib/branding/tenant-brand'
 
-const AUTHENTICATED_APP_HOSTS = new Set(['crm.madfam.io', 'app.phyne.app'])
+const AUTHENTICATED_APP_HOSTS = new Set(['crm.madfam.io', 'crm.phyne.app'])
 
 export function isAuthenticatedAppHost(host: string | null | undefined): boolean {
   return AUTHENTICATED_APP_HOSTS.has(normalizeHost(host))

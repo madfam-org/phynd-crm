@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 const TRUSTED_HOSTS = new Set([
   'phynd.app',
   'www.phynd.app',
-  'app.phyne.app',
+  'crm.phyne.app',
   'crm.madfam.io',
 ])
 

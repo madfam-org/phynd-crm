@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { DEMO_COOKIE_NAME } from '@/lib/demo'
 import { getAuthenticatedAppRootRedirect } from '@/lib/http/app-host'
+import { externalUrl } from '@/lib/http/origin'
 import { NextResponse } from 'next/server'
 
 const publicPaths = ['/', '/login', '/callback', '/demo']
@@ -24,7 +25,7 @@ export default auth((req) => {
   const appRootRedirect = getAuthenticatedAppRootRedirect(host, pathname, isLoggedIn)
 
   if (appRootRedirect) {
-    return NextResponse.redirect(new URL(appRootRedirect, req.nextUrl))
+    return NextResponse.redirect(externalUrl(appRootRedirect, req))
   }
 
   // Demo users can access dashboard pages without auth
@@ -33,11 +34,11 @@ export default auth((req) => {
   }
 
   if (!isPublic && !isLoggedIn && !devBypass) {
-    return NextResponse.redirect(new URL('/login', req.nextUrl))
+    return NextResponse.redirect(externalUrl('/login', req))
   }
 
   if (isAuthPage && isLoggedIn) {
-    return NextResponse.redirect(new URL('/overview', req.nextUrl))
+    return NextResponse.redirect(externalUrl('/overview', req))
   }
 
   return NextResponse.next()

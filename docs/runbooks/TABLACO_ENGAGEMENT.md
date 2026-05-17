@@ -9,8 +9,8 @@ This runbook exists because there is **no staff UI yet** for engagement manageme
 This runbook remains the intended lifecycle, but it is not yet a production readiness certificate.
 
 - `https://phynd.app` is not serving Phynd production; HTTP currently resolves to Porkbun parking and HTTPS fails TLS from `curl`.
-- `https://crm.madfam.io` is routed in the Enclii-managed Cloudflare tunnel to `phyne-crm-web.phyne-crm.svc.cluster.local:80`, but the public endpoint returns Cloudflare 502.
-- Enclii project inventory does not currently list a `phynd` or `phyne-crm` project, so the CRM route exists below the platform project registry and needs reconciliation.
+- `https://crm.madfam.io` is routed in the Enclii-managed Cloudflare tunnel to `phynd-crm-web.phynd-crm.svc.cluster.local:80`, but the public endpoint returns Cloudflare 502.
+- Enclii project inventory does not currently list a `phynd` or `phynd-crm` project, so the CRM route exists below the platform project registry and needs reconciliation.
 - Phynd application tests cover onboarding, checkout, payment reconciliation, portal payment state, and worker dispatch; production-dispatch HTTP coverage depends on local workspace alias resolution for `@phynd/db/schema`.
 - Do not send a Tablaco client portal link for a priced proposal until the upstream Cotiza/Yantra/ForgeSight quote returns `market_verified=true` and `client_ready=true`.
 

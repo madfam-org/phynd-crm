@@ -42,7 +42,7 @@ Remaining production blockers:
 - `https://crm.madfam.io` is behind Cloudflare but currently returns `502`.
 - Enclii Cloudflare provider has no `phynd.app` zone.
 - Enclii Porkbun provider is present as a command surface but the adapter is not configured.
-- The active Cloudflare tunnel routes `crm.madfam.io` to `phyne-crm-web.phyne-crm.svc.cluster.local`, not `phynd-crm-web.phynd-crm.svc.cluster.local`.
+- The active Cloudflare tunnel routes `crm.madfam.io` to `phynd-crm-web.phynd-crm.svc.cluster.local`, not `phynd-crm-web.phynd-crm.svc.cluster.local`.
 - Enclii project inventory includes `phynd-crm` with project id `c72121bb-5952-417e-a3a9-57c7d2bc76c2`.
 - `enclii onboard --repo madfam-org/phynd-crm --project phynd-crm --manifest-path infra/k8s/production --skip-postgres --skip-r2 --skip-secrets` initially stopped at the image gate because the base production Deployment manifests used `:latest`; those manifests are now digest-pinned directly.
 - A second onboarding attempt still returned the same image-gate error because `enclii onboard` validates the GitHub repository state, not uncommitted local edits. Commit and push the digest-pinned manifests before re-running onboarding.
@@ -50,8 +50,8 @@ Remaining production blockers:
 - `enclii services-sync --dir enclii/services --project phynd-crm` registered `phynd-crm-web` (`55d2ba51-d6b3-481c-ae56-e5410c3b5a6d`) and `phynd-crm-worker` (`5e1a20e4-2302-4aa0-a37e-fa7dc9fa87ea`).
 - Enclii junctions now exist for `phynd.app`, `www.phynd.app`, and `crm.madfam.io`.
 - Active Cloudflare tunnel inventory now includes `phynd.app` and `www.phynd.app` routed to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`.
-- `crm.madfam.io` still resolves to the legacy `phyne-crm-web.phyne-crm.svc.cluster.local` route in active Cloudflare tunnel config; the newly-added Enclii junction does not override the existing legacy route.
-- `phyne-crm-production` has been retired through Enclii with orphan propagation.
+- `crm.madfam.io` still resolves to the legacy `phynd-crm-web.phynd-crm.svc.cluster.local` route in active Cloudflare tunnel config; the newly-added Enclii junction does not override the existing legacy route.
+- `phynd-crm-production` has been retired through Enclii with orphan propagation.
 - ArgoCD shows `phynd-crm-services` as `Synced`, but still `Degraded` because `phynd-crm-secrets` is not materialized.
 - `phynd-crm-services` has successfully synced commit `e5c51bab9ace0ee0194677e26a84f51d4337faef`, including the production ExternalSecret, but shared-resource warnings remain for the web/worker Deployments, ExternalSecret, namespace, network policies, quota, limits, service, and PDB.
 - Enclii secret inspection now sees `ExternalSecret/phynd-crm-secrets`, but it is `Ready=False` with `SecretSyncedError` because Vault/provider data is not yet available.
@@ -105,7 +105,7 @@ Remaining production blockers:
    - `phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` is present.
    - `www.phynd.app` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` is present.
    - `api.phynd.app` -> `http://phynd-crm-api.phynd-crm.svc.cluster.local:80` if the API service is split later.
-   - `crm.madfam.io` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` remains blocked by the existing legacy `phyne-crm` tunnel route.
+   - `crm.madfam.io` -> `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` remains blocked by the existing legacy `phynd-crm` tunnel route.
 
 5. Run production smoke checks.
    - `https://phynd.app/api/health` returns healthy.
@@ -121,7 +121,7 @@ Direct `kubectl`, direct Cloudflare dashboard edits, direct registrar edits, and
 
 Verified through Enclii-first operations:
 
-- Retired legacy Argo application `phyne-crm-production` through `enclii ops apps retire`.
+- Retired legacy Argo application `phynd-crm-production` through `enclii ops apps retire`.
 - Recreated the `crm.madfam.io` junction through Enclii with id `15118c4b-aaf1-4c7a-bba7-27e58c688e96`.
 - Active Cloudflare tunnel desired route now targets `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` for `crm.madfam.io`, `phynd.app`, and `www.phynd.app`.
 - Public DNS for `crm.madfam.io` resolves to Cloudflare A records, but HTTPS still returns Cloudflare `502` because the upstream Phynd pods are not yet runnable.

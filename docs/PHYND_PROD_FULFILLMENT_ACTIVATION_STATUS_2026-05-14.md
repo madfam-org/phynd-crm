@@ -16,7 +16,7 @@ Observed Enclii/Kubernetes state:
 
 ```text
 phynd-crm-services -> Degraded / OutOfSync
-phyne-crm-production -> still shares Phynd resources
+phynd-crm-production -> still shares Phynd resources
 phynd-crm-secrets -> Ready=False, SecretSyncedError, could not get secret data from provider
 phynd-crm-web pods -> Pending / unready
 phynd-crm-worker pods -> Pending / unready
@@ -28,7 +28,7 @@ phynd-crm-worker pods -> Pending / unready
 2. Retire the legacy Argo application through Enclii, not kubectl:
 
 ```text
-enclii ops apps retire phyne-crm-production --apply --reason "retire legacy Phyne CRM app after Phynd CRM successor onboarding" --idempotency-key retire-phyne-crm-production-20260514
+enclii ops apps retire phynd-crm-production --apply --reason "retire legacy Phynd CRM app after Phynd CRM successor onboarding" --idempotency-key retire-phynd-crm-production-20260514
 ```
 
 3. Populate/fix the backing provider path consumed by `phynd-crm-secrets`.
@@ -79,10 +79,10 @@ Phynd production activation remains blocked on Enclii control-plane publication 
 Current evidence:
 
 - `phynd-crm-secrets` remains `Ready=False` with `SecretSyncedError` and `could not get secret data from provider`.
-- `phyne-crm-production` is still present and causing shared-resource warnings against `phynd-crm-services`.
+- `phynd-crm-production` is still present and causing shared-resource warnings against `phynd-crm-services`.
 - The live Enclii API advertises `apps.retire` and `secrets.refresh`, but dry-runs still report the generic adapter-not-wired warning.
 
-Next required step: publish and deploy the Enclii Switchyard API adapter changes, then retire `phyne-crm-production` and refresh `phynd-crm-secrets` exclusively through Enclii operations.
+Next required step: publish and deploy the Enclii Switchyard API adapter changes, then retire `phynd-crm-production` and refresh `phynd-crm-secrets` exclusively through Enclii operations.
 
 ## 2026-05-14 secret source-of-truth findings
 
@@ -93,4 +93,4 @@ Additional Enclii/Selva evidence gathered after the initial status entry:
 - `enclii ops secrets vault --namespace phynd-crm --json` returned zero Vault pods/resources in the Phynd namespace.
 - Selva RFC 0005 already allows `phynd-crm` and `phynd-crm-staging`, so Phynd is not blocked on the Selva namespace allow-list. It is blocked on approved source values and Enclii production environment alignment.
 
-Operational implication: Phynd production cannot become truthful until its environment model and required secret values are established through Enclii/Selva, then `phynd-crm-secrets` is refreshed and the legacy `phyne-crm-production` Argo app is retired through Enclii.
+Operational implication: Phynd production cannot become truthful until its environment model and required secret values are established through Enclii/Selva, then `phynd-crm-secrets` is refreshed and the legacy `phynd-crm-production` Argo app is retired through Enclii.

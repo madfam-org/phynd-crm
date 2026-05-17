@@ -13,9 +13,9 @@ Phynd must first be fully operational at `https://phynd.app`, then expose MADFAM
 - Enclii Cloudflare DNS lookup for `phynd.app` reports no Cloudflare zone.
 - Enclii Porkbun adapter is unconfigured, so Enclii cannot yet inspect or modify Porkbun DNS.
 - `crm.madfam.io` has a Cloudflare CNAME to the Enclii production tunnel.
-- The Enclii tunnel routes `crm.madfam.io` to `http://phyne-crm-web.phyne-crm.svc.cluster.local:80`.
+- The Enclii tunnel routes `crm.madfam.io` to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`.
 - The public `https://crm.madfam.io` endpoint returns Cloudflare 502.
-- Enclii project inventory does not list `phynd` or `phyne-crm`.
+- Enclii project inventory does not list `phynd` or `phynd-crm`.
 - Local tests pass for onboarding, checkout, payment reconciliation, portal checkout/payment state, and worker production dispatch.
 - Production-dispatch HTTP tests were blocked by workspace resolution for `@phynd/db/schema`; the services Vitest config now aliases the workspace DB package directly.
 
@@ -25,7 +25,7 @@ Phynd has substantial application-level implementation, but neither `phynd.app` 
 
 ## Remediation plan
 
-1. Onboard or reconcile the Phynd/Phyne CRM service into Enclii project inventory.
+1. Onboard or reconcile the Phynd/Phynd CRM service into Enclii project inventory.
 2. Configure the Porkbun provider adapter or transfer `phynd.app` DNS authority into Cloudflare/Enclii.
 3. Route `phynd.app` and `www.phynd.app` to the Phynd production web service.
 4. Add and verify `https://phynd.app/api/health`.
@@ -53,7 +53,7 @@ Current production-domain evidence:
 - Enclii Cloudflare DNS read for `phynd.app` reports no Cloudflare zone found.
 - Enclii Porkbun read for `phynd.app` reports `adapter_unconfigured`.
 - `https://crm.madfam.io/` returns Cloudflare HTTP 502.
-- Enclii Cloudflare tunnel maps `crm.madfam.io` to `http://phyne-crm-web.phyne-crm.svc.cluster.local:80`, so the route exists but the origin is not healthy/reachable publicly.
+- Enclii Cloudflare tunnel maps `crm.madfam.io` to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`, so the route exists but the origin is not healthy/reachable publicly.
 
 Current local service evidence:
 

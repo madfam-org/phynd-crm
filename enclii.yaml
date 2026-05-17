@@ -33,12 +33,12 @@ spec:
         family: MADFAM Platform
         description: MADFAM tenant slice; root must redirect to the Janua SSO login surface
         assertContains: Sign in with your MADFAM Janua SSO account
-      - name: PhyneCRM App
-        url: https://crm.phyne.app
-        href: https://crm.phyne.app
+      - name: PhyndCRM App
+        url: https://crm.phynd.app
+        href: https://crm.phynd.app
         group: PhyndCRM
         family: MADFAM Platform
-        description: Generic authenticated PhyneCRM app host for non-MADFAM tenants
+        description: Generic authenticated PhyndCRM app host for non-MADFAM tenants
         assertContains: Sign in with Janua SSO
       - name: PhyndCRM API
         url: https://phynd.app/api/health

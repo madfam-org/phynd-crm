@@ -4,4 +4,6 @@ metadata:
   name: phynd-crm-staging
   labels:
     app.kubernetes.io/part-of: madfam-platform
+    enclii.dev/data-access: "true"
+    enclii.dev/redis-consumer: "true"
     enclii.dev/type: application

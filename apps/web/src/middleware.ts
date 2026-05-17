@@ -7,7 +7,7 @@ const publicPaths = ['/', '/login', '/callback', '/demo']
 const devBypass = process.env.NODE_ENV !== 'production' && process.env.AUTH_BYPASS === 'true'
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth
+  const isLoggedIn = !!req.auth?.user
   const { pathname } = req.nextUrl
   const isPublic =
     publicPaths.includes(pathname) ||

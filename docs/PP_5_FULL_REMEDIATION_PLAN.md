@@ -84,7 +84,10 @@ Observed blockers from this workspace on 2026-05-07 local / 2026-05-08 UTC:
   restrictions.
 - Staging image pull secret `ghcr-credentials` is installed so the namespace
   can pull private GHCR images.
-- Secret `phynd-crm-staging-secrets` is not installed.
+- `ExternalSecret/phynd-crm-staging-secrets` is installed by the staging overlay
+  and synced by ArgoCD at commit `1add140`. ESO reports `SecretSyncedError`
+  until Vault path `secret/phynd-crm-staging` is populated with staging-only
+  values.
 
 ## Target End State
 
@@ -464,7 +467,9 @@ Exit criteria:
 - [x] `phynd-crm-staging` namespace exists.
 - [x] `ghcr-credentials` image pull secret exists in `phynd-crm-staging`.
 - [ ] `pnpm test:pp5` verifies webhook batch script behavior (including Batch D).
-- [ ] `phynd-crm-staging-secrets` is installed with staging-only values.
+- [x] `ExternalSecret/phynd-crm-staging-secrets` is installed by GitOps.
+- [ ] `secret/phynd-crm-staging` is populated in Vault with staging-only values.
+- [ ] `phynd-crm-staging-secrets` is materialized by ESO and `Ready=True`.
 - [x] ArgoCD app `phynd-crm-staging` is installed.
 - [x] ArgoCD app `phynd-crm-staging` is `Synced`.
 - [ ] ArgoCD app `phynd-crm-staging` is `Healthy`.

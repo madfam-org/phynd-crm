@@ -5,6 +5,7 @@ namespace: phynd-crm-staging
 
 resources:
 - namespace.yaml
+- external-secret.yaml
 - base/web-deployment.yaml
 - base/web-service.yaml
 - base/worker-deployment.yaml

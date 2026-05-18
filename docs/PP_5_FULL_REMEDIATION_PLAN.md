@@ -88,6 +88,9 @@ Observed blockers from this workspace on 2026-05-07 local / 2026-05-08 UTC:
   and synced by ArgoCD at commit `1add140`. ESO reports `SecretSyncedError`
   until Vault path `secret/phynd-crm-staging` is populated with staging-only
   values.
+- `scripts/pp5-write-staging-vault.mjs` validates a staging env file and writes
+  the lower-snake-case Vault payload to `secret/phynd-crm-staging` without
+  printing values.
 
 ## Target End State
 

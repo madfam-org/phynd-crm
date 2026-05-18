@@ -228,7 +228,7 @@ function validate(values, duplicates, templateKeys) {
     'SELVA_DISPATCH_SECRET',
   ]
 
-  const usedWebhookSecrets = new Map<string, string>()
+  const usedWebhookSecrets = new Map()
   for (const key of splitSensitiveWebhookSecrets) {
     const value = values.get(key) ?? ''
     if (!value || value.startsWith('REPLACE_ME_')) continue

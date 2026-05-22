@@ -1,5 +1,12 @@
 # PP-5 External Handoff Ticket Pack (2026-05-13)
 
+> [!IMPORTANT]
+> MADFAM-ENCLII-FIRST-LEGACY-RAW v1: This document contains legacy raw infrastructure command examples.
+> Routine production operations must use Enclii web, API, or CLI. Treat raw
+> `kubectl`, `helm`, SSH, provider CLI/API, `docker exec`, and direct container
+> access as platform bootstrap or documented break-glass only, and record any
+> missing Enclii adapter gap.
+
 ## Ticket 1 — Enable staging branch protection checks
 - **Title:** PP-5: Configure branch protection required status checks on `main`
 - **Owner:** Platform Security / Repo Admin

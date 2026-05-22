@@ -1,5 +1,12 @@
 # PP-5 Closeout Actions (2026-05-13)
 
+> [!IMPORTANT]
+> MADFAM-ENCLII-FIRST-LEGACY-RAW v1: This document contains legacy raw infrastructure command examples.
+> Routine production operations must use Enclii web, API, or CLI. Treat raw
+> `kubectl`, `helm`, SSH, provider CLI/API, `docker exec`, and direct container
+> access as platform bootstrap or documented break-glass only, and record any
+> missing Enclii adapter gap.
+
 ## Objective
 
 Complete PP-5 stabilization and promotion readiness with remaining platform and governance gates.

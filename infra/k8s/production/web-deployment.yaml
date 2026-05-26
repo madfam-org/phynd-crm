@@ -36,6 +36,8 @@ spec:
             - secretRef:
                 name: phynd-crm-secrets
             - secretRef:
+                name: phynd-crm-events-secret
+            - secretRef:
                 name: phynd-acca-secrets
                 optional: true
           resources:

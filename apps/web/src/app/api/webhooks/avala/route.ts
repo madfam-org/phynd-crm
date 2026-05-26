@@ -2,7 +2,7 @@ import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
-import { contacts, webhookEvents } from '@phynd/db/schema'
+import { contacts, conversions, webhookEvents } from '@phynd/db/schema'
 import { validateMadfamSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import {
@@ -210,21 +210,34 @@ async function handleLeadCaptured(
     startedAt: readDate(event.occurred_at),
   })
 
+  const conversionMetadata = {
+    source: 'avala',
+    event_id: event.event_id,
+    avala_lead_id: readString(lead.id),
+    ec_code: readString(lead.ecCode),
+    intent: readString(attribution.intent),
+    availability_status: readString(attribution.availabilityStatus),
+    interests: Array.isArray(lead.interests) ? lead.interests : [],
+  }
+
+  if (crmLead?.id) {
+    await ctx.db
+      .update(conversions)
+      .set({
+        contactId: contact.id,
+        visitorSessionId: visitorSession?.id,
+        metadata: conversionMetadata,
+      })
+      .where(and(eq(conversions.type, 'visitor_to_lead'), eq(conversions.leadId, crmLead.id)))
+    return
+  }
+
   const conversionsService = new ConversionsService(ctx)
   await conversionsService.recordConversion({
     type: 'visitor_to_lead',
     contactId: contact.id,
-    leadId: crmLead?.id,
     visitorSessionId: visitorSession?.id,
-    metadata: {
-      source: 'avala',
-      event_id: event.event_id,
-      avala_lead_id: readString(lead.id),
-      ec_code: readString(lead.ecCode),
-      intent: readString(attribution.intent),
-      availability_status: readString(attribution.availabilityStatus),
-      interests: Array.isArray(lead.interests) ? lead.interests : [],
-    },
+    metadata: conversionMetadata,
   })
 }
 

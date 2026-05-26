@@ -246,3 +246,17 @@ See the [walkthrough artifact](https://github.com/madfam-org/phynd-crm) for the 
 
 TBD
 
+
+## Avala webhook receiver
+
+PhyndCRM receives Avala visitor, lead, user, tenant, subscription, and payment lifecycle events at `POST /api/webhooks/avala`.
+
+The receiver:
+
+- verifies `x-madfam-signature` with `PHYND_CRM_EVENTS_SECRET`;
+- rate-limits inbound requests;
+- deduplicates by Avala `event_id` in `webhook_events`;
+- maps `avala.lead.captured` into contacts, leads, visitor sessions, and `visitor_to_lead` conversions;
+- maps Avala search/page/conversion/user/tenant/billing events into CRM activity and conversion records.
+
+Avala producers must send the shared event envelope documented in Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md`.

@@ -90,6 +90,13 @@ spec:
           port: 6379
         - protocol: TCP
           port: 6432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: project-c72121bb
+      ports:
+        - protocol: TCP
+          port: 5432
 ---
 # Allow egress to DNS (kube-system port 53 UDP/TCP)
 apiVersion: networking.k8s.io/v1

@@ -190,7 +190,11 @@ describe('POST /api/webhooks/avala', () => {
       expect.objectContaining({ externalSessionId: 'avala-session-1', contactId: 'contact-1' }),
     )
     expect(mockRecordConversion).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'visitor_to_lead', contactId: 'contact-1', leadId: 'lead-1' }),
+      expect.objectContaining({
+        type: 'visitor_to_lead',
+        contactId: 'contact-1',
+        leadId: 'lead-1',
+      }),
     )
     expect(state.insertedWebhookEvents).toHaveLength(1)
     expect(state.insertedWebhookEvents[0]).toMatchObject({

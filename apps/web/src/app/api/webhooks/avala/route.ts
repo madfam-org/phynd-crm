@@ -76,8 +76,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: shapeError }, { status: 400 })
   }
 
-  const eventId = event.event_id!
-  const eventType = event.event_type!
+  const eventId = event.event_id ?? ''
+  const eventType = event.event_type ?? ''
 
   if (await hasSeenEvent(eventId)) {
     return NextResponse.json(
@@ -95,7 +95,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       { headers: { 'X-RateLimit-Remaining': String(remaining) } },
     )
   } catch (err) {
-    logger.error({ err, event_id: eventId, event_type: eventType }, 'Avala webhook processing failed')
+    logger.error(
+      { err, event_id: eventId, event_type: eventType },
+      'Avala webhook processing failed',
+    )
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
 }
@@ -127,12 +130,14 @@ async function hasSeenEvent(eventId: string): Promise<boolean> {
 }
 
 async function recordWebhookEvent(event: AvalaWebhookEnvelope): Promise<void> {
-  await getDb().insert(webhookEvents).values({
-    provider: 'avala',
-    eventType: event.event_type ?? 'unknown',
-    payload: event as unknown as Record<string, unknown>,
-    processedAt: new Date(),
-  })
+  await getDb()
+    .insert(webhookEvents)
+    .values({
+      provider: 'avala',
+      eventType: event.event_type ?? 'unknown',
+      payload: event as unknown as Record<string, unknown>,
+      processedAt: new Date(),
+    })
 }
 
 function createAvalaContext(): PhyndServiceContext {
@@ -141,7 +146,7 @@ function createAvalaContext(): PhyndServiceContext {
 
 async function processAvalaEvent(event: AvalaWebhookEnvelope): Promise<void> {
   const ctx = createAvalaContext()
-  const eventType = event.event_type!
+  const eventType = event.event_type ?? ''
   const payload = event.payload ?? {}
 
   switch (eventType) {
@@ -299,7 +304,8 @@ async function handleUserLifecycle(
 
   await ensureContact(ctx, {
     email,
-    name: [readString(user.firstName), readString(user.lastName)].filter(Boolean).join(' ') || email,
+    name:
+      [readString(user.firstName), readString(user.lastName)].filter(Boolean).join(' ') || email,
     externalJanuaId: readString(user.januaSubjectId),
   })
 
@@ -329,7 +335,9 @@ async function handleTenantCreated(
   if (email) {
     await ensureContact(ctx, {
       email,
-      name: [readString(admin.firstName), readString(admin.lastName)].filter(Boolean).join(' ') || email,
+      name:
+        [readString(admin.firstName), readString(admin.lastName)].filter(Boolean).join(' ') ||
+        email,
       company: readString(tenant.name),
     })
   }
@@ -352,13 +360,14 @@ async function handleCustomerLifecycle(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const conversionsService = new ConversionsService(ctx)
+  const eventType = event.event_type ?? ''
   await conversionsService.recordConversion({
-    type: event.event_type!.replace(/^avala\./, 'avala_').replace(/\./g, '_'),
+    type: eventType.replace(/^avala\./, 'avala_').replace(/\./g, '_'),
     value: valueFromPaymentPayload(payload),
     metadata: {
       source: 'avala',
       event_id: event.event_id,
-      event_type: event.event_type,
+      event_type: eventType,
       tenant_id: readString(payload.tenantId),
       janua_customer_id: readString(payload.januaCustomerId),
       plan: readString(payload.plan),

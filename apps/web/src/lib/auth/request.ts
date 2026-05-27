@@ -1,10 +1,22 @@
 import { externalOriginForRequest } from '@/lib/http/origin'
 import { NextRequest } from 'next/server'
 
+import { CANONICAL_PHYND_APP_HOST } from '../http/app-host'
+
 type NextRequestInit = NonNullable<ConstructorParameters<typeof NextRequest>[1]>
 
+function canonicalAuthOrigin(origin: string): string {
+  const url = new URL(origin)
+
+  if (url.hostname === 'phynd.app' || url.hostname === 'www.phynd.app') {
+    url.hostname = CANONICAL_PHYND_APP_HOST
+  }
+
+  return url.origin
+}
+
 export function normalizeAuthRequest(request: NextRequest): NextRequest {
-  const publicOrigin = externalOriginForRequest(request)
+  const publicOrigin = canonicalAuthOrigin(externalOriginForRequest(request))
   const sourceUrl = new URL(request.url)
   const publicUrl = new URL(`${sourceUrl.pathname}${sourceUrl.search}`, publicOrigin)
 

@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { DEMO_COOKIE_NAME } from '@/lib/demo'
-import { getAuthenticatedAppRootRedirect } from '@/lib/http/app-host'
+import { getAuthenticatedAppRootRedirect, getCanonicalLoginHost } from '@/lib/http/app-host'
 import { externalUrl } from '@/lib/http/origin'
 import { NextResponse } from 'next/server'
 
@@ -22,7 +22,14 @@ export default auth((req) => {
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/callback')
   const hasDemoCookie = !!req.cookies.get(DEMO_COOKIE_NAME)?.value
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
+  const canonicalLoginHost = getCanonicalLoginHost(host, pathname)
   const appRootRedirect = getAuthenticatedAppRootRedirect(host, pathname, isLoggedIn)
+
+  if (canonicalLoginHost) {
+    return NextResponse.redirect(
+      new URL(`${pathname}${req.nextUrl.search}`, `https://${canonicalLoginHost}`),
+    )
+  }
 
   if (appRootRedirect) {
     return NextResponse.redirect(externalUrl(appRootRedirect, req))

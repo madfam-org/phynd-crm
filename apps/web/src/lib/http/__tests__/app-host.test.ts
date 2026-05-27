@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAuthenticatedAppRootRedirect, isAuthenticatedAppHost } from '../app-host'
+import {
+  CANONICAL_PHYND_APP_HOST,
+  getAuthenticatedAppRootRedirect,
+  getCanonicalLoginHost,
+  isAuthenticatedAppHost,
+} from '../app-host'
 
 describe('authenticated app host routing', () => {
   it('treats crm.madfam.io as the MADFAM authenticated tenant slice', () => {
@@ -17,6 +22,13 @@ describe('authenticated app host routing', () => {
   it('leaves phynd.app as the public marketing host', () => {
     expect(isAuthenticatedAppHost('phynd.app')).toBe(false)
     expect(getAuthenticatedAppRootRedirect('phynd.app', '/', false)).toBeNull()
+  })
+
+  it('canonicalizes marketing-host login to the generic CRM app host', () => {
+    expect(getCanonicalLoginHost('phynd.app', '/login')).toBe(CANONICAL_PHYND_APP_HOST)
+    expect(getCanonicalLoginHost('www.phynd.app', '/login')).toBe(CANONICAL_PHYND_APP_HOST)
+    expect(getCanonicalLoginHost('crm.phynd.app', '/login')).toBeNull()
+    expect(getCanonicalLoginHost('phynd.app', '/')).toBeNull()
   })
 
   it('does not treat app.phynd.app as a generic app host', () => {

@@ -9,9 +9,7 @@ test.describe('Accessibility', () => {
 
   test('login page has accessible sign-in button', async ({ page }) => {
     await page.goto('/login')
-    const button = page.locator('button')
-    await expect(button).toBeVisible()
-    await expect(button).toContainText('Sign in')
+    await expect(page.getByRole('button', { name: 'Sign in with Janua' })).toBeVisible()
   })
 
   test('marketing page images have alt text or are decorative', async ({ page }) => {

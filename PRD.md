@@ -1,5 +1,14 @@
 # **Phynd: Strategic Architecture and Product Requirements for a Phygital Customer Relationship Management Platform**
 
+> Implementation note (2026-05-27): This PRD remains the strategic product
+> baseline, but the repository has advanced beyond several MVP assumptions.
+> Current codebase and production evidence is maintained in
+> [`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+> The live code now includes six federation providers plus Janua Telemetry,
+> tRPC plus a GraphQL Yoga endpoint, engagements/client portal flows,
+> client-project onboarding, quote acceptance, payment reconciliation,
+> production dispatch intent, referrals, and a public `phynd.app` demo surface.
+
 ## **Part 1: Problem Space Deep Dive**
 
 The architectural evolution of Customer Relationship Management (CRM) platforms has reached a critical inflection point. Traditional monolithic architectures, originally designed for static, text-based data entry and linear sales pipelines, are demonstrably incompatible with the modern, multi-dimensional operational requirements of complex enterprises. For organizations operating at the intersection of physical manufacturing and digital asset creation—the "phygital" domain—a CRM must transcend basic contact management to become a highly sophisticated, real-time orchestration engine. This deep dive systematically evaluates the current market paradigms across proprietary software, open-source initiatives, and multi-tenant cloud architectures to isolate the structural deficiencies that necessitate the development of the Phynd platform.

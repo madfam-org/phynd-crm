@@ -1,6 +1,6 @@
 # Phynd Crm Full LLM Context
 
-Generated: 2026-05-13
+Generated: 2026-05-27
 
 ## Purpose
 
@@ -14,6 +14,8 @@ repository without depending on vendor-specific instruction files.
 3. `ECOSYSTEM.md` if present
 4. Relevant files under `docs/`, `infra/`, `.github/workflows/`, and source
    directories for the specific task
+5. `docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` for the latest verified
+   codebase/prod-status snapshot when documentation or production state matters
 
 ## Agent compatibility
 
@@ -40,6 +42,12 @@ gap or incident link.
 - `docs/`
 - `infra/`
 - `.github/workflows/`
+
+## Latest evidence snapshot
+
+`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` records the most recent
+cross-check of this repo and the public `phynd.app` production surface. Use it
+to supersede older 2026-05-14 remediation notes when they conflict.
 
 ## Maintenance
 

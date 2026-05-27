@@ -107,7 +107,7 @@ pnpm db:seed          # Seed database
 - **Cache**: Redis with tenant-namespaced keys (`phynd:{tenantId}:fed:{provider}:{id}`)
 - **Circuit Breaker**: CLOSED → OPEN (5 failures/60s) → HALF_OPEN (30s) → CLOSED (3 successes); shared CB instances between FederationClient and HealthChecker
 - **Timeout**: Config-driven via `ProviderConfig.timeout` → `AbortSignal.timeout()` passed to provider `fetch()`; providers accept optional `signal` parameter
-- **tenantId**: Hardcoded to `'madfam'` in Phase 1, extracted from JWT in Phase 3
+- **tenantId**: Resolved from an explicit service-context argument, then `auth.tenantId`, then `DEFAULT_TENANT_ID` (default `'madfam'`)
 - **No .js extensions**: Relative imports use extensionless paths for bundler compatibility
 - **Pagination**: Cursor-based — services accept `PaginationInput { cursor?, limit? }` and return `PaginatedResult<T> { items, nextCursor, hasMore }`
 - **Soft deletes**: contacts, leads, opportunities use `deletedAt` column; `list()`/`getById()` filter `isNull(deletedAt)`; `delete()` sets `deletedAt` instead of hard delete
@@ -204,7 +204,7 @@ PhyndCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 **Event taxonomy:** shared vocabulary for milestone events across producers (Cotiza, Pravara, Selva, Karafiel, Dhanam) is defined in [`docs/ENGAGEMENT_EVENT_TAXONOMY.md`](docs/ENGAGEMENT_EVENT_TAXONOMY.md). Canonical milestone names (e.g. `prototype_shipped`, `payment_received`, `cfdi_stamped`) let portal filters work source-agnostically. Producers SHOULD emit both a native `<source>:<native_name>` event and a canonical `<source>:<canonical_name>` alias (separate dedup keys) when a status transition represents a client-visible milestone. Pravara's `/api/webhooks/pravara` is the reference implementation — it writes `pravara:shipped` + `pravara:prototype_shipped` on a single `status=shipped` delivery.
 
 ## DB Schema
-users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit, engagements, engagement_artifacts, engagement_events
+users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit, engagements, engagement_artifacts, engagement_events, referral_codes, referrals
 
 ### Indexes
 - leads: `contact_id`, composite `(pipeline_id, stage_id)`
@@ -224,27 +224,23 @@ users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stage
 - engagements: `contact_id`, `opportunity_id`, `status`
 - engagement_artifacts: `engagement_id`, `type`
 - engagement_events: `engagement_id`, `source`, `created_at`, composite `(engagement_id, dedup_key)` for idempotency
+- referral_codes: `owner_janua_id`, unique `code`
+- referrals: `referral_code_id`, `referrer_janua_id`, `referred_janua_id`, `status`, partial unique `(referral_code_id, referred_email)`
 
 ### Soft Delete Columns
 - contacts, leads, opportunities, quotes, orders, engagements: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag), engagements (list, listByContactId, getById, create, update, delete, listArtifacts, addArtifact, getTimeline, sendPortalLink)
+contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag), engagements (list, listByContactId, getById, create, update, delete, listArtifacts, addArtifact, getTimeline, sendPortalLink), referrals
 
-## Feature Flags (13 total)
-- `federationReadOnly: true` — Phase 1 read-only SPOG
-- `forjEnabled: true` — Forj 3D digital assets provider
-- `visitorTracking: true` — Anonymous visitor tracking via Janua telemetry
-- `funnelManagement: true` — Funnel and offer management
-- `analytics: true` — Analytics dashboard
-- `leadScoring: true` — Configurable lead scoring with auto-recomputation
-- `treasuryHunter: false` — ACCA Treasury Hunter grant lifecycle management (Fortuna → PhyndCRM → Karafiel pipeline)
-- 6 others (bidirectionalSync, aiKanban, multiTenancy, piiMasking, observability, realtimeUpdates) — all `false`
+## Feature Flags (14 total)
+- Enabled by default: `bidirectionalSync`, `leadScoring`, `multiTenancy`, `forjEnabled`, `visitorTracking`, `funnelManagement`, `analytics`, `referralManagement`
+- Disabled by default: `federationReadOnly`, `aiKanban`, `piiMasking`, `observability`, `realtimeUpdates`, `treasuryHunter`
+- `setFeatureFlags()` still throws in production.
 
 ## Phasing
-- Phase 1 (MVP): Single-tenant, read-only federation + visitor tracking + offers + analytics + lead scoring
-- Phase 2: Bidirectional sync, AI Kanban
-- Phase 3: Multi-tenant SaaS
+- Current implementation is beyond the original Phase 1 slice: GraphQL Yoga exists at `/api/graphql`, bidirectional/write-side flows exist for engagements, quotes, payments, production dispatch, referrals, and multiple webhooks, and `multiTenancy` is enabled by default while tenant fallback remains `madfam`.
+- Still future/deferred: AI Kanban, PII masking, observability flag rollout, realtime updates, and Treasury Hunter production enablement.
 
 ## Frontend Features
 - **Dark mode**: next-themes with `.dark` class selector (globals.css); ThemeToggle in header
@@ -270,7 +266,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 - **CSV import**: Import contacts from CSV with column mapping UI (`/contacts` page, max 500 per import)
 - **Pipeline settings**: Full pipeline and stage CRUD at `/settings/pipelines` with drag-to-reorder stages via `@hello-pangea/dnd`
 - **Owner column**: Leads and opportunities tables show owner name, edit dialogs have owner select
-- **Health endpoint**: `GET /api/health` returns `{ status: 'ok', timestamp }` for Docker health checks
+- **Health endpoint**: `GET /api/health` returns `{ status: 'ok', service: 'phynd-crm', version: '0.1.0' }` for Docker/Kubernetes/edge health checks
 - **Lead detail page**: `/leads/[id]` — info card + timeline + notes + tags
 - **Opportunity detail page**: `/opportunities/[id]` — info card + timeline + notes + tags
 - **Notification bell**: In header, polls unreadCount every 30s, click navigates to entity
@@ -324,7 +320,7 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 ## Kubernetes (Production)
 - `infra/k8s/production/kustomization.yaml` — Kustomize base; deploy pipelines update image digests via `kustomize edit set image`
 - `infra/k8s/production/web-deployment.yaml` — Next.js web (port 3000, replicas 1, health probes on `/api/health`)
-- `infra/k8s/production/worker-deployment.yaml` — BullMQ worker (no ports, replicas 1)
+- `infra/k8s/production/worker-deployment.yaml` — BullMQ worker (health port 3001, replicas 1)
 - `infra/k8s/production/web-service.yaml` — ClusterIP service (port 80 → 3000)
 - `infra/k8s/production/network-policies.yaml` — Default-deny + allow cloudflared ingress, data namespace egress, HTTPS egress, internal MADFAM service egress
 - `infra/k8s/production/resource-quota.yaml` — Namespace limits (1 CPU/2Gi requests, 3 CPU/4Gi limits, 10 pods)

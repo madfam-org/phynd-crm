@@ -2,6 +2,9 @@
 
 A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates real-time data from six MADFAM ecosystem platforms without duplicating it. Open-source core with a commercial SaaS tier.
 
+Current codebase and production observations are tracked in
+[`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+
 ## Overview
 
 Phynd owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, custom orders, fabrication status, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phynd queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
@@ -28,13 +31,11 @@ Phynd owns CRM-native entities (contacts, leads, opportunities, pipelines) and v
    |   (Drizzle + PG)    |             |   (data virtualization)     |
    +---------------------+             +--+-----+------+-------+--+-+
                                           |     |      |       |  |
-                                       Janua  Janua   Dhanam Cotiza Pravara Forj*
+                                       Janua  Janua   Dhanam Cotiza Pravara Forj
                                               Telemetry
-
-* Forj is feature-flagged off in MVP
 ```
 
-All federation calls use `Promise.allSettled()` so that a failure in one provider does not block the rest of the page. The service layer is transport-agnostic: tRPC is the transport for the MVP, with GraphQL federation planned for Phase 2+.
+All federation calls use `Promise.allSettled()` so that a failure in one provider does not block the rest of the page. The service layer is transport-agnostic: tRPC is the main application transport, and a GraphQL Yoga endpoint is present at `/api/graphql` for the current health/client-profile schema surface.
 
 ## Tech Stack
 
@@ -43,7 +44,7 @@ All federation calls use `Promise.allSettled()` so that a failure in one provide
 | Monorepo       | Turborepo + pnpm workspaces                    |
 | Frontend       | Next.js 15 (App Router), React 19, Tailwind 4  |
 | UI Components  | shadcn/ui                                       |
-| API            | tRPC v11 (MVP), GraphQL federation (Phase 2+)  |
+| API            | tRPC v11, GraphQL Yoga endpoint                |
 | ORM            | Drizzle ORM                                     |
 | Database       | PostgreSQL 16                                   |
 | Cache / Queue  | Redis 7 (ioredis) + BullMQ                     |
@@ -83,7 +84,7 @@ phynd-crm/
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/phynd-crm.git
+git clone https://github.com/madfam-org/phynd-crm.git
 cd phynd-crm
 pnpm install
 
@@ -153,7 +154,7 @@ All SPOG (Single Pane of Glass) queries use `Promise.allSettled()`. If one provi
 
 ## External Systems
 
-Phynd federates data from six platforms in the MADFAM ecosystem (5 active in MVP, 1 feature-flagged):
+Phynd federates data from six active platforms in the MADFAM ecosystem:
 
 | Platform             | Role                          | Status              | Integration              |
 | -------------------- | ----------------------------- | ------------------- | ------------------------ |
@@ -164,15 +165,21 @@ Phynd federates data from six platforms in the MADFAM ecosystem (5 active in MVP
 | **PravaraMES**       | Fabrication order status      | Active              | REST (+ WebSocket future) |
 | **Forj**             | 3D digital assets / storefront | Active              | REST API, 3D asset interactions |
 
-## Phasing
+## Current Implementation Status
 
-| Phase              | Scope                                                            |
-| ------------------ | ---------------------------------------------------------------- |
-| Phase 1 (MVP)      | Single-tenant, read-only federation, CRM-native CRUD             |
-| Phase 2            | Bidirectional sync, lead scoring, AI Kanban observability         |
-| Phase 3            | Multi-tenant SaaS, open-source community core                    |
+The original PRD is still useful as strategy, but the codebase has moved beyond
+the first MVP slice. Current evidence from `packages/config/src/features.ts`,
+`packages/api/src/router.ts`, and the route inventory:
 
-The `tenantId` is present in the service context from day one (hardcoded to `'madfam'` in Phase 1) so the codebase is structurally ready for multi-tenancy in Phase 3.
+- 25 tRPC routers are exposed, including engagements and referrals.
+- `/api/graphql` is implemented with GraphQL Yoga.
+- Six federation providers are present and covered by contract tests: Janua,
+  Janua Telemetry, Dhanam, Cotiza, Pravara, and Forj.
+- Feature flags now total 14. Enabled by default: `bidirectionalSync`,
+  `leadScoring`, `multiTenancy`, `forjEnabled`, `visitorTracking`,
+  `funnelManagement`, `analytics`, and `referralManagement`.
+- Tenant resolution accepts an explicit tenant ID, then `auth.tenantId`, then
+  `DEFAULT_TENANT_ID`, which defaults to `madfam`.
 
 ## Testing
 
@@ -196,16 +203,19 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | ---------------------- | ---------------------------------------------------- |
 | Database               | `DATABASE_URL`                                       |
 | Redis                  | `REDIS_URL`                                          |
-| Auth (Janua OIDC)      | `AUTH_SECRET`, `AUTH_JANUA_ISSUER`, `AUTH_JANUA_CLIENT_ID`, `AUTH_JANUA_CLIENT_SECRET` |
-| Federation URLs        | `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `FORJ_API_URL` |
-| Federation API Keys    | `PRAVARA_API_KEY`                                    |
-| Webhook Secrets        | `JANUA_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET` |
-| App                    | `NEXT_PUBLIC_APP_URL`, `NODE_ENV`                    |
-| AI Pipeline (Fortuna)  | `OPENAI_API_KEY`, `PHYND_WEBHOOK_SECRET`             |
-| Tezca Oracle           | `INTERNAL_TEZCA_KEY`, `TEZCA_API_URL`               |
-| Reddit Bot             | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_REFRESH_TOKEN`, `REDDIT_BOT_USERNAME` |
+| Auth (Janua OIDC)      | `AUTH_SECRET`, `AUTH_JANUA_ISSUER`, `AUTH_JANUA_CLIENT_ID`, `AUTH_JANUA_CLIENT_SECRET`, `AUTH_BYPASS`, `AUTH_TRUST_HOST` |
+| App / tenant           | `NEXT_PUBLIC_APP_URL`, `NEXTAUTH_URL`, `PORTAL_BASE_URL`, `NODE_ENV`, `DEFAULT_TENANT_ID` |
+| Federation URLs        | `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `SELVA_API_URL`, `FORJ_API_URL` |
+| Federation API Keys    | `PRAVARA_API_KEY`, `SELVA_API_KEY`, `FEDERATION_API_TOKEN` |
+| Production dispatch    | `PRAVARA_DISPATCH_URL`, `SELVA_DISPATCH_URL`, `PRAVARA_DISPATCH_SECRET`, `SELVA_DISPATCH_SECRET`, `PRODUCTION_DISPATCH_SCAN_LIMIT`, `PRODUCTION_DISPATCH_TIMEOUT_MS` |
+| Webhook secrets        | `JANUA_WEBHOOK_SECRET`, `JANUA_TELEMETRY_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, `CEQ_WEBHOOK_SECRET`, `COFORMA_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` |
+| Payments / engagement  | `PHYNDCRM_OUTBOUND_SECRET`, `COTIZA_WEBHOOK_TIMEOUT`, `KARAFIEL_API_URL`, `KARAFIEL_API_KEY`, `KARAFIEL_WEBHOOK_SECRET` |
+| Email / campaigns      | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_ALLOWLIST_DOMAINS`, `UNSUBSCRIBE_SECRET`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `INTERNAL_TEZCA_KEY`, `TEZCA_API_URL`, `TEZCA_PUBLIC_URL`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_REFRESH_TOKEN`, `REDDIT_USERNAME`, `REDDIT_PASSWORD`, `REDDIT_USER_AGENT`, `REDDIT_TARGET_SUBREDDITS` |
+| Observability          | `LOG_LEVEL`, `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `WORKER_HEALTH_PORT` |
 
-All environment variables are validated at startup using Zod schemas in `packages/config`.
+Core runtime variables are validated with Zod in `packages/config`; additional
+worker, webhook, and campaign variables are read directly by their owning
+modules and listed in `.env.example`.
 
 ## Fortuna AI Pipeline Integration
 
@@ -218,7 +228,7 @@ fortuna-jobs  ──► madfam-crawler  ──► fortuna-nlp
                                            │
                                      RedditBotService
                                            ├── Tezca oracle query
-                                           ├── OpenAI GPT-4 draft
+                                           ├── LLM draft via OpenAI-compatible endpoint
                                            └── Campaign saved as status="draft"
                                            │
                                   /campaigns/drafts  (review UI)
@@ -244,7 +254,9 @@ See the [walkthrough artifact](https://github.com/madfam-org/phynd-crm) for the 
 
 ## License
 
-TBD
+No `LICENSE` file is currently committed. The public marketing UI advertises an
+MIT-licensed core, but treat the repository license as not formally declared
+until the legal license file is added.
 
 
 ## Avala webhook receiver

@@ -2,19 +2,37 @@
 
 Last updated: 2026-05-14
 
+## Current superseding verification - 2026-05-27
+
+This roadmap preserves the remediation state from 2026-05-14. Current
+production evidence is recorded in
+[`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+
+As of the latest check, `phynd.app` is serving Phynd over HTTPS, `/api/health`
+is healthy, the live demo redirects to `/overview` and renders seeded dashboard
+data, and `crm.madfam.io` plus `crm.phynd.app` route to their expected login
+surfaces. Enclii reports the web and worker services healthy. Keep this
+roadmap's older Porkbun/TLS/502 entries as historical remediation evidence, not
+the current state.
+
+Current open production gap: Auth.js provider metadata still emits an internal
+pod hostname for Janua signin/callback URLs, and the Enclii service-domain
+registry does not fully match project junction observations.
+
 ## Scope
 
 Phynd must first be fully operational at `https://phynd.app`, then expose MADFAM's tenant/slice at `https://crm.madfam.io`. Tablaco should only enter Phynd as a client-facing priced engagement after Cotiza/Yantra/ForgeSight return a truthful quote.
 
-## Current evidence
+## Historical evidence - 2026-05-14
 
-- `http://phynd.app` serves Porkbun parking.
+- At the time this note was written, `http://phynd.app` served Porkbun parking.
 - `https://phynd.app` and `https://www.phynd.app` fail TLS handshake from `curl`.
 - Enclii Cloudflare DNS lookup for `phynd.app` reports no Cloudflare zone.
 - Enclii Porkbun adapter is unconfigured, so Enclii cannot yet inspect or modify Porkbun DNS.
 - `crm.madfam.io` has a Cloudflare CNAME to the Enclii production tunnel.
 - The Enclii tunnel routes `crm.madfam.io` to `http://phynd-crm-web.phynd-crm.svc.cluster.local:80`.
-- The public `https://crm.madfam.io` endpoint returns Cloudflare 502.
+- At the time of the 2026-05-14 note, the public
+  `https://crm.madfam.io` endpoint returned Cloudflare 502.
 - Enclii project inventory does not list `phynd` or `phynd-crm`.
 - Local tests pass for onboarding, checkout, payment reconciliation, portal checkout/payment state, and worker production dispatch.
 - Production-dispatch HTTP tests were blocked by workspace resolution for `@phynd/db/schema`; the services Vitest config now aliases the workspace DB package directly.
@@ -48,7 +66,8 @@ Phynd has substantial application-level implementation, but neither `phynd.app` 
 
 Current production-domain evidence:
 
-- `https://phynd.app/` fails TLS handshake and is not serving Phynd production.
+- At the time of the 2026-05-14 follow-up, `https://phynd.app/` failed TLS
+  handshake and was not serving Phynd production.
 - `http://phynd.app/` returns HTTP 200 from a generic PHP/openresty parked-style surface, not the Phynd app.
 - Enclii Cloudflare DNS read for `phynd.app` reports no Cloudflare zone found.
 - Enclii Porkbun read for `phynd.app` reports `adapter_unconfigured`.

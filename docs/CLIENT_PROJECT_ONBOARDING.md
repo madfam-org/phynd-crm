@@ -1,6 +1,9 @@
 # Client Project Onboarding
 
-> Last updated: 2026-05-07
+> Last updated: 2026-05-27
+
+Current codebase/prod evidence for this flow is recorded in
+[`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
 
 This document describes the first in-product path for onboarding a client and
 project into PhyndCRM as a quote-ready engagement.

@@ -8,7 +8,6 @@
  *   REDDIT_CLIENT_ID       — App client ID from https://www.reddit.com/prefs/apps
  *   REDDIT_CLIENT_SECRET   — App secret
  *   REDDIT_REFRESH_TOKEN   — Long-lived refresh token (obtained via OAuth2 PKCE flow)
- *   REDDIT_BOT_USERNAME    — 'madfam-bot'
  */
 
 const REDDIT_TOKEN_URL = 'https://www.reddit.com/api/v1/access_token'

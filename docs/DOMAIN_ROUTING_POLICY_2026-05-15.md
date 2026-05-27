@@ -36,3 +36,31 @@ Date: 2026-05-15
 - `https://crm.madfam.io/` redirects unauthenticated visitors to `/login` and renders `MADFAM CRM` with `Sign in with your MADFAM Janua SSO account`.
 - `https://crm.phynd.app/` resolves publicly through Cloudflare and reaches the generic PhyndCRM app route.
 - `https://status.madfam.io/` is still serving the older 60-service projection; the corrected PhyndCRM status entries need status-regeneration and production promotion before the public page reflects this policy.
+
+## 2026-05-27 live verification note
+
+See
+[`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md)
+for the full command evidence.
+
+- `https://phynd.app/` and `https://www.phynd.app/` return HTTP 200 through
+  Cloudflare.
+- `https://phynd.app/api/health` returns
+  `{"status":"ok","service":"phynd-crm","version":"0.1.0"}`.
+- `https://phynd.app/demo` returns HTTP 307 to
+  `https://phynd.app/overview` and the followed dashboard renders seeded demo
+  metrics.
+- `https://crm.madfam.io/` returns HTTP 307 to `/login`; `/login` renders
+  `MADFAM CRM` and the MADFAM Janua SSO copy.
+- `https://crm.phynd.app/` returns HTTP 307 to `/login`; `/login` renders
+  generic Phynd Janua SSO copy.
+- Enclii project junctions currently list `phynd.app`, `www.phynd.app`,
+  `crm.madfam.io`, and `app.phyne.app`. They do not list `crm.phynd.app`, even
+  though that public host responds. Reconcile the Enclii service-domain registry
+  and project junction inventory before treating status-page projection as fully
+  source-of-truth.
+- `.enclii.yml` declares `app.phynd.app`, `admin.phynd.app`, and
+  `api.phynd.app`, but these were not observed in the project junction list.
+- Auth.js provider metadata remains a routing/auth gap:
+  `/api/auth/providers` still reports Janua signin/callback URLs on an internal
+  `phynd-crm-web-...:3000` pod hostname.

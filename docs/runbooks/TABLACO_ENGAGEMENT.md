@@ -4,13 +4,39 @@ End-to-end staff workflow for onboarding an external client (tablaco being the f
 
 This runbook exists because there is **no staff UI yet** for engagement management. All operations go through tRPC (from a script / CLI) or direct SQL until the dashboard work lands.
 
-## 2026-05-14 production verification status
+## 2026-05-27 production verification status
+
+Current production evidence is recorded in
+[`../CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](../CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+Phynd is now live at `https://phynd.app`, `/api/health` is healthy, `/demo`
+renders the seeded dashboard after redirect, `crm.madfam.io` reaches the MADFAM
+Janua SSO login surface, and `crm.phynd.app` reaches the generic Janua SSO
+login surface. Enclii reports healthy web and worker services.
+
+This runbook remains the intended Tablaco lifecycle, but it is not a full
+production readiness certificate. The current blocker for full staff/client
+auth confidence is the Auth.js origin gap: `/api/auth/providers` still exposes
+an internal pod hostname for Janua signin/callback URLs, and direct Janua
+signin probing returns HTTP 400.
+
+Do not send a Tablaco client portal link for a priced proposal until the
+upstream Cotiza/Yantra/ForgeSight quote returns `market_verified=true` and
+`client_ready=true`.
+
+## 2026-05-14 historical production verification status
 
 This runbook remains the intended lifecycle, but it is not yet a production readiness certificate.
 
-- `https://phynd.app` is not serving Phynd production; HTTP currently resolves to Porkbun parking and HTTPS fails TLS from `curl`.
-- `https://crm.madfam.io` is routed in the Enclii-managed Cloudflare tunnel to `phynd-crm-web.phynd-crm.svc.cluster.local:80`, but the public endpoint returns Cloudflare 502.
-- Enclii project inventory does not currently list a `phynd` or `phynd-crm` project, so the CRM route exists below the platform project registry and needs reconciliation.
+- At the time of the 2026-05-14 note, `https://phynd.app` was not serving
+  Phynd production; HTTP resolved to Porkbun parking and HTTPS failed TLS from
+  `curl`.
+- At the time of the 2026-05-14 note, `https://crm.madfam.io` was routed in the
+  Enclii-managed Cloudflare tunnel to
+  `phynd-crm-web.phynd-crm.svc.cluster.local:80`, but the public endpoint
+  returned Cloudflare 502.
+- At the time of the 2026-05-14 note, Enclii project inventory did not list a
+  `phynd` or `phynd-crm` project, so the CRM route existed below the platform
+  project registry and needed reconciliation.
 - Phynd application tests cover onboarding, checkout, payment reconciliation, portal payment state, and worker dispatch; production-dispatch HTTP coverage depends on local workspace alias resolution for `@phynd/db/schema`.
 - Do not send a Tablaco client portal link for a priced proposal until the upstream Cotiza/Yantra/ForgeSight quote returns `market_verified=true` and `client_ready=true`.
 
@@ -30,15 +56,15 @@ One-time per tenant (MADFAM internal org, tenant `code='madfam'`):
 
    | Var | Value |
    |---|---|
-   | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC-SHA256 32-byte secret; shared with Cotiza's `PHYNDCRM_ENGAGEMENT_SECRET` |
-   | `PORTAL_BASE_URL` | `https://phynd-phynd.app` (prod) |
-   | `JANUA_API_URL` | `https://auth.madfam.io` |
+| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC-SHA256 32-byte secret; shared with Cotiza's `PHYNDCRM_ENGAGEMENT_SECRET` |
+| `PORTAL_BASE_URL` | `https://phynd.app` (prod) |
+| `JANUA_API_URL` | `https://auth.madfam.io` |
 
 3. **Cotiza env vars**:
 
    | Var | Value |
    |---|---|
-   | `PHYNDCRM_API_URL` | `https://phynd-phynd.app` |
+| `PHYNDCRM_API_URL` | `https://phynd.app` |
    | `PHYNDCRM_ENGAGEMENT_SECRET` | (same value as PhyndCRM's `PHYND_ENGAGEMENT_EVENTS_SECRET`) |
 
 4. **Contact exists in PhyndCRM** — tablaco's contact record must already exist. For tablaco specifically, `seed-tablaco.ts` provides the seed; in production, the contact comes through Janua, Tezca, or newsletter signup first.

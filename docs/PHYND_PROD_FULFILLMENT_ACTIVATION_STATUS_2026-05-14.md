@@ -1,8 +1,24 @@
 # Phynd production fulfillment activation status - 2026-05-14
 
-## Current production evidence
+## Current superseding verification - 2026-05-27
 
-Phynd is not production-live at `https://phynd.app` yet.
+This file is a historical activation status note. Current production evidence is
+recorded in
+[`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+
+The latest verification shows Phynd is live at `https://phynd.app`,
+`/api/health` returns healthy, `/demo` renders the seeded dashboard after its
+redirect, `crm.madfam.io` and `crm.phynd.app` reach their expected login
+surfaces, and Enclii reports healthy web and worker services. The remaining
+production gap is Auth.js origin metadata: `/api/auth/providers` still emits an
+internal pod hostname for Janua signin/callback URLs, and direct Janua signin
+probing returns HTTP 400.
+
+## Historical production evidence - 2026-05-14
+
+At the time this note was written, Phynd was not production-live at
+`https://phynd.app` yet. This section is retained as historical activation
+evidence.
 
 Observed public state:
 

@@ -2,13 +2,37 @@
 
 Date: 2026-05-14
 
+## Current superseding verification — 2026-05-27
+
+This runbook preserves the 2026-05-14 activation trail. The current production
+status is now superseded by
+[`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+
+Summary of the latest evidence:
+
+- `https://phynd.app/`, `https://www.phynd.app/`, and
+  `https://phynd.app/api/health` return HTTP 200 through Cloudflare.
+- `https://phynd.app/demo` redirects to `https://phynd.app/overview`; following
+  the demo cookie renders the dashboard with seeded demo data.
+- `https://crm.madfam.io/` redirects to `/login`, and the login page renders
+  `MADFAM CRM` with MADFAM Janua SSO copy.
+- `https://crm.phynd.app/` redirects to `/login`, and the login page renders
+  generic Phynd Janua SSO copy.
+- Enclii reports `phynd-crm-web` and `phynd-crm-worker` healthy with one ready
+  pod each.
+- Remaining gap: `/api/auth/providers` still exposes an internal pod hostname
+  in Janua `signinUrl` and `callbackUrl`; direct Janua signin probing returns
+  HTTP 400.
+
 ## Objective
 
 Bring `https://phynd.app` online as the canonical production Phynd CRM domain, with Janua-powered login for `admin@madfam.io`, while keeping all infrastructure changes Enclii-first.
 
-## Latest verified status — 2026-05-14
+## Latest verified status — 2026-05-14 historical
 
-This runbook is chronological. Older sections preserve the starting condition and remediation trail; this section is the current source of truth for the live edge.
+This runbook is chronological. Older sections preserve the starting condition
+and remediation trail. This section was the source of truth on 2026-05-14; the
+2026-05-27 section above now supersedes it.
 
 - `https://phynd.app/` returns HTTP 200 through the Cloudflare edge when pinned to the Cloudflare A record `104.21.14.180`.
 - `https://phynd.app/api/health` returns HTTP 200 through the same Cloudflare edge path.
@@ -34,9 +58,10 @@ Remaining production blockers:
 - Keep production dispatch degraded until Pravara is repaired and a real Pravara API key is issued.
 - Reconcile the break-glass runtime secret and DB bootstrap back into Enclii/Vault once the Enclii-managed secret and Postgres addon paths are repaired.
 
-## Current verified state
+## Historical verified state — 2026-05-14 starting condition
 
-- `https://phynd.app` is not serving Phynd. TLS handshakes fail.
+- At this starting point, `https://phynd.app` was not serving Phynd and TLS
+  handshakes failed.
 - `http://phynd.app` serves a generic Porkbun/openresty placeholder, not the Phynd CRM app.
 - `https://www.phynd.app` has the same TLS failure pattern.
 - `https://crm.madfam.io` is behind Cloudflare but currently returns `502`.
@@ -125,7 +150,9 @@ Verified through Enclii-first operations:
 - Recreated the `crm.madfam.io` junction through Enclii with id `15118c4b-aaf1-4c7a-bba7-27e58c688e96`.
 - Active Cloudflare tunnel desired route now targets `http://phynd-crm-web.phynd-crm.svc.cluster.local:80` for `crm.madfam.io`, `phynd.app`, and `www.phynd.app`.
 - Public DNS for `crm.madfam.io` resolves to Cloudflare A records, but HTTPS still returns Cloudflare `502` because the upstream Phynd pods are not yet runnable.
-- Public DNS for `phynd.app` and `www.phynd.app` still resolves to Porkbun/Pixie infrastructure, so `https://phynd.app` fails TLS before it reaches the Enclii tunnel.
+- At this continuation point, public DNS for `phynd.app` and `www.phynd.app`
+  still resolved to Porkbun/Pixie infrastructure, so `https://phynd.app` failed
+  TLS before it reached the Enclii tunnel.
 - `phynd-crm-services` is `Synced` but `Degraded`.
 - `ExternalSecret/phynd-crm-secrets` remains `Ready=False` with `SecretSyncedError: could not get secret data from provider`.
 

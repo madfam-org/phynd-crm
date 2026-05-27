@@ -1,13 +1,24 @@
 # ADR-003: Single-Tenant First with Multi-Tenant Preparation
 
 ## Status
-Accepted
+Accepted; amended by implementation reality on 2026-05-27
+
+## 2026-05-27 Update
+
+The original single-tenant-first decision still explains the initial design, but
+current service context creation is no longer a hardcoded-only path. Tenant ID
+resolution now accepts an explicit argument, then `auth.tenantId`, then
+`DEFAULT_TENANT_ID`, which defaults to `madfam`. The `multiTenancy` feature flag
+is also enabled by default. Full tenant-isolation hardening remains a separate
+production-readiness concern.
 
 ## Context
 Phynd is designed as a SaaS CRM but needs to ship quickly for a single customer (MADFAM ecosystem). Multi-tenancy adds complexity to every layer: auth, data isolation, caching, billing.
 
 ## Decision
-Phase 1-2: **Single tenant** with `tenantId` hardcoded to `'madfam'` throughout the codebase. Phase 3: Multi-tenant SaaS with tenant extracted from JWT.
+Phase 1-2 started as **single tenant** with `tenantId` defaulting to `'madfam'`
+throughout the codebase. Current code keeps `madfam` as the fallback while
+allowing explicit/auth-derived tenant IDs.
 
 ## Rationale
 - **Ship faster**: Skip tenant isolation, row-level security, tenant provisioning, and billing integration in MVP.

@@ -1,5 +1,19 @@
 # Phynd CRM — Production Deployment Guide
 
+## Current production evidence
+
+Latest read-only verification is recorded in
+[`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+As of that check, `https://phynd.app`, `https://www.phynd.app`,
+`https://phynd.app/api/health`, `https://phynd.app/demo`, `https://crm.madfam.io`,
+and `https://crm.phynd.app` all respond through the public edge. Enclii reports
+healthy web and worker services for project `phynd-crm`.
+
+The remaining production gaps are Auth.js/provider-origin related and routing
+registry consistency related: `/api/auth/providers` still exposes an internal
+pod hostname, direct Janua signin probing returns HTTP 400, and Enclii
+`junctions`/`domains` output does not fully agree.
+
 ## Prerequisites
 
 - Docker 24+ with Compose v2
@@ -9,7 +23,10 @@
 
 ## Environment Variables
 
-All required environment variables are defined and validated in `packages/config/src/env.ts` using Zod schemas. Key variables:
+Core required environment variables are defined and validated in
+`packages/config/src/env.ts` using Zod schemas. Additional worker, webhook,
+email, and campaign variables are read directly by their owning modules and are
+listed in `.env.example`. Key variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -19,6 +36,7 @@ All required environment variables are defined and validated in `packages/config
 | `AUTH_JANUA_ISSUER` | Janua OIDC issuer URL | `https://janua.example.com` |
 | `AUTH_JANUA_CLIENT_ID` | Janua OIDC client ID | `phynd-crm` |
 | `AUTH_JANUA_CLIENT_SECRET` | Janua OIDC client secret | `secret` |
+| `AUTH_TRUST_HOST` | Auth.js trusted-host behavior behind Cloudflare/Enclii | `true` |
 | `NEXT_PUBLIC_APP_URL` | Public-facing app URL | `https://crm.example.com` |
 | `JANUA_API_URL` | Janua Identity API | `https://api.janua.example.com` |
 | `JANUA_TELEMETRY_API_URL` | Janua Telemetry API | `https://telemetry.janua.example.com` |
@@ -26,17 +44,46 @@ All required environment variables are defined and validated in `packages/config
 | `COTIZA_API_URL` | Cotiza Studio API | `https://api.cotiza.example.com` |
 | `PRAVARA_BASE_URL` | PravaraMES API | `https://api.pravara.example.com` |
 | `PRAVARA_API_KEY` | PravaraMES API key | `key` |
+| `SELVA_API_URL` | Selva project dispatch API | `https://api.selva.example.com` |
+| `SELVA_API_KEY` | Selva API key | `key` |
 | `FORJ_API_URL` | Forj Assets API | `https://api.forj.example.com` |
 | `OPENAI_API_KEY` | LLM API key (AutoSwarm or OpenAI) | `sk-...` or AutoSwarm worker token |
 | `OPENAI_BASE_URL` | LLM endpoint override (AutoSwarm Nexus) | `http://nexus-api.autoswarm.svc.cluster.local/v1` |
 | `RESEND_API_KEY` | Resend email API key | `re_...` |
+| `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
+| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | `secret` |
+| `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | `secret` |
+| `FEDERATION_API_TOKEN` | Optional service-to-service token for internal tRPC reads | `secret` |
+| `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
+| `SENTRY_DSN` | Optional worker Sentry DSN | `https://...` |
 | `*_WEBHOOK_SECRET` | HMAC secrets for each provider | Unique per provider |
 
 **Safety**: `AUTH_BYPASS=true` is blocked in production by Zod validation. The seed script refuses to run when `NODE_ENV=production`.
 
+Do not set `AUTH_URL` or `NEXTAUTH_URL` to an internal pod hostname in
+production. The 2026-05-27 evidence note shows Auth.js provider metadata still
+leaking an internal pod host in the currently deployed build. Source now
+normalizes Auth.js route requests to a trusted public origin before handing them
+to Auth.js; keep this as an open production gap until the fix is deployed and
+the public signin/callback URLs are verified.
+
+## Deployment paths
+
+Routine production movement is Enclii-first and GitOps-backed:
+
+- `deploy-web.yml` and `deploy-worker.yml` build, sign, push, and write staging
+  image digests.
+- `promote-to-prod.yml` promotes staging digests to
+  `infra/k8s/production/kustomization.yaml` after soak and smoke checks.
+- Enclii `releases`, `deployments`, `observe`, and `junctions` are the preferred
+  read surfaces for production status.
+
+Docker Compose remains useful for standalone/local production-shape validation;
+it is not the routine production path for `phynd.app`.
+
 ## Docker Build
 
-### Using Docker Compose (recommended)
+### Using Docker Compose (standalone validation)
 
 ```bash
 # Production deployment
@@ -172,7 +219,9 @@ Migrations are stored in `packages/db/src/migrations/` and tracked by Drizzle Ki
 
 ## Health Endpoint
 
-`GET /api/health` returns `{ status: 'ok', timestamp: '...' }` for Docker health checks and load balancer probes.
+`GET /api/health` returns
+`{ status: 'ok', service: 'phynd-crm', version: '0.1.0' }` for Docker,
+Kubernetes, and edge health checks.
 
 ## Security
 
@@ -192,7 +241,10 @@ All responses include security headers configured in `apps/web/next.config.ts`:
 - See ADR-005 for design rationale
 
 ### Webhook Security
-All 6 provider webhook routes use a shared handler with:
+Provider webhook routes use HMAC verification and rate limiting. The original
+six federation routes share the common handler; newer ecosystem receivers such
+as Avala, CEQ, Coforma, Karafiel, RouteCraft, and engagement APIs use route-
+specific handlers with the same fail-closed posture:
 - Rate limiting (Redis sliding window)
 - HMAC-SHA256 signature verification
 - Timestamp validation (replay attack prevention)
@@ -207,7 +259,7 @@ All services use `@phynd/logging` (pino) for structured JSON logging. Workers an
 
 ## Architecture Notes
 
-- **Single-tenant**: Phase 1 uses hardcoded `tenantId: 'madfam'` in all service contexts
-- **Read-only federation**: Data is fetched and cached from external systems, not written back
-- **Feature flags**: 12 flags control feature availability; 6 are enabled for Phase 1 (see `packages/config/src/features.ts`)
+- **Tenant resolution**: Services accept an explicit tenant ID, then `auth.tenantId`, then `DEFAULT_TENANT_ID`; the default is `madfam`.
+- **Federation and write paths**: Federation still avoids ETL, but the repo now includes write-side integrations for engagement events/artifacts, quote acceptance, payment reconciliation, production dispatch intent, referral rewards, and selected webhooks.
+- **Feature flags**: 14 flags control feature availability. Enabled by default: `bidirectionalSync`, `leadScoring`, `multiTenancy`, `forjEnabled`, `visitorTracking`, `funnelManagement`, `analytics`, and `referralManagement`.
 - **Circuit breakers**: Shared instances protect against cascade failures from provider downtime

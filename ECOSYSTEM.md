@@ -10,6 +10,9 @@
 
 > **Federated "single pane of glass" CRM — virtualizes data from 6 MADFAM platforms without ETL.**
 
+Latest repository and production evidence is recorded in
+[`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+
 This file is self-contained: a Claude session on a fresh machine can operate
 this service by reading only this one document. No external links are
 load-bearing — the MADFAM ecosystem map and the full enclii CLI reference are
@@ -29,9 +32,8 @@ Phynd is the client-facing deliverables portal: per-client (possibly branded) da
 
 | Service | Public domain | Container port |
 |---|---|---|
-| `phynd-crm-web` | (per-client branded domains) | 3000 |
-| `phynd-crm-api` | (internal federation API) | 8000 |
-| `phynd-crm-worker` | (background jobs) | — |
+| `phynd-crm-web` | `phynd.app`, `www.phynd.app`, `crm.madfam.io`; generic app host currently responds at `crm.phynd.app` | 3000 |
+| `phynd-crm-worker` | background jobs and health endpoint | 3001 |
 
 **Kubernetes namespace**: `phynd-crm`
 **Cluster**: bare-metal k3s on Hetzner (see topology section below).
@@ -53,11 +55,13 @@ Phynd is the client-facing deliverables portal: per-client (possibly branded) da
 
 ### Key environment variables
 
-- `DATABASE_URL — Postgres`
-- `JANUA_JWKS_URI — auth`
-- `FEDERATION_ENDPOINTS_* — each upstream platform's API + M2M creds`
-- `DHANAM_WEBHOOK_SECRET — inbound billing events`
-- `CRM_WEBHOOK_SECRET — inbound interest-capture events from e.g. tezca`
+- `DATABASE_URL` — Postgres
+- `REDIS_URL` — Redis/BullMQ/rate limiting
+- `AUTH_JANUA_ISSUER`, `AUTH_JANUA_CLIENT_ID`, `AUTH_JANUA_CLIENT_SECRET` — Janua OIDC
+- `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `SELVA_API_URL`, `FORJ_API_URL` — upstream federation/dispatch APIs
+- `*_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` — signed inbound ecosystem events
+- `FEDERATION_API_TOKEN` — optional service-to-service tRPC read token
+- `WORKER_HEALTH_PORT` — worker health endpoint, default `3001`
 
 ---
 

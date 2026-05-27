@@ -18,6 +18,11 @@ const state = {
   insertedWebhookEvents: [] as Array<Record<string, unknown>>,
 }
 
+const mockUpdateWhere = vi.fn().mockResolvedValue(undefined)
+const mockUpdateSet = vi.fn(() => ({
+  where: mockUpdateWhere,
+}))
+
 const mockDb = {
   select: vi.fn(() => ({
     from: vi.fn(() => ({
@@ -33,9 +38,7 @@ const mockDb = {
     }),
   })),
   update: vi.fn(() => ({
-    set: vi.fn(() => ({
-      where: vi.fn().mockResolvedValue(undefined),
-    })),
+    set: mockUpdateSet,
   })),
 }
 
@@ -45,6 +48,7 @@ vi.mock('@phynd/db', () => ({
 
 vi.mock('@phynd/db/schema', () => ({
   contacts: { id: 'contacts.id', externalJanuaId: 'contacts.external_janua_id' },
+  conversions: { type: 'conversions.type', leadId: 'conversions.lead_id' },
   webhookEvents: {
     id: 'webhook_events.id',
     provider: 'webhook_events.provider',
@@ -74,7 +78,7 @@ const mockUpsertSession = vi.fn().mockResolvedValue(mockVisitorSession)
 const mockRecordPageView = vi.fn().mockResolvedValue({ id: 'page-view-1' })
 
 vi.mock('@phynd/services', () => ({
-  createServiceContext: () => ({}),
+  createServiceContext: (db: unknown) => ({ db }),
   ContactsService: vi.fn().mockImplementation(() => ({
     getByEmail: mockGetByEmail,
     create: mockCreateContact,
@@ -148,6 +152,8 @@ beforeEach(() => {
   mockDb.select.mockClear()
   mockDb.insert.mockClear()
   mockDb.update.mockClear()
+  mockUpdateSet.mockClear()
+  mockUpdateWhere.mockClear()
   mockGetByEmail.mockClear().mockResolvedValue(null)
   mockCreateContact.mockClear().mockResolvedValue(mockContact)
   mockGetDefaultPipeline.mockClear().mockResolvedValue({ id: 'pipeline-1' })
@@ -189,13 +195,17 @@ describe('POST /api/webhooks/avala', () => {
     expect(mockUpsertSession).toHaveBeenCalledWith(
       expect.objectContaining({ externalSessionId: 'avala-session-1', contactId: 'contact-1' }),
     )
-    expect(mockRecordConversion).toHaveBeenCalledWith(
+    expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'visitor_to_lead',
         contactId: 'contact-1',
-        leadId: 'lead-1',
+        metadata: expect.objectContaining({
+          event_id: 'avala:lead.captured:lead:lead-1:v1',
+          source: 'avala',
+        }),
+        visitorSessionId: 'visitor-session-1',
       }),
     )
+    expect(mockRecordConversion).not.toHaveBeenCalled()
     expect(state.insertedWebhookEvents).toHaveLength(1)
     expect(state.insertedWebhookEvents[0]).toMatchObject({
       provider: 'avala',

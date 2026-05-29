@@ -238,6 +238,11 @@ fortuna-jobs  ──► madfam-crawler  ──► fortuna-nlp
                                   u/madfam-bot posts reply ✓
 ```
 
+For Tulana-driven SKU launch campaigns, use
+`docs/TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md`. That contract keeps SKU
+readiness in Tulana, orchestration in Selva, and campaign/contact state in
+Phynd CRM.
+
 ### Key Files
 
 | File | Purpose |

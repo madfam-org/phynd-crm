@@ -15,10 +15,11 @@ export function AiKanbanReviewPanel({ pipelineId }: AiKanbanReviewPanelProps) {
   const approve = aiKanbanRouter.approve as NonNullable<typeof aiKanbanRouter.approve>
   const reject = aiKanbanRouter.reject as NonNullable<typeof aiKanbanRouter.reject>
 
-  const { data: suggestions = [], error, refetch } = listPending.useQuery(
-    { pipelineId },
-    { retry: false },
-  )
+  const {
+    data: suggestions = [],
+    error,
+    refetch,
+  } = listPending.useQuery({ pipelineId }, { retry: false })
 
   if (error?.message.includes('aiKanban')) {
     return null

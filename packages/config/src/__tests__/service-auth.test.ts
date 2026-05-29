@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  DEFAULT_FEDERATION_SERVICE_USER_ID,
-  resolveFederationServiceUserId,
-} from '../service-auth'
+import { DEFAULT_FEDERATION_SERVICE_USER_ID, resolveFederationServiceUserId } from '../service-auth'
 
 describe('resolveFederationServiceUserId', () => {
   it('defaults to service:selva', () => {

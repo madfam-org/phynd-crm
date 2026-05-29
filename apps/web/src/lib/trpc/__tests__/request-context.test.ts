@@ -5,7 +5,7 @@ vi.mock('@/lib/auth', () => ({
   auth: vi.fn().mockResolvedValue(null),
 }))
 
-import { createServiceAuth, SERVICE_AUTH_SCOPES } from '../request-context'
+import { SERVICE_AUTH_SCOPES, createServiceAuth } from '../request-context'
 
 describe('createServiceAuth', () => {
   it('uses service:selva principal with v1 scopes for madfam tenant', () => {

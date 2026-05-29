@@ -42,6 +42,9 @@ spec:
     - name: crm.madfam.io
       environment: production
       tlsEnabled: true
+    - name: staging-crm.madfam.io
+      environment: staging
+      tlsEnabled: true
 promotion:
   pattern: manual
   min_soak_minutes: 30

@@ -8,6 +8,7 @@ import {
   parsePostDeployArgs,
   runPostDeployChecks,
 } from '../verify-post-deploy.mjs'
+import { STAGING_CRM_BASE_URL } from '../staging-base-url.mjs'
 
 function runScript(args = []) {
   return spawnSync(process.execPath, ['scripts/verify-post-deploy.mjs', ...args], {
@@ -31,7 +32,7 @@ test('parsePostDeployArgs ignores pnpm separator --', () => {
 })
 
 test('baseUrlFromHealthUrl strips /api/health suffix', () => {
-  assert.equal(baseUrlFromHealthUrl('https://staging-phynd.app/api/health'), 'https://staging-phynd.app')
+  assert.equal(baseUrlFromHealthUrl(`${STAGING_CRM_BASE_URL}/api/health`), STAGING_CRM_BASE_URL)
 })
 
 test('checkHealthWithRetries succeeds after transient failures', async () => {
@@ -46,7 +47,7 @@ test('checkHealthWithRetries succeeds after transient failures', async () => {
   }
 
   try {
-    const result = await checkHealthWithRetries('https://staging-phynd.app', 6, 0)
+    const result = await checkHealthWithRetries(STAGING_CRM_BASE_URL, 6, 0)
     assert.equal(result.ok, true)
     assert.equal(result.attempts, 3)
   } finally {
@@ -61,7 +62,7 @@ test('checkHealth surfaces network errors', async () => {
   }
 
   try {
-    const result = await checkHealth('https://staging-phynd.app')
+    const result = await checkHealth(STAGING_CRM_BASE_URL)
     assert.equal(result.ok, false)
     assert.match(result.error ?? '', /Network error/)
   } finally {

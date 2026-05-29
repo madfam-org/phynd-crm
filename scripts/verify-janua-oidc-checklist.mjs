@@ -13,25 +13,26 @@
  */
 
 import { spawnSync } from 'node:child_process'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
 export const JANUA_OIDC_CALLBACK_PATH = '/api/auth/callback/janua'
 
 export const REQUIRED_JANUA_REDIRECT_URIS = [
   'https://crm.madfam.io/api/auth/callback/janua',
   'https://crm.phynd.app/api/auth/callback/janua',
-  'https://staging-phynd.app/api/auth/callback/janua',
+  `${STAGING_CRM_BASE_URL}/api/auth/callback/janua`,
 ]
 
 export const LIVE_AUTH_BASES = [
   'https://crm.madfam.io',
   'https://crm.phynd.app',
-  'https://staging-phynd.app',
+  STAGING_CRM_BASE_URL,
 ]
 
 export const JANUA_ADMIN_REQUIREMENTS = [
   'Register all REQUIRED_JANUA_REDIRECT_URIS on the Phynd CRM OIDC client in Janua',
   'Confirm admin@madfam.io has admin role/claims accepted by Phynd middleware',
-  'Use distinct Janua staging issuer (AUTH_JANUA_ISSUER) for staging-phynd.app',
+  'Use distinct Janua staging issuer (AUTH_JANUA_ISSUER) for staging CRM host',
   'Never share production Janua client secret with staging',
 ]
 
@@ -73,7 +74,7 @@ export function buildJanuaOidcChecklist(options = {}) {
     liveChecks,
     failedLive,
     encliiGap:
-      'staging-phynd.app is not declared in .enclii.yml domains — reconcile with Enclii (ROADMAP 0.5)',
+      'Live staging host is staging-crm.madfam.io (tunnel wired); staging-phynd.app alias not provisioned',
   }
 }
 

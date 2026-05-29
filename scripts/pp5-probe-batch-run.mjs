@@ -3,8 +3,9 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
-const DEFAULT_BASE_URL = 'https://staging-phynd.app'
+const DEFAULT_BASE_URL = STAGING_CRM_BASE_URL
 const DEFAULT_EMAIL = 'pp5-probe@staging.madfam.io'
 const DEFAULT_RUN_ID = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
 const DEFAULT_PARALLELISM = 4

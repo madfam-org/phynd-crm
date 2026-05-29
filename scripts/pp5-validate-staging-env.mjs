@@ -2,12 +2,13 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
 const DEFAULT_NAMESPACE = 'phynd-crm-staging'
 const DEFAULT_SECRET_NAME = 'phynd-crm-staging-secrets'
 const TEMPLATE_PATH = 'infra/k8s/staging-secrets-template.yaml'
 const PRODUCTION_TEMPLATE_PATH = 'infra/k8s/production/secrets-template.yaml'
-const STAGING_APP_URL = 'https://staging-phynd.app'
+const STAGING_APP_URL = STAGING_CRM_BASE_URL
 
 const REQUIRED_NON_EMPTY = new Set([
   'DATABASE_URL',

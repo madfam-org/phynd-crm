@@ -7,13 +7,14 @@
  * Usage:
  *   node scripts/pp5-pilot-ops-checklist.mjs
  *   node scripts/pp5-pilot-ops-checklist.mjs --live
- *   CRM_BASE_URL=https://staging-phynd.app node scripts/pp5-pilot-ops-checklist.mjs --live --with-selva-agent
+ *   CRM_BASE_URL=https://staging-crm.madfam.io node scripts/pp5-pilot-ops-checklist.mjs --live --with-selva-agent
  *   node scripts/pp5-pilot-ops-checklist.mjs --json
  */
 
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
 const MANUAL_STEPS = [
   {
@@ -38,7 +39,7 @@ const MANUAL_STEPS = [
   },
   {
     id: 'staging-ingress',
-    text: 'Wire staging-phynd.app ingress/TLS — docs/runbooks/STAGING_INGRESS.md',
+    text: `Confirm staging health at ${STAGING_CRM_BASE_URL}/api/health — docs/runbooks/STAGING_INGRESS.md`,
   },
 ]
 

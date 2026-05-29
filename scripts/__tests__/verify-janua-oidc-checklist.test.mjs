@@ -10,7 +10,7 @@ import {
 test('REQUIRED_JANUA_REDIRECT_URIS includes pilot hosts', () => {
   assert.equal(JANUA_OIDC_CALLBACK_PATH, '/api/auth/callback/janua')
   assert.ok(REQUIRED_JANUA_REDIRECT_URIS.some((uri) => uri.includes('crm.madfam.io')))
-  assert.ok(REQUIRED_JANUA_REDIRECT_URIS.some((uri) => uri.includes('staging-phynd.app')))
+  assert.ok(REQUIRED_JANUA_REDIRECT_URIS.some((uri) => uri.includes('staging-crm.madfam.io')))
 })
 
 test('buildJanuaOidcChecklist passes without live probes', () => {

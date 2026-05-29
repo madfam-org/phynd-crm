@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { createHmac } from 'node:crypto'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
-const DEFAULT_BASE_URL = 'https://staging-phynd.app'
+const DEFAULT_BASE_URL = STAGING_CRM_BASE_URL
 
 const simple = {
   type: 'simple',
@@ -84,7 +85,7 @@ const lanes = {
       externalSessionId: 'pp5-session-001',
       pageViews: [
         {
-          url: 'https://staging-phynd.app/pp5-probe',
+          url: `${STAGING_CRM_BASE_URL}/pp5-probe`,
           title: 'PP.5 probe',
           duration: 3,
           viewedAt: new Date().toISOString(),
@@ -282,7 +283,7 @@ const lanes = {
       type: 'deliverable',
       entity_type: 'external_reference',
       entity_id: `pp5-artifact-${opts.runId}`,
-      url: 'https://staging-phynd.app/pp5-artifact',
+      url: `${STAGING_CRM_BASE_URL}/pp5-artifact`,
       title: 'PP.5 staging artifact probe',
       metadata: { pp5_probe: true },
     }),

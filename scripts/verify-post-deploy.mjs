@@ -3,7 +3,7 @@
  * Post-deploy smoke for a live Phynd CRM instance (staging or prod).
  *
  * Usage:
- *   CRM_BASE_URL=https://staging-phynd.app node scripts/verify-post-deploy.mjs
+ *   CRM_BASE_URL=https://staging-crm.madfam.io node scripts/verify-post-deploy.mjs
  *   CRM_BASE_URL=https://crm.madfam.io node scripts/verify-post-deploy.mjs --with-prod-auth
  *   CRM_BASE_URL=... FEDERATION_API_TOKEN=... node scripts/verify-post-deploy.mjs --with-selva-agent
  *   node scripts/verify-post-deploy.mjs --dry-run
@@ -13,6 +13,7 @@
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
 export function parsePostDeployArgs(argv) {
   const options = {
@@ -123,7 +124,7 @@ function runNode(script, args = []) {
 }
 
 export async function runPostDeployChecks(options, env = process.env) {
-  const baseUrl = (env.CRM_BASE_URL ?? 'https://staging-phynd.app').replace(/\/$/, '')
+  const baseUrl = (env.CRM_BASE_URL ?? STAGING_CRM_BASE_URL).replace(/\/$/, '')
   const results = []
 
   if (options.dryRun) {

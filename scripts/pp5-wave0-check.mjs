@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
 const checks = [
   {
@@ -65,7 +66,7 @@ const checks = [
   },
   {
     name: 'staging health DNS/HTTP',
-    command: ['curl', '-fsS', '--connect-timeout', '5', '--max-time', '12', 'https://staging-phynd.app/api/health'],
+    command: ['curl', '-fsS', '--connect-timeout', '5', '--max-time', '12', `${STAGING_CRM_BASE_URL}/api/health`],
   },
 ]
 

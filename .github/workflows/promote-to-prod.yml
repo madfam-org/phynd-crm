@@ -20,7 +20,7 @@ on:
       staging_health_url:
         description: Staging health endpoint to verify before promotion
         required: false
-        default: "https://staging-phynd.app/api/health"
+        default: "https://staging-crm.madfam.io/api/health"
 
 env:
   WEB_IMAGE: ghcr.io/madfam-org/phynd-crm/web
@@ -82,10 +82,14 @@ jobs:
             local digest
             digest=$(
               awk -v target_image="$image" '
-                BEGIN { found = 0 }
-                $1 == "name:" && $2 == target_image { found = 1; next }
-                found && $1 == "digest:" { print $2; exit }
-                found && $1 == "name:" { found = 0 }
+                $1 == "digest:" { pending = $2; next }
+                $1 == "name:" && $2 == target_image {
+                  if (pending != "") { print pending; exit }
+                  in_block = 1
+                  next
+                }
+                in_block && $1 == "digest:" { print $2; exit }
+                in_block && $1 == "name:" { in_block = 0 }
               ' "$file"
             )
             if [ -z "$digest" ]; then

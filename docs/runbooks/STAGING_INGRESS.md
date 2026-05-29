@@ -1,4 +1,4 @@
-# Staging ingress — `staging-phynd.app`
+# Staging ingress — `staging-crm.madfam.io`
 
 Date: 2026-05-29  
 Audience: Enclii + Cloudflare operators  
@@ -13,8 +13,14 @@ Blocks: PP.5 row 12, live `pnpm verify:post-deploy`, cross-service staging smoke
 External HTTPS reachability:
 
 ```text
-https://staging-phynd.app/api/health  →  { "status": "ok", "service": "phynd-crm" }
+https://staging-crm.madfam.io/api/health  →  { "status": "ok", "service": "phynd-crm" }
 ```
+
+**Live status (2026-05-29):** Cloudflare tunnel route `staging-crm.madfam.io` →
+`phynd-crm-web.phynd-crm-staging.svc.cluster.local:80` is wired and healthy.
+
+`staging-phynd.app` remains an unprovisioned alias in docs/planning; use
+`staging-crm.madfam.io` for all live staging ops until the alias is added.
 
 ## Prerequisites
 
@@ -24,19 +30,18 @@ https://staging-phynd.app/api/health  →  { "status": "ok", "service": "phynd-c
 
 ## Enclii / platform steps
 
-1. Declare `staging-phynd.app` on the Phynd CRM Enclii service (`.enclii.yml` currently lists production domains only — reconcile per ROADMAP 0.5).
-2. Point tunnel/ingress at the staging web `Service` in `phynd-crm-staging` namespace.
-3. Issue TLS certificate for `staging-phynd.app`.
-4. Confirm `NEXT_PUBLIC_APP_URL` and `NEXTAUTH_URL` in staging secrets are `https://staging-phynd.app`.
+1. Confirm tunnel route via `enclii providers cloudflare tunnels --project phynd-crm`.
+2. Keep `NEXT_PUBLIC_APP_URL` and `NEXTAUTH_URL` in staging secrets at `https://staging-crm.madfam.io`.
+3. Optional: add `staging-phynd.app` alias when Enclii staging environment exists.
 
 ## Verification
 
 ```bash
 # From operator network (not in-cluster)
-CRM_BASE_URL=https://staging-phynd.app pnpm verify:post-deploy
+CRM_BASE_URL=https://staging-crm.madfam.io pnpm verify:post-deploy
 
 # Full operator bundle
-CRM_BASE_URL=https://staging-phynd.app pnpm pp5:pilot-ops -- --live
+CRM_BASE_URL=https://staging-crm.madfam.io pnpm pp5:pilot-ops -- --live
 
 # Janua OIDC callback must be registered before staff SSO works on staging
 node scripts/verify-janua-oidc-checklist.mjs
@@ -47,7 +52,7 @@ node scripts/verify-janua-oidc-checklist.mjs
 Register staging callback on the **staging** Janua OIDC client:
 
 ```text
-https://staging-phynd.app/api/auth/callback/janua
+https://staging-crm.madfam.io/api/auth/callback/janua
 ```
 
 See [`verify-janua-oidc-checklist.mjs`](../../scripts/verify-janua-oidc-checklist.mjs) for the full URI list.

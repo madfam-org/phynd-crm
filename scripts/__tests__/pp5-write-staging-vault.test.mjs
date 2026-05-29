@@ -18,8 +18,8 @@ function valueFor(key, index) {
   }
   if (key === 'REDIS_URL') return 'redis://:staging-redis-password@redis.data.svc.cluster.local:6379/0'
   if (key === 'AUTH_JANUA_ISSUER') return 'https://auth.staging.madfam.io'
-  if (key === 'NEXT_PUBLIC_APP_URL' || key === 'NEXTAUTH_URL') return 'https://staging-phynd.app'
-  if (key === 'PORTAL_BASE_URL') return 'https://portal-staging-phynd.app'
+  if (key === 'NEXT_PUBLIC_APP_URL' || key === 'NEXTAUTH_URL') return 'https://staging-crm.madfam.io'
+  if (key === 'PORTAL_BASE_URL') return 'https://staging-crm.madfam.io'
   if (key === 'NODE_ENV') return 'production'
   if (key === 'PHYND_DEPLOYMENT_TIER') return 'staging'
   if (key === 'PHYND_SELVA_EMBED_ALLOWED') return 'true'

@@ -58,6 +58,7 @@ node scripts/pp5-generate-staging-env.mjs --output /secure/phynd-crm-staging.env
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | Engagement events + artifacts |
 | `FEDERATION_API_TOKEN` | Selva service tRPC reads (≥48 chars) |
 | `FEDERATION_SERVICE_USER_ID` | `service:selva` (machine principal) |
+| `PHYND_SELVA_EMBED_ALLOWED` | `true` on staging for Selva Panopticon dashboard iframes |
 | `EMAIL_ALLOWLIST_DOMAINS` | `@madfam.io,@staging.madfam.io` — drip hardening |
 
 Template: [`infra/k8s/staging-secrets-template.yaml`](../../infra/k8s/staging-secrets-template.yaml)

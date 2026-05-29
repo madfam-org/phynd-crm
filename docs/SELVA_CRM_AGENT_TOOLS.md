@@ -182,6 +182,20 @@ FEDERATION_API_TOKEN=... CRM_BASE_URL=https://staging-phynd.app pnpm verify:selv
 Validates search → contact → opportunities → unified profile → federation health,
 and confirms `leads.create` is **FORBIDDEN** for the service token.
 
+## Selva Panopticon iframe embed
+
+Selva office (`https://selva.town`) can embed Phynd dashboard routes in an iframe when:
+
+```bash
+PHYND_SELVA_EMBED_ALLOWED=true
+```
+
+Middleware sets enforcing `Content-Security-Policy: frame-ancestors 'self' https://selva.town https://*.selva.town https://*.madfam.io` on dashboard paths only. Public routes (`/login`, `/`, `/portal/*`) keep `X-Frame-Options: DENY`.
+
+Report-only CSP in `next.config.ts` includes the same `frame-ancestors` allowlist for observability before promotion.
+
+**Staging:** enable in `infra/k8s/staging-secrets-template.yaml`. **Production:** leave unset/`false` until Panopticon pilot is signed off.
+
 ## Roadmap (WS6)
 
 | ID | Item | Status |

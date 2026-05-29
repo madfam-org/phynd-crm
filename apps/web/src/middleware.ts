@@ -1,11 +1,18 @@
 import { auth } from '@/lib/auth'
 import { DEMO_COOKIE_NAME } from '@/lib/demo'
 import { getAuthenticatedAppRootRedirect, getCanonicalLoginHost } from '@/lib/http/app-host'
+import { applyFrameEmbeddingHeaders } from '@/lib/http/frame-embed'
 import { externalUrl } from '@/lib/http/origin'
 import { NextResponse } from 'next/server'
 
 const publicPaths = ['/', '/login', '/callback', '/demo']
 const devBypass = process.env.NODE_ENV !== 'production' && process.env.AUTH_BYPASS === 'true'
+
+function nextWithFrameHeaders(pathname: string) {
+  const response = NextResponse.next()
+  applyFrameEmbeddingHeaders(response.headers, pathname)
+  return response
+}
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth?.user
@@ -37,7 +44,7 @@ export default auth((req) => {
 
   // Demo users can access dashboard pages without auth
   if (!isPublic && !isLoggedIn && hasDemoCookie) {
-    return NextResponse.next()
+    return nextWithFrameHeaders(pathname)
   }
 
   if (!isPublic && !isLoggedIn && !devBypass) {
@@ -48,7 +55,7 @@ export default auth((req) => {
     return NextResponse.redirect(externalUrl('/overview', req))
   }
 
-  return NextResponse.next()
+  return nextWithFrameHeaders(pathname)
 })
 
 export const config = {

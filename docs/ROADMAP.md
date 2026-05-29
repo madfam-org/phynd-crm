@@ -154,6 +154,7 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 | 5.3 | GraphQL or OpenAPI agent tool manifest for Selva office | **Shipped** — `docs/SELVA_CRM_AGENT_TOOLS.md` |
 | 5.4 | PII masking (`piiMasking` flag) before LLM context export | **Shipped** — service-auth masking in search + unified profile |
 | 5.5 | `aiKanban` human-in-the-loop sales suggestions | **Shipped** — `ai_kanban_suggestions` + review panel on `/pipeline`; `FEATURE_AI_KANBAN` |
+| 5.6 | Selva Panopticon dashboard iframe embed | **Shipped** — `PHYND_SELVA_EMBED_ALLOWED` + CSP `frame-ancestors` middleware |
 
 ---
 

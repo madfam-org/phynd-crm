@@ -144,7 +144,7 @@ pnpm verify:selva-agent     # Selva service-token integration smoke test
 - **At-risk deals**: `AnalyticsService.getAtRiskDeals()` flags opps stuck > threshold days or > 1.5× avg stage velocity
 - **Notifications**: Owner assignment triggers non-blocking notification creation in leads/opportunities `update()`
 - **tRPC rate limiting**: Redis sliding window, 200 req/min per IP via `checkApiRateLimit()` in `apps/web/src/lib/rate-limiter.ts`; wraps the tRPC route handler (not Edge middleware — ioredis incompatible with Edge Runtime)
-- **Security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy` via `next.config.ts` `headers()`
+- **Security headers**: `X-Frame-Options: DENY` (middleware; relaxed to CSP `frame-ancestors` on dashboard routes when `PHYND_SELVA_EMBED_ALLOWED=true`), `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy` via `next.config.ts` + middleware
 - **Feature flag enforcement**: 5 gated routers (lead-scoring, visitor-tracking, analytics, offers, campaigns) check `isFeatureEnabled()` at the top of each procedure; throw `TRPCError({ code: 'PRECONDITION_FAILED' })` when disabled
 - **Bulk array caps**: `bulkUpdateStatus` on leads/opportunities capped at `.max(100)` items via Zod
 - **Seed guard**: `seed.ts` exits with error when `NODE_ENV=production`

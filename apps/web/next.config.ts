@@ -26,7 +26,6 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           {
             key: 'Strict-Transport-Security',
@@ -49,6 +48,7 @@ const nextConfig: NextConfig = {
               "connect-src 'self'",
               "worker-src 'self' blob:",
               "frame-src 'none'",
+              "frame-ancestors 'self' https://selva.town https://*.selva.town https://*.madfam.io",
               "object-src 'none'",
               "base-uri 'self'",
             ].join('; '),

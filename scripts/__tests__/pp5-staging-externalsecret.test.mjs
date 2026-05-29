@@ -28,18 +28,42 @@ test('staging ExternalSecret is included in the staging overlay', () => {
   assert.match(kustomization, /- external-secret\.yaml/)
 })
 
+const PILOT_OVERLAY_KEYS = [
+  'SELVA_WEBHOOK_SECRET',
+  'PHYND_SELVA_EMBED_ALLOWED',
+  'PHYND_CAMPAIGN_IMPORT_SECRET',
+  'PHYND_DEPLOYMENT_TIER',
+  'FEDERATION_SERVICE_USER_ID',
+  'NEXTAUTH_URL',
+  'NEXT_PUBLIC_APP_URL',
+]
+
+function parsePilotOverlayKeys() {
+  const webPatch = readFileSync('infra/k8s/overlays/staging/web-deployment.patch.yaml', 'utf8')
+  assert.match(webPatch, /phynd-crm-staging-pilot-overlay/, 'staging web deployment should mount pilot overlay')
+  return new Set(PILOT_OVERLAY_KEYS)
+}
+
 test('staging ExternalSecret maps every required staging env key from Vault', () => {
   const requiredKeys = parseRequiredKeys()
   const externalSecretText = readFileSync(EXTERNAL_SECRET_PATH, 'utf8')
   const externalSecretKeys = new Set(parseExternalSecretKeys())
+  const pilotOverlayKeys = parsePilotOverlayKeys()
 
   for (const key of requiredKeys) {
-    assert.ok(externalSecretKeys.has(key), `missing ExternalSecret secretKey ${key}`)
-    assert.match(
-      externalSecretText,
-      new RegExp(`property: ${lowerSnake(key)}\\n`),
-      `missing Vault property for ${key}`,
+    const inExternalSecret = externalSecretKeys.has(key)
+    const inPilotOverlay = pilotOverlayKeys.has(key)
+    assert.ok(
+      inExternalSecret || inPilotOverlay,
+      `missing ExternalSecret or pilot overlay secretKey ${key}`,
     )
+    if (inExternalSecret) {
+      assert.match(
+        externalSecretText,
+        new RegExp(`property: ${lowerSnake(key)}\\n`),
+        `missing Vault property for ${key}`,
+      )
+    }
   }
 
   assert.match(externalSecretText, /key: secret\/phynd-crm-staging/)

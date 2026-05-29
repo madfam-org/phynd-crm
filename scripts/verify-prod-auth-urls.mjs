@@ -14,7 +14,8 @@ export const INTERNAL_HOST_RE = /phynd-crm-web|\.svc\.|:\d{4,5}\//i
 
 /** @param {string} base */
 /** @param {{ signinUrl?: string, callbackUrl?: string }} janua */
-export function validateJanuaProviderUrls(base, janua) {
+/** @param {string} [canonicalBase] */
+export function validateJanuaProviderUrls(base, janua, canonicalBase) {
   if (!janua?.signinUrl && !janua?.callbackUrl) {
     return { ok: false, error: 'Missing janua provider in response' }
   }
@@ -30,6 +31,7 @@ export function validateJanuaProviderUrls(base, janua) {
   }
 
   const baseHostname = new URL(base).hostname
+  const expectedCallbackHostname = new URL(canonicalBase ?? base).hostname
   if (janua.callbackUrl) {
     let callbackHostname
     try {
@@ -37,10 +39,10 @@ export function validateJanuaProviderUrls(base, janua) {
     } catch {
       return { ok: false, error: `Invalid callbackUrl: ${janua.callbackUrl}` }
     }
-    if (callbackHostname !== baseHostname) {
+    if (callbackHostname !== expectedCallbackHostname) {
       return {
         ok: false,
-        error: `Callback host mismatch: expected ${baseHostname}, got ${callbackHostname}`,
+        error: `Callback host mismatch: expected ${expectedCallbackHostname}, got ${callbackHostname}`,
       }
     }
   }
@@ -56,15 +58,23 @@ const DEFAULT_BASES = ['https://phynd.app', 'https://crm.madfam.io', 'https://cr
 
 function parseArgs(argv) {
   const bases = []
+  let canonicalByBase = new Map()
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1]) {
       bases.push(argv[++i].replace(/\/$/, ''))
+      continue
+    }
+    if (argv[i] === '--canonical' && argv[i + 1]) {
+      const canonical = argv[++i].replace(/\/$/, '')
+      if (bases.length > 0) {
+        canonicalByBase.set(bases.at(-1), canonical)
+      }
     }
   }
-  return bases.length > 0 ? bases : DEFAULT_BASES
+  return { bases: bases.length > 0 ? bases : DEFAULT_BASES, canonicalByBase }
 }
 
-async function checkBase(base) {
+async function checkBase(base, canonicalBase) {
   const url = `${base}/api/auth/providers`
   const res = await fetch(url, { redirect: 'follow' })
   const body = await res.text()
@@ -76,7 +86,7 @@ async function checkBase(base) {
     return { base, ok: false, error: `Non-JSON response (${res.status})` }
   }
 
-  const result = validateJanuaProviderUrls(base, json?.janua)
+  const result = validateJanuaProviderUrls(base, json?.janua, canonicalBase)
   if (!result.ok) {
     return { base, ok: false, error: result.error }
   }
@@ -85,12 +95,12 @@ async function checkBase(base) {
 }
 
 async function main() {
-  const bases = parseArgs(process.argv)
+  const { bases, canonicalByBase } = parseArgs(process.argv)
   let failed = 0
 
   for (const base of bases) {
     try {
-      const result = await checkBase(base)
+      const result = await checkBase(base, canonicalByBase.get(base))
       if (result.ok) {
         console.log(`PASS ${base} signin=${result.signinUrl}`)
       } else {

@@ -29,6 +29,11 @@ export const LIVE_AUTH_BASES = [
   STAGING_CRM_BASE_URL,
 ]
 
+/** Prod alias hosts share NEXTAUTH_URL with the canonical madfam.io host. */
+export const AUTH_CALLBACK_CANONICAL_BASE = {
+  'https://crm.phynd.app': 'https://crm.madfam.io',
+}
+
 export const JANUA_ADMIN_REQUIREMENTS = [
   'Register all REQUIRED_JANUA_REDIRECT_URIS on the Phynd CRM OIDC client in Janua',
   'Confirm admin@madfam.io has admin role/claims accepted by Phynd middleware',
@@ -44,7 +49,8 @@ function parseArgs(argv) {
 }
 
 function runVerifyProdAuth(base) {
-  const result = spawnSync('node', ['scripts/verify-prod-auth-urls.mjs', '--base', base], {
+  const canonical = AUTH_CALLBACK_CANONICAL_BASE[base] ?? base
+  const result = spawnSync('node', ['scripts/verify-prod-auth-urls.mjs', '--base', base, '--canonical', canonical], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env },

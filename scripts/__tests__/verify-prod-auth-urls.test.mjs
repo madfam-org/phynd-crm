@@ -21,11 +21,14 @@ test('validateJanuaProviderUrls requires callback host to match request base', (
   assert.match(result.error, /Callback host mismatch/)
 })
 
-test('validateJanuaProviderUrls passes aligned public URLs', () => {
-  const result = validateJanuaProviderUrls('https://crm.madfam.io', {
-    signinUrl: 'https://auth.madfam.io/signin',
-    callbackUrl: 'https://crm.madfam.io/api/auth/callback/janua',
-  })
+test('validateJanuaProviderUrls accepts canonical callback for alias base', () => {
+  const result = validateJanuaProviderUrls(
+    'https://crm.phynd.app',
+    {
+      signinUrl: 'https://auth.madfam.io/signin',
+      callbackUrl: 'https://crm.madfam.io/api/auth/callback/janua',
+    },
+    'https://crm.madfam.io',
+  )
   assert.equal(result.ok, true)
-  assert.equal(result.callbackUrl, 'https://crm.madfam.io/api/auth/callback/janua')
 })

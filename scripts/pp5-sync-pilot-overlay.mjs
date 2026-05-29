@@ -13,6 +13,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
+import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
 
 const TIERS = {
   staging: {
@@ -25,13 +26,18 @@ const TIERS = {
       'PHYND_CAMPAIGN_IMPORT_SECRET',
       'PHYND_DEPLOYMENT_TIER',
       'FEDERATION_SERVICE_USER_ID',
+      'NEXTAUTH_URL',
+      'NEXT_PUBLIC_APP_URL',
     ],
     defaults: {
       PHYND_DEPLOYMENT_TIER: 'staging',
       PHYND_SELVA_EMBED_ALLOWED: 'true',
       FEDERATION_SERVICE_USER_ID: 'service:selva',
+      NEXTAUTH_URL: STAGING_CRM_BASE_URL,
+      NEXT_PUBLIC_APP_URL: STAGING_CRM_BASE_URL,
     },
     generated: ['SELVA_WEBHOOK_SECRET', 'PHYND_CAMPAIGN_IMPORT_SECRET'],
+    forceDefaults: ['NEXTAUTH_URL', 'NEXT_PUBLIC_APP_URL'],
   },
   production: {
     namespace: 'phynd-crm',
@@ -96,6 +102,10 @@ function syncTier(config, dryRun) {
   const overlay = new Map()
 
   for (const key of config.keys) {
+    if (config.forceDefaults?.includes(key) && config.defaults[key]) {
+      overlay.set(key, config.defaults[key])
+      continue
+    }
     if (key === 'FEDERATION_API_TOKEN' && process.env.FEDERATION_API_TOKEN?.trim()) {
       overlay.set(key, process.env.FEDERATION_API_TOKEN.trim())
       continue

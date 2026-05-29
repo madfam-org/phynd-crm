@@ -37,6 +37,7 @@ export const SERVICE_AUTH_SCOPES = [
   'engagements:read',
   'search:read',
   'analytics:read',
+  'federationHealth:read',
   'aiKanban:write',
 ] as const
 

@@ -22,3 +22,7 @@ spec:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
   revisionHistoryLimit: 5
+  ignoreResourceHealth:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      name: phynd-crm-staging-secrets

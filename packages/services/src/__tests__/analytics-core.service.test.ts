@@ -36,8 +36,10 @@ vi.mock('@phynd/db/schema', () => ({
   },
   conversions: {
     campaignId: 'conversions.campaignId',
+    contactId: 'conversions.contactId',
     convertedAt: 'conversions.convertedAt',
     id: 'conversions.id',
+    metadata: 'conversions.metadata',
     type: 'conversions.type',
     value: 'conversions.value',
   },
@@ -495,6 +497,38 @@ describe('AnalyticsService', () => {
       const result = await service.getAtRiskDeals()
 
       expect(result).toEqual([])
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // getPaymentAttributionSummary()
+  // -------------------------------------------------------------------------
+  describe('getPaymentAttributionSummary()', () => {
+    it('aggregates RouteCraft payment attribution metrics', async () => {
+      const responses = [
+        [{ totalPayments: 4, linkedPayments: 3, totalRevenue: '1250.50' }],
+        [
+          { provider: 'routecraft', count: 3, totalValue: '1000.00' },
+          { provider: 'stripe', count: 1, totalValue: '250.50' },
+        ],
+        [{ campaignKey: 'spring-launch', count: 2, totalValue: '800.00' }],
+        [{ referralCode: 'MADFAM10', count: 1, totalValue: '250.50' }],
+      ]
+      let callCount = 0
+      mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) =>
+        Promise.resolve(responses[callCount++] ?? []).then(resolve),
+      )
+
+      const result = await service.getPaymentAttributionSummary()
+
+      expect(result.totalPayments).toBe(4)
+      expect(result.linkedPayments).toBe(3)
+      expect(result.unlinkedPayments).toBe(1)
+      expect(result.linkRate).toBe(75)
+      expect(result.totalRevenue).toBe(1250.5)
+      expect(result.byProvider).toHaveLength(2)
+      expect(result.byCampaign[0]?.campaignKey).toBe('spring-launch')
+      expect(result.byReferral[0]?.referralCode).toBe('MADFAM10')
     })
   })
 })

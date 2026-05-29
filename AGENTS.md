@@ -33,6 +33,8 @@ redirect and should not become the source of truth again.
 
 - `README.md`
 - `ECOSYSTEM.md`
+- `docs/ROADMAP.md` — canonical phase map and gap scorecard
+- `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable workstreams WS0–WS9
 - `docs/`
 - `infra/`
 - `.github/workflows/`
@@ -120,14 +122,16 @@ pnpm db:seed          # Seed database
 - **Demo mode**: Cookie-based (`phynd-demo={sessionId}`, httpOnly, 4h expiry). `/demo` route generates session, seeds per-session tenant (`demo-{sessionId}`), redirects to `/overview`. Demo users get admin role, isolated tenant. `/demo/exit` clears cookie. Dashboard layout shows DemoBanner + DEMO badge in sidebar. Cleanup via BullMQ job (every 1h, removes data > 4h old)
 - **Demo seed**: `seedDemoTenant(sessionId)` in `apps/web/src/lib/demo-seed.ts` — transaction orchestrator importing data builders from `demo-seed/data-builders.ts`; creates user, pipeline, 6 stages, 5 contacts, 3 leads, 3 opps, 2 quotes, 2 orders, 2 offers, 2 campaigns, 4 conversions, 3 visitor sessions, 4 page views, 5 scoring rules, 3 external references, 4 stage transitions, 4 activities, 2 notes, 3 tags, 1 notification (~63 rows). Leads/opps/quotes/orders backdated across 25 days for analytics trends. All IDs prefixed with `demo-{sessionId}`. Wrapped in transaction
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
-- **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production
+- **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production. Production may opt into gated features via env only: `FEATURE_TREASURY_HUNTER`, `FEATURE_OBSERVABILITY`, `FEATURE_PII_MASKING`, `FEATURE_AI_KANBAN` (see `packages/config/src/features.ts`)
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
-- **Federation token auth**: Service-to-service tRPC calls via `FEDERATION_API_TOKEN` env var. If request `Authorization: Bearer <token>` matches, creates `SERVICE_AUTH` context (`userId: 'service:autoswarm'`, `roles: ['service']`, `scopes: ['leads:read', 'activities:read']`) bypassing Auth.js session check. Rate limiting still applies. Empty/unset token disables the path
+- **Federation token auth**: Service-to-service tRPC calls via `FEDERATION_API_TOKEN` env var. If request `Authorization: Bearer <token>` matches, creates `SERVICE_AUTH` context (`userId: 'service:autoswarm'`, `roles: ['service']`, scopes: `leads:read`, `activities:read`, `contacts:read`, `opportunities:read`, `unifiedProfile:read`, `engagements:read`, `search:read`, `analytics:read`) bypassing Auth.js session check. `enforceServiceScopes` middleware rejects out-of-scope procedures. Rate limiting still applies. Empty/unset token disables the path
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
 - **Tezca webhook events**: `interest.created` (feature interest → contact + lead + drip), `newsletter.subscribed` (newsletter signup → contact + lead + drip). Both enqueue `email-drip` BullMQ job on lead creation
 - **Janua webhook linking**: `user.created` checks for existing contact by email (from newsletter/interest) and links `externalJanuaId` instead of creating duplicate
 - **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`); all 6 tenant-side webhook routes use the shared handler
-- **RouteCraft webhook** (`apps/web/src/app/api/webhooks/routecraft/route.ts`): ecosystem payment attribution endpoint — counterpart to `@routecraft/payments::emitPaymentSucceeded`. Uses `validateMadfamSignature()` from `@phynd/federation` (Stripe-style `t=<ts>,v1=<hex>` header, 5-min replay window, timing-safe compare). Idempotent via `webhook_events.payload->>'event_id'` lookup. Inserts a `conversions` row (`type='ecosystem_payment_succeeded'`) with the full attribution blob in metadata and links to `contacts` via `externalJanuaId` when `attribution.source_agent_id` resolves. Secret: `PHYND_CRM_EVENTS_SECRET` (when unset → 503, same contract as other receivers)
+- **RouteCraft webhook** (`apps/web/src/app/api/webhooks/routecraft/route.ts`): ecosystem payment attribution endpoint — counterpart to `@routecraft/payments::emitPaymentSucceeded`. Uses `validateMadfamSignature()` from `@phynd/federation` (Stripe-style `t=<ts>,v1=<hex>` header, 5-min replay window, timing-safe compare). Idempotent via `webhook_events.payload->>'event_id'` lookup. Tenant via `resolveTenantIdForWebhook()`. Inserts a `conversions` row (`type='ecosystem_payment_succeeded'`) with attribution in metadata; links `contactId` via `externalJanuaId` = `attribution.source_agent_id` and `campaignId` via `campaigns.utm_campaign` = `attribution.campaign_id` when resolvable. Secret: `PHYND_CRM_EVENTS_SECRET` (when unset → 503)
+- **Tenant resolution**: `apps/web/src/lib/http/tenant-context.ts` — host-derived `tenantId` for tRPC, GraphQL, and webhooks (`madfam` for `crm.madfam.io` / `phynd.app` brands)
+- **Staging outbound guard**: `packages/config/src/outbound-guard.ts` — when `PHYND_DEPLOYMENT_TIER=staging`, blocks outbound calls to production MADFAM hosts (Karafiel grant dispatch, Cotiza engagement emitter, Pravara/Selva production dispatch)
 - **Structured logging**: `@phynd/logging` package (pino); all worker processors and webhook handler use structured JSON logging
 - **Signal propagation**: All 6 federation providers accept optional `signal?: AbortSignal` parameter, with config-driven fallback timeouts
 - **Owner-scoped queries**: `list()` accepts optional `filters?: { ownerId?: string }`; `listMine` router procedures auto-scope to `ctx.auth.userId`
@@ -143,11 +147,12 @@ pnpm db:seed          # Seed database
 - **Seed architecture**: `packages/db/src/seed.ts` is a thin entry point; 14 sub-seeders live in `packages/db/src/seed/` (types, users-pipeline, contacts, leads-opps, quotes-orders, activities-notes, offers-campaigns, conversions, visitor-data, scoring-rules, external-refs, stage-transitions, preferences, tags-notifications, tablaco); orchestrator in `seed/index.ts`
 - **Demo seed architecture**: `apps/web/src/lib/demo-seed.ts` is a transaction orchestrator (~80 lines); 19 pure data builder functions live in `demo-seed/data-builders.ts`
 - **Demo federation data**: `UnifiedProfileService` returns mock federation data for demo tenants (`demo-*` tenantId) via `demo-federation-data.ts` — no external API calls in demo mode
-- **Mock federation fallback**: When all 6 providers return `unavailable` and the contact has a known `externalJanuaId`, `UnifiedProfileService` falls back to mock data via `mock-federation-registry.ts` — makes federation tabs work in local dev without external services
+- **Mock federation fallback**: When all 6 providers return `unavailable` and the contact has a known `externalJanuaId`, `UnifiedProfileService` falls back to mock data via `mock-federation-registry.ts` — **disabled in production** (`NODE_ENV !== 'production'` guard); makes federation tabs work in local dev without external services
+- **PII masking for service auth**: When `piiMasking` flag is on, `SearchService` and `UnifiedProfileService` mask email/phone fields for `service:` actors (Selva agent reads)
 - **Tablaco federation data**: `tablaco-federation-data.ts` provides Tablaco-specific mock data for all 6 providers; dispatched from both `demo-federation-data.ts` (by `externalJanuaId`) and `mock-federation-registry.ts` (dev fallback)
 - **Pre-commit hook**: husky pre-commit checks staged `.ts`/`.tsx` files (excludes tests, migrations, generated files); warns at 600 lines, blocks at 800 lines
 - **File size limits**: Source files should stay under 600 lines; pre-commit blocks commits with files over 800 lines
-- **Delete confirmations**: Offers, campaigns, and scoring rules use confirmation dialogs (no direct inline mutation)
+- **Delete confirmations**: Offers, campaigns, scoring rules, leads, and opportunities use confirmation dialogs (no direct inline delete)
 - **Scoring rules CRUD UI**: Full create/edit/delete dialogs in `components/scoring/`
 - **Pipeline CRUD**: Full create/update/delete for pipelines and stages; delete rejects default pipeline (`ValidationError`) and pipelines/stages with FK references (`ConflictError`); reorder stages via transaction
 - **Multiple pipelines**: Seed creates "Default Sales Pipeline" (6 stages) + "Project Delivery" pipeline (Proposal → Scoping → Development → QA → Delivery → Support); Kanban page fetches all pipelines via `list()` and selects by `searchParams.pipelineId` or defaults to `isDefault: true`
@@ -157,7 +162,10 @@ pnpm db:seed          # Seed database
 - **Task reminders**: Repeatable BullMQ job (`task-reminders`, every 4h) scans activities due within 24h, creates notifications with 24h dedup; see ADR-006
 - **Order fulfillment → opp won**: When order status changes to `fulfilled` and `opportunityId` is set, auto-marks linked opportunity as `won` + records `opportunity_to_won` conversion in transaction; non-blocking try/catch pattern
 - **EntityType**: `'contact' | 'lead' | 'opportunity' | 'order' | 'quote'` — timeline, notes, tags, activities all support quotes and orders; DB columns are varchar (not enum)
-- **Quote/order analytics**: `getQuoteFunnel()`, `getOrderFunnel()`, `getQuoteToOrderRate()` — aggregate by status with soft-delete filtering
+- **Quote/order analytics**: `getQuoteFunnel()`, `getOrderFunnel()`, `getQuoteToOrderRate()` — aggregate by status with soft-delete filtering; wired on `/analytics` via `QuoteOrderAnalytics`
+- **SKU / Tulana campaign loop** (migrations `0008`, `0009`): `sku_catalog`, `campaign_imports`, `campaign_buyer_signals`; `POST /api/v1/campaigns/import` (HMAC `PHYND_CAMPAIGN_IMPORT_SECRET`), review UI + `campaigns.reviewTulanaImport`, send gates (`campaign-send-gate.ts`, `POST /api/v1/campaigns/send`), buyer signals (`POST /api/v1/campaigns/buyer-signals`). Analytics: `skuCampaignFunnel`, `skuBuyerSignalFunnel`, `paymentAttributionSummary` on `/analytics`
+- **Selva engagement webhook**: `POST /api/webhooks/selva` — HMAC `SELVA_WEBHOOK_SECRET`; writes engagement milestones via shared `engagement-writer.ts`
+- **Janua Telemetry identify**: `visitor.identified` on `/api/webhooks/janua-telemetry` enqueues `session-identify` BullMQ job (tenant-aware worker)
 - **Landing page**: Hero with CSS-only dashboard mockup (browser frame + KPI cards + chart + table), "Try Live Demo" CTA. Social proof section with factual metrics. 11 marketing sections total
 - **Lead scoring refactoring**: `computeScore()` decomposed into private methods (`fetchVisitorData`, `matchCondition`, `matchPageUrl`, `addToCategory`, `computeCategoryScores`, `upsertScore`)
 - **At-risk deals refactoring**: `getAtRiskDeals()` decomposed into `computeTransitionMetrics`, `computeStageAverages`, `identifyAtRiskDeals`
@@ -204,7 +212,7 @@ PhyndCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 **Event taxonomy:** shared vocabulary for milestone events across producers (Cotiza, Pravara, Selva, Karafiel, Dhanam) is defined in [`docs/ENGAGEMENT_EVENT_TAXONOMY.md`](docs/ENGAGEMENT_EVENT_TAXONOMY.md). Canonical milestone names (e.g. `prototype_shipped`, `payment_received`, `cfdi_stamped`) let portal filters work source-agnostically. Producers SHOULD emit both a native `<source>:<native_name>` event and a canonical `<source>:<canonical_name>` alias (separate dedup keys) when a status transition represents a client-visible milestone. Pravara's `/api/webhooks/pravara` is the reference implementation — it writes `pravara:shipped` + `pravara:prototype_shipped` on a single `status=shipped` delivery.
 
 ## DB Schema
-users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit, engagements, engagement_artifacts, engagement_events, referral_codes, referrals
+users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stages, activities, notes, notifications, tags, taggables, external_references, role_preferences, webhook_events, visitor_sessions, visitor_page_views, offers, campaigns, conversions, stage_transitions, health_snapshots, lead_scoring_rules, lead_scores, grant_opportunities, grant_applications, grant_signal_audit, engagements, engagement_artifacts, engagement_events, referral_codes, referrals, sku_catalog, campaign_imports, campaign_buyer_signals
 
 ### Indexes
 - leads: `contact_id`, composite `(pipeline_id, stage_id)`
@@ -231,16 +239,30 @@ users, contacts, leads, opportunities, quotes, orders, pipelines, pipeline_stage
 - contacts, leads, opportunities, quotes, orders, engagements: `deleted_at` (nullable timestamp)
 
 ## tRPC Routers
-contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns, conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag), engagements (list, listByContactId, getById, create, update, delete, listArtifacts, addArtifact, getTimeline, sendPortalLink), referrals
+contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdateStatus), opportunities (+ listMine, listByContactId, bulkUpdateStatus), quotes (+ listMine, listByOpportunityId, listByContactId), orders (+ listMine, listByOpportunityId, listByContactId, listByQuoteId), pipelines (+ create, update, delete, createStage, updateStage, deleteStage, reorderStages), activities (list, listMine, listForEntity, create, update, delete, complete), notes (listForEntity, create, update, delete, togglePin), tags (list, create, delete, addToEntity, removeFromEntity, getForEntity), users (admin-gated: list, getById, create, update, delete), search (search), unified-profile, federation-health, visitor-tracking, offers, campaigns (+ reviewTulanaImport, attemptTulanaSend), conversions, analytics (+ weightedPipelineValue, atRiskDeals, leadTrend, opportunityTrend, conversionTrend, visitorTrend, quoteFunnel, orderFunnel, quoteToOrderRate, skuCampaignFunnel, skuBuyerSignalFunnel, paymentAttributionSummary, with date range filtering), lead-scoring, preferences (getForRole, upsert), timeline (getTimeline), notifications (list, unreadCount, markAsRead, markAllAsRead), grants (listOpportunities, getOpportunity, listApplications, getApplication, createApplication, moveToStage, requestHitlApproval, approveSubmission, rejectSubmission, markSubmitted, markAwarded, getAuditTrail, getPipelineStats — all gated by `treasuryHunter` flag), engagements (list, listByContactId, getById, create, update, delete, listArtifacts, addArtifact, getTimeline, sendPortalLink), referrals
 
 ## Feature Flags (14 total)
 - Enabled by default: `bidirectionalSync`, `leadScoring`, `multiTenancy`, `forjEnabled`, `visitorTracking`, `funnelManagement`, `analytics`, `referralManagement`
-- Disabled by default: `federationReadOnly`, `aiKanban`, `piiMasking`, `observability`, `realtimeUpdates`, `treasuryHunter`
-- `setFeatureFlags()` still throws in production.
+- Disabled by default: `federationReadOnly`, `aiKanban`, `piiMasking`, `observability`, `realtimeUpdates`, `treasuryHunter` (enable in prod via `FEATURE_TREASURY_HUNTER=true` after staging verification)
+- `setFeatureFlags()` still throws in production; use env overrides for gated prod features.
 
 ## Phasing
-- Current implementation is beyond the original Phase 1 slice: GraphQL Yoga exists at `/api/graphql`, bidirectional/write-side flows exist for engagements, quotes, payments, production dispatch, referrals, and multiple webhooks, and `multiTenancy` is enabled by default while tenant fallback remains `madfam`.
-- Still future/deferred: AI Kanban, PII masking, observability flag rollout, realtime updates, and Treasury Hunter production enablement.
+
+Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
+[`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATION.md).
+
+| Phase | Focus | Status |
+| --- | --- | --- |
+| 0 | Prod Janua SSO + `crm.madfam.io` access for `admin@madfam.io` | Open (auth origin fix deploy) |
+| 1 | Data truth (no mock federation in prod, host tenantId, PP.5 split) | Planned / in progress |
+| 2 | Engagement seam (Selva + Karafiel events) | Pending provider wiring |
+| 3 | SKU catalog + Tulana campaign loop | Not started |
+| 4 | Identity graph + cross-SKU analytics + Treasury Hunter | Partially built, flags off |
+| 5 | Selva sales copilot API | Minimal token scopes today |
+
+- Current implementation is beyond the original Phase 1 slice: GraphQL Yoga exists at `/api/graphql`, bidirectional/write-side flows exist for engagements, quotes, payments, production dispatch, referrals, and multiple webhooks, and `multiTenancy` is enabled by default while tenant fallback remains `madfam` and host branding is not yet wired to `tenantId` in `getServerCaller()`.
+- Composite distance from “100% truthful MADFAM ecosystem slice”: ~25–35% (see roadmap scorecard).
+- Still future/deferred: AI Kanban, PII masking, observability flag rollout, realtime updates, and Treasury Hunter production enablement — scheduled in roadmap Phases 4–5.
 
 ## Frontend Features
 - **Dark mode**: next-themes with `.dark` class selector (globals.css); ThemeToggle in header
@@ -304,8 +326,9 @@ contacts (+ listMine, bulkCreate), leads (+ listMine, listByContactId, bulkUpdat
 
 ## ACCA Treasury Hunter Integration
 - **Fortuna webhook**: `POST /api/webhooks/fortuna` — receives `grant.discovered` events, upserts grant_opportunities, creates grant_application at "Discovered" stage, enqueues `grant-compliance-check` job
-- **Karafiel webhook dispatch**: `grant.awarded` event sent when application reaches "Awarded" status (HMAC-SHA256, `X-PhyndCRM-Signature`)
-- **HITL gate**: `approveSubmission` requires real `userId` + passing compliance checks (`rfc_active`, `opinion_32d_positive`, `!blacklisted`)
+- **Karafiel outbound dispatch**: Staff `markAwarded` dispatches `grant.awarded` to `${KARAFIEL_API_URL}/webhooks/phynd-crm` via `dispatchGrantAwarded()` (HMAC `X-PhyndCRM-Signature`); skipped for inbound `service:karafiel-webhook` actors; blocked on staging→prod by outbound guard
+- **Karafiel inbound webhook**: `POST /api/webhooks/karafiel` — applies `grant.awarded` from Karafiel without re-dispatch
+- **HITL gate**: `requestHitlApproval` → `hitl_pending`; `approveSubmission` requires `hitl_pending` + real `userId` + compliance (`rfc_active`, `opinion_32d_positive`, `!blacklisted`); `markSubmitted` requires `approved_to_submit`; staff `markAwarded` requires `hitlApprovedBy`
 - **Pipeline**: "Treasury Hunter" pipeline with 8 stages: Discovered (5%) → Evaluating (15%) → Preparing (30%) → HITL Review (50%) → Submitted (65%) → Under Evaluation (75%) → Awarded (95%) → Rejected (0%)
 - **Audit trail**: `grant_signal_audit` table records all lifecycle events with actor + details
 
@@ -439,9 +462,9 @@ pnpm dev
 Source: ecosystem audit dated 2026-04-23 (org-internal — see `internal-devops/audits/`).
 
 - **🟡 T: `/tests` directory exists but contains zero test files** — auth/CRM endpoints untested; 5 auth-related tests appear to be skipped per sweep. Needs a test foundation sprint.
-- **🟡 UI: Federation tabs render blank 1–3s** — Unified profile tabs fetching from Janua/Dhanam/Cotiza/Pravara/Forj/Tezca have no Suspense/skeleton. Wrap in `<Suspense>` + `<SkeletonCard />` per provider.
-- **🟡 UI: Bulk delete lacks confirmation dialog** — leads/opportunities tables can trigger destructive action on misclick. Add `<ConfirmationDialog>` with affected-row count.
-- **🟡 UI: Sidebar icon NavLinks missing `aria-label`** — screen reader users can't identify menu items.
+- **🟢 UI: Federation tabs** — `clients/[id]/loading.tsx` + health banner shipped 2026-05-28.
+- **🟢 UI: Delete confirmation** — leads/opportunities use confirmation dialogs (2026-05-28).
+- **🟢 UI: Sidebar `aria-label`** — desktop + mobile nav links (2026-05-28).
 - **🟡 i18n: Monolingual English** — ("Sign Up", "Create", "Edit", "Delete" hardcoded). Adopt next-intl for Mexico market.
 - **🟢 positive**: Drizzle `sql<T>` template tags used throughout — zero SQL-injection surface.
 

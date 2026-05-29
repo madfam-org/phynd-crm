@@ -214,4 +214,22 @@ export const analyticsRouter = router({
     const service = new AnalyticsService(ctx)
     return service.getQuoteToOrderRate()
   }),
+
+  skuCampaignFunnel: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getSkuCampaignFunnel()
+  }),
+
+  skuBuyerSignalFunnel: protectedProcedure.query(({ ctx }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getSkuBuyerSignalFunnel()
+  }),
+
+  paymentAttributionSummary: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getPaymentAttributionSummary(toDateRange(input ?? undefined))
+  }),
 })

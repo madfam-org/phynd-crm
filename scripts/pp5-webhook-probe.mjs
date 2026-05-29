@@ -92,6 +92,21 @@ const lanes = {
       ],
     }),
   },
+  'janua-telemetry-identify': {
+    path: '/api/webhooks/janua-telemetry',
+    secretEnv: 'JANUA_TELEMETRY_WEBHOOK_SECRET',
+    signature: simple,
+    signatureHeader: 'x-webhook-signature',
+    payload: (opts) => ({
+      type: 'visitor.identified',
+      externalSessionId: `pp5-session-${opts.runId}`,
+      contactId: opts.contactId ?? 'REPLACE_WITH_STAGING_CONTACT_ID',
+      fingerprint: `pp5-fp-${opts.runId}`,
+      startedAt: new Date().toISOString(),
+      utmSource: 'pp5',
+      utmCampaign: 'pp5-staging-validation',
+    }),
+  },
   janua: {
     path: '/api/webhooks/janua',
     secretEnv: 'JANUA_WEBHOOK_SECRET',
@@ -272,6 +287,59 @@ const lanes = {
       metadata: { pp5_probe: true },
     }),
   },
+  selva: {
+    path: '/api/webhooks/selva',
+    secretEnv: 'SELVA_WEBHOOK_SECRET',
+    signature: simple,
+    signatureHeader: 'x-webhook-signature',
+    payload: (opts) => ({
+      engagement_id: opts.engagementId,
+      event: 'milestone_complete',
+      external_id: `selva-pp5-${opts.runId}`,
+      message: 'PP.5 Selva milestone probe',
+      metadata: { pp5_probe: true },
+    }),
+  },
+  'tulana-import': {
+    path: '/api/v1/campaigns/import',
+    secretEnv: 'PHYND_CAMPAIGN_IMPORT_SECRET',
+    signature: simple,
+    signatureHeader: 'x-webhook-signature',
+    payload: (opts) => ({
+      idempotency_key: `pp5-tulana-${opts.runId}`,
+      source: 'tulana',
+      orchestrator: 'selva',
+      sku_key: 'pp5_probe_sku',
+      platform: 'pp5',
+      audience: 'staging operators',
+      ga_readiness: 'near_ready',
+      campaign_type: 'text',
+      value_prop: 'PP.5 staging Tulana import probe',
+      proof_points: [{ label: 'probe', value: 'synthetic staging payload' }],
+      guardrails: { do_not_claim: ['production GA claims'] },
+      drafts: [{ channel: 'email', body: 'PP.5 probe draft copy' }],
+    }),
+  },
+  'tulana-send': {
+    path: '/api/v1/campaigns/send',
+    secretEnv: 'PHYND_CAMPAIGN_IMPORT_SECRET',
+    signature: simple,
+    signatureHeader: 'x-webhook-signature',
+    payload: (opts) => ({
+      campaign_id: opts.campaignId ?? 'REPLACE_WITH_STAGING_CAMPAIGN_ID',
+      contact_id: opts.contactId ?? 'REPLACE_WITH_STAGING_CONTACT_ID',
+    }),
+  },
+  'tulana-buyer-signals': {
+    path: '/api/v1/campaigns/buyer-signals',
+    secretEnv: 'PHYND_CAMPAIGN_IMPORT_SECRET',
+    signature: simple,
+    signatureHeader: 'x-webhook-signature',
+    payload: () => ({
+      sku_key: 'pp5_probe_sku',
+      limit: 50,
+    }),
+  },
 }
 
 function paymentPayload(provider, opts) {
@@ -302,6 +370,8 @@ function parseArgs(argv) {
     baseUrl: DEFAULT_BASE_URL,
     email: 'pp5-probe@staging.madfam.io',
     engagementId: 'REPLACE_WITH_STAGING_ENGAGEMENT_ID',
+    campaignId: 'REPLACE_WITH_STAGING_CAMPAIGN_ID',
+    contactId: 'REPLACE_WITH_STAGING_CONTACT_ID',
     runId: new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14),
   }
 
@@ -312,6 +382,8 @@ function parseArgs(argv) {
     if (arg === '--base-url') opts.baseUrl = value.replace(/\/$/, '')
     else if (arg === '--email') opts.email = value
     else if (arg === '--engagement-id') opts.engagementId = value
+    else if (arg === '--campaign-id') opts.campaignId = value
+    else if (arg === '--contact-id') opts.contactId = value
     else if (arg === '--run-id') opts.runId = value
     else usage(`Unknown option: ${arg}`)
     i += 1

@@ -1,18 +1,45 @@
 import { campaigns } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, isNotNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { NotFoundError, ValidationError } from '../errors'
+import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
+import { type CampaignSendEligibility, checkCampaignSendEligibility } from './campaign-send-gate'
+
+export type CampaignListFilters = {
+  status?: string
+  importSource?: string
+  gaReadiness?: string
+  skuKey?: string
+  tulanaOnly?: boolean
+}
 
 export class CampaignsService {
   constructor(private readonly ctx: ServiceContext) {}
 
   async list(
     pagination?: PaginationInput,
+    filters?: CampaignListFilters,
   ): Promise<PaginatedResult<typeof campaigns.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = []
     if (pagination?.cursor) {
       conditions.push(gt(campaigns.id, pagination.cursor))
+    }
+    if (filters?.status) {
+      conditions.push(eq(campaigns.status, filters.status))
+    }
+    if (filters?.importSource) {
+      conditions.push(eq(campaigns.importSource, filters.importSource))
+    }
+    if (filters?.gaReadiness) {
+      conditions.push(eq(campaigns.gaReadiness, filters.gaReadiness))
+    }
+    if (filters?.skuKey) {
+      conditions.push(eq(campaigns.skuKey, filters.skuKey))
+    }
+    if (filters?.tulanaOnly) {
+      conditions.push(isNotNull(campaigns.skuKey))
     }
 
     const rows = await this.ctx.db
@@ -106,5 +133,102 @@ export class CampaignsService {
   async delete(id: string) {
     const [deleted] = await this.ctx.db.delete(campaigns).where(eq(campaigns.id, id)).returning()
     return deleted ?? null
+  }
+
+  /**
+   * Human review gate for Tulana-imported campaigns. Blocks approval when the
+   * SKU is explicitly not GA-ready.
+   */
+  async reviewTulanaImport(id: string, decision: 'approved' | 'rejected') {
+    const campaign = await this.getById(id)
+    if (!campaign) {
+      throw new NotFoundError('Campaign', id)
+    }
+    if (!campaign.skuKey) {
+      throw new ValidationError('Campaign is not a Tulana SKU import')
+    }
+
+    if (decision === 'rejected') {
+      return this.update(id, { status: 'rejected' })
+    }
+
+    if (campaign.gaReadiness === 'not_ready') {
+      throw new ValidationError(
+        'Cannot approve send: Tulana marks this SKU as not_ready. Reject or wait for readiness evidence.',
+      )
+    }
+
+    return this.update(id, { status: 'approved' })
+  }
+
+  async getSendEligibility(
+    campaignId: string,
+    contactId: string,
+  ): Promise<CampaignSendEligibility> {
+    return checkCampaignSendEligibility(this.ctx, { campaignId, contactId })
+  }
+
+  /**
+   * Tulana outreach dispatch with consent/suppression gates (Phase 3.4).
+   * Records a buyer-signal row for Tulana export (Phase 3.5).
+   */
+  async attemptTulanaSend(campaignId: string, contactId: string) {
+    const campaign = await this.getById(campaignId)
+    if (!campaign) {
+      throw new NotFoundError('Campaign', campaignId)
+    }
+    if (!campaign.skuKey) {
+      throw new ValidationError('Campaign is not a Tulana SKU import')
+    }
+    if (campaign.status !== 'approved' && campaign.status !== 'scheduled') {
+      throw new ValidationError('Campaign must be approved or scheduled before send')
+    }
+
+    const eligibility = await checkCampaignSendEligibility(this.ctx, { campaignId, contactId })
+    const signalService = new CampaignBuyerSignalService(this.ctx)
+    const contactSegment =
+      (campaign.tulanaMetadata?.audience as string | undefined) ?? campaign.orchestrator ?? null
+    const dedupKey = `send:${campaignId}:${contactId}`
+
+    if (!eligibility.eligible) {
+      await signalService.record({
+        campaignId,
+        contactId,
+        skuKey: campaign.skuKey,
+        contactSegment,
+        eventType: 'suppressed',
+        signalStrength: 'low',
+        notesRedacted: eligibility.reasons.join(', '),
+        dedupKey,
+        metadata: { channel: eligibility.channel, reasons: eligibility.reasons },
+      })
+
+      await this.update(campaignId, { status: 'suppressed' })
+
+      return {
+        outcome: 'suppressed' as const,
+        reasons: eligibility.reasons,
+        channel: eligibility.channel,
+      }
+    }
+
+    await signalService.record({
+      campaignId,
+      contactId,
+      skuKey: campaign.skuKey,
+      contactSegment,
+      eventType: 'delivered',
+      signalStrength: 'medium',
+      dedupKey,
+      metadata: { channel: eligibility.channel },
+    })
+
+    await this.update(campaignId, { status: 'sent' })
+
+    return {
+      outcome: 'sent' as const,
+      reasons: [] as string[],
+      channel: eligibility.channel,
+    }
   }
 }

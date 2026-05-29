@@ -8,6 +8,9 @@ Compact LLM context index for this repository.
 - `README.md` — human/product overview when present.
 - `ECOSYSTEM.md` — MADFAM ecosystem and Enclii deployment context when present.
 - `llms-full.txt` — full context map and durable operating contract.
+- `docs/ROADMAP.md` — canonical product/engineering phase map.
+- `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable gap-closure plan (WS0–WS9).
+- `docs/SELVA_CRM_AGENT_TOOLS.md` — Selva service-token read tool manifest (WS6).
 - `docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` — latest codebase and
   production evidence snapshot.
 
@@ -16,3 +19,9 @@ Compact LLM context index for this repository.
 Routine production operations are Enclii-first. Use Enclii web, API, or CLI
 before raw infrastructure tools. Direct `kubectl`, `helm`, SSH, provider CLIs,
 `docker exec`, or direct container access is bootstrap/break-glass only.
+
+## Pilot readiness scripts
+
+- `pnpm verify:prod-auth` — public sign-in URL hygiene on prod hosts
+- `pnpm verify:migrations` — Tulana/SKU migration artifacts present
+- `pnpm verify:pilot-readiness` — bundles the above + PP5 webhook probe lanes

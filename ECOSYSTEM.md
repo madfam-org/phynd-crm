@@ -13,6 +13,9 @@
 Latest repository and production evidence is recorded in
 [`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
 
+**Roadmap:** [`docs/ROADMAP.md`](docs/ROADMAP.md) · **Remediation plan:**
+[`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATION.md)
+
 This file is self-contained: a Claude session on a fresh machine can operate
 this service by reading only this one document. No external links are
 load-bearing — the MADFAM ecosystem map and the full enclii CLI reference are

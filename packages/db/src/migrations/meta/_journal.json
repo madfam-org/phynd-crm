@@ -57,6 +57,20 @@
       "when": 1778180825452,
       "tag": "0007_oval_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780032416481,
+      "tag": "0008_orange_sandman",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780033880643,
+      "tag": "0009_lazy_wrecker",
+      "breakpoints": true
     }
   ]
 }

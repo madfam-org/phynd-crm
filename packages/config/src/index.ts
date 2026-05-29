@@ -7,4 +7,10 @@ export {
   resetFeatureFlags,
   setFeatureFlags,
 } from './features'
+export {
+  getDeploymentTier,
+  isOutboundUrlAllowed,
+  isProductionOutboundHost,
+  type DeploymentTier,
+} from './outbound-guard'
 export { getFederationConfig } from './federation'

@@ -341,3 +341,30 @@ describe('setFeatureFlags production guard', () => {
     expect(getFeatureFlags().aiKanban).toBe(true)
   })
 })
+
+describe('production env feature overrides', () => {
+  const originalEnv = process.env.NODE_ENV
+  const originalTreasury = process.env.FEATURE_TREASURY_HUNTER
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv
+    if (originalTreasury === undefined) {
+      delete process.env.FEATURE_TREASURY_HUNTER
+    } else {
+      process.env.FEATURE_TREASURY_HUNTER = originalTreasury
+    }
+    resetFeatureFlags()
+  })
+
+  it('enables treasuryHunter in production when FEATURE_TREASURY_HUNTER=true', () => {
+    process.env.NODE_ENV = 'production'
+    process.env.FEATURE_TREASURY_HUNTER = 'true'
+    expect(isFeatureEnabled('treasuryHunter')).toBe(true)
+  })
+
+  it('does not apply production env overrides in test environment', () => {
+    process.env.NODE_ENV = 'test'
+    process.env.FEATURE_TREASURY_HUNTER = 'true'
+    expect(isFeatureEnabled('treasuryHunter')).toBe(false)
+  })
+})

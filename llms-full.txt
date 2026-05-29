@@ -1,6 +1,6 @@
 # Phynd Crm Full LLM Context
 
-Generated: 2026-05-27
+Generated: 2026-05-28
 
 ## Purpose
 
@@ -16,6 +16,8 @@ repository without depending on vendor-specific instruction files.
    directories for the specific task
 5. `docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` for the latest verified
    codebase/prod-status snapshot when documentation or production state matters
+6. `docs/ROADMAP.md` and `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` for phased
+   targets, gap scorecard, and workstream acceptance criteria
 
 ## Agent compatibility
 
@@ -48,6 +50,13 @@ gap or incident link.
 `docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` records the most recent
 cross-check of this repo and the public `phynd.app` production surface. Use it
 to supersede older 2026-05-14 remediation notes when they conflict.
+
+## Roadmap and remediation (2026-05-28)
+
+- `docs/ROADMAP.md` — canonical phase map (Phases 0–5), scorecard, feature-flag rollout schedule.
+- `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — workstreams WS0–WS9, acceptance tests, pilot milestones M1–M5, risk register.
+
+MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~25–35% complete as of 2026-05-28.
 
 ## Maintenance
 

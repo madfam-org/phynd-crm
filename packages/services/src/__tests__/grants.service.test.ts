@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { dispatchGrantAwarded } from '../grants/grant-webhook-dispatcher'
 import { GrantsService } from '../grants/grants.service'
 import { type MockDatabase, createTestContext } from './helpers'
 
 // ---------------------------------------------------------------------------
 // Mock external modules
 // ---------------------------------------------------------------------------
+
+vi.mock('../grants/grant-webhook-dispatcher', () => ({
+  dispatchGrantAwarded: vi.fn().mockResolvedValue(undefined),
+}))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
@@ -278,6 +283,7 @@ describe('GrantsService', () => {
 
     it('rejects approval when RFC is not active', async () => {
       const app = makeGrantApplication({
+        status: 'hitl_pending',
         complianceChecks: { rfc_active: false, opinion_32d_positive: true, blacklisted: false },
       })
       mockDb._qb._result = [app]
@@ -289,6 +295,7 @@ describe('GrantsService', () => {
 
     it('rejects approval when 32-D opinion is not positive', async () => {
       const app = makeGrantApplication({
+        status: 'hitl_pending',
         complianceChecks: { rfc_active: true, opinion_32d_positive: false, blacklisted: false },
       })
       mockDb._qb._result = [app]
@@ -300,6 +307,7 @@ describe('GrantsService', () => {
 
     it('rejects approval when entity is blacklisted', async () => {
       const app = makeGrantApplication({
+        status: 'hitl_pending',
         complianceChecks: { rfc_active: true, opinion_32d_positive: true, blacklisted: true },
       })
       mockDb._qb._result = [app]
@@ -309,8 +317,21 @@ describe('GrantsService', () => {
       )
     })
 
+    it('rejects approval when not in hitl_pending status', async () => {
+      const app = makeGrantApplication({
+        status: 'draft',
+        complianceChecks: { rfc_active: true, opinion_32d_positive: true, blacklisted: false },
+      })
+      mockDb._qb._result = [app]
+
+      await expect(service.approveForSubmission('grant-app-001', 'user-1')).rejects.toThrow(
+        'hitl_pending',
+      )
+    })
+
     it('approves when all compliance checks pass', async () => {
       const app = makeGrantApplication({
+        status: 'hitl_pending',
         complianceChecks: { rfc_active: true, opinion_32d_positive: true, blacklisted: false },
       })
       const approved = { ...app, status: 'approved_to_submit', hitlApprovedBy: 'user-1' }
@@ -379,6 +400,13 @@ describe('GrantsService', () => {
   // markSubmitted()
   // -------------------------------------------------------------------------
   describe('markSubmitted()', () => {
+    it('rejects when application is not approved_to_submit', async () => {
+      const app = makeGrantApplication({ id: 'grant-app-001', status: 'draft' })
+      mockDb._qb._result = [app]
+
+      await expect(service.markSubmitted('grant-app-001')).rejects.toThrow('approved_to_submit')
+    })
+
     it('sets status to submitted and records submittedAt', async () => {
       const app = makeGrantApplication({ id: 'grant-app-001', status: 'approved_to_submit' })
       const submitted = { ...app, status: 'submitted', submittedAt: new Date() }
@@ -401,8 +429,22 @@ describe('GrantsService', () => {
   // markAwarded()
   // -------------------------------------------------------------------------
   describe('markAwarded()', () => {
-    it('sets status to awarded and records awardedAmount', async () => {
+    it('rejects staff award without HITL approval', async () => {
       const app = makeGrantApplication({ id: 'grant-app-001', status: 'submitted' })
+      mockDb._qb._result = [app]
+
+      await expect(service.markAwarded('grant-app-001', '400000.00')).rejects.toThrow(
+        'HITL approval required',
+      )
+    })
+
+    it('sets status to awarded, records awardedAmount, and dispatches to Karafiel', async () => {
+      const app = makeGrantApplication({
+        id: 'grant-app-001',
+        status: 'submitted',
+        hitlApprovedBy: 'user-1',
+      })
+      const opportunity = makeGrantOpportunity()
       const awarded = { ...app, status: 'awarded', awardedAmount: '400000.00' }
 
       let callCount = 0
@@ -410,13 +452,22 @@ describe('GrantsService', () => {
         callCount++
         if (callCount === 1) return Promise.resolve([app]).then(resolve)
         if (callCount === 2) return Promise.resolve([awarded]).then(resolve)
-        return Promise.resolve([{}]).then(resolve)
+        if (callCount === 3) return Promise.resolve([{}]).then(resolve)
+        if (callCount === 4) return Promise.resolve([opportunity]).then(resolve)
+        return Promise.resolve([]).then(resolve)
       })
 
       const result = await service.markAwarded('grant-app-001', '400000.00')
 
       expect(result?.status).toBe('awarded')
       expect(result?.awardedAmount).toBe('400000.00')
+      expect(dispatchGrantAwarded).toHaveBeenCalledWith(
+        expect.objectContaining({
+          grantApplicationId: 'grant-app-001',
+          fortunaGrantId: 'fortuna-123',
+          title: 'Test Grant',
+        }),
+      )
     })
   })
 

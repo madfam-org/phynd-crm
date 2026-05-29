@@ -1,3 +1,4 @@
+import { SERVICE_AUTH_SCOPES } from '@/lib/trpc/request-context'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
@@ -160,7 +161,7 @@ describe('tRPC route handler — federation token auth', () => {
       userId: 'service:autoswarm',
       tenantId: 'madfam',
       roles: ['service'],
-      scopes: ['leads:read', 'activities:read'],
+      scopes: [...SERVICE_AUTH_SCOPES],
       accessToken: '',
     })
   })
@@ -357,7 +358,7 @@ describe('tRPC route handler — federation token auth', () => {
     expect(authCtx.roles).not.toContain('admin')
     expect(authCtx.scopes).not.toContain('*')
     // Verify it has only the expected scopes
-    expect(authCtx.scopes).toEqual(['leads:read', 'activities:read'])
+    expect(authCtx.scopes).toEqual([...SERVICE_AUTH_SCOPES])
     expect(authCtx.roles).toEqual(['service'])
   })
 

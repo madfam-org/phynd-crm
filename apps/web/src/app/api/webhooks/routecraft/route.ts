@@ -1,6 +1,7 @@
+import { resolveTenantIdForWebhook } from '@/lib/webhooks/engagement-writer'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { getDb } from '@phynd/db'
-import { contacts, conversions, webhookEvents } from '@phynd/db/schema'
+import { campaigns, contacts, conversions, webhookEvents } from '@phynd/db/schema'
 import { validateMadfamSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import { and, eq, sql } from 'drizzle-orm'
@@ -91,7 +92,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   try {
-    const result = await recordPaymentEvent(event)
+    const tenantId = resolveTenantIdForWebhook(req)
+    const result = await recordPaymentEvent(event, tenantId)
     return NextResponse.json(
       { received: true, ...result },
       { headers: { 'X-RateLimit-Remaining': String(remaining) } },
@@ -123,8 +125,11 @@ function validateEventShape(event: PaymentSucceededEvent): string | null {
   return null
 }
 
-async function recordPaymentEvent(event: PaymentSucceededEvent): Promise<ReceiveResult> {
-  const db = getDb()
+async function recordPaymentEvent(
+  event: PaymentSucceededEvent,
+  tenantId: string,
+): Promise<ReceiveResult> {
+  const db = getDb(tenantId)
 
   // Idempotency — bail out cleanly if we've seen this event_id before.
   const prior = await db
@@ -141,7 +146,8 @@ async function recordPaymentEvent(event: PaymentSucceededEvent): Promise<Receive
     return { status: 'duplicate', event_id: event.event_id }
   }
 
-  const contactId = await resolveContactId(event.attribution?.source_agent_id)
+  const contactId = await resolveContactId(db, event.attribution?.source_agent_id)
+  const campaignId = await resolveCampaignId(db, event.attribution?.campaign_id)
 
   const valueMajor = (event.amount_minor / 100).toFixed(2)
 
@@ -161,6 +167,7 @@ async function recordPaymentEvent(event: PaymentSucceededEvent): Promise<Receive
       .values({
         type: 'ecosystem_payment_succeeded',
         contactId,
+        campaignId,
         value: valueMajor,
         metadata: {
           event_id: event.event_id,
@@ -182,14 +189,34 @@ async function recordPaymentEvent(event: PaymentSucceededEvent): Promise<Receive
   })
 }
 
-async function resolveContactId(sourceAgentId: string | undefined): Promise<string | null> {
+async function resolveContactId(
+  db: ReturnType<typeof getDb>,
+  sourceAgentId: string | undefined,
+): Promise<string | null> {
   if (!sourceAgentId) return null
-  const db = getDb()
   try {
     const [row] = await db
       .select({ id: contacts.id })
       .from(contacts)
       .where(eq(contacts.externalJanuaId, sourceAgentId))
+      .limit(1)
+    return row?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+async function resolveCampaignId(
+  db: ReturnType<typeof getDb>,
+  utmCampaign: string | undefined,
+): Promise<string | null> {
+  if (!utmCampaign) return null
+  try {
+    const [row] = await db
+      .select({ id: campaigns.id })
+      .from(campaigns)
+      .where(eq(campaigns.utmCampaign, utmCampaign))
+      .orderBy(campaigns.createdAt)
       .limit(1)
     return row?.id ?? null
   } catch {

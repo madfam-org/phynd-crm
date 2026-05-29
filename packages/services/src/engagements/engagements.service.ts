@@ -13,6 +13,7 @@ import {
   type CotizaEngagementEvent,
   dispatchCotizaEngagementEvent,
 } from './cotiza-engagement-emitter.service'
+import { canonicalKarafielMilestone, canonicalSelvaMilestone } from './engagement-milestone.helpers'
 
 /**
  * Optional DI seam for the Cotiza emitter so tests can spy without
@@ -278,6 +279,63 @@ export class EngagementsService {
       throw new ConflictError('Failed to record engagement event')
     }
     return { event: row, deduplicated: false as const }
+  }
+
+  /**
+   * Records a native source event plus an optional canonical milestone alias
+   * (separate dedup keys). Used by Selva, Karafiel, and Pravara webhooks.
+   */
+  async recordMilestoneWithCanonicalAlias(data: {
+    engagementId: string
+    source: 'selva' | 'karafiel' | 'pravara' | string
+    nativeEventName: string
+    externalId: string
+    status?: string
+    message?: string
+    metadata?: Record<string, unknown>
+    resolveCanonical?: (eventName: string) => string | null
+  }) {
+    const eventName = data.nativeEventName.replace(/^(selva|karafiel|pravara):/, '')
+    const nativeEventType = `${data.source}:${eventName}`
+    const dedupBase = `${data.source}:${data.externalId}`
+
+    const primary = await this.recordEvent({
+      engagementId: data.engagementId,
+      source: data.source,
+      eventType: nativeEventType,
+      status: data.status,
+      message: data.message,
+      metadata: data.metadata,
+      dedupKey: `${dedupBase}:${eventName}`,
+    })
+
+    const resolver =
+      data.resolveCanonical ??
+      (data.source === 'selva'
+        ? canonicalSelvaMilestone
+        : data.source === 'karafiel'
+          ? canonicalKarafielMilestone
+          : () => null)
+
+    const canonicalName = resolver(eventName)
+    if (!canonicalName) {
+      return { primary, alias: null }
+    }
+
+    const alias = await this.recordEvent({
+      engagementId: data.engagementId,
+      source: data.source,
+      eventType: `${data.source}:${canonicalName}`,
+      status: 'milestone',
+      message: data.message,
+      metadata: {
+        ...data.metadata,
+        canonical_milestone: canonicalName,
+      },
+      dedupKey: `${dedupBase}:milestone:${canonicalName}`,
+    })
+
+    return { primary, alias }
   }
 
   // ─── Timeline ───────────────────────────────────────────────────────

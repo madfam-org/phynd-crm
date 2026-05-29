@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { isOutboundUrlAllowed } from '@phynd/config/outbound-guard'
 import { createLogger } from '@phynd/logging'
 
 const logger = createLogger('services:grant-webhook-dispatcher')
@@ -49,6 +50,14 @@ export async function dispatchGrantAwarded(payload: {
   const signature = crypto.createHmac('sha256', secret).update(body).digest('hex')
 
   const url = `${karafielUrl}/webhooks/phynd-crm`
+
+  if (!isOutboundUrlAllowed(url, 'grant.awarded')) {
+    logger.warn(
+      { grantApplicationId: payload.grantApplicationId, url },
+      'Blocked grant.awarded dispatch: staging cannot call production Karafiel',
+    )
+    return
+  }
 
   logger.info(
     { grantApplicationId: payload.grantApplicationId, url },

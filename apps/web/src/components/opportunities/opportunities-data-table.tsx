@@ -26,6 +26,7 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CreateOpportunityDialog } from './create-opportunity-dialog'
+import { DeleteOpportunityDialog } from './delete-opportunity-dialog'
 import { EditOpportunityDialog } from './edit-opportunity-dialog'
 
 type OpportunitiesListOutput = inferRouterOutputs<AppRouter>['opportunities']['list']
@@ -57,9 +58,6 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
   const listOpportunities = opportunitiesRouter.list as NonNullable<typeof opportunitiesRouter.list>
   const listMineOpportunities = opportunitiesRouter.listMine as NonNullable<
     typeof opportunitiesRouter.listMine
-  >
-  const deleteOpportunity = opportunitiesRouter.delete as NonNullable<
-    typeof opportunitiesRouter.delete
   >
   const bulkUpdateOpportunityStatus = opportunitiesRouter.bulkUpdateStatus as NonNullable<
     typeof opportunitiesRouter.bulkUpdateStatus
@@ -95,6 +93,7 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
   )
   const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
   const [editOpp, setEditOpp] = useState<OpportunityRow | null>(null)
+  const [oppToDelete, setOppToDelete] = useState<OpportunityRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
 
@@ -126,10 +125,6 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
     listOpportunitiesUtils.invalidate()
     listMineOpportunitiesUtils.invalidate()
   }
-  const deleteMutation = deleteOpportunity.useMutation({
-    onSuccess: invalidateOpportunities,
-    onError: (err) => toast.error('Failed to delete opportunity', { description: err.message }),
-  })
   const bulkUpdateMutation = bulkUpdateOpportunityStatus.useMutation({
     onSuccess: () => {
       invalidateOpportunities()
@@ -200,10 +195,7 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
               <Link href={`/opportunities/${row.id}`}>View</Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditOpp(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => deleteMutation.mutate({ id: row.id })}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={() => setOppToDelete(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -296,6 +288,14 @@ export function OpportunitiesDataTable({ initialData }: OpportunitiesDataTablePr
           opportunity={editOpp}
           open={!!editOpp}
           onOpenChange={(open) => !open && setEditOpp(null)}
+        />
+      )}
+      {oppToDelete && (
+        <DeleteOpportunityDialog
+          opportunityId={oppToDelete.id}
+          opportunityLabel={oppToDelete.name}
+          open={!!oppToDelete}
+          onOpenChange={(open) => !open && setOppToDelete(null)}
         />
       )}
     </div>

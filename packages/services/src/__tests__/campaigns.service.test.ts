@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as sendGate from '../campaigns/campaign-send-gate'
 import { CampaignsService } from '../campaigns/campaigns.service'
+import { NotFoundError, ValidationError } from '../errors'
 import { type MockDatabase, createTestContext, makeCampaign } from './helpers'
+
+vi.mock('../campaigns/campaign-buyer-signal.service', () => ({
+  CampaignBuyerSignalService: vi.fn().mockImplementation(() => ({
+    record: vi.fn().mockResolvedValue({ id: 'signal-001', deduplicated: false }),
+  })),
+}))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
+  isNotNull: vi.fn((col: unknown) => ({ _tag: 'isNotNull', col })),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
@@ -63,6 +72,17 @@ describe('CampaignsService', () => {
     it('applies cursor for pagination', async () => {
       mockDb._qb._result = [makeCampaign({ id: 'c5' })]
       const result = await service.list({ cursor: 'c4', limit: 10 })
+      expect(result.items).toHaveLength(1)
+      expect(mockDb._qb.where).toHaveBeenCalled()
+    })
+
+    it('applies Tulana list filters', async () => {
+      mockDb._qb._result = [makeCampaign({ skuKey: 'avala__issuer', status: 'needs_review' })]
+      const result = await service.list(undefined, {
+        status: 'needs_review',
+        tulanaOnly: true,
+        gaReadiness: 'near_ready',
+      })
       expect(result.items).toHaveLength(1)
       expect(mockDb._qb.where).toHaveBeenCalled()
     })
@@ -166,6 +186,114 @@ describe('CampaignsService', () => {
       mockDb._qb._result = []
       const result = await service.delete('nonexistent')
       expect(result).toBeNull()
+    })
+  })
+
+  describe('reviewTulanaImport()', () => {
+    it('approves a ready Tulana import', async () => {
+      const pending = makeCampaign({
+        id: 'campaign-tulana',
+        skuKey: 'avala__issuer',
+        gaReadiness: 'ready',
+        status: 'needs_review',
+      })
+      const approved = { ...pending, status: 'approved' }
+      mockDb._qb._result = [pending]
+      vi.spyOn(service, 'update').mockResolvedValue(approved)
+
+      const result = await service.reviewTulanaImport('campaign-tulana', 'approved')
+      expect(result?.status).toBe('approved')
+      expect(service.update).toHaveBeenCalledWith('campaign-tulana', { status: 'approved' })
+    })
+
+    it('rejects a Tulana import without GA guard', async () => {
+      const pending = makeCampaign({
+        id: 'campaign-tulana',
+        skuKey: 'avala__issuer',
+        gaReadiness: 'not_ready',
+        status: 'needs_review',
+      })
+      const rejected = { ...pending, status: 'rejected' }
+      mockDb._qb._result = [pending]
+      vi.spyOn(service, 'update').mockResolvedValue(rejected)
+
+      const result = await service.reviewTulanaImport('campaign-tulana', 'rejected')
+      expect(result?.status).toBe('rejected')
+      expect(service.update).toHaveBeenCalledWith('campaign-tulana', { status: 'rejected' })
+    })
+
+    it('blocks approval when ga_readiness is not_ready', async () => {
+      mockDb._qb._result = [
+        makeCampaign({
+          id: 'campaign-tulana',
+          skuKey: 'avala__issuer',
+          gaReadiness: 'not_ready',
+          status: 'needs_review',
+        }),
+      ]
+
+      await expect(
+        service.reviewTulanaImport('campaign-tulana', 'approved'),
+      ).rejects.toBeInstanceOf(ValidationError)
+    })
+
+    it('throws when campaign is not a Tulana import', async () => {
+      mockDb._qb._result = [makeCampaign({ skuKey: null })]
+
+      await expect(service.reviewTulanaImport('campaign-001', 'approved')).rejects.toBeInstanceOf(
+        ValidationError,
+      )
+    })
+
+    it('throws when campaign is missing', async () => {
+      mockDb._qb._result = []
+
+      await expect(service.reviewTulanaImport('missing', 'approved')).rejects.toBeInstanceOf(
+        NotFoundError,
+      )
+    })
+  })
+
+  describe('attemptTulanaSend()', () => {
+    it('suppresses send when consent checks fail', async () => {
+      const campaign = makeCampaign({
+        id: 'camp-tulana',
+        skuKey: 'avala__issuer',
+        status: 'approved',
+        tulanaMetadata: { drafts: [{ channel: 'email' }] },
+      })
+
+      mockDb._qb._result = [campaign]
+      vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
+        eligible: false,
+        reasons: ['marketing_consent_missing'],
+        channel: 'email',
+      })
+      vi.spyOn(service, 'update').mockResolvedValue({ ...campaign, status: 'suppressed' })
+
+      const result = await service.attemptTulanaSend('camp-tulana', 'contact-001')
+      expect(result.outcome).toBe('suppressed')
+      expect(result.reasons).toContain('marketing_consent_missing')
+    })
+
+    it('marks campaign sent when eligibility passes', async () => {
+      const campaign = makeCampaign({
+        id: 'camp-tulana',
+        skuKey: 'avala__issuer',
+        status: 'approved',
+        tulanaMetadata: { audience: 'credential issuers', drafts: [{ channel: 'email' }] },
+      })
+
+      mockDb._qb._result = [campaign]
+      vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
+        eligible: true,
+        reasons: [],
+        channel: 'email',
+      })
+      vi.spyOn(service, 'update').mockResolvedValue({ ...campaign, status: 'sent' })
+
+      const result = await service.attemptTulanaSend('camp-tulana', 'contact-001')
+      expect(result.outcome).toBe('sent')
     })
   })
 })

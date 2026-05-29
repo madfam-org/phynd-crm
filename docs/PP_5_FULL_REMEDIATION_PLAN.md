@@ -8,7 +8,8 @@
 > missing Enclii adapter gap.
 
 
-> Last Updated: 2026-05-13 local / 2026-05-13 UTC
+> Last Updated: 2026-05-28 (cross-ref to truth-layer plan)
+> **Parent plan:** [`ROADMAP.md`](./ROADMAP.md) Phase 1 / [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md) WS2
 > Audit: [`docs/PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md)
 > Handoff matrix: [`docs/PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md)
 > Execution runbook: [`docs/PP_5_HANDOFF_EXECUTION_RUNBOOK.md`](./PP_5_HANDOFF_EXECUTION_RUNBOOK.md)

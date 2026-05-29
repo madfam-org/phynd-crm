@@ -1,8 +1,14 @@
 import { grantApplications, grantOpportunities, grantSignalAudit } from '@phynd/db/schema'
+import { createLogger } from '@phynd/logging'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
+import { dispatchGrantAwarded } from './grant-webhook-dispatcher'
+
+const logger = createLogger('services:grants')
+
+const STAFF_AWARDABLE_STATUSES = ['submitted', 'under_evaluation', 'approved_to_submit'] as const
 
 export interface ComplianceChecks {
   rfc_active?: boolean
@@ -236,6 +242,10 @@ export class GrantsService {
     const current = await this.getApplication(id)
     const checks = current.complianceChecks as ComplianceChecks
 
+    if (current.status !== 'hitl_pending') {
+      throw new ValidationError('Application must be in hitl_pending status for HITL approval')
+    }
+
     if (!checks.rfc_active) {
       throw new ValidationError('Compliance check failed: RFC is not active')
     }
@@ -298,6 +308,10 @@ export class GrantsService {
   async markSubmitted(id: string) {
     const current = await this.getApplication(id)
 
+    if (current.status !== 'approved_to_submit') {
+      throw new ValidationError('Application must be approved_to_submit before marking submitted')
+    }
+
     const [updated] = await this.ctx.db
       .update(grantApplications)
       .set({
@@ -321,6 +335,20 @@ export class GrantsService {
 
   async markAwarded(id: string, awardedAmount?: string) {
     const current = await this.getApplication(id)
+    const isServiceActor = this.ctx.auth.userId.startsWith('service:')
+
+    if (!isServiceActor) {
+      if (
+        !STAFF_AWARDABLE_STATUSES.includes(
+          current.status as (typeof STAFF_AWARDABLE_STATUSES)[number],
+        )
+      ) {
+        throw new ValidationError(`Cannot award application in status: ${current.status}`)
+      }
+      if (!current.hitlApprovedBy) {
+        throw new ValidationError('HITL approval required before awarding')
+      }
+    }
 
     const setData: Record<string, unknown> = { status: 'awarded' }
     if (awardedAmount !== undefined) {
@@ -341,6 +369,23 @@ export class GrantsService {
         actor: this.ctx.auth.userId,
         details: { awardedAmount },
       })
+
+      if (!isServiceActor) {
+        try {
+          const opportunity = await this.getOpportunity(current.grantOpportunityId)
+          const draft = current.applicationDraft as Record<string, unknown>
+          await dispatchGrantAwarded({
+            grantApplicationId: id,
+            grantOpportunityId: current.grantOpportunityId,
+            fortunaGrantId: opportunity.fortunaGrantId ?? '',
+            title: opportunity.title,
+            awardedAmount: updated.awardedAmount ?? null,
+            rfc: typeof draft.rfc === 'string' ? draft.rfc : undefined,
+          })
+        } catch (err) {
+          logger.error({ err, grantApplicationId: id }, 'grant.awarded outbound dispatch failed')
+        }
+      }
     }
 
     return updated ?? null

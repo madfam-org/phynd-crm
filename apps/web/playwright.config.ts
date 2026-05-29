@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// Test worker + webServer both need AUTH_BYPASS (CI sets it globally; local dev defaults here).
+process.env.AUTH_BYPASS ??= 'true'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -21,5 +24,14 @@ export default defineConfig({
     command: 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
+    env: {
+      ...process.env,
+      AUTH_BYPASS: process.env.AUTH_BYPASS ?? 'true',
+      AUTH_SECRET: process.env.AUTH_SECRET ?? 'e2e-test-secret-minimum-16',
+      AUTH_JANUA_ISSUER: process.env.AUTH_JANUA_ISSUER ?? 'https://janua.example.com',
+      AUTH_JANUA_CLIENT_ID: process.env.AUTH_JANUA_CLIENT_ID ?? 'e2e-client-id',
+      AUTH_JANUA_CLIENT_SECRET: process.env.AUTH_JANUA_CLIENT_SECRET ?? 'e2e-client-secret',
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    },
   },
 })

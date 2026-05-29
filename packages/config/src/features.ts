@@ -46,14 +46,44 @@ const defaults: FeatureFlags = {
   referralManagement: true,
 }
 
+/**
+ * Production-only env toggles for gated features. Runtime `setFeatureFlags()` is
+ * blocked in production; operators enable via env (e.g. FEATURE_TREASURY_HUNTER=true).
+ */
+const PRODUCTION_ENV_OVERRIDES: Partial<Record<keyof FeatureFlags, string>> = {
+  treasuryHunter: 'FEATURE_TREASURY_HUNTER',
+  observability: 'FEATURE_OBSERVABILITY',
+  piiMasking: 'FEATURE_PII_MASKING',
+  aiKanban: 'FEATURE_AI_KANBAN',
+}
+
 let flags: FeatureFlags = { ...defaults }
 
+function parseEnvFlag(value: string | undefined): boolean | undefined {
+  if (value === 'true' || value === '1') return true
+  if (value === 'false' || value === '0') return false
+  return undefined
+}
+
+function resolveFlags(): FeatureFlags {
+  const merged = { ...flags }
+  if (process.env.NODE_ENV === 'production') {
+    for (const [flag, envKey] of Object.entries(PRODUCTION_ENV_OVERRIDES)) {
+      const parsed = parseEnvFlag(process.env[envKey])
+      if (parsed !== undefined) {
+        merged[flag as keyof FeatureFlags] = parsed
+      }
+    }
+  }
+  return merged
+}
+
 export function getFeatureFlags(): Readonly<FeatureFlags> {
-  return Object.freeze({ ...flags })
+  return Object.freeze(resolveFlags())
 }
 
 export function isFeatureEnabled(flag: keyof FeatureFlags): boolean {
-  return flags[flag]
+  return resolveFlags()[flag]
 }
 
 export function setFeatureFlags(overrides: Partial<FeatureFlags>): void {

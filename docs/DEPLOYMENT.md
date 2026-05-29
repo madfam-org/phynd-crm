@@ -52,6 +52,8 @@ listed in `.env.example`. Key variables:
 | `RESEND_API_KEY` | Resend email API key | `re_...` |
 | `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | `secret` |
+| `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`) | `secret` |
+| `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (falls back to engagement secret) | `secret` |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | `secret` |
 | `FEDERATION_API_TOKEN` | Optional service-to-service token for internal tRPC reads | `secret` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
@@ -66,6 +68,12 @@ leaking an internal pod host in the currently deployed build. Source now
 normalizes Auth.js route requests to a trusted public origin before handing them
 to Auth.js; keep this as an open production gap until the fix is deployed and
 the public signin/callback URLs are verified.
+
+### Tenant resolution (2026-05-28)
+
+- `crm.madfam.io` resolves to tenant `madfam`; `crm.phynd.app` / `phynd.app` resolve to `phynd`.
+- `getDb(tenantId)` uses `DATABASE_URL` for `madfam` and `DATABASE_URL_<TENANT>` when set (e.g. `DATABASE_URL_PHYND`).
+- Until commercial DB split, both hosts may share `DATABASE_URL`; host-derived `tenantId` still scopes Redis cache keys.
 
 ## Deployment paths
 

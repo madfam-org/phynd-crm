@@ -23,6 +23,7 @@
  */
 
 import crypto from 'node:crypto'
+import { isOutboundUrlAllowed } from '@phynd/config/outbound-guard'
 import { createLogger } from '@phynd/logging'
 
 const logger = createLogger('services:cotiza-engagement-emitter')
@@ -100,6 +101,14 @@ export async function emitCotizaEngagementEvent(event: CotizaEngagementEvent): P
   const signature = crypto.createHmac('sha256', config.secret).update(body).digest('hex')
 
   const url = `${config.cotizaApiUrl.replace(/\/$/, '')}/api/v1/webhooks/phyndcrm/engagements`
+
+  if (!isOutboundUrlAllowed(url, 'cotiza-engagement')) {
+    logger.warn(
+      { engagementId: event.engagementId, eventType: event.eventType, url },
+      'Blocked Cotiza engagement dispatch: staging cannot call production Cotiza',
+    )
+    return
+  }
 
   try {
     const response = await fetch(url, {

@@ -1,4 +1,5 @@
 import {
+  campaignBuyerSignals,
   campaigns,
   conversions,
   healthSnapshots,
@@ -11,7 +12,7 @@ import {
   visitorSessions,
 } from '@phynd/db/schema'
 import type { SQL } from 'drizzle-orm'
-import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 interface DateRange {
@@ -574,6 +575,129 @@ export class AnalyticsService {
       rate,
       totalOrders,
       totalQuotes: quoteResult?.total ?? 0,
+    }
+  }
+
+  /** Tulana SKU campaigns grouped by status (Phase 4.3). */
+  async getSkuCampaignFunnel() {
+    const rows = await this.ctx.db
+      .select({
+        skuKey: campaigns.skuKey,
+        status: campaigns.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(campaigns)
+      .where(isNotNull(campaigns.skuKey))
+      .groupBy(campaigns.skuKey, campaigns.status)
+      .orderBy(campaigns.skuKey)
+
+    return rows.map((row) => ({
+      skuKey: row.skuKey ?? 'unknown',
+      status: row.status,
+      count: row.count,
+    }))
+  }
+
+  /** Buyer-signal outcomes grouped by SKU + event type (Phase 4.3). */
+  async getSkuBuyerSignalFunnel() {
+    const rows = await this.ctx.db
+      .select({
+        skuKey: campaignBuyerSignals.skuKey,
+        eventType: campaignBuyerSignals.eventType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(campaignBuyerSignals)
+      .groupBy(campaignBuyerSignals.skuKey, campaignBuyerSignals.eventType)
+      .orderBy(campaignBuyerSignals.skuKey)
+
+    return rows.map((row) => ({
+      skuKey: row.skuKey,
+      eventType: row.eventType,
+      count: row.count,
+    }))
+  }
+
+  /** RouteCraft / ecosystem payment attribution (Phase 4.4). */
+  async getPaymentAttributionSummary(dateRange?: DateRange) {
+    const conditions = [eq(conversions.type, 'ecosystem_payment_succeeded')]
+    if (dateRange?.from) {
+      conditions.push(gte(conversions.convertedAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(conversions.convertedAt, dateRange.to))
+    }
+    const whereClause = and(...conditions)
+
+    const [totals] = await this.ctx.db
+      .select({
+        totalPayments: sql<number>`count(*)::int`,
+        linkedPayments: sql<number>`count(*) filter (where ${conversions.contactId} is not null)::int`,
+        totalRevenue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+      })
+      .from(conversions)
+      .where(whereClause)
+
+    const byProvider = await this.ctx.db
+      .select({
+        provider: sql<string>`coalesce(${conversions.metadata}->>'provider', 'unknown')`,
+        count: sql<number>`count(*)::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+      })
+      .from(conversions)
+      .where(whereClause)
+      .groupBy(sql`coalesce(${conversions.metadata}->>'provider', 'unknown')`)
+      .orderBy(sql`count(*) desc`)
+
+    const byCampaign = await this.ctx.db
+      .select({
+        campaignKey: sql<string>`coalesce(${conversions.metadata}->'attribution'->>'campaign_id', 'unattributed')`,
+        count: sql<number>`count(*)::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+      })
+      .from(conversions)
+      .where(whereClause)
+      .groupBy(
+        sql`coalesce(${conversions.metadata}->'attribution'->>'campaign_id', 'unattributed')`,
+      )
+      .orderBy(sql`count(*) desc`)
+      .limit(12)
+
+    const byReferral = await this.ctx.db
+      .select({
+        referralCode: sql<string>`coalesce(${conversions.metadata}->'attribution'->>'referral_code', 'none')`,
+        count: sql<number>`count(*)::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+      })
+      .from(conversions)
+      .where(whereClause)
+      .groupBy(sql`coalesce(${conversions.metadata}->'attribution'->>'referral_code', 'none')`)
+      .orderBy(sql`count(*) desc`)
+      .limit(12)
+
+    const totalPayments = totals?.totalPayments ?? 0
+    const linkedPayments = totals?.linkedPayments ?? 0
+
+    return {
+      totalPayments,
+      linkedPayments,
+      unlinkedPayments: totalPayments - linkedPayments,
+      linkRate: totalPayments > 0 ? Number(((linkedPayments / totalPayments) * 100).toFixed(1)) : 0,
+      totalRevenue: Number(totals?.totalRevenue ?? 0),
+      byProvider: byProvider.map((row) => ({
+        provider: row.provider,
+        count: row.count,
+        totalValue: Number(row.totalValue),
+      })),
+      byCampaign: byCampaign.map((row) => ({
+        campaignKey: row.campaignKey,
+        count: row.count,
+        totalValue: Number(row.totalValue),
+      })),
+      byReferral: byReferral.map((row) => ({
+        referralCode: row.referralCode,
+        count: row.count,
+        totalValue: Number(row.totalValue),
+      })),
     }
   }
 }

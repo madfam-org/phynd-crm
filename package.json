@@ -24,6 +24,9 @@
     "ci:verify-gates": "node scripts/verify-ci-gates.mjs",
     "pp5:stability": "node scripts/pp5-stability-check.mjs",
     "pp5:readiness": "node scripts/pp5-readiness.mjs",
+    "verify:prod-auth": "node scripts/verify-prod-auth-urls.mjs",
+    "verify:migrations": "node scripts/verify-migrations.mjs",
+    "verify:pilot-readiness": "node scripts/verify-pilot-readiness.mjs",
     "test:pp5": "node --test scripts/__tests__/*.test.mjs",
     "clean": "turbo clean",
     "prepare": "husky"

@@ -1,4 +1,4 @@
-import { numeric, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { jsonb, numeric, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import { offers } from './offers'
 import { createId } from './utils'
 
@@ -7,7 +7,7 @@ export const campaigns = pgTable('campaigns', {
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   channel: varchar('channel', { length: 30 }).notNull().default('other'),
-  status: varchar('status', { length: 20 }).notNull().default('draft'),
+  status: varchar('status', { length: 30 }).notNull().default('draft'),
   utmSource: varchar('utm_source', { length: 255 }),
   utmMedium: varchar('utm_medium', { length: 255 }),
   utmCampaign: varchar('utm_campaign', { length: 255 }),
@@ -17,6 +17,11 @@ export const campaigns = pgTable('campaigns', {
   startDate: timestamp('start_date', { withTimezone: true }),
   endDate: timestamp('end_date', { withTimezone: true }),
   offerId: text('offer_id').references(() => offers.id),
+  skuKey: varchar('sku_key', { length: 128 }),
+  importSource: varchar('import_source', { length: 32 }),
+  orchestrator: varchar('orchestrator', { length: 32 }),
+  gaReadiness: varchar('ga_readiness', { length: 32 }),
+  tulanaMetadata: jsonb('tulana_metadata').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()

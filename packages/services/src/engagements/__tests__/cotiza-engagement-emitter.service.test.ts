@@ -112,6 +112,15 @@ describe('CotizaEngagementEmitter', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
+    it('skips dispatch when staging tier targets production Cotiza URL', async () => {
+      vi.stubEnv('PHYND_DEPLOYMENT_TIER', 'staging')
+      vi.stubEnv('COTIZA_API_URL', 'https://cotiza.madfam.io')
+
+      await emitCotizaEngagementEvent(makeEvent())
+
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
     it('swallows fetch rejections (fire-and-forget safety)', async () => {
       fetchMock.mockRejectedValueOnce(new Error('ECONNREFUSED'))
 

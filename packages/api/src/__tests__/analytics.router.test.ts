@@ -121,4 +121,15 @@ describe('analytics router', () => {
     const result = await caller.analytics.atRiskDeals({ staleThresholdDays: 7 })
     expect(result).toBeDefined()
   })
+
+  it('paymentAttributionSummary returns attribution aggregates', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    const result = await caller.analytics.paymentAttributionSummary(undefined)
+    expect(result).toBeDefined()
+    expect(result).toHaveProperty('totalPayments')
+    expect(result).toHaveProperty('byProvider')
+    expect(result).toHaveProperty('byCampaign')
+  })
 })

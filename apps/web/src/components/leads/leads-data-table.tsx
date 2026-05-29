@@ -26,6 +26,7 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CreateLeadDialog } from './create-lead-dialog'
+import { DeleteLeadDialog } from './delete-lead-dialog'
 import { EditLeadDialog } from './edit-lead-dialog'
 
 type LeadsListOutput = inferRouterOutputs<AppRouter>['leads']['list']
@@ -58,7 +59,6 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
   const listLeads = leadsRouter.list as NonNullable<typeof leadsRouter.list>
   const listMineLeads = leadsRouter.listMine as NonNullable<typeof leadsRouter.listMine>
-  const deleteLead = leadsRouter.delete as NonNullable<typeof leadsRouter.delete>
   const bulkUpdateLeadStatus = leadsRouter.bulkUpdateStatus as NonNullable<
     typeof leadsRouter.bulkUpdateStatus
   >
@@ -93,6 +93,7 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   )
   const stages = (stagesData as PipelineStagesOutput | undefined) ?? []
   const [editLead, setEditLead] = useState<LeadRow | null>(null)
+  const [leadToDelete, setLeadToDelete] = useState<LeadRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
 
@@ -120,10 +121,6 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
     listLeadsUtils.invalidate()
     listMineLeadsUtils.invalidate()
   }
-  const deleteMutation = deleteLead.useMutation({
-    onSuccess: invalidateLeads,
-    onError: (err) => toast.error('Failed to delete lead', { description: err.message }),
-  })
   const bulkUpdateMutation = bulkUpdateLeadStatus.useMutation({
     onSuccess: () => {
       invalidateLeads()
@@ -181,10 +178,7 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
               <Link href={`/leads/${row.id}`}>View</Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditLead(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => deleteMutation.mutate({ id: row.id })}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={() => setLeadToDelete(row)}>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -276,6 +270,14 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
           lead={editLead}
           open={!!editLead}
           onOpenChange={(open) => !open && setEditLead(null)}
+        />
+      )}
+      {leadToDelete && (
+        <DeleteLeadDialog
+          leadId={leadToDelete.id}
+          leadLabel={leadToDelete.source ?? leadToDelete.id.slice(0, 8)}
+          open={!!leadToDelete}
+          onOpenChange={(open) => !open && setLeadToDelete(null)}
         />
       )}
     </div>

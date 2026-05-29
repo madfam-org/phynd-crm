@@ -1,8 +1,7 @@
 import { auth } from '@/lib/auth'
-import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
+import { resolveTenantIdFromHeaders } from '@/lib/http/tenant-context'
+import { createAppContext } from '@/lib/trpc/request-context'
 import { schema } from '@phynd/api'
-import { getDb } from '@phynd/db'
-import { createServiceContext } from '@phynd/services/context'
 import type { AuthContext } from '@phynd/types/auth'
 import type { GraphQLSchema } from 'graphql'
 import { createYoga } from 'graphql-yoga'
@@ -20,14 +19,7 @@ const { handleRequest } = createYoga({
   schema: schema as GraphQLSchema,
   // Define standard context injection matching ServiceContext
   context: async (req) => {
-    // Determine tenantId from headers or host for multi-tenancy Phase 3
-    const host = req.request.headers.get('host') || ''
-    // Assuming subdomain as tenant ID (e.g. madfam.phynd.app), defaulting to madfam
-    const subdomain = host.split('.')[0] ?? ''
-    const tenantId =
-      subdomain !== 'app' && subdomain !== 'api' && subdomain !== 'localhost:3000'
-        ? subdomain
-        : 'madfam'
+    const tenantId = resolveTenantIdFromHeaders(req.request.headers)
 
     const session = (await auth()) as PhyndSession | null
     const authCtx: AuthContext = {
@@ -38,16 +30,7 @@ const { handleRequest } = createYoga({
       accessToken: session?.accessToken ?? '',
     }
 
-    const db = getDb(tenantId)
-    const cache = getCacheManager()
-
-    return {
-      ...createServiceContext(db, cache, authCtx, tenantId),
-      federation: {
-        clients: getFederationClients(),
-        healthChecker: getHealthChecker(),
-      },
-    }
+    return createAppContext(authCtx)
   },
   // Ensure Next.js can handle standard web request
   fetchAPI: { Response },

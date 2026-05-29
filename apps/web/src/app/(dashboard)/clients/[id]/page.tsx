@@ -1,4 +1,5 @@
 import { ContactEngagementsPanel } from '@/components/engagements/contact-engagements-panel'
+import { FederationHealthBanner } from '@/components/federation/federation-health-banner'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { TagsPanel } from '@/components/tags/tags-panel'
 import { Badge } from '@/components/ui/badge'
@@ -165,6 +166,8 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
           <p className="text-sm text-muted-foreground">{profileError ?? `Contact ID: ${id}`}</p>
         )}
       </div>
+
+      <FederationHealthBanner federationStatus={profile?.federationStatus} />
 
       <FederationTabs panels={panels} />
 

@@ -1,5 +1,7 @@
 # PP-5 Closeout Actions (2026-05-13)
 
+> **Superseded for sequencing by:** [`ROADMAP.md`](./ROADMAP.md) Phase 1 and [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md) WS2. This file retains the 2026-05-13 closeout checklist.
+
 > [!IMPORTANT]
 > MADFAM-ENCLII-FIRST-LEGACY-RAW v1: This document contains legacy raw infrastructure command examples.
 > Routine production operations must use Enclii web, API, or CLI. Treat raw

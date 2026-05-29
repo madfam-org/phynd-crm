@@ -203,7 +203,7 @@ Failure paths redirect to `/portal/expired?reason=...`:
 
 As fab jobs progress (Pravara), digital milestones complete (Selva, manual), or compliance events happen (Karafiel), each service posts to `POST /api/v1/engagements/events`. Portal timeline refreshes on next page load.
 
-Pravara already wires this automatically (phynd-crm#10). Selva + Karafiel integrations pending.
+Pravara already wires this automatically (phynd-crm#10). Selva + Karafiel integrations pending — see [`ROADMAP.md`](../ROADMAP.md) Phase 2 and [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](../MADFAM_TRUTH_LAYER_REMEDIATION.md) WS3.
 
 Manual status update (staff):
 

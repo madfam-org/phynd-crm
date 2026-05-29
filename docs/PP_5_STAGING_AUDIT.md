@@ -6,6 +6,8 @@
 > Reference impl: [karafiel PP.1 — `infra/k8s/overlays/staging/`](https://github.com/madfam-org/karafiel/tree/main/infra/k8s/overlays/staging)
 > Precedents: [dhanam PP.2](https://github.com/madfam-org/dhanam/blob/main/docs/PP_2_STAGING_AUDIT.md), [janua PP.3](https://github.com/madfam-org/janua/blob/main/docs/PP_3_STAGING_AUDIT.md)
 > Scope: PP.5 implementation status report. Structural and promote/rollback convergence workstreams (PP.5b / PP.5c) are now present in-repo; remaining items are operational follow-up.
+>
+> **Parent remediation:** PP.5 is Workstream WS2 in [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md) and Phase 1 in [`ROADMAP.md`](./ROADMAP.md).
 
 ## Mission & Vision Readout
 

@@ -1,13 +1,18 @@
 # **Phynd: Strategic Architecture and Product Requirements for a Phygital Customer Relationship Management Platform**
 
-> Implementation note (2026-05-27): This PRD remains the strategic product
+> Implementation note (2026-05-28): This PRD remains the strategic product
 > baseline, but the repository has advanced beyond several MVP assumptions.
+> **Canonical engineering roadmap:** [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> **Executable remediation plan (MADFAM truth layer, SKU loop, Selva copilot):**
+> [`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATION.md).
 > Current codebase and production evidence is maintained in
 > [`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
 > The live code now includes six federation providers plus Janua Telemetry,
 > tRPC plus a GraphQL Yoga endpoint, engagements/client portal flows,
 > client-project onboarding, quote acceptance, payment reconciliation,
 > production dispatch intent, referrals, and a public `phynd.app` demo surface.
+> The `crm.madfam.io` tenant slice is ~25–35% of the north-star “100% truthful
+> ecosystem” goal; see roadmap Phases 0–5.
 
 ## **Part 1: Problem Space Deep Dive**
 

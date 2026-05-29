@@ -17,14 +17,38 @@ const paginationInput = z
   .object({
     cursor: z.string().optional(),
     limit: z.number().int().min(1).max(200).optional(),
+    filters: z
+      .object({
+        status: z.string().optional(),
+        importSource: z.string().optional(),
+        gaReadiness: z.string().optional(),
+        skuKey: z.string().optional(),
+        tulanaOnly: z.boolean().optional(),
+      })
+      .optional(),
   })
   .optional()
+
+const campaignStatusSchema = z.enum([
+  'draft',
+  'active',
+  'paused',
+  'completed',
+  'draft_imported',
+  'needs_review',
+  'approved',
+  'scheduled',
+  'sent',
+  'suppressed',
+  'rejected',
+])
 
 export const campaignsRouter = router({
   list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
     assertFunnelManagement()
     const service = new CampaignsService(ctx)
-    return service.list(input ?? undefined)
+    const { filters, ...pagination } = input ?? {}
+    return service.list(pagination, filters)
   }),
 
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
@@ -66,7 +90,7 @@ export const campaignsRouter = router({
         channel: z
           .enum(['email', 'social', 'paid_search', 'organic', 'referral', 'direct', 'other'])
           .optional(),
-        status: z.enum(['draft', 'active', 'paused', 'completed']).optional(),
+        status: campaignStatusSchema.optional(),
         utmSource: z.string().max(255).optional(),
         utmMedium: z.string().max(255).optional(),
         utmCampaign: z.string().max(255).optional(),
@@ -91,5 +115,44 @@ export const campaignsRouter = router({
       assertFunnelManagement()
       const service = new CampaignsService(ctx)
       return service.delete(input.id)
+    }),
+
+  reviewTulanaImport: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        decision: z.enum(['approved', 'rejected']),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      assertFunnelManagement()
+      const service = new CampaignsService(ctx)
+      return service.reviewTulanaImport(input.id, input.decision)
+    }),
+
+  checkSendEligibility: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        contactId: z.string().uuid(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      assertFunnelManagement()
+      const service = new CampaignsService(ctx)
+      return service.getSendEligibility(input.campaignId, input.contactId)
+    }),
+
+  attemptTulanaSend: protectedProcedure
+    .input(
+      z.object({
+        campaignId: z.string().uuid(),
+        contactId: z.string().uuid(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      assertFunnelManagement()
+      const service = new CampaignsService(ctx)
+      return service.attemptTulanaSend(input.campaignId, input.contactId)
     }),
 })

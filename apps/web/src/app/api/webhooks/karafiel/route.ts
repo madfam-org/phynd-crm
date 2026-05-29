@@ -1,11 +1,15 @@
 import { getCacheManager } from '@/lib/federation/clients'
+import {
+  createWebhookEngagementsService,
+  resolveTenantIdForWebhook,
+} from '@/lib/webhooks/engagement-writer'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { webhookEvents } from '@phynd/db/schema'
 import { validateWebhookSignature } from '@phynd/federation/webhooks'
 import { createLogger } from '@phynd/logging'
-import { GrantsService, createServiceContext } from '@phynd/services'
+import { GrantsService, createServiceContext, karafielPortalStatus } from '@phynd/services'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -18,9 +22,13 @@ interface KarafielWebhookPayload {
   type?: string
   event_type?: string
   event_id?: string
+  engagement_id?: string
   data?: {
     grantApplicationId?: string
     awardedAmount?: string | null
+    engagementId?: string
+    engagement_id?: string
+    invoiceId?: string
     [key: string]: unknown
   }
   [key: string]: unknown
@@ -124,10 +132,54 @@ async function existingKarafielEvent(db: Db, eventId: string | undefined): Promi
   return prior.length > 0
 }
 
+async function recordKarafielEngagementEvent(
+  req: Request,
+  payload: KarafielWebhookPayload,
+  eventType: string,
+): Promise<void> {
+  const engagementId =
+    (typeof payload.engagement_id === 'string' ? payload.engagement_id : undefined) ??
+    (typeof payload.data?.engagementId === 'string' ? payload.data.engagementId : undefined) ??
+    (typeof payload.data?.engagement_id === 'string' ? payload.data.engagement_id : undefined)
+
+  if (!engagementId) return
+
+  const complianceEvents = new Set([
+    'cfdi.stamped',
+    'cfdi_stamped',
+    'nom151.stamped',
+    'nom151_stamped',
+    'nom_151_stamped',
+  ])
+  if (!complianceEvents.has(eventType.toLowerCase())) return
+
+  try {
+    const tenantId = resolveTenantIdForWebhook(req)
+    const db = getDb(tenantId)
+    const service = createWebhookEngagementsService(db, 'karafiel', tenantId)
+    const externalId =
+      karafielEventId(payload) ??
+      (typeof payload.data?.invoiceId === 'string' ? payload.data.invoiceId : engagementId)
+
+    await service.recordMilestoneWithCanonicalAlias({
+      engagementId,
+      source: 'karafiel',
+      nativeEventName: eventType,
+      externalId,
+      status: karafielPortalStatus(eventType),
+      message: `Karafiel: ${eventType}`,
+      metadata: { karafiel_event: eventType, event_id: karafielEventId(payload) },
+    })
+  } catch (err) {
+    logger.warn({ err, eventType, engagementId }, 'karafiel engagement event failed (non-blocking)')
+  }
+}
+
 async function writeKarafielEvent(
   db: Db,
   payload: KarafielWebhookPayload,
   eventType: string,
+  req: Request,
 ): Promise<void> {
   await db.transaction(async (tx: Tx) => {
     const [whRow] = await tx
@@ -149,9 +201,15 @@ async function writeKarafielEvent(
       await processGrantAward(payload, tx, webhookEventId)
     }
   })
+
+  await recordKarafielEngagementEvent(req, payload, eventType)
 }
 
-async function handleKarafielPayload(rawBody: string, remaining: number): Promise<NextResponse> {
+async function handleKarafielPayload(
+  req: Request,
+  rawBody: string,
+  remaining: number,
+): Promise<NextResponse> {
   const payload = parseKarafielPayload(rawBody)
   if (payload instanceof NextResponse) return payload
 
@@ -172,7 +230,7 @@ async function handleKarafielPayload(rawBody: string, remaining: number): Promis
   }
 
   try {
-    await writeKarafielEvent(db, payload, eventType)
+    await writeKarafielEvent(db, payload, eventType, req)
     return NextResponse.json(
       { received: true, event_type: eventType },
       { headers: { 'X-RateLimit-Remaining': String(remaining) } },
@@ -200,7 +258,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const signatureError = validateKarafielSignature(rawBody, signature, secret, ip)
   if (signatureError) return signatureError
 
-  return handleKarafielPayload(rawBody, remaining)
+  return handleKarafielPayload(req, rawBody, remaining)
 }
 
 async function processGrantAward(

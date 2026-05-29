@@ -5,6 +5,10 @@ A phygital CRM platform -- "Synthetic Single Pane of Glass" -- that federates re
 Current codebase and production observations are tracked in
 [`docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
 
+**Roadmap and remediation:** canonical sequencing lives in
+[`docs/ROADMAP.md`](docs/ROADMAP.md) and the executable plan in
+[`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATION.md).
+
 ## Overview
 
 Phynd owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, custom orders, fabrication status, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phynd queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
@@ -122,6 +126,9 @@ The app will be available at `http://localhost:3000`.
 | `pnpm db:seed`     | Seed the database with sample data          |
 | `pnpm db:studio`   | Open Drizzle Studio for database inspection |
 | `pnpm clean`       | Remove build artifacts                      |
+| `pnpm verify:prod-auth` | Verify production OIDC sign-in URLs have no pod-name leaks |
+| `pnpm verify:migrations` | Verify migration artifacts `0008`/`0009` exist |
+| `pnpm verify:pilot-readiness` | Bundle: prod auth + migrations + PP5 webhook lanes |
 
 ## Federation Layer
 
@@ -168,8 +175,17 @@ Phynd federates data from six active platforms in the MADFAM ecosystem:
 ## Current Implementation Status
 
 The original PRD is still useful as strategy, but the codebase has moved beyond
-the first MVP slice. Current evidence from `packages/config/src/features.ts`,
-`packages/api/src/router.ts`, and the route inventory:
+the first MVP slice. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for phased targets
+and [`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATION.md)
+for the full gap-closure plan (MADFAM tenant truth layer, SKU loop, Selva
+copilot).
+
+**Snapshot (2026-05-28):** ~25–35% of the north-star goal — strong CRM +
+federation seam, not yet ecosystem-complete truthful data for all SKUs,
+visitors, and agent sales.
+
+Evidence from `packages/config/src/features.ts`, `packages/api/src/router.ts`,
+and the route inventory:
 
 - 25 tRPC routers are exposed, including engagements and referrals.
 - `/api/graphql` is implemented with GraphQL Yoga.
@@ -179,7 +195,8 @@ the first MVP slice. Current evidence from `packages/config/src/features.ts`,
   `leadScoring`, `multiTenancy`, `forjEnabled`, `visitorTracking`,
   `funnelManagement`, `analytics`, and `referralManagement`.
 - Tenant resolution accepts an explicit tenant ID, then `auth.tenantId`, then
-  `DEFAULT_TENANT_ID`, which defaults to `madfam`.
+  `DEFAULT_TENANT_ID`, which defaults to `madfam`. Host-derived tenant wiring
+  for `crm.madfam.io` is planned in Phase 1 of the roadmap.
 
 ## Testing
 

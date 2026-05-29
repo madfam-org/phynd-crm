@@ -1,11 +1,25 @@
 export { ActivitiesService } from './activities/activities.service'
 export { AnalyticsService } from './analytics/analytics.service'
 export { CampaignsService } from './campaigns/campaigns.service'
+export { CampaignBuyerSignalService } from './campaigns/campaign-buyer-signal.service'
+export {
+  checkCampaignSendEligibility,
+  evaluateContactEligibility,
+  type CampaignSendEligibility,
+} from './campaigns/campaign-send-gate'
+export { TulanaCampaignImportService } from './campaigns/tulana-import.service'
+export { tulanaCampaignImportSchema } from './campaigns/tulana-import.schema'
 export { RedditBotService, type BotCampaignPayload } from './campaigns/reddit-bot'
 export { RedditClient, createRedditClientFromEnv, type RedditPost } from './campaigns/reddit-client'
 export { postRedditComment, extractPostId } from './campaigns/reddit-poster'
 export { ContactsService } from './contacts/contacts.service'
 export { ConversionsService } from './conversions/conversions.service'
+export {
+  canonicalKarafielMilestone,
+  canonicalSelvaMilestone,
+  karafielPortalStatus,
+  selvaPortalStatus,
+} from './engagements/engagement-milestone.helpers'
 export {
   type CotizaEngagementEmitter,
   EngagementsService,
@@ -33,6 +47,13 @@ export {
   type ClientProjectOnboardingResult,
 } from './onboarding/client-project-onboarding.service'
 export { OpportunitiesService } from './opportunities/opportunities.service'
+export {
+  maskEmail,
+  maskFreeText,
+  maskPersonName,
+  maskPhone,
+  shouldMaskPiiForAgent,
+} from './pii/mask'
 export { OrdersService } from './orders/orders.service'
 export {
   type CreateDhanamCheckoutInput,

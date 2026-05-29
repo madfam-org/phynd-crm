@@ -36,6 +36,8 @@ packages/logging  → (standalone, pino structured logging)
 
 ## Commands
 
+**Planning docs:** [`docs/ROADMAP.md`](docs/ROADMAP.md) (phases) · [`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATION.md) (workstreams)
+
 | Command | Description |
 |---------|-------------|
 | `pnpm dev` | Start all apps in dev mode |

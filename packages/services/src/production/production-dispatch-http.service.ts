@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto'
+import { isOutboundUrlAllowed } from '@phynd/config/outbound-guard'
 import type { getDb } from '@phynd/db'
 import { engagementEvents, externalReferences } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
@@ -120,6 +121,14 @@ async function dispatchProductionDispatchReferenceRow(
   const payload = buildDispatchPayload(reference, metadata, now)
   const body = JSON.stringify(payload)
   const fetcher = options.fetcher ?? fetch
+
+  if (!isOutboundUrlAllowed(config.endpoint, `production-dispatch:${reference.provider}`)) {
+    logger.warn(
+      { endpoint: config.endpoint, provider: reference.provider, referenceId: reference.id },
+      'Blocked production dispatch: staging cannot call production provider endpoint',
+    )
+    return { provider: reference.provider, referenceId: reference.id, status: 'skipped' }
+  }
 
   logger.info(
     { endpoint: config.endpoint, provider: reference.provider, referenceId: reference.id },

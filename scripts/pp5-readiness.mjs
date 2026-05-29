@@ -38,6 +38,16 @@ function parseArgs(argv) {
 
 const STATIC_CHECKS = [
   {
+    name: 'verify:migrations',
+    command: ['pnpm', 'verify:migrations'],
+    description: 'SKU/Tulana migration artifacts present in journal',
+  },
+  {
+    name: 'verify:prod-auth',
+    command: ['pnpm', 'verify:prod-auth'],
+    description: 'Auth.js provider URLs use public hosts (Phase 0)',
+  },
+  {
     name: 'pp5:stability',
     command: ['pnpm', 'pp5:stability'],
     description: 'cross-surface env split + webhook secret guardrails',

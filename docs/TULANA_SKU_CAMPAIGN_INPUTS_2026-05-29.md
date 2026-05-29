@@ -2,7 +2,7 @@
 
 Date: 2026-05-29
 
-Status: proposed implementation contract
+Status: proposed implementation contract — **import**, **review UI**, **consent send gates**, and **buyer-signal export** shipped 2026-05-28. Run `pnpm db:migrate` for `0008_orange_sandman` + `0009_lazy_wrecker` before pilot.
 
 ## Direct surfaces
 
@@ -107,12 +107,11 @@ pseudonymized buyer-signal evidence for pricing and GA readiness.
 
 ## Direct implementation work
 
-- Add an import endpoint or job for Tulana/Selva campaign payloads.
-- Enforce idempotency on `idempotency_key`.
-- Add review UI filters for platform, SKU, readiness, and policy state.
-- Persist `proof_points` and `do_not_claim` next to drafts.
-- Block sends when consent/suppression checks fail.
-- Emit outcome events for Tulana buyer-signal ingestion.
+- Import: `POST /api/v1/campaigns/import` (HMAC, `PHYND_CAMPAIGN_IMPORT_SECRET`).
+- Review: `/campaigns` UI + `campaigns.reviewTulanaImport` tRPC.
+- Send: `POST /api/v1/campaigns/send` with `{ campaign_id, contact_id }` — runs consent/suppression gates.
+- Export: `POST /api/v1/campaigns/buyer-signals` with optional `{ sku_key, since, limit }` — returns PII-free events.
+- Staff UI: **Dispatch to contact** on approved Tulana campaigns (`campaigns.attemptTulanaSend`).
 
 ## Tests
 

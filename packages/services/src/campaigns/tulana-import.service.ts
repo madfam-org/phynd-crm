@@ -1,0 +1,108 @@
+import { campaignImports, campaigns, skuCatalog } from '@phynd/db/schema'
+import { eq } from 'drizzle-orm'
+import type { ServiceContext } from '../context'
+import { ConflictError } from '../errors'
+import { type TulanaCampaignImportInput, tulanaCampaignImportSchema } from './tulana-import.schema'
+
+export type TulanaImportResult = {
+  campaignId: string
+  skuKey: string
+  deduplicated: boolean
+  status: string
+}
+
+export class TulanaCampaignImportService {
+  constructor(private readonly ctx: ServiceContext) {}
+
+  async importCampaign(raw: unknown): Promise<TulanaImportResult> {
+    const input = tulanaCampaignImportSchema.parse(raw)
+
+    const [existingImport] = await this.ctx.db
+      .select()
+      .from(campaignImports)
+      .where(eq(campaignImports.idempotencyKey, input.idempotency_key))
+      .limit(1)
+
+    if (existingImport) {
+      return {
+        campaignId: existingImport.campaignId,
+        skuKey: input.sku_key,
+        deduplicated: true,
+        status: 'draft_imported',
+      }
+    }
+
+    await this.ctx.db
+      .insert(skuCatalog)
+      .values({
+        skuKey: input.sku_key,
+        platform: input.platform,
+        audience: input.audience,
+        gaReadiness: input.ga_readiness,
+        metadata: {
+          value_prop: input.value_prop,
+          proof_points: input.proof_points,
+        },
+      })
+      .onConflictDoUpdate({
+        target: skuCatalog.skuKey,
+        set: {
+          platform: input.platform,
+          audience: input.audience,
+          gaReadiness: input.ga_readiness,
+          metadata: {
+            value_prop: input.value_prop,
+            proof_points: input.proof_points,
+          },
+          updatedAt: new Date(),
+        },
+      })
+
+    const campaignName = `${input.platform} — ${input.sku_key}`
+    const [campaign] = await this.ctx.db
+      .insert(campaigns)
+      .values({
+        name: campaignName,
+        description: input.value_prop,
+        channel: 'other',
+        status: 'needs_review',
+        utmCampaign: input.sku_key,
+        utmSource: input.source,
+        utmMedium: input.orchestrator ?? 'selva',
+        skuKey: input.sku_key,
+        importSource: input.source,
+        orchestrator: input.orchestrator,
+        gaReadiness: input.ga_readiness,
+        tulanaMetadata: {
+          audience: input.audience,
+          campaign_type: input.campaign_type,
+          proof_points: input.proof_points,
+          guardrails: input.guardrails,
+          drafts: input.drafts,
+        },
+      })
+      .returning()
+
+    if (!campaign) {
+      throw new ConflictError('Failed to create campaign from Tulana import')
+    }
+
+    await this.ctx.db.insert(campaignImports).values({
+      idempotencyKey: input.idempotency_key,
+      campaignId: campaign.id,
+      source: input.source,
+      orchestrator: input.orchestrator,
+    })
+
+    return {
+      campaignId: campaign.id,
+      skuKey: input.sku_key,
+      deduplicated: false,
+      status: campaign.status,
+    }
+  }
+
+  static validatePayload(raw: unknown): TulanaCampaignImportInput {
+    return tulanaCampaignImportSchema.parse(raw)
+  }
+}

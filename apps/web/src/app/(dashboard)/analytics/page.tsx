@@ -1,5 +1,8 @@
 import { AnalyticsDashboard } from '@/components/analytics/analytics-dashboard'
 import { AnalyticsTrends } from '@/components/analytics/analytics-trends'
+import { PaymentAttributionAnalytics } from '@/components/analytics/payment-attribution-analytics'
+import { QuoteOrderAnalytics } from '@/components/analytics/quote-order-analytics'
+import { SkuCampaignAnalytics } from '@/components/analytics/sku-campaign-analytics'
 import { getServerCaller } from '@/lib/trpc/server'
 
 export default async function AnalyticsPage() {
@@ -32,6 +35,9 @@ export default async function AnalyticsPage() {
         revenueByStatus={revenueByStatus}
         stageVelocity={stageVelocity}
       />
+      <SkuCampaignAnalytics />
+      <PaymentAttributionAnalytics />
+      <QuoteOrderAnalytics />
       <div>
         <h2 className="text-xl font-semibold mb-4">Trends</h2>
         <AnalyticsTrends />

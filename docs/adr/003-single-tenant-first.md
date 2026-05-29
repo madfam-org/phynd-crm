@@ -9,8 +9,9 @@ The original single-tenant-first decision still explains the initial design, but
 current service context creation is no longer a hardcoded-only path. Tenant ID
 resolution now accepts an explicit argument, then `auth.tenantId`, then
 `DEFAULT_TENANT_ID`, which defaults to `madfam`. The `multiTenancy` feature flag
-is also enabled by default. Full tenant-isolation hardening remains a separate
-production-readiness concern.
+is also enabled by default. Full tenant-isolation hardening is tracked in
+[`docs/ROADMAP.md`](../ROADMAP.md) Phase 1 (host-derived `tenantId`) and Phase 4
+(optional `DATABASE_URL_PHYND` split).
 
 ## Context
 Phynd is designed as a SaaS CRM but needs to ship quickly for a single customer (MADFAM ecosystem). Multi-tenancy adds complexity to every layer: auth, data isolation, caching, billing.

@@ -1,6 +1,7 @@
 import { contacts, leads, opportunities } from '@phynd/db/schema'
 import { and, ilike, isNull, or } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { maskPersonName, shouldMaskPiiForAgent } from '../pii/mask'
 
 export interface SearchResult {
   id: string
@@ -46,7 +47,7 @@ export class SearchService {
       ...contactResults.map((c) => ({
         id: c.id,
         entityType: 'contact' as const,
-        title: c.name,
+        title: shouldMaskPiiForAgent(this.ctx.auth) ? maskPersonName(c.name) : c.name,
         subtitle: c.company,
       })),
       ...leadResults.map((l) => ({

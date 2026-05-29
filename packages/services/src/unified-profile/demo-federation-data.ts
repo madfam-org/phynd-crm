@@ -248,7 +248,7 @@ export function getDemoFederationData<
       cotiza: 'ok' as const,
       pravara: 'ok' as const,
       forj: 'ok' as const,
-      tezca: 'ok' as const,
+      tezca: 'unavailable' as const,
       'janua-telemetry': 'ok' as const,
     },
   }

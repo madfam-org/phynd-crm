@@ -8,6 +8,7 @@ import { getCacheManager } from '../lib/federation'
 const logger = createLogger('worker:session-identify')
 
 interface SessionIdentifyData {
+  tenantId?: string
   externalSessionId: string
   contactId: string
   fingerprint?: string
@@ -35,19 +36,20 @@ export async function processSessionIdentify(job: Job<SessionIdentifyData>): Pro
     `Processing session ${data.externalSessionId} for contact ${data.contactId}`,
   )
 
-  const db = getDb()
+  const tenantId = data.tenantId ?? DEFAULT_TENANT_ID
+  const db = getDb(tenantId)
   const cache = getCacheManager()
   const ctx = {
     db,
     cache,
     auth: {
       userId: 'system',
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId,
       roles: ['admin'],
       scopes: ['*'],
       accessToken: '',
     },
-    tenantId: DEFAULT_TENANT_ID,
+    tenantId,
   }
 
   const service = new VisitorTrackingService(ctx)

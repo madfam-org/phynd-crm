@@ -2,11 +2,14 @@
 
 Last updated: 2026-05-14
 
-## Current superseding verification - 2026-05-27
+## Current superseding verification - 2026-05-28
 
 This roadmap preserves the remediation state from 2026-05-14. Current
 production evidence is recorded in
 [`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
+
+**Canonical phase sequencing:** [`ROADMAP.md`](ROADMAP.md) and
+[`MADFAM_TRUTH_LAYER_REMEDIATION.md`](MADFAM_TRUTH_LAYER_REMEDIATION.md).
 
 As of the latest check, `phynd.app` is serving Phynd over HTTPS, `/api/health`
 is healthy, the live demo redirects to `/overview` and renders seeded dashboard

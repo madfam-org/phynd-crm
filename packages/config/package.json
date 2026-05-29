@@ -8,7 +8,8 @@
     "./env": "./src/env.ts",
     "./federation": "./src/federation.ts",
     "./constants": "./src/constants.ts",
-    "./features": "./src/features.ts"
+    "./features": "./src/features.ts",
+    "./outbound-guard": "./src/outbound-guard.ts"
   },
   "scripts": {
     "test": "vitest run",

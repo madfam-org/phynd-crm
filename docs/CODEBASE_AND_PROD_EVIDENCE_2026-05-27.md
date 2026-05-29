@@ -125,3 +125,13 @@ Read-only production checks were run against public hosts and Enclii on
 Historical runbooks from 2026-05-14 and 2026-05-15 preserve the remediation
 trail. When they conflict with this evidence note, use this note as the newer
 production status and leave the older sections as history.
+
+## Roadmap (2026-05-28)
+
+Gap assessment and phased remediation are documented in:
+
+- [`ROADMAP.md`](./ROADMAP.md) — canonical phase map and scorecard
+- [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md) — workstreams WS0–WS9, acceptance tests, pilot milestones
+
+Composite distance from the MADFAM tenant north star (~100% truthful ecosystem
+data for sales human + Selva pilot): **~25–35%** as of this evidence date.

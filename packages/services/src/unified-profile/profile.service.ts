@@ -13,6 +13,7 @@ import type {
 import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
 import { NotFoundError } from '../errors'
+import { maskEmail, maskPersonName, maskPhone, shouldMaskPiiForAgent } from '../pii/mask'
 import { getDemoFederationData } from './demo-federation-data'
 import { tryGetMockFederationData } from './mock-federation-registry'
 
@@ -94,23 +95,23 @@ export class UnifiedProfileService {
       cotiza: manufacturing.status,
       pravara: fabrication.status,
       forj: assets?.status ?? 'unavailable',
-      tezca: 'ok', // Tezca is queried on-demand by RedditBotService, not per-profile
+      tezca: 'unavailable',
       'janua-telemetry': telemetry?.status ?? 'unavailable',
     }
 
     // Fallback: if all providers are unavailable and we have mock data, use it
-    // This makes federation tabs work in local dev without running external services
+    // in non-production only — production must never serve synthetic federation data.
     const allUnavailable =
       identity.status === 'unavailable' &&
       billing.status === 'unavailable' &&
       manufacturing.status === 'unavailable' &&
       fabrication.status === 'unavailable'
-    if (allUnavailable && contact.externalJanuaId) {
+    if (process.env.NODE_ENV !== 'production' && allUnavailable && contact.externalJanuaId) {
       const mockData = tryGetMockFederationData(contact)
-      if (mockData) return mockData
+      if (mockData) return this.maybeMaskProfile(mockData)
     }
 
-    return {
+    return this.maybeMaskProfile({
       contact,
       identity,
       billing,
@@ -119,6 +120,24 @@ export class UnifiedProfileService {
       assets,
       telemetry,
       federationStatus,
+    })
+  }
+
+  private maybeMaskProfile<
+    T extends { contact: { email: string | null; phone: string | null; name: string } },
+  >(profile: T): T {
+    if (!shouldMaskPiiForAgent(this.ctx.auth)) {
+      return profile
+    }
+
+    return {
+      ...profile,
+      contact: {
+        ...profile.contact,
+        name: maskPersonName(profile.contact.name),
+        email: maskEmail(profile.contact.email),
+        phone: maskPhone(profile.contact.phone),
+      },
     }
   }
 

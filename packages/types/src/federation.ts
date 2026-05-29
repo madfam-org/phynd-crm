@@ -211,6 +211,23 @@ export interface UtmSource {
   count: number
 }
 
+export type KarafielComplianceStatus = 'ok' | 'failed' | 'pending' | 'unavailable'
+
+export interface KarafielComplianceChecks {
+  rfc_active?: boolean
+  opinion_32d_positive?: boolean
+  blacklisted?: boolean
+  checked_at?: string
+}
+
+export interface KarafielComplianceSummary {
+  status: KarafielComplianceStatus
+  rfc: string | null
+  checks: KarafielComplianceChecks
+  grantApplicationId: string | null
+  source: 'grant_application' | 'none'
+}
+
 // Unified Profile (SPOG)
 export interface UnifiedProfile {
   contact: import('./crm.js').Contact
@@ -221,4 +238,5 @@ export interface UnifiedProfile {
   assets?: FederationResponse<ForjAssets> | null
   telemetry?: FederationResponse<JanuaTelemetry> | null
   federationStatus: Record<FederationProviderName, ProviderStatus>
+  karafielCompliance?: KarafielComplianceSummary | null
 }

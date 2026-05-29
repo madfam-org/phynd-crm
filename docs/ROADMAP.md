@@ -107,7 +107,7 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 | 2.2 | Karafiel → engagement events (CFDI/NOM-151 milestones) | **Shipped** (2026-05-28) on `/api/webhooks/karafiel` when `engagement_id` present |
 | 2.3 | Pravara `engagementId` direct in webhook payload | Future enhancement |
 | 2.4 | Outbound split: Karafiel, Cotiza, Dhanam staging URLs + secrets | **Partial** — `outbound-guard` blocks staging→prod; Enclii URL wiring open |
-| 2.5 | Federation profile: Karafiel compliance summary (read) | Planned |
+| 2.5 | Federation profile: Karafiel compliance summary (read) | **Shipped** — `karafielCompliance` on unified profile + contact panel (`treasuryHunter`) |
 | 2.6 | Tezca: replace hardcoded `tezca: 'ok'` with on-demand fetch or honest `unavailable` | **Shipped** (2026-05-28) |
 
 ---

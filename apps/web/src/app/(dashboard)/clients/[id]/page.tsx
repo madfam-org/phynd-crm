@@ -1,5 +1,6 @@
 import { ContactEngagementsPanel } from '@/components/engagements/contact-engagements-panel'
 import { FederationHealthBanner } from '@/components/federation/federation-health-banner'
+import { KarafielCompliancePanel } from '@/components/federation/karafiel-compliance-panel'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { TagsPanel } from '@/components/tags/tags-panel'
 import { Badge } from '@/components/ui/badge'
@@ -168,6 +169,10 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
       </div>
 
       <FederationHealthBanner federationStatus={profile?.federationStatus} />
+
+      {profile?.karafielCompliance ? (
+        <KarafielCompliancePanel summary={profile.karafielCompliance} />
+      ) : null}
 
       <FederationTabs panels={panels} />
 

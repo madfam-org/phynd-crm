@@ -13,6 +13,7 @@ vi.mock('../grants/grant-webhook-dispatcher', () => ({
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
+  desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
@@ -21,13 +22,16 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@phynd/db/schema', () => ({
   grantApplications: {
+    applicationDraft: 'grantApplications.applicationDraft',
     complianceChecks: 'grantApplications.complianceChecks',
+    contactId: 'grantApplications.contactId',
     deletedAt: 'grantApplications.deletedAt',
     grantOpportunityId: 'grantApplications.grantOpportunityId',
     id: 'grantApplications.id',
     ownerId: 'grantApplications.ownerId',
     status: 'grantApplications.status',
     stageId: 'grantApplications.stageId',
+    updatedAt: 'grantApplications.updatedAt',
   },
   grantOpportunities: {
     closesAt: 'grantOpportunities.closesAt',
@@ -556,6 +560,29 @@ describe('GrantsService', () => {
       const result = await service.rejectSubmission('grant-app-001', 'user-1', 'Not eligible')
 
       expect(result?.status).toBe('rejected')
+    })
+  })
+
+  describe('getComplianceSummaryForContact()', () => {
+    it('summarizes the latest grant application compliance for a contact', async () => {
+      mockDb._qb._result = [
+        {
+          id: 'grant-app-001',
+          applicationDraft: { rfc: 'TABL900101ABC' },
+          complianceChecks: {
+            rfc_active: true,
+            opinion_32d_positive: true,
+            blacklisted: false,
+            checked_at: '2026-05-28T12:00:00.000Z',
+          },
+        },
+      ]
+
+      const summary = await service.getComplianceSummaryForContact('contact-1')
+
+      expect(summary.status).toBe('ok')
+      expect(summary.rfc).toBe('TABL900101ABC')
+      expect(summary.grantApplicationId).toBe('grant-app-001')
     })
   })
 })

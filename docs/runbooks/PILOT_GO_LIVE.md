@@ -127,7 +127,7 @@ Emergency rollback: `.github/workflows/rollback-prod.yml` (production smoke via 
 
 | Flag | Env | When to enable |
 | --- | --- | --- |
-| `FEATURE_TREASURY_HUNTER` | `true` | Fortuna + Karafiel staging split verified |
+| `FEATURE_TREASURY_HUNTER` | `true` | Fortuna + Karafiel staging split verified; Karafiel compliance panel on contact profile |
 | `FEATURE_OBSERVABILITY` | `true` | OTel collector + Sentry DSN ready (worker first) |
 | `FEATURE_AI_KANBAN` | `true` | Selva HITL pilot on `/pipeline` |
 | `FEATURE_PII_MASKING` | `true` | Selva agent context export |

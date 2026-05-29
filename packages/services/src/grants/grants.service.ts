@@ -1,10 +1,11 @@
 import { grantApplications, grantOpportunities, grantSignalAudit } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
 import { dispatchGrantAwarded } from './grant-webhook-dispatcher'
+import { summarizeKarafielCompliance } from './karafiel-compliance'
 
 const logger = createLogger('services:grants')
 
@@ -156,6 +157,21 @@ export class GrantsService {
       .where(and(eq(grantApplications.id, id), isNull(grantApplications.deletedAt)))
     if (!row) throw new NotFoundError('GrantApplication', id)
     return row
+  }
+
+  async getComplianceSummaryForContact(contactId: string) {
+    const rows = await this.ctx.db
+      .select({
+        id: grantApplications.id,
+        applicationDraft: grantApplications.applicationDraft,
+        complianceChecks: grantApplications.complianceChecks,
+      })
+      .from(grantApplications)
+      .where(and(eq(grantApplications.contactId, contactId), isNull(grantApplications.deletedAt)))
+      .orderBy(desc(grantApplications.updatedAt))
+      .limit(10)
+
+    return summarizeKarafielCompliance(rows)
   }
 
   async createApplication(data: {

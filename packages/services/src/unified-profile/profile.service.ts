@@ -7,12 +7,14 @@ import type {
   ForjAssets,
   JanuaIdentity,
   JanuaTelemetry,
+  KarafielComplianceSummary,
   PravaraFabrication,
   ProviderStatus,
 } from '@phynd/types/federation'
 import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
 import { NotFoundError } from '../errors'
+import { GrantsService } from '../grants/grants.service'
 import { maskEmail, maskPersonName, maskPhone, shouldMaskPiiForAgent } from '../pii/mask'
 import { getDemoFederationData } from './demo-federation-data'
 import { tryGetMockFederationData } from './mock-federation-registry'
@@ -45,7 +47,10 @@ export class UnifiedProfileService {
 
     // Demo mode: return mock federation data (providers are unreachable)
     if (this.ctx.tenantId.startsWith('demo-')) {
-      return getDemoFederationData(contact)
+      return {
+        ...getDemoFederationData(contact),
+        karafielCompliance: await this.loadKarafielCompliance(contactId),
+      }
     }
 
     const externalId = contact.externalJanuaId ?? contactId
@@ -108,7 +113,12 @@ export class UnifiedProfileService {
       fabrication.status === 'unavailable'
     if (process.env.NODE_ENV !== 'production' && allUnavailable && contact.externalJanuaId) {
       const mockData = tryGetMockFederationData(contact)
-      if (mockData) return this.maybeMaskProfile(mockData)
+      if (mockData) {
+        return this.maybeMaskProfile({
+          ...mockData,
+          karafielCompliance: await this.loadKarafielCompliance(contactId),
+        })
+      }
     }
 
     return this.maybeMaskProfile({
@@ -120,11 +130,25 @@ export class UnifiedProfileService {
       assets,
       telemetry,
       federationStatus,
+      karafielCompliance: await this.loadKarafielCompliance(contactId),
     })
   }
 
+  private async loadKarafielCompliance(
+    contactId: string,
+  ): Promise<KarafielComplianceSummary | null> {
+    if (!isFeatureEnabled('treasuryHunter')) {
+      return null
+    }
+    const grantsService = new GrantsService(this.ctx)
+    return grantsService.getComplianceSummaryForContact(contactId)
+  }
+
   private maybeMaskProfile<
-    T extends { contact: { email: string | null; phone: string | null; name: string } },
+    T extends {
+      contact: { email: string | null; phone: string | null; name: string }
+      karafielCompliance?: KarafielComplianceSummary | null
+    },
   >(profile: T): T {
     if (!shouldMaskPiiForAgent(this.ctx.auth)) {
       return profile

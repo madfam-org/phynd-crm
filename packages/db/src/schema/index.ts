@@ -1,4 +1,5 @@
 export * from './activities'
+export * from './ai-kanban-suggestions'
 export * from './campaigns'
 export * from './contacts'
 export * from './conversions'

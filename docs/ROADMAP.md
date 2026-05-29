@@ -159,10 +159,10 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 | ID | Work item | Status |
 | --- | --- | --- |
 | 5.1 | Expand `FEDERATION_API_TOKEN` scopes (contacts, opps, profile, engagements, analytics) | **Shipped** (2026-05-28) |
-| 5.2 | Janua service account for Selva with least-privilege scopes | Planned |
+| 5.2 | Janua service account for Selva with least-privilege scopes | **Shipped** — `service:selva` principal + audit log |
 | 5.3 | GraphQL or OpenAPI agent tool manifest for Selva office | **Shipped** — `docs/SELVA_CRM_AGENT_TOOLS.md` |
 | 5.4 | PII masking (`piiMasking` flag) before LLM context export | **Shipped** — service-auth masking in search + unified profile |
-| 5.5 | `aiKanban` human-in-the-loop sales suggestions | Flag off |
+| 5.5 | `aiKanban` human-in-the-loop sales suggestions | **Shipped** — `ai_kanban_suggestions` + review panel on `/pipeline`; `FEATURE_AI_KANBAN` |
 
 ---
 
@@ -190,7 +190,7 @@ Tracked from ecosystem audit 2026-04-23; not phase-gating but required for sales
 | `treasuryHunter` | off (enable via `FEATURE_TREASURY_HUNTER=true`) | Phase 4 | Grants pipeline + HITL |
 | `observability` | off (enable via `FEATURE_OBSERVABILITY=true`) | Phase 4 | Sentry + OTel |
 | `piiMasking` | off | Phase 5 | Selva context |
-| `aiKanban` | off | Phase 5 | Sales AI |
+| `aiKanban` | off (enable via `FEATURE_AI_KANBAN=true`) | Phase 5 | Pipeline HITL suggestions |
 | `realtimeUpdates` | off | Phase 5+ | Post-copilot |
 
 ---

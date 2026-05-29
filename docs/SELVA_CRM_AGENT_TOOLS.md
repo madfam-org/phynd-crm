@@ -23,6 +23,23 @@ reference below because it matches the shipped service-auth scopes.
 When `FEDERATION_API_TOKEN` is unset, service auth is disabled. Rate limiting
 still applies (200 req/min per IP).
 
+### Service principal (WS6.3)
+
+Phynd CRM maps the bearer token to a **machine principal**, not a human Janua user:
+
+| Field | Value |
+| --- | --- |
+| Default `userId` | `service:selva` |
+| Override | `FEDERATION_SERVICE_USER_ID` env (must stay `service:*`) |
+| Human staff | `admin@madfam.io` via Auth.js OIDC — separate audit trail |
+
+Successful service-token requests emit structured JSON audit logs
+(`web:trpc:service-auth`, event `service_auth`) with `userId`, `tenantId`, and path.
+
+**Janua ops:** register `service:selva` as a dedicated machine principal in Janua
+with least-privilege CRM scopes. Do not reuse the staff user's refresh token or
+personal OIDC session for Selva office agents.
+
 ### Scopes (v1)
 
 | Scope | Purpose |
@@ -35,6 +52,7 @@ still applies (200 req/min per IP).
 | `unifiedProfile:read` | Federated Janua/Dhanam/Cotiza/Pravara/Forj/Tezca tabs |
 | `search:read` | Global CRM search |
 | `analytics:read` | Funnel + trend summaries |
+| `aiKanban:write` | Stage-move suggestions (HITL — staff approves on `/pipeline`) |
 
 **Not in v1:** `campaigns:write` (Tulana import only), mutations on leads/opps,
 PII export without `piiMasking` flag (see WS6.5).
@@ -114,6 +132,15 @@ Provider availability for truthful disclaimers in agent copy.
 - **tRPC:** `federationHealth.checkAll` query
 - **Scope:** implicit with unified profile reads; no extra scope today.
 
+### `propose_pipeline_move`
+
+Suggest moving a lead or opportunity to a different pipeline stage (human must approve).
+
+- **tRPC:** `aiKanban.createSuggestion` mutation
+- **Scope:** `aiKanban:write`
+- **Feature flag:** `aiKanban` must be enabled (`FEATURE_AI_KANBAN=true`)
+- **Input:** `{ entityType, entityId, suggestionType: "move_stage", title, rationale?, proposedStageId }`
+
 ## Example tRPC batch (curl)
 
 ```bash
@@ -139,17 +166,33 @@ SELVA_WEBHOOK_SECRET=... node scripts/pp5-webhook-probe.mjs send selva --engagem
 PHYND_CAMPAIGN_IMPORT_SECRET=... node scripts/pp5-webhook-probe.mjs send tulana-import
 ```
 
+### WS6.7 integration script
+
+```bash
+# Planned steps only (no HTTP)
+pnpm verify:selva-agent -- --dry-run
+
+# Against local dev (seed + FEDERATION_API_TOKEN in .env)
+FEDERATION_API_TOKEN=... CRM_BASE_URL=http://localhost:3000 pnpm verify:selva-agent
+
+# Staging when wired
+FEDERATION_API_TOKEN=... CRM_BASE_URL=https://staging-phynd.app pnpm verify:selva-agent -- --json
+```
+
+Validates search → contact → opportunities → unified profile → federation health,
+and confirms `leads.create` is **FORBIDDEN** for the service token.
+
 ## Roadmap (WS6)
 
 | ID | Item | Status |
 | --- | --- | --- |
 | WS6.1 | Scope expansion | Shipped |
-| WS6.2 | Per-router scope enforcement | Open |
-| WS6.3 | Distinct Janua service principal for Selva | Open |
+| WS6.2 | Per-router scope enforcement | **Shipped** — `enforceServiceScopes` |
+| WS6.3 | Distinct Janua service principal for Selva | **Shipped** — `service:selva` + `FEDERATION_SERVICE_USER_ID` + audit log |
 | WS6.4 | This manifest | **Shipped** |
 | WS6.5 | `piiMasking` before agent context | **Shipped** — enable `piiMasking` flag for Selva service auth |
-| WS6.6 | `aiKanban` HITL suggestions | Open |
-| WS6.7 | Selva office integration test | Open |
+| WS6.6 | `aiKanban` HITL suggestions | **Shipped** — `aiKanban.createSuggestion` + `/pipeline` review panel |
+| WS6.7 | Selva office integration test | **Shipped** — `scripts/verify-selva-agent-integration.mjs` |
 
 ## Related docs
 

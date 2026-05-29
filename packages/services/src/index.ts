@@ -1,4 +1,5 @@
 export { ActivitiesService } from './activities/activities.service'
+export { AiKanbanService } from './ai-kanban/ai-kanban.service'
 export { AnalyticsService } from './analytics/analytics.service'
 export { CampaignsService } from './campaigns/campaigns.service'
 export { CampaignBuyerSignalService } from './campaigns/campaign-buyer-signal.service'

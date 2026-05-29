@@ -5,7 +5,10 @@ import { resolveTenantIdFromHeaders } from '@/lib/http/tenant-context'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { createAppContext, createServiceAuth, resolveAuthContext } from '@/lib/trpc/request-context'
 import { appRouter } from '@phynd/api/router'
+import { createLogger } from '@phynd/logging'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
+
+const logger = createLogger('web:trpc:service-auth')
 
 function assertAuthBypassNotEnabled() {
   if (process.env.NODE_ENV === 'production' && process.env.AUTH_BYPASS === 'true') {
@@ -43,7 +46,18 @@ const handler = async (req: Request) => {
       const authHeader = req.headers.get('authorization') ?? ''
       if (FEDERATION_TOKEN && authHeader === `Bearer ${FEDERATION_TOKEN}`) {
         const tenantId = resolveTenantIdFromHeaders(req.headers)
-        return createAppContext(createServiceAuth(tenantId))
+        const authCtx = createServiceAuth(tenantId)
+        logger.info(
+          {
+            event: 'service_auth',
+            userId: authCtx.userId,
+            tenantId,
+            path: new URL(req.url).pathname,
+            ip,
+          },
+          'Service token authenticated',
+        )
+        return createAppContext(authCtx)
       }
 
       const authCtx = await resolveAuthContext(req.headers, { demoSessionId })

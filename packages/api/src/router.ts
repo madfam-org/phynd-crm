@@ -1,4 +1,5 @@
 import { activitiesRouter } from './routers/activities'
+import { aiKanbanRouter } from './routers/ai-kanban'
 import { analyticsRouter } from './routers/analytics'
 import { campaignsRouter } from './routers/campaigns'
 import { contactsRouter } from './routers/contacts'
@@ -27,6 +28,7 @@ import { router } from './trpc'
 
 export const appRouter = router({
   activities: activitiesRouter,
+  aiKanban: aiKanbanRouter,
   analytics: analyticsRouter,
   campaigns: campaignsRouter,
   contacts: contactsRouter,

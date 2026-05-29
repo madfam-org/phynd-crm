@@ -71,6 +71,13 @@
       "when": 1780033880643,
       "tag": "0009_lazy_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780037721335,
+      "tag": "0010_lyrical_shooting_star",
+      "breakpoints": true
     }
   ]
 }

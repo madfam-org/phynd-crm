@@ -1,4 +1,4 @@
-import { KanbanBoard } from '@/components/pipeline/kanban-board'
+import { PipelineKanbanView } from '@/components/pipeline/pipeline-kanban-view'
 import { PipelineSelector } from '@/components/pipeline/pipeline-selector'
 import { getServerCaller } from '@/lib/trpc/server'
 
@@ -50,7 +50,12 @@ export default async function PipelinePage({
         </div>
         <PipelineSelector pipelines={allPipelines} selectedId={pipeline.id} />
       </div>
-      <KanbanBoard stages={stages} leads={pipelineLeads} opportunities={pipelineOpps} />
+      <PipelineKanbanView
+        pipelineId={pipeline.id}
+        stages={stages}
+        leads={pipelineLeads}
+        opportunities={pipelineOpps}
+      />
     </div>
   )
 }

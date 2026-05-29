@@ -289,11 +289,11 @@ campaign_states (extend)
 | --- | --- | --- |
 | WS6.1 | Scope expansion for `SERVICE_AUTH` | **Partial** — +contacts, opps, unifiedProfile, engagements, search (2026-05-28) |
 | WS6.2 | Router-level scope enforcement middleware | **Shipped** — `enforceServiceScopes` in `packages/api/src/trpc.ts` |
-| WS6.3 | Janua service principal for Selva | Distinct from human `admin@madfam.io`; audit logged |
+| WS6.3 | Janua service principal for Selva | **Shipped** — `service:selva` default; `FEDERATION_SERVICE_USER_ID` override; `web:trpc:service-auth` audit |
 | WS6.4 | Agent tool manifest | **Shipped** — [`docs/SELVA_CRM_AGENT_TOOLS.md`](./SELVA_CRM_AGENT_TOOLS.md) |
 | WS6.5 | `piiMasking` implementation | **Shipped** — `packages/services/src/pii/mask.ts`; search + unified profile for service auth |
-| WS6.6 | `aiKanban` suggestions | Human-in-the-loop approve/reject on pipeline cards |
-| WS6.7 | Selva office integration test | Agent proposes next action on Tablaco opp with live federation context |
+| WS6.6 | `aiKanban` suggestions | **Shipped** — `aiKanban` tRPC + pipeline review panel; Selva `aiKanban:write` scope |
+| WS6.7 | Selva office integration test | **Shipped** — `pnpm verify:selva-agent` |
 
 #### Acceptance tests
 

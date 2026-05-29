@@ -12,6 +12,7 @@ import { spawnSync } from 'node:child_process'
 function parseArgs(argv) {
   return {
     skipProdAuth: argv.includes('--skip-prod-auth'),
+    skipSelvaAgent: argv.includes('--skip-selva-agent'),
   }
 }
 
@@ -57,6 +58,26 @@ function main() {
 
   if (!options.skipProdAuth) {
     checks.unshift({ name: 'verify-prod-auth', run: () => runPnpm('verify:prod-auth') })
+  }
+
+  if (!options.skipSelvaAgent) {
+    checks.push({
+      name: 'verify-selva-agent',
+      run: () => {
+        const token = process.env.FEDERATION_API_TOKEN?.trim()
+        const args = token ? ['--json'] : ['--dry-run', '--json']
+        const result = runNode('scripts/verify-selva-agent-integration.mjs', args)
+        if (!result.ok) {
+          return result
+        }
+        try {
+          const payload = JSON.parse(result.output)
+          return { ok: payload.ok === true, output: result.output, status: payload.ok ? 0 : 1 }
+        } catch {
+          return { ok: false, output: result.output, status: 1 }
+        }
+      },
+    })
   }
 
   let failed = 0

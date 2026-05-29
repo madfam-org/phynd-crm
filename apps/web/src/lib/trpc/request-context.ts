@@ -6,6 +6,7 @@ import { resolveTenantIdFromHeaders } from '@/lib/http/tenant-context'
 import { createCallerFactory } from '@phynd/api'
 import { appRouter } from '@phynd/api/router'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import { resolveFederationServiceUserId } from '@phynd/config/service-auth'
 import { getDb } from '@phynd/db'
 import { createServiceContext } from '@phynd/services/context'
 import type { AuthContext } from '@phynd/types/auth'
@@ -32,11 +33,12 @@ export const SERVICE_AUTH_SCOPES = [
   'engagements:read',
   'search:read',
   'analytics:read',
+  'aiKanban:write',
 ] as const
 
 export function createServiceAuth(tenantId: string): AuthContext {
   return {
-    userId: 'service:autoswarm',
+    userId: resolveFederationServiceUserId(),
     tenantId,
     roles: ['service'],
     scopes: [...SERVICE_AUTH_SCOPES],

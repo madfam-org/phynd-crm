@@ -9,7 +9,8 @@
     "./federation": "./src/federation.ts",
     "./constants": "./src/constants.ts",
     "./features": "./src/features.ts",
-    "./outbound-guard": "./src/outbound-guard.ts"
+    "./outbound-guard": "./src/outbound-guard.ts",
+    "./service-auth": "./src/service-auth.ts"
   },
   "scripts": {
     "test": "vitest run",

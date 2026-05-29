@@ -158,7 +158,7 @@ describe('tRPC route handler — federation token auth', () => {
     expect(mockCreateServiceContext).toHaveBeenCalledOnce()
     const authCtx = getServiceAuthContext()
     expect(authCtx).toEqual({
-      userId: 'service:autoswarm',
+      userId: 'service:selva',
       tenantId: 'madfam',
       roles: ['service'],
       scopes: [...SERVICE_AUTH_SCOPES],

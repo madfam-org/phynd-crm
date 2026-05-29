@@ -10,7 +10,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const DEFAULT_REQUIRED = ['0008_orange_sandman', '0009_lazy_wrecker']
+const DEFAULT_REQUIRED = ['0008_orange_sandman', '0009_lazy_wrecker', '0010_lyrical_shooting_star']
 const JOURNAL_PATH = 'packages/db/src/migrations/meta/_journal.json'
 const MIGRATIONS_DIR = 'packages/db/src/migrations'
 

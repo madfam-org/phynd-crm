@@ -127,7 +127,9 @@ The app will be available at `http://localhost:3000`.
 | `pnpm db:studio`   | Open Drizzle Studio for database inspection |
 | `pnpm clean`       | Remove build artifacts                      |
 | `pnpm verify:prod-auth` | Verify production OIDC URLs (no pod leaks; callback host matches base) |
+| `pnpm verify:post-deploy` | Live deploy smoke: `/api/health` (+ optional auth/Selva probes) |
 | `pnpm verify:migrations` | Verify migration artifacts through `0010` |
+| `pnpm db:migrate:tier` | Apply tier migrations when `DATABASE_URL` is set (`--check-only` for artifacts only) |
 | `pnpm verify:pilot-readiness` | Bundle: prod auth + migrations + PP5 webhook lanes + Selva probe |
 | `pnpm verify:pilot-go-live` | Full pre-flight before staging/prod pilot (see `docs/runbooks/PILOT_GO_LIVE.md`) |
 | `pnpm verify:selva-agent` | Selva service-token integration smoke test |

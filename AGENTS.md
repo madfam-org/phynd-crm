@@ -103,6 +103,8 @@ pnpm db:generate      # Generate Drizzle migrations
 pnpm db:migrate       # Run migrations
 pnpm db:seed          # Seed database
 pnpm verify:pilot-go-live   # Pre-flight bundle (migrations, PP5, Selva probe)
+pnpm verify:post-deploy     # Live health smoke (set CRM_BASE_URL)
+pnpm db:migrate:tier        # Apply tier migrations (DATABASE_URL required)
 pnpm verify:selva-agent     # Selva service-token integration smoke test
 ```
 
@@ -265,7 +267,7 @@ Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
 
 - Host-derived `tenantId` is wired in tRPC, GraphQL, and `getServerCaller()` via `createAppContextFromRequest()`.
 - Composite pilot readiness: ~**78–80%** code; remaining gap is Enclii/Janua/provider ops (see pilot runbook).
-- Production feature flags still off by default: `treasuryHunter`, `observability` (web OTel deferred), `piiMasking`, `aiKanban` — enable per [`PILOT_GO_LIVE.md`](docs/runbooks/PILOT_GO_LIVE.md).
+- Production feature flags still off by default: `treasuryHunter`, `observability` (worker OTel + Sentry; web OTel deferred), `piiMasking`, `aiKanban` — enable per [`PILOT_GO_LIVE.md`](docs/runbooks/PILOT_GO_LIVE.md).
 
 ## Frontend Features
 - **Dark mode**: next-themes with `.dark` class selector (globals.css); ThemeToggle in header
@@ -324,7 +326,7 @@ Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
 - `grant-compliance-check`: Calls Karafiel `/api/v1/grants/compliance-status/{rfc}/` to verify 32-D, RFC status, blacklist; updates `complianceChecks` JSON on grant_application (ACCA Treasury Hunter)
 - `email-drip`: 4-step drip sequence via Resend (Day 0: welcome, Day 2: legal tip, Day 5: trial invite, Day 14: last chance). Triggered on lead creation from Tezca newsletter/interest events. Each step self-enqueues the next with BullMQ delayed jobs. Dedup by `drip-{leadId}-step-{N}` job ID
 - **LLM routing**: Reddit bot `RedditBotService` supports `OPENAI_BASE_URL` for routing completions through AutoSwarm Nexus (`/v1` OpenAI-compatible endpoint). When unset, falls back to direct OpenAI. Both `web` and `worker` services receive the env var in `docker-compose.prod.yml`
-- **Observability rollout**: `FEATURE_OBSERVABILITY=true` enables OTel + Sentry (when `SENTRY_DSN` set) on the **worker** via `apps/worker/src/instrumentation.ts`; web OTel deferred (NodeSDK incompatible with Next webpack build)
+- **Observability rollout**: `FEATURE_OBSERVABILITY=true` enables OTel on the **worker** (`apps/worker/src/instrumentation.ts`) and Sentry when `SENTRY_DSN` is set. Web OTel deferred — Next.js build still traces gRPC from `@opentelemetry/sdk-node`.
 - All workers have `completed`/`failed`/`stalled` event handlers + `maxStalledCount: 2`
 - All processors use structured logging via `@phynd/logging` (pino JSON output)
 

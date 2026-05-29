@@ -136,7 +136,7 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 | 4.3 | Cross-SKU funnel analytics (depends Phase 3) | **Shipped** — `skuCampaignFunnel` + `skuBuyerSignalFunnel` on `/analytics` |
 | 4.4 | RouteCraft payment attribution dashboards | **Shipped** — `paymentAttributionSummary` + `/analytics` card; webhook tenant + `campaignId` link |
 | 4.5 | Enable `treasuryHunter` in prod with HITL gate | **Shipped** — `FEATURE_TREASURY_HUNTER` env override, HITL status gates, Karafiel `grant.awarded` dispatch |
-| 4.6 | Enable `observability` (Sentry/OTel) rollout | **Shipped** — `FEATURE_OBSERVABILITY` on worker (OTel + Sentry); web deferred (webpack) |
+| 4.6 | Enable `observability` (Sentry/OTel) rollout | **Partial** — worker OTel + Sentry; web OTel deferred (Next build traces gRPC) |
 | 4.7 | Optional: `DATABASE_URL_PHYND` for commercial tenant slice | Future |
 
 ---

@@ -18,12 +18,18 @@ pnpm verify:pilot-go-live
 This bundles migration artifacts, PP.5 stability guards, auth URL checks, webhook probe
 lanes, and the Selva agent integration script (dry-run without `FEDERATION_API_TOKEN`).
 
+```bash
+CRM_BASE_URL=https://staging-phynd.app pnpm verify:post-deploy
+CRM_BASE_URL=https://crm.madfam.io pnpm verify:post-deploy -- --with-prod-auth
+FEDERATION_API_TOKEN=... CRM_BASE_URL=https://staging-phynd.app pnpm verify:post-deploy -- --with-selva-agent
+```
+
 ## Wave 1 — Deploy + database
 
 | Step | Action | Verify |
 | --- | --- | --- |
-| 1 | Promote or confirm web + worker digests on target tier (staging first) | ArgoCD sync healthy; `/api/health` → `{ status: "ok" }` |
-| 2 | Run migrations through **`0010_lyrical_shooting_star`** | `pnpm verify:migrations` |
+| 1 | Promote or confirm web + worker digests on target tier (staging first) | ArgoCD sync healthy; `pnpm verify:post-deploy` |
+| 2 | Run migrations through **`0010_lyrical_shooting_star`** | `pnpm db:migrate:tier -- --check-only` then `DATABASE_URL=<tier> pnpm db:migrate:tier` |
 | 3 | Apply secrets from template (never commit values) | Staging: `node scripts/pp5-validate-staging-env.mjs <env-file>` |
 
 Tenant DB strategy: [`TENANT_DATABASE_STRATEGY.md`](../TENANT_DATABASE_STRATEGY.md)

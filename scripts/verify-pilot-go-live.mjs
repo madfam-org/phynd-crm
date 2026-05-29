@@ -40,6 +40,7 @@ function main() {
           ...(options.skipProdAuth ? ['--skip-prod-auth'] : []),
         ]),
     },
+    { name: 'verify-post-deploy-dry-run', run: () => run('node', ['scripts/verify-post-deploy.mjs', '--dry-run']) },
   ]
 
   const results = []
@@ -79,6 +80,9 @@ function main() {
     console.log('')
     console.log(failed === 0 ? 'Pilot go-live pre-flight: PASS' : `Pilot go-live pre-flight: FAIL (${failed})`)
     console.log('Ops runbook: docs/runbooks/PILOT_GO_LIVE.md')
+    if (failed === 0) {
+      console.log('After deploy: CRM_BASE_URL=<tier> pnpm verify:post-deploy')
+    }
   }
 
   if (failed > 0) process.exit(1)

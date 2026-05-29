@@ -55,19 +55,21 @@ jobs:
           fi
           echo "Staging soak check passed: ${age_minutes} minutes since last staging digest write."
 
+      - name: Setup Node
+        if: ${{ inputs.skip_smoke_check != 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Verify staging health
         if: ${{ inputs.skip_smoke_check != 'true' }}
         run: |
-          for attempt in 1 2 3 4 5 6; do
-            if curl -fsS "${{ inputs.staging_health_url }}" >/dev/null; then
-              echo "Staging smoke check passed on attempt ${attempt}"
-              exit 0
-            fi
-            echo "Attempt ${attempt}/6 failed, retrying in 20s"
-            sleep 20
-          done
-          echo "Staging smoke check failed"
-          exit 1
+          CRM_BASE_URL="$(
+            node -e "const { baseUrlFromHealthUrl } = await import('./scripts/verify-post-deploy.mjs'); process.stdout.write(baseUrlFromHealthUrl(process.argv[1]));" \
+              "${{ inputs.staging_health_url }}"
+          )"
+          export CRM_BASE_URL
+          node scripts/verify-post-deploy.mjs --retries 6 --retry-delay-ms 20000
 
       - name: Resolve target digests
         id: resolve

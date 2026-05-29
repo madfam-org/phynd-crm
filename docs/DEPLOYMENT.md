@@ -53,7 +53,7 @@ listed in `.env.example`. Key variables:
 | `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | `secret` |
 | `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`) | `secret` |
-| `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (falls back to engagement secret) | `secret` |
+| `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | `secret` |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | `secret` |
 | `FEDERATION_API_TOKEN` | Optional service-to-service token for internal tRPC reads | `secret` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |

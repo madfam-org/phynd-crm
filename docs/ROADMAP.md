@@ -147,7 +147,7 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 | 4.3 | Cross-SKU funnel analytics (depends Phase 3) | **Shipped** — `skuCampaignFunnel` + `skuBuyerSignalFunnel` on `/analytics` |
 | 4.4 | RouteCraft payment attribution dashboards | **Shipped** — `paymentAttributionSummary` + `/analytics` card; webhook tenant + `campaignId` link |
 | 4.5 | Enable `treasuryHunter` in prod with HITL gate | **Shipped** — `FEATURE_TREASURY_HUNTER` env override, HITL status gates, Karafiel `grant.awarded` dispatch |
-| 4.6 | Enable `observability` (Sentry/OTel) rollout | Flag off |
+| 4.6 | Enable `observability` (Sentry/OTel) rollout | **Shipped** — `FEATURE_OBSERVABILITY` env override; web + worker OTel; worker Sentry gated |
 | 4.7 | Optional: `DATABASE_URL_PHYND` for commercial tenant slice | Future |
 
 ---
@@ -188,7 +188,7 @@ Tracked from ecosystem audit 2026-04-23; not phase-gating but required for sales
 | `leadScoring`, `visitorTracking`, `analytics` | on | — | Keep on |
 | `multiTenancy` | on | Phase 1 | Wire host → tenantId |
 | `treasuryHunter` | off (enable via `FEATURE_TREASURY_HUNTER=true`) | Phase 4 | Grants pipeline + HITL |
-| `observability` | off | Phase 4 | Sentry/OTel |
+| `observability` | off (enable via `FEATURE_OBSERVABILITY=true`) | Phase 4 | Sentry + OTel |
 | `piiMasking` | off | Phase 5 | Selva context |
 | `aiKanban` | off | Phase 5 | Sales AI |
 | `realtimeUpdates` | off | Phase 5+ | Post-copilot |

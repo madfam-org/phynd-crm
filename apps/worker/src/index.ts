@@ -1,17 +1,8 @@
-import * as Sentry from '@sentry/node'
-
-const sentryDsn = process.env.SENTRY_DSN
-if (sentryDsn) {
-  Sentry.init({
-    dsn: sentryDsn,
-    environment: process.env.NODE_ENV || 'development',
-    tracesSampleRate: 0.1,
-  })
-}
-
 import http from 'node:http'
+import { isFeatureEnabled } from '@phynd/config/features'
 import { createLogger } from '@phynd/logging'
 import { Worker } from 'bullmq'
+import { initInstrumentation } from './instrumentation'
 import { processCacheWarmup } from './processors/cache-warmup'
 import { processDemoCleanup } from './processors/demo-cleanup'
 import { processEmailDrip } from './processors/email-drip'
@@ -232,7 +223,28 @@ async function main() {
   process.on('SIGINT', shutdown)
 }
 
-main().catch((err) => {
-  logger.error({ err }, 'Worker startup failed')
+async function initObservability(): Promise<void> {
+  await initInstrumentation()
+
+  if (!isFeatureEnabled('observability')) return
+
+  const sentryDsn = process.env.SENTRY_DSN
+  if (!sentryDsn) return
+
+  const Sentry = await import('@sentry/node')
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 0.1,
+  })
+}
+
+async function bootstrap(): Promise<void> {
+  await initObservability()
+  await main()
+}
+
+bootstrap().catch((err) => {
+  logger.error({ err }, 'Worker bootstrap failed')
   process.exit(1)
 })

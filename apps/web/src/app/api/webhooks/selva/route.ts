@@ -21,9 +21,9 @@ const logger = createLogger('web:selva-webhook')
 //     metadata?: object
 //   }
 //
-// Secret: SELVA_WEBHOOK_SECRET (falls back to PHYND_ENGAGEMENT_EVENTS_SECRET).
+// Secret: SELVA_WEBHOOK_SECRET (dedicated per env — no cross-secret fallback).
 export async function POST(req: Request) {
-  const secret = process.env.SELVA_WEBHOOK_SECRET ?? process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
+  const secret = process.env.SELVA_WEBHOOK_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Selva webhook secret not configured' }, { status: 503 })
   }

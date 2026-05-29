@@ -10,10 +10,9 @@ const logger = createLogger('web:campaigns-import')
 // Tulana / Selva SKU campaign import (Phase 3 / WS4).
 // Contract: docs/TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md
 //
-// Secret: PHYND_CAMPAIGN_IMPORT_SECRET (falls back to PHYND_ENGAGEMENT_EVENTS_SECRET).
+// Secret: PHYND_CAMPAIGN_IMPORT_SECRET (dedicated per env — no cross-secret fallback).
 export async function POST(req: Request) {
-  const secret =
-    process.env.PHYND_CAMPAIGN_IMPORT_SECRET ?? process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
+  const secret = process.env.PHYND_CAMPAIGN_IMPORT_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Campaign import secret not configured' }, { status: 503 })
   }

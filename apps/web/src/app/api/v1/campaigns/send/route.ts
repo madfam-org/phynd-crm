@@ -12,10 +12,9 @@ const logger = createLogger('web:campaigns-send')
 // Expected payload:
 //   { campaign_id: string, contact_id: string }
 //
-// Secret: PHYND_CAMPAIGN_IMPORT_SECRET (falls back to PHYND_ENGAGEMENT_EVENTS_SECRET).
+// Secret: PHYND_CAMPAIGN_IMPORT_SECRET (dedicated per env — no cross-secret fallback).
 export async function POST(req: Request) {
-  const secret =
-    process.env.PHYND_CAMPAIGN_IMPORT_SECRET ?? process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
+  const secret = process.env.PHYND_CAMPAIGN_IMPORT_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Campaign send secret not configured' }, { status: 503 })
   }

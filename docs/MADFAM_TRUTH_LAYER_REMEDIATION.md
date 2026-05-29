@@ -330,7 +330,7 @@ campaign_states (extend)
 | Flag | Rollout gate | Work |
 | --- | --- | --- |
 | `treasuryHunter` | Karafiel + Fortuna staging split verified | Set `FEATURE_TREASURY_HUNTER=true` in prod; HITL queue staffed |
-| `observability` | Sentry DSN + OTel endpoint in secrets | Enable worker + web instrumentation |
+| `observability` | Sentry DSN + OTel endpoint in secrets | Set `FEATURE_OBSERVABILITY=true`; web + worker OTel wired |
 | `realtimeUpdates` | After Selva copilot | WebSocket or SSE for notifications |
 | `federationReadOnly` | Never in prod MADFAM slice | Keep false for madfam tenant |
 

@@ -1,40 +1,10 @@
 /**
- * Next.js instrumentation hook — OpenTelemetry when `observability` flag is on.
+ * Next.js instrumentation hook.
+ *
+ * OpenTelemetry via NodeSDK is wired on the worker (`apps/worker/src/instrumentation.ts`)
+ * because `@opentelemetry/sdk-node` pulls gRPC into the Next.js webpack graph and breaks
+ * `next build`. Enable tracing with `FEATURE_OBSERVABILITY=true` on the worker deployment.
  */
-import { isFeatureEnabled } from '@phynd/config/features'
-
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return
-  if (!isFeatureEnabled('observability')) return
-
-  const { NodeSDK } = await import('@opentelemetry/sdk-node')
-  const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node')
-  const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http')
-
-  const exporter = new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318/v1/traces',
-  })
-
-  const sdk = new NodeSDK({
-    serviceName: 'phynd-web',
-    traceExporter: exporter,
-    instrumentations: [
-      getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-fs': { enabled: false },
-      }),
-    ],
-  })
-
-  sdk.start()
-
-  const shutdown = async () => {
-    try {
-      await sdk.shutdown()
-    } catch (err) {
-      console.error('[instrumentation] Error shutting down OTel SDK:', err)
-    }
-  }
-
-  process.on('SIGTERM', shutdown)
-  process.on('SIGINT', shutdown)
+  // Web OTel deferred — see worker instrumentation.
 }

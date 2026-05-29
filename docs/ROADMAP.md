@@ -71,7 +71,7 @@ Detailed workstreams, owners, and acceptance tests live in
 | 0.1 | Deploy public-origin Auth.js normalization | Code ready | `apps/web/src/lib/auth/request.ts` |
 | 0.2 | Verify `https://phynd.app/api/auth/providers` returns public hosts + callback host match | **Pass** (2026-05-28 — `pnpm verify:prod-auth`) |
 | 0.2b | Post-deploy smoke (`verify-post-deploy`) wired in promote/rollback CI | **Shipped** (2026-05-29) |
-| 0.3 | Reconcile Janua OIDC client (redirect URI, secret, token auth) | Open | Janua ops |
+| 0.3 | Reconcile Janua OIDC client (redirect URI, secret, token auth) | Open | `pnpm verify:janua-oidc` + Janua ops |
 | 0.4 | Confirm `admin@madfam.io` tenant/admin claims in Janua | Open | `PHYND_APP_PRODUCTION_ACTIVATION_2026-05-14.md` |
 | 0.5 | Reconcile Enclii junctions vs `.enclii.yml` domains | Open | Evidence § Enclii junctions |
 
@@ -88,7 +88,7 @@ Detailed workstreams, owners, and acceptance tests live in
 | 1.2 | Surface per-provider federation status in contact UI (no blank tabs) | **Shipped** — health banner + `loading.tsx` |
 | 1.3 | Disable `tryGetMockFederationData` when `NODE_ENV=production` | **Shipped** (2026-05-28) |
 | 1.4 | Document `DATABASE_URL_MADFAM` path; keep single DB until Phase 4 split | **Shipped** — [`TENANT_DATABASE_STRATEGY.md`](./TENANT_DATABASE_STRATEGY.md) |
-| 1.5 | Complete PP.5 staging ingress + provider webhook env split | In progress — see [`runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) |
+| 1.5 | Complete PP.5 staging ingress + provider webhook env split | In progress — [`STAGING_INGRESS.md`](./runbooks/STAGING_INGRESS.md), [`PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) |
 | 1.5b | Tier migration helper (`db:migrate:tier`) + post-deploy smoke script | **Shipped** (2026-05-29) |
 | 1.6 | Nightly masked prod→staging refresh (or approved equivalent) | Deferred |
 

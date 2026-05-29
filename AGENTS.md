@@ -106,6 +106,7 @@ pnpm verify:pilot-go-live   # Pre-flight bundle (migrations, PP5, Selva probe)
 pnpm pp5:pilot-ops          # Operator checklist (automated + manual Enclii steps)
 pnpm verify:post-deploy     # Live health smoke (set CRM_BASE_URL)
 pnpm db:migrate:tier        # Apply tier migrations (DATABASE_URL required)
+pnpm verify:janua-oidc     # Janua OIDC redirect URI checklist (Phase 0)
 pnpm verify:selva-agent     # Selva service-token integration smoke test
 ```
 

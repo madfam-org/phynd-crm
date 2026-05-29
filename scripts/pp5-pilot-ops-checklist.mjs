@@ -34,15 +34,11 @@ const MANUAL_STEPS = [
   },
   {
     id: 'janua-oidc',
-    text: 'Janua OIDC redirect URIs + admin@madfam.io claims for crm.madfam.io',
-  },
-  {
-    id: 'enclii-domains',
-    text: 'Reconcile Enclii junctions vs .enclii.yml declared domains',
+    text: 'Janua OIDC redirect URIs: node scripts/verify-janua-oidc-checklist.mjs',
   },
   {
     id: 'staging-ingress',
-    text: 'Wire staging-phynd.app tunnel/ingress (PP.5 row 12)',
+    text: 'Wire staging-phynd.app ingress/TLS — docs/runbooks/STAGING_INGRESS.md',
   },
 ]
 
@@ -91,6 +87,20 @@ export function buildPilotOpsReport(options, env = process.env) {
     id: 'db-migrate-artifacts',
     ok: migrateCheck.ok,
     status: migrateCheck.status,
+  })
+
+  const januaChecklist = run('node', ['scripts/verify-janua-oidc-checklist.mjs', '--json'])
+  let januaPayload = null
+  try {
+    januaPayload = JSON.parse(januaChecklist.output)
+  } catch {
+    januaPayload = { ok: false }
+  }
+  automated.push({
+    id: 'janua-oidc-checklist',
+    ok: januaChecklist.ok && januaPayload.ok === true,
+    status: januaChecklist.status,
+    redirectUris: januaPayload?.requiredRedirectUris ?? [],
   })
 
   if (options.live) {

@@ -147,6 +147,7 @@ Emergency rollback: `.github/workflows/rollback-prod.yml` (production smoke via 
 
 ## Related
 
+- [`STAGING_INGRESS.md`](./STAGING_INGRESS.md) — `staging-phynd.app` tunnel/TLS (PP.5 row 12)
 - [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](../MADFAM_TRUTH_LAYER_REMEDIATION.md)
 - [`ROADMAP.md`](../ROADMAP.md)
 - [`TABLACO_ENGAGEMENT.md`](./TABLACO_ENGAGEMENT.md)

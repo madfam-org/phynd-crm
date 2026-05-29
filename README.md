@@ -133,6 +133,7 @@ The app will be available at `http://localhost:3000`.
 | `pnpm verify:pilot-readiness` | Bundle: prod auth + migrations + PP5 webhook lanes + Selva probe |
 | `pnpm verify:pilot-go-live` | Full pre-flight before staging/prod pilot (see `docs/runbooks/PILOT_GO_LIVE.md`) |
 | `pnpm pp5:pilot-ops` | Operator checklist: automated gates + manual Enclii steps (`--live` with `CRM_BASE_URL`) |
+| `pnpm verify:janua-oidc` | Janua OIDC redirect URI checklist for Phase 0 Janua admin |
 | `pnpm verify:selva-agent` | Selva service-token integration smoke test |
 
 ## Federation Layer

@@ -8,7 +8,7 @@ test('buildPilotOpsReport passes static automated gates', () => {
   assert.equal(report.ok, true)
   assert.ok(report.automated.some((step) => step.id === 'verify-pilot-go-live' && step.ok))
   assert.ok(report.automated.some((step) => step.id === 'db-migrate-artifacts' && step.ok))
-  assert.ok(report.manual.length >= 5)
+  assert.ok(report.automated.some((step) => step.id === 'janua-oidc-checklist' && step.ok))
 })
 
 test('pp5-pilot-ops-checklist dry-run exits zero', () => {

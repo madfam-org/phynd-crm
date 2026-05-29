@@ -29,5 +29,5 @@ before raw infrastructure tools. Direct `kubectl`, `helm`, SSH, provider CLIs,
 - `pnpm verify:prod-auth` — public sign-in URL hygiene on prod hosts
 - `pnpm verify:migrations` — Tulana/SKU migration artifacts present through `0010`
 - `pnpm verify:pilot-readiness` — bundles prod auth + migrations + PP5 webhook probe lanes + Selva probe
-- `pnpm verify:selva-agent` — Selva service-token integration smoke test
+- `pnpm verify:janua-oidc` — Janua OIDC redirect URI checklist (Phase 0)
 - Ops runbook: `docs/runbooks/PILOT_GO_LIVE.md`

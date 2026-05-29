@@ -14,6 +14,7 @@ import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
+import { resolveFederationApiToken } from './pp5-k8s-env.mjs'
 
 export function parsePostDeployArgs(argv) {
   const options = {
@@ -155,17 +156,22 @@ export async function runPostDeployChecks(options, env = process.env) {
   }
 
   if (options.withSelvaAgent) {
-    const token = env.FEDERATION_API_TOKEN?.trim()
+    const token = resolveFederationApiToken({ ...env, CRM_BASE_URL: baseUrl })
     if (!token) {
       return {
         ok: false,
         baseUrl,
         results,
-        error: 'FEDERATION_API_TOKEN required for --with-selva-agent',
+        error: 'FEDERATION_API_TOKEN required for --with-selva-agent (set env or ensure kubectl access)',
       }
     }
-    if (!env.SELVA_SEARCH_QUERY?.trim() && baseUrl.includes('crm.madfam.io')) {
-      env.SELVA_SEARCH_QUERY = 'Avala'
+    if (!env.SELVA_SEARCH_QUERY?.trim()) {
+      const host = new URL(baseUrl).hostname
+      if (host === 'crm.madfam.io' || host === 'crm.phynd.app') {
+        env.SELVA_SEARCH_QUERY = 'Avala'
+      } else if (host === new URL(STAGING_CRM_BASE_URL).hostname) {
+        env.SELVA_SEARCH_QUERY = 'Tablaco'
+      }
     }
     const selva = runNode('scripts/verify-selva-agent-integration.mjs', ['--json'], {
       FEDERATION_API_TOKEN: token,

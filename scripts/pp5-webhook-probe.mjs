@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHmac } from 'node:crypto'
-import { STAGING_CRM_BASE_URL } from './staging-base-url.mjs'
+import { STAGING_CRM_BASE_URL, applyStagingWebhookDefaults } from './staging-base-url.mjs'
 
 const DEFAULT_BASE_URL = STAGING_CRM_BASE_URL
 
@@ -465,7 +465,7 @@ async function send(req) {
 }
 
 async function main() {
-  const opts = parseArgs(process.argv.slice(2))
+  const opts = applyStagingWebhookDefaults(parseArgs(process.argv.slice(2)))
   if (opts.command === 'list') {
     listLanes()
     return

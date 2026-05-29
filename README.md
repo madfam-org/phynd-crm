@@ -132,6 +132,7 @@ The app will be available at `http://localhost:3000`.
 | `pnpm db:migrate:tier` | Apply tier migrations when `DATABASE_URL` is set (`--check-only` for artifacts only) |
 | `pnpm verify:pilot-readiness` | Bundle: prod auth + migrations + PP5 webhook lanes + Selva probe |
 | `pnpm verify:pilot-go-live` | Full pre-flight before staging/prod pilot (see `docs/runbooks/PILOT_GO_LIVE.md`) |
+| `pnpm pp5:pilot-ops` | Operator checklist: automated gates + manual Enclii steps (`--live` with `CRM_BASE_URL`) |
 | `pnpm verify:selva-agent` | Selva service-token integration smoke test |
 
 ## Federation Layer

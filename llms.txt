@@ -22,6 +22,7 @@ before raw infrastructure tools. Direct `kubectl`, `helm`, SSH, provider CLIs,
 
 ## Pilot readiness scripts
 
+- `pnpm pp5:pilot-ops` — operator checklist (automated gates + manual Enclii steps); add `--live` with `CRM_BASE_URL`
 - `pnpm verify:pilot-go-live` — full pre-flight bundle (PP5 stability, migrations, staging audit, pilot readiness, post-deploy dry-run)
 - `pnpm verify:post-deploy` — live deploy smoke after ArgoCD sync (`CRM_BASE_URL`; optional `--with-prod-auth`, `--with-selva-agent`)
 - `pnpm db:migrate:tier` — verify migration artifacts (`--check-only`) or apply via `DATABASE_URL`

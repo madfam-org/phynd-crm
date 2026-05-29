@@ -103,6 +103,7 @@ pnpm db:generate      # Generate Drizzle migrations
 pnpm db:migrate       # Run migrations
 pnpm db:seed          # Seed database
 pnpm verify:pilot-go-live   # Pre-flight bundle (migrations, PP5, Selva probe)
+pnpm pp5:pilot-ops          # Operator checklist (automated + manual Enclii steps)
 pnpm verify:post-deploy     # Live health smoke (set CRM_BASE_URL)
 pnpm db:migrate:tier        # Apply tier migrations (DATABASE_URL required)
 pnpm verify:selva-agent     # Selva service-token integration smoke test

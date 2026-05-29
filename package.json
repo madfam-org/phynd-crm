@@ -21,6 +21,7 @@
     "pp5:branch-protection-check": "node scripts/pp5-github-branch-protection.mjs --mode check --required-checks-from-ci",
     "pp5:branch-protection-apply": "node scripts/pp5-github-branch-protection.mjs --mode apply --required-checks-from-ci --confirm",
     "pp5:staging-reset": "node scripts/pp5-staging-reset.mjs",
+    "pp5:pilot-ops": "node scripts/pp5-pilot-ops-checklist.mjs",
     "ci:verify-gates": "node scripts/verify-ci-gates.mjs",
     "pp5:stability": "node scripts/pp5-stability-check.mjs",
     "pp5:readiness": "node scripts/pp5-readiness.mjs",

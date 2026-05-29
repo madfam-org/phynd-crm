@@ -12,6 +12,8 @@ North star: truthful `madfam` tenant for `admin@madfam.io` and Selva sales agent
 From a clean `main` checkout:
 
 ```bash
+pnpm pp5:pilot-ops
+# or full bundle:
 pnpm verify:pilot-go-live
 ```
 

@@ -22,6 +22,7 @@ function valueFor(key, index) {
   if (key === 'PORTAL_BASE_URL') return 'https://portal-staging-phynd.app'
   if (key === 'NODE_ENV') return 'production'
   if (key === 'PHYND_DEPLOYMENT_TIER') return 'staging'
+  if (key === 'PHYND_SELVA_EMBED_ALLOWED') return 'true'
   if (key === 'FEDERATION_SERVICE_USER_ID') return 'service:selva'
   if (key === 'WORKER_HEALTH_PORT') return '3001'
   if (key === 'EMAIL_ALLOWLIST_DOMAINS') return 'madfam.io'

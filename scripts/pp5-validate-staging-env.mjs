@@ -299,6 +299,9 @@ function validate(values, duplicates, templateKeys) {
   if (values.get('PHYND_DEPLOYMENT_TIER') !== 'staging') {
     issues.push('PHYND_DEPLOYMENT_TIER: must be staging')
   }
+  if (values.get('PHYND_SELVA_EMBED_ALLOWED') !== 'true') {
+    issues.push('PHYND_SELVA_EMBED_ALLOWED: must be true for staging Selva Panopticon pilot')
+  }
   const serviceUserId = values.get('FEDERATION_SERVICE_USER_ID') ?? ''
   if (!serviceUserId.startsWith('service:')) {
     issues.push('FEDERATION_SERVICE_USER_ID: must be a service:* machine principal')

@@ -10,8 +10,8 @@ Selva sales/office agents need a **truthful, scope-bounded** read surface on the
 is the tool manifest for `FEDERATION_API_TOKEN` / `Authorization: Bearer` access.
 
 Phynd CRM is transport-agnostic: agents may call **tRPC** (`POST /api/trpc`) or
-**GraphQL** (`POST /api/graphql`) with the same bearer token. tRPC is the
-reference below because it matches the shipped service-auth scopes.
+**GraphQL** (`POST /api/graphql`) with the same bearer token and host-derived
+tenant. tRPC is the reference below because it matches the shipped service-auth scopes.
 
 ## Authentication
 

@@ -1,46 +1,32 @@
-import { auth } from '@/lib/auth'
-import { resolveTenantIdFromHeaders } from '@/lib/http/tenant-context'
-import { createAppContext } from '@/lib/trpc/request-context'
+import { checkApiRateLimit } from '@/lib/rate-limiter'
+import { createAppContextFromRequest } from '@/lib/trpc/request-context'
 import { schema } from '@phynd/api'
-import type { AuthContext } from '@phynd/types/auth'
 import type { GraphQLSchema } from 'graphql'
 import { createYoga } from 'graphql-yoga'
 
-type PhyndSession = {
-  user?: {
-    id?: string
-    roles?: string[]
-    scopes?: string[]
-  }
-  accessToken?: string
-}
-
 const { handleRequest } = createYoga({
   schema: schema as GraphQLSchema,
-  // Define standard context injection matching ServiceContext
-  context: async (req) => {
-    const tenantId = resolveTenantIdFromHeaders(req.request.headers)
-
-    const session = (await auth()) as PhyndSession | null
-    const authCtx: AuthContext = {
-      userId: session?.user?.id ?? '',
-      tenantId,
-      roles: session?.user?.roles ?? [],
-      scopes: session?.user?.scopes ?? [],
-      accessToken: session?.accessToken ?? '',
-    }
-
-    return createAppContext(authCtx)
-  },
-  // Ensure Next.js can handle standard web request
+  context: async ({ request }) => createAppContextFromRequest(request, 'graphql'),
   fetchAPI: { Response },
   graphqlEndpoint: '/api/graphql',
 })
 
-export function GET(request: Request) {
+async function withRateLimit(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+  const { allowed } = await checkApiRateLimit(ip)
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+    })
+  }
   return handleRequest(request, {})
 }
 
+export function GET(request: Request) {
+  return withRateLimit(request)
+}
+
 export function POST(request: Request) {
-  return handleRequest(request, {})
+  return withRateLimit(request)
 }

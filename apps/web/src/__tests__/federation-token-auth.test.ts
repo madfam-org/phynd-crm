@@ -16,6 +16,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/demo', () => ({
   DEMO_COOKIE_NAME: 'phynd-demo',
+  getDemoSessionIdFromCookieHeader: vi.fn(() => null),
   createDemoAuth: vi.fn(() => ({
     userId: 'demo-test',
     tenantId: 'demo-test',
@@ -127,6 +128,7 @@ describe('tRPC route handler — federation token auth', () => {
     }))
     vi.doMock('@/lib/demo', () => ({
       DEMO_COOKIE_NAME: 'phynd-demo',
+      getDemoSessionIdFromCookieHeader: vi.fn(() => null),
       createDemoAuth: vi.fn(),
     }))
     vi.doMock('@phynd/services/context', () => ({
@@ -180,6 +182,7 @@ describe('tRPC route handler — federation token auth', () => {
     vi.doMock('@/lib/auth', () => ({ auth: mockAuth }))
     vi.doMock('@/lib/demo', () => ({
       DEMO_COOKIE_NAME: 'phynd-demo',
+      getDemoSessionIdFromCookieHeader: vi.fn(() => null),
       createDemoAuth: vi.fn(),
     }))
     vi.doMock('@phynd/services/context', () => ({
@@ -232,6 +235,7 @@ describe('tRPC route handler — federation token auth', () => {
     vi.doMock('@/lib/auth', () => ({ auth: mockAuth }))
     vi.doMock('@/lib/demo', () => ({
       DEMO_COOKIE_NAME: 'phynd-demo',
+      getDemoSessionIdFromCookieHeader: vi.fn(() => null),
       createDemoAuth: vi.fn(),
     }))
     vi.doMock('@phynd/services/context', () => ({
@@ -278,6 +282,7 @@ describe('tRPC route handler — federation token auth', () => {
     vi.doMock('@/lib/auth', () => ({ auth: mockAuth }))
     vi.doMock('@/lib/demo', () => ({
       DEMO_COOKIE_NAME: 'phynd-demo',
+      getDemoSessionIdFromCookieHeader: vi.fn(() => null),
       createDemoAuth: vi.fn(),
     }))
     vi.doMock('@phynd/services/context', () => ({
@@ -325,6 +330,7 @@ describe('tRPC route handler — federation token auth', () => {
     vi.doMock('@/lib/auth', () => ({ auth: vi.fn().mockResolvedValue(null) }))
     vi.doMock('@/lib/demo', () => ({
       DEMO_COOKIE_NAME: 'phynd-demo',
+      getDemoSessionIdFromCookieHeader: vi.fn(() => null),
       createDemoAuth: vi.fn(),
     }))
     vi.doMock('@phynd/services/context', () => ({
@@ -376,6 +382,7 @@ describe('tRPC route handler — federation token auth', () => {
     vi.doMock('@/lib/auth', () => ({ auth: vi.fn().mockResolvedValue(null) }))
     vi.doMock('@/lib/demo', () => ({
       DEMO_COOKIE_NAME: 'phynd-demo',
+      getDemoSessionIdFromCookieHeader: vi.fn(() => null),
       createDemoAuth: vi.fn(),
     }))
     vi.doMock('@phynd/services/context', () => ({

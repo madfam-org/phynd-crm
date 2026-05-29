@@ -39,7 +39,7 @@ Phynd owns CRM-native entities (contacts, leads, opportunities, pipelines) and v
                                               Telemetry
 ```
 
-All federation calls use `Promise.allSettled()` so that a failure in one provider does not block the rest of the page. The service layer is transport-agnostic: tRPC is the main application transport, and a GraphQL Yoga endpoint is present at `/api/graphql` for the current health/client-profile schema surface.
+All federation calls use `Promise.allSettled()` so that a failure in one provider does not block the rest of the page. The service layer is transport-agnostic: tRPC is the main application transport, and GraphQL Yoga at `/api/graphql` shares the same `FEDERATION_API_TOKEN` service-auth path for Selva agents.
 
 ## Tech Stack
 
@@ -126,9 +126,11 @@ The app will be available at `http://localhost:3000`.
 | `pnpm db:seed`     | Seed the database with sample data          |
 | `pnpm db:studio`   | Open Drizzle Studio for database inspection |
 | `pnpm clean`       | Remove build artifacts                      |
-| `pnpm verify:prod-auth` | Verify production OIDC sign-in URLs have no pod-name leaks |
-| `pnpm verify:migrations` | Verify migration artifacts `0008`/`0009` exist |
-| `pnpm verify:pilot-readiness` | Bundle: prod auth + migrations + PP5 webhook lanes |
+| `pnpm verify:prod-auth` | Verify production OIDC URLs (no pod leaks; callback host matches base) |
+| `pnpm verify:migrations` | Verify migration artifacts through `0010` |
+| `pnpm verify:pilot-readiness` | Bundle: prod auth + migrations + PP5 webhook lanes + Selva probe |
+| `pnpm verify:pilot-go-live` | Full pre-flight before staging/prod pilot (see `docs/runbooks/PILOT_GO_LIVE.md`) |
+| `pnpm verify:selva-agent` | Selva service-token integration smoke test |
 
 ## Federation Layer
 

@@ -35,7 +35,7 @@ redirect and should not become the source of truth again.
 - `ECOSYSTEM.md`
 - `docs/ROADMAP.md` — canonical phase map and gap scorecard
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable workstreams WS0–WS9
-- `docs/`
+- `docs/runbooks/` — operator runbooks (`PILOT_GO_LIVE.md`, `TABLACO_ENGAGEMENT.md`)
 - `infra/`
 - `.github/workflows/`
 
@@ -102,6 +102,8 @@ pnpm test:e2e         # Playwright E2E tests
 pnpm db:generate      # Generate Drizzle migrations
 pnpm db:migrate       # Run migrations
 pnpm db:seed          # Seed database
+pnpm verify:pilot-go-live   # Pre-flight bundle (migrations, PP5, Selva probe)
+pnpm verify:selva-agent     # Selva service-token integration smoke test
 ```
 
 ## Key Patterns
@@ -124,7 +126,7 @@ pnpm db:seed          # Seed database
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production. Production may opt into gated features via env only: `FEATURE_TREASURY_HUNTER`, `FEATURE_OBSERVABILITY`, `FEATURE_PII_MASKING`, `FEATURE_AI_KANBAN` (see `packages/config/src/features.ts`)
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
-- **Federation token auth**: Service-to-service tRPC calls via `FEDERATION_API_TOKEN` env var. If request `Authorization: Bearer <token>` matches, creates `SERVICE_AUTH` context (`userId: 'service:selva'` via `FEDERATION_SERVICE_USER_ID`, `roles: ['service']`, scopes: `leads:read`, `activities:read`, `contacts:read`, `opportunities:read`, `unifiedProfile:read`, `engagements:read`, `search:read`, `analytics:read`, `aiKanban:write`) bypassing Auth.js session check. Structured audit log on each service-auth request (`web:trpc:service-auth`). `enforceServiceScopes` middleware rejects out-of-scope procedures. Rate limiting still applies. Empty/unset token disables the path
+- **Federation token auth**: Service-to-service tRPC and GraphQL calls via `FEDERATION_API_TOKEN` env var. If request `Authorization: Bearer <token>` matches, creates `SERVICE_AUTH` context (`userId: 'service:selva'` via `FEDERATION_SERVICE_USER_ID`, `roles: ['service']`, scopes: `leads:read`, `activities:read`, `contacts:read`, `opportunities:read`, `unifiedProfile:read`, `engagements:read`, `search:read`, `analytics:read`, `aiKanban:write`) bypassing Auth.js session check. Shared resolver `createAppContextFromRequest()` in `apps/web/src/lib/trpc/request-context.ts`. Structured audit log on each service-auth request (`web:trpc:service-auth`, field `surface`: `trpc` | `graphql`). `enforceServiceScopes` middleware rejects out-of-scope tRPC procedures. Rate limiting still applies. Empty/unset token disables the path
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
 - **Tezca webhook events**: `interest.created` (feature interest → contact + lead + drip), `newsletter.subscribed` (newsletter signup → contact + lead + drip). Both enqueue `email-drip` BullMQ job on lead creation
 - **Janua webhook linking**: `user.created` checks for existing contact by email (from newsletter/interest) and links `externalJanuaId` instead of creating duplicate
@@ -254,16 +256,16 @@ Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
 
 | Phase | Focus | Status |
 | --- | --- | --- |
-| 0 | Prod Janua SSO + `crm.madfam.io` access for `admin@madfam.io` | Open (auth origin fix deploy) |
-| 1 | Data truth (no mock federation in prod, host tenantId, PP.5 split) | Planned / in progress |
-| 2 | Engagement seam (Selva + Karafiel events) | Pending provider wiring |
-| 3 | SKU catalog + Tulana campaign loop | Not started |
-| 4 | Identity graph + cross-SKU analytics + Treasury Hunter | Partially built, flags off |
-| 5 | Selva sales copilot API | Minimal token scopes today |
+| 0 | Prod Janua SSO + `crm.madfam.io` access for `admin@madfam.io` | Open (Janua OIDC ops) |
+| 1 | Data truth + PP.5 env split | Code shipped; ops: [`runbooks/PILOT_GO_LIVE.md`](docs/runbooks/PILOT_GO_LIVE.md) |
+| 2 | Engagement seam (Selva + Karafiel events) | Code shipped; provider webhook registration |
+| 3 | SKU catalog + Tulana campaign loop | **Shipped** (migrate `0008`/`0009`) |
+| 4 | Identity graph + analytics + Treasury Hunter | Code shipped; feature flags off in prod |
+| 5 | Selva sales copilot API | **Shipped** — scopes, GraphQL parity, `verify:selva-agent` |
 
-- Current implementation is beyond the original Phase 1 slice: GraphQL Yoga exists at `/api/graphql`, bidirectional/write-side flows exist for engagements, quotes, payments, production dispatch, referrals, and multiple webhooks, and `multiTenancy` is enabled by default while tenant fallback remains `madfam` and host branding is not yet wired to `tenantId` in `getServerCaller()`.
-- Composite distance from “100% truthful MADFAM ecosystem slice”: ~25–35% (see roadmap scorecard).
-- Still future/deferred: AI Kanban, PII masking, observability flag rollout, realtime updates, and Treasury Hunter production enablement — scheduled in roadmap Phases 4–5.
+- Host-derived `tenantId` is wired in tRPC, GraphQL, and `getServerCaller()` via `createAppContextFromRequest()`.
+- Composite pilot readiness: ~**78–80%** code; remaining gap is Enclii/Janua/provider ops (see pilot runbook).
+- Production feature flags still off by default: `treasuryHunter`, `observability` (web OTel deferred), `piiMasking`, `aiKanban` — enable per [`PILOT_GO_LIVE.md`](docs/runbooks/PILOT_GO_LIVE.md).
 
 ## Frontend Features
 - **Dark mode**: next-themes with `.dark` class selector (globals.css); ThemeToggle in header

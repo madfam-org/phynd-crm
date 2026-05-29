@@ -46,21 +46,20 @@ gantt
 
 ## Problem statement (evidence-based)
 
-### 1. Tenant slice is branding-first
+### 1. Tenant slice is branding-first (partially remediated 2026-05-28)
 
 - `apps/web/src/lib/branding/tenant-brand.ts` maps `crm.madfam.io` → `tenantId: 'madfam'`.
-- `apps/web/src/lib/trpc/server.ts` always assigns `DEFAULT_TENANT_ID` (`madfam`) regardless of host.
-- `getDb()` supports `DATABASE_URL_<TENANT>` but server callers use default `getDb()` without host resolution.
+- **Shipped:** `resolveTenantIdFromHeaders()` in tRPC, GraphQL, and `getServerCaller()` via `resolveAuthContext()`.
+- **Shipped:** `getDb(tenantId)` in `createAppContext()` / `createAppContextFromRequest()`.
+- **Remaining:** single `DATABASE_URL` for pilot; optional per-tenant URLs documented in [`TENANT_DATABASE_STRATEGY.md`](./TENANT_DATABASE_STRATEGY.md).
 
-**Impact:** `crm.madfam.io` and `crm.phynd.app` share one database and one tenant context today.
+**Impact:** Host-derived tenant context is wired; row-level / DB split is still future work.
 
-### 2. Federation can lie silently in prod
+### 2. Federation can lie silently in prod (remediated 2026-05-28)
 
-- `UnifiedProfileService` falls back to `tryGetMockFederationData()` when all four core providers are unavailable.
-- Only `janua-tablaco-001` is registered in the mock registry.
-- Tezca status is hardcoded `'ok'` without a fetch.
-
-**Impact:** Sales may see plausible but synthetic provider data during outages or misconfiguration.
+- **Shipped:** mock federation fallback disabled when `NODE_ENV=production`.
+- **Shipped:** Tezca returns honest `unavailable` without silent `ok`.
+- Dev-only Tablaco mock registry remains for local seed workflows.
 
 ### 3. Ecosystem coverage is partial
 
@@ -68,15 +67,14 @@ gantt
 | --- | --- | --- | --- |
 | Federation read | Janua, Dhanam, Cotiza, Pravara, Forj, Janua Telemetry | Yes | Partial |
 | Webhook-only | Fortuna, Karafiel, RouteCraft, Tezca, Avala, Coforma, CEQ | No | Yes |
-| Engagement writers | Pravara | N/A | Yes (shipped) |
-| Engagement writers | Selva, Karafiel | N/A | **Pending** |
-| SKU / campaigns | Tulana | No | **Not implemented** |
+| Engagement writers | Pravara, Selva, Karafiel | N/A | **Shipped** (when secrets + payload present) |
+| SKU / campaigns | Tulana | CRM-native | **Shipped** (`/api/v1/campaigns/*`) |
 
-### 4. Selva agent surface is minimal
+### 4. Selva agent surface (remediated 2026-05-28)
 
-- `FEDERATION_API_TOKEN` → `SERVICE_AUTH` with scopes `leads:read`, `activities:read` only.
-- GraphQL exists at `/api/graphql` but no agent tool manifest for Selva office.
-- RedditBot is a campaign side-channel, not a CRM copilot.
+- **Shipped:** `FEDERATION_API_TOKEN` → `service:selva` with expanded read scopes + `aiKanban:write`.
+- **Shipped:** tRPC + GraphQL bearer auth via `createAppContextFromRequest()`.
+- **Shipped:** [`SELVA_CRM_AGENT_TOOLS.md`](./SELVA_CRM_AGENT_TOOLS.md), `pnpm verify:selva-agent`.
 
 ### 5. Production auth blocks staff pilot
 
@@ -97,7 +95,7 @@ gantt
 | ID | Task | Implementation notes |
 | --- | --- | --- |
 | WS0.1 | Deploy auth origin normalization | Ship `normalizeAuthRequest()` in prod web image |
-| WS0.2 | Post-deploy verification script | `curl` checks on `/api/auth/providers`, signin/callback URLs |
+| WS0.2 | Post-deploy verification script | `pnpm verify:prod-auth` — public hosts + callback host alignment |
 | WS0.3 | Janua OIDC client audit | Redirect URIs for `phynd.app`, `crm.madfam.io`, `crm.phynd.app` |
 | WS0.4 | `admin@madfam.io` claims | Ensure Janua user has admin role/scopes accepted by Phynd middleware |
 | WS0.5 | Enclii domain reconciliation | Align junctions with `.enclii.yml` declared domains |
@@ -105,8 +103,8 @@ gantt
 #### Acceptance tests
 
 ```bash
-# Providers must not reference internal pod hostnames
-curl -sS https://phynd.app/api/auth/providers | jq -e '.janua.signinUrl | test("phynd.app|crm\\.")'
+pnpm verify:prod-auth
+# Providers must not reference internal pod hostnames; callbackUrl host must match request base
 
 # Staff login E2E (manual or Playwright with Janua test user)
 # admin@madfam.io → crm.madfam.io/overview → 200, dashboard renders
@@ -136,7 +134,7 @@ curl -sS https://phynd.app/api/auth/providers | jq -e '.janua.signinUrl | test("
 | WS1.4 | Honest Tezca status | **Shipped** |
 | WS1.5 | Federation tab loading UX | **Shipped** — `clients/[id]/loading.tsx` |
 | WS1.6 | Prod federation health banner on contact detail | **Shipped** |
-| WS1.7 | Document tenant DB strategy | Planned |
+| WS1.7 | Document tenant DB strategy | **Shipped** — [`TENANT_DATABASE_STRATEGY.md`](./TENANT_DATABASE_STRATEGY.md) |
 
 #### Acceptance tests
 
@@ -163,11 +161,12 @@ curl -sS https://phynd.app/api/auth/providers | jq -e '.janua.signinUrl | test("
 | ID | Task | Reference |
 | --- | --- | --- |
 | WS2.1 | `staging-phynd.app` ingress + TLS | PP.5 audit row 12 |
-| WS2.2 | Populate `phynd-crm-staging-secrets` | `infra/k8s/staging-secrets-template.yaml` |
+| WS2.2 | Populate `phynd-crm-staging-secrets` | **Shipped** template + validator + ExternalSecret keys (Selva/Tulana/tier) |
 | WS2.3 | Provider webhook dual-registration (prod + staging) | [`PP_5_PROVIDER_HANDOFF_MATRIX.md`](./PP_5_PROVIDER_HANDOFF_MATRIX.md) |
 | WS2.4 | Run probe batches A–D with evidence | `pnpm pp5:probe-batch` |
 | WS2.5 | Nightly masked prod→staging refresh | RFC 0001 row 19; interim `pp5-staging-refresh.yml` |
 | WS2.6 | `pnpm pp5:readiness --include-wave0` green | Closeout in [`PP5_CLOSEOUT_ACTIONS.md`](./PP5_CLOSEOUT_ACTIONS.md) |
+| WS2.7 | Pilot go-live runbook + pre-flight script | **Shipped** — [`runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md), `pnpm verify:pilot-go-live` |
 
 #### Exit criteria
 

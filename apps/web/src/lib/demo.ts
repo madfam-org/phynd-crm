@@ -10,6 +10,12 @@ export function isDemoSession(cookies: {
   return cookie?.value ?? null
 }
 
+/** Parse demo session id from a raw Cookie header (API routes / GraphQL). */
+export function getDemoSessionIdFromCookieHeader(cookieHeader: string): string | null {
+  const match = cookieHeader.match(new RegExp(`${DEMO_COOKIE_NAME}=([^;]+)`))
+  return match?.[1] ?? null
+}
+
 export function createDemoAuth(sessionId: string): AuthContext {
   return {
     userId: `demo-${sessionId}`,

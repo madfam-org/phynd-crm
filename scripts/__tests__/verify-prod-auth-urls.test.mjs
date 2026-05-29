@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { INTERNAL_HOST_RE, validateJanuaProviderUrls } from '../verify-prod-auth-urls.mjs'
+
+test('validateJanuaProviderUrls rejects internal pod hosts', () => {
+  const result = validateJanuaProviderUrls('https://crm.madfam.io', {
+    signinUrl: 'https://auth.madfam.io/signin',
+    callbackUrl: 'http://phynd-crm-web-abc:3000/api/auth/callback/janua',
+  })
+  assert.equal(result.ok, false)
+  assert.match(result.error, /Internal host leaked/)
+  assert.match('http://phynd-crm-web-abc:3000/x', INTERNAL_HOST_RE)
+})
+
+test('validateJanuaProviderUrls requires callback host to match request base', () => {
+  const result = validateJanuaProviderUrls('https://crm.madfam.io', {
+    signinUrl: 'https://auth.madfam.io/signin',
+    callbackUrl: 'https://phynd.app/api/auth/callback/janua',
+  })
+  assert.equal(result.ok, false)
+  assert.match(result.error, /Callback host mismatch/)
+})
+
+test('validateJanuaProviderUrls passes aligned public URLs', () => {
+  const result = validateJanuaProviderUrls('https://crm.madfam.io', {
+    signinUrl: 'https://auth.madfam.io/signin',
+    callbackUrl: 'https://crm.madfam.io/api/auth/callback/janua',
+  })
+  assert.equal(result.ok, true)
+  assert.equal(result.callbackUrl, 'https://crm.madfam.io/api/auth/callback/janua')
+})

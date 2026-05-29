@@ -38,6 +38,10 @@ const REQUIRED_NON_EMPTY = new Set([
   'COFORMA_WEBHOOK_SECRET',
   'CEQ_WEBHOOK_SECRET',
   'PHYND_ENGAGEMENT_EVENTS_SECRET',
+  'PHYND_CAMPAIGN_IMPORT_SECRET',
+  'SELVA_WEBHOOK_SECRET',
+  'PHYND_DEPLOYMENT_TIER',
+  'FEDERATION_SERVICE_USER_ID',
   'PHYNDCRM_OUTBOUND_SECRET',
   'KARAFIEL_WEBHOOK_SECRET',
   'KARAFIEL_API_URL',
@@ -67,6 +71,8 @@ const SECRET_MIN_LENGTH = new Map([
   ['COFORMA_WEBHOOK_SECRET', 32],
   ['CEQ_WEBHOOK_SECRET', 32],
   ['PHYND_ENGAGEMENT_EVENTS_SECRET', 32],
+  ['PHYND_CAMPAIGN_IMPORT_SECRET', 32],
+  ['SELVA_WEBHOOK_SECRET', 32],
   ['PHYNDCRM_OUTBOUND_SECRET', 32],
   ['KARAFIEL_WEBHOOK_SECRET', 32],
   ['PRAVARA_DISPATCH_SECRET', 32],
@@ -222,6 +228,8 @@ function validate(values, duplicates, templateKeys) {
     'COFORMA_WEBHOOK_SECRET',
     'CEQ_WEBHOOK_SECRET',
     'PHYND_ENGAGEMENT_EVENTS_SECRET',
+    'PHYND_CAMPAIGN_IMPORT_SECRET',
+    'SELVA_WEBHOOK_SECRET',
     'KARAFIEL_WEBHOOK_SECRET',
     'PHYNDCRM_OUTBOUND_SECRET',
     'PRAVARA_DISPATCH_SECRET',
@@ -288,6 +296,13 @@ function validate(values, duplicates, templateKeys) {
   if (redisUrl && !redisUrl.startsWith('redis://')) issues.push('REDIS_URL: must be a redis:// URL')
 
   if (values.get('NODE_ENV') !== 'production') issues.push('NODE_ENV: must be production')
+  if (values.get('PHYND_DEPLOYMENT_TIER') !== 'staging') {
+    issues.push('PHYND_DEPLOYMENT_TIER: must be staging')
+  }
+  const serviceUserId = values.get('FEDERATION_SERVICE_USER_ID') ?? ''
+  if (!serviceUserId.startsWith('service:')) {
+    issues.push('FEDERATION_SERVICE_USER_ID: must be a service:* machine principal')
+  }
   if (values.get('NEXT_PUBLIC_APP_URL') !== STAGING_APP_URL) {
     issues.push(`NEXT_PUBLIC_APP_URL: must be ${STAGING_APP_URL}`)
   }

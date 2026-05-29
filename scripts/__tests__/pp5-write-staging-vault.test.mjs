@@ -21,6 +21,8 @@ function valueFor(key, index) {
   if (key === 'NEXT_PUBLIC_APP_URL' || key === 'NEXTAUTH_URL') return 'https://staging-phynd.app'
   if (key === 'PORTAL_BASE_URL') return 'https://portal-staging-phynd.app'
   if (key === 'NODE_ENV') return 'production'
+  if (key === 'PHYND_DEPLOYMENT_TIER') return 'staging'
+  if (key === 'FEDERATION_SERVICE_USER_ID') return 'service:selva'
   if (key === 'WORKER_HEALTH_PORT') return '3001'
   if (key === 'EMAIL_ALLOWLIST_DOMAINS') return 'madfam.io'
 

@@ -58,6 +58,16 @@ const STATIC_CHECKS = [
     description: 'pp5 webhook batch script regression suite',
   },
   {
+    name: 'verify:pilot-go-live',
+    command: ['pnpm', 'verify:pilot-go-live'],
+    description: 'pilot pre-flight bundle (stability, migrations, staging audit, readiness)',
+  },
+  {
+    name: 'pp5:staging-audit',
+    command: ['node', 'scripts/pp5-staging-audit.mjs'],
+    description: 'staging template covers split-sensitive webhook secrets',
+  },
+  {
     name: 'ci:verify-gates',
     command: ['pnpm', 'ci:verify-gates'],
     description: 'CI wiring + e2e workflow contract',

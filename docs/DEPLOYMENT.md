@@ -55,7 +55,9 @@ listed in `.env.example`. Key variables:
 | `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`) | `secret` |
 | `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | `secret` |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | `secret` |
-| `FEDERATION_API_TOKEN` | Optional service-to-service token for internal tRPC reads | `secret` |
+| `FEDERATION_API_TOKEN` | Optional service-to-service token for Selva agent tRPC + GraphQL reads | `secret` |
+| `FEDERATION_SERVICE_USER_ID` | Machine principal id for service token (default `service:selva`) | `service:selva` |
+| `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks prod MADFAM URLs) | `production` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
 | `SENTRY_DSN` | Optional worker Sentry DSN | `https://...` |
 | `*_WEBHOOK_SECRET` | HMAC secrets for each provider | Unique per provider |
@@ -73,7 +75,7 @@ the public signin/callback URLs are verified.
 
 - `crm.madfam.io` resolves to tenant `madfam`; `crm.phynd.app` / `phynd.app` resolve to `phynd`.
 - `getDb(tenantId)` uses `DATABASE_URL` for `madfam` and `DATABASE_URL_<TENANT>` when set (e.g. `DATABASE_URL_PHYND`).
-- Until commercial DB split, both hosts may share `DATABASE_URL`; host-derived `tenantId` still scopes Redis cache keys.
+- See [`TENANT_DATABASE_STRATEGY.md`](./TENANT_DATABASE_STRATEGY.md) for pilot vs future commercial split.
 
 ## Deployment paths
 

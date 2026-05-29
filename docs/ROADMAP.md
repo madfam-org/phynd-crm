@@ -29,18 +29,7 @@ cross-platform fulfillment — not demo fixtures or silent mock fallbacks.
 | Human sales pilot (`crm.madfam.io`) | ~75% UI | auth URLs verified | ~50% |
 | Selva / AI sales copilot | ~40% | ~25% | ~30% |
 
-**Composite distance from north star:** ~**55–62%**.
-
-What works today: production infra, broad CRM surface, 6-provider federation
-pattern, 13 inbound webhooks, Tablaco reference engagement, public demo at
-`phynd.app`.
-
-What blocks “100% truthful”: prod Janua SSO gaps, host branding without data
-tenant isolation, mock federation fallback, incomplete webhook env-split,
-missing SKU model, Selva/Karafiel engagement events, narrow `FEDERATION_API_TOKEN`
-scopes for agents.
-
----
+**Composite distance from north star:** ~**55–62%** (code ~78–80% pilot-ready; ops execution remaining).
 
 ## Phase map
 
@@ -65,7 +54,7 @@ flowchart TB
 | **2** | Engagement timeline ecosystem-complete | Selva + Karafiel engagement events; outbound split to staging Karafiel/Cotiza/Dhanam | 2026-Q3 |
 | **3** | SKU-aware campaigns | Tulana import, SKU schema, review UI, buyer-signal export | 2026-Q3 |
 | **4** | Sales intelligence at scale | Identity graph hardening, cross-SKU analytics, Treasury Hunter prod gate | 2026-Q4 |
-| **5** | Selva pilot | Expanded service auth + agent tool manifest | Partial — scopes expanded 2026-05-28 |
+| **5** | Selva pilot | Service auth, agent manifest, integration probe, pilot runbook | **Shipped** (code) — ops per [`runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) |
 
 Detailed workstreams, owners, and acceptance tests live in
 [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md).
@@ -80,7 +69,7 @@ Detailed workstreams, owners, and acceptance tests live in
 | ID | Work item | Status | Doc / code |
 | --- | --- | --- | --- |
 | 0.1 | Deploy public-origin Auth.js normalization | Code ready | `apps/web/src/lib/auth/request.ts` |
-| 0.2 | Verify `https://phynd.app/api/auth/providers` returns public hosts | **Pass** (2026-05-28 — `pnpm verify:prod-auth`) |
+| 0.2 | Verify `https://phynd.app/api/auth/providers` returns public hosts + callback host match | **Pass** (2026-05-28 — `pnpm verify:prod-auth`) |
 | 0.3 | Reconcile Janua OIDC client (redirect URI, secret, token auth) | Open | Janua ops |
 | 0.4 | Confirm `admin@madfam.io` tenant/admin claims in Janua | Open | `PHYND_APP_PRODUCTION_ACTIVATION_2026-05-14.md` |
 | 0.5 | Reconcile Enclii junctions vs `.enclii.yml` domains | Open | Evidence § Enclii junctions |
@@ -97,8 +86,8 @@ Detailed workstreams, owners, and acceptance tests live in
 | 1.1 | Wire host-derived `tenantId` in tRPC context (`crm.madfam.io` → `madfam`) | **Shipped** (2026-05-28) |
 | 1.2 | Surface per-provider federation status in contact UI (no blank tabs) | **Shipped** — health banner + `loading.tsx` |
 | 1.3 | Disable `tryGetMockFederationData` when `NODE_ENV=production` | **Shipped** (2026-05-28) |
-| 1.4 | Document `DATABASE_URL_MADFAM` path; keep single DB until Phase 4 split | Planned |
-| 1.5 | Complete PP.5 staging ingress + provider webhook env split | In progress |
+| 1.4 | Document `DATABASE_URL_MADFAM` path; keep single DB until Phase 4 split | **Shipped** — [`TENANT_DATABASE_STRATEGY.md`](./TENANT_DATABASE_STRATEGY.md) |
+| 1.5 | Complete PP.5 staging ingress + provider webhook env split | In progress — see [`runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) |
 | 1.6 | Nightly masked prod→staging refresh (or approved equivalent) | Deferred |
 
 See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
@@ -201,7 +190,9 @@ Tracked from ecosystem audit 2026-04-23; not phase-gating but required for sales
 | --- | --- |
 | [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md) | Full workstream plan, acceptance tests, owners |
 | [`PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md) | Staging pipeline and webhook split |
+| [`runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) | Enclii-first pilot checklist (migrate, secrets, webhooks, Selva) |
 | [`CLIENT_PROJECT_ONBOARDING.md`](./CLIENT_PROJECT_ONBOARDING.md) | Engagement onboarding operator flow |
+| [`runbooks/TABLACO_ENGAGEMENT.md`](./runbooks/TABLACO_ENGAGEMENT.md) | Reference engagement (Tablaco) |
 | [`TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md`](./TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md) | SKU campaign contract |
 | [`ENGAGEMENT_EVENT_TAXONOMY.md`](./ENGAGEMENT_EVENT_TAXONOMY.md) | Cross-producer milestone vocabulary |
 | [`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md) | Latest prod verification |

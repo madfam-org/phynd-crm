@@ -7,6 +7,51 @@
  *   node scripts/verify-prod-auth-urls.mjs --base https://crm.madfam.io
  */
 
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+export const INTERNAL_HOST_RE = /phynd-crm-web|\.svc\.|:\d{4,5}\//i
+
+/** @param {string} base */
+/** @param {{ signinUrl?: string, callbackUrl?: string }} janua */
+export function validateJanuaProviderUrls(base, janua) {
+  if (!janua?.signinUrl && !janua?.callbackUrl) {
+    return { ok: false, error: 'Missing janua provider in response' }
+  }
+
+  const urls = [janua.signinUrl, janua.callbackUrl].filter(Boolean)
+  const leaking = urls.filter((u) => INTERNAL_HOST_RE.test(String(u)))
+
+  if (leaking.length > 0) {
+    return {
+      ok: false,
+      error: `Internal host leaked in provider URLs: ${leaking.join(', ')}`,
+    }
+  }
+
+  const baseHostname = new URL(base).hostname
+  if (janua.callbackUrl) {
+    let callbackHostname
+    try {
+      callbackHostname = new URL(janua.callbackUrl).hostname
+    } catch {
+      return { ok: false, error: `Invalid callbackUrl: ${janua.callbackUrl}` }
+    }
+    if (callbackHostname !== baseHostname) {
+      return {
+        ok: false,
+        error: `Callback host mismatch: expected ${baseHostname}, got ${callbackHostname}`,
+      }
+    }
+  }
+
+  if (janua.signinUrl && !String(janua.signinUrl).startsWith('https://')) {
+    return { ok: false, error: 'signinUrl must use https' }
+  }
+
+  return { ok: true, signinUrl: janua.signinUrl, callbackUrl: janua.callbackUrl }
+}
+
 const DEFAULT_BASES = ['https://phynd.app', 'https://crm.madfam.io', 'https://crm.phynd.app']
 
 function parseArgs(argv) {
@@ -18,8 +63,6 @@ function parseArgs(argv) {
   }
   return bases.length > 0 ? bases : DEFAULT_BASES
 }
-
-const INTERNAL_HOST_RE = /phynd-crm-web|\.svc\.|:\d{4,5}\//i
 
 async function checkBase(base) {
   const url = `${base}/api/auth/providers`
@@ -33,23 +76,12 @@ async function checkBase(base) {
     return { base, ok: false, error: `Non-JSON response (${res.status})` }
   }
 
-  const janua = json?.janua
-  if (!janua) {
-    return { base, ok: false, error: 'Missing janua provider in response' }
+  const result = validateJanuaProviderUrls(base, json?.janua)
+  if (!result.ok) {
+    return { base, ok: false, error: result.error }
   }
 
-  const urls = [janua.signinUrl, janua.callbackUrl].filter(Boolean)
-  const leaking = urls.filter((u) => INTERNAL_HOST_RE.test(String(u)))
-
-  if (leaking.length > 0) {
-    return {
-      base,
-      ok: false,
-      error: `Internal host leaked in provider URLs: ${leaking.join(', ')}`,
-    }
-  }
-
-  return { base, ok: true, signinUrl: janua.signinUrl }
+  return { base, ok: true, signinUrl: result.signinUrl, callbackUrl: result.callbackUrl }
 }
 
 async function main() {
@@ -74,4 +106,6 @@ async function main() {
   process.exit(failed > 0 ? 1 : 0)
 }
 
-main()
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main()
+}

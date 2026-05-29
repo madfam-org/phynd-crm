@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import {
   baseUrlFromHealthUrl,
+  checkHealth,
   checkHealthWithRetries,
   parsePostDeployArgs,
   runPostDeployChecks,
@@ -21,6 +22,12 @@ test('parsePostDeployArgs accepts retry flags', () => {
   const options = parsePostDeployArgs(['--retries', '6', '--retry-delay-ms', '20000'])
   assert.equal(options.retries, 6)
   assert.equal(options.retryDelayMs, 20000)
+})
+
+test('parsePostDeployArgs ignores pnpm separator --', () => {
+  const options = parsePostDeployArgs(['--', '--dry-run', '--retries', '3'])
+  assert.equal(options.dryRun, true)
+  assert.equal(options.retries, 3)
 })
 
 test('baseUrlFromHealthUrl strips /api/health suffix', () => {
@@ -42,6 +49,21 @@ test('checkHealthWithRetries succeeds after transient failures', async () => {
     const result = await checkHealthWithRetries('https://staging-phynd.app', 6, 0)
     assert.equal(result.ok, true)
     assert.equal(result.attempts, 3)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('checkHealth surfaces network errors', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => {
+    throw new TypeError('fetch failed')
+  }
+
+  try {
+    const result = await checkHealth('https://staging-phynd.app')
+    assert.equal(result.ok, false)
+    assert.match(result.error ?? '', /Network error/)
   } finally {
     globalThis.fetch = originalFetch
   }

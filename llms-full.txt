@@ -56,7 +56,21 @@ to supersede older 2026-05-14 remediation notes when they conflict.
 - `docs/ROADMAP.md` — canonical phase map (Phases 0–5), scorecard, feature-flag rollout schedule.
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — workstreams WS0–WS9, acceptance tests, pilot milestones M1–M5, risk register.
 
-MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~25–35% complete as of 2026-05-28.
+MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-ready as of 2026-05-29; live pilot blocked on Enclii deploy, migrate, secrets, webhooks, OIDC.
+
+## Pilot ops scripts (2026-05-29)
+
+| Script | When |
+| --- | --- |
+| `pnpm verify:pilot-go-live` | Pre-flight before any tier deploy (static checks only) |
+| `pnpm verify:post-deploy` | After ArgoCD sync — live `/api/health` (+ optional auth/Selva probes) |
+| `pnpm db:migrate:tier` | Artifact check (`--check-only`) or apply migrations with `DATABASE_URL` |
+| `pnpm verify:selva-agent` | After `FEDERATION_API_TOKEN` is set on target tier |
+
+Promotion/rollback workflows (`promote-to-prod.yml`, `rollback-prod.yml`) call
+`scripts/verify-post-deploy.mjs` with 6×20s retries instead of raw `curl`.
+
+Runbook: `docs/runbooks/PILOT_GO_LIVE.md`
 
 ## Maintenance
 

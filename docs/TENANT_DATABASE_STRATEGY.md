@@ -38,3 +38,10 @@ tenant id on rows.
 - Row-level `tenant_id` column enforcement across CRM tables (flag: `multiTenancy`).
 
 See [`docs/runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) for migrate + secret steps.
+
+Apply migrations on a tier:
+
+```bash
+pnpm db:migrate:tier -- --check-only
+DATABASE_URL=postgresql://... pnpm db:migrate:tier -- --tier staging
+```

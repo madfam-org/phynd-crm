@@ -22,6 +22,11 @@ before raw infrastructure tools. Direct `kubectl`, `helm`, SSH, provider CLIs,
 
 ## Pilot readiness scripts
 
+- `pnpm verify:pilot-go-live` — full pre-flight bundle (PP5 stability, migrations, staging audit, pilot readiness, post-deploy dry-run)
+- `pnpm verify:post-deploy` — live deploy smoke after ArgoCD sync (`CRM_BASE_URL`; optional `--with-prod-auth`, `--with-selva-agent`)
+- `pnpm db:migrate:tier` — verify migration artifacts (`--check-only`) or apply via `DATABASE_URL`
 - `pnpm verify:prod-auth` — public sign-in URL hygiene on prod hosts
-- `pnpm verify:migrations` — Tulana/SKU migration artifacts present
-- `pnpm verify:pilot-readiness` — bundles the above + PP5 webhook probe lanes
+- `pnpm verify:migrations` — Tulana/SKU migration artifacts present through `0010`
+- `pnpm verify:pilot-readiness` — bundles prod auth + migrations + PP5 webhook probe lanes + Selva probe
+- `pnpm verify:selva-agent` — Selva service-token integration smoke test
+- Ops runbook: `docs/runbooks/PILOT_GO_LIVE.md`

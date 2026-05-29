@@ -86,7 +86,7 @@ The outstanding gaps are now:
 | 10 | ArgoCD staging Application | `phynd-crm-staging` App watches `overlays/staging/` | In-repo staging application manifest exists | Aligned | PP.5b. |
 | 11 | Staging namespace | `<service>-staging` | `phynd-crm-staging` namespace added | Aligned | PP.5b. |
 | 12 | Staging subdomain / ingress | `staging-<service>.<domain>` | Ingress not added here; staging route/tunnel still pending | Deferred | Cloudflare ops still required. |
-| 13 | Staging smoke test | Curl retry against `staging-<domain>/health` | 6×20s retries against `https://staging-phynd.app/api/health` in promote path | Aligned | PP.5c. |
+| 13 | Staging smoke test | Structured health retry against staging base URL | `verify-post-deploy.mjs` with 6×20s retries in `promote-to-prod.yml` | Aligned | PP.5c; validates `status: ok` + `service: phynd-crm`. |
 | 14 | Replica counts (staging) | 1 per deploy | `replicas: 1` for web + worker in overlay patches | Aligned | PP.5b. |
 | 15 | Replica counts (prod) | 2-N per deploy, HPAs tuned | web + worker both `replicas: 1` (deliberate cost choice for a low-traffic internal-ish CRM) | Aligned enough (intentional deviation) | Keep. Flag for review when customer count grows. |
 | 16 | Staging namespace convention | `<service>-staging` | PP.5b target: `phynd-crm-staging` | Aligned (by planning) | Document. |

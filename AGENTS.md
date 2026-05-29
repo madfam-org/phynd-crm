@@ -363,8 +363,8 @@ Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
 - `.github/workflows/e2e.yml` — Playwright with Postgres/Redis services
 - `.github/workflows/deploy-web.yml` — Build + cosign sign + push web image to GHCR; updates `infra/k8s/overlays/staging/kustomization.yaml` digest; Enclii lifecycle callback
 - `.github/workflows/deploy-worker.yml` — Build + cosign sign + push worker image to GHCR; updates `infra/k8s/overlays/staging/kustomization.yaml` digest; Enclii lifecycle callback
-- `.github/workflows/promote-to-prod.yml` — Manual staging→production promotion; enforces 30m soak + staging smoke before kustomization sync
-- `.github/workflows/rollback-prod.yml` — Manual rollback to previous production digests for web, worker, or both
+- `.github/workflows/promote-to-prod.yml` — Manual staging→production promotion; enforces 30m soak + `verify-post-deploy` staging smoke (6×20s) before kustomization sync
+- `.github/workflows/rollback-prod.yml` — Manual rollback to previous production digests; re-runs `verify-post-deploy` against prod health URL
 
 ## Deployment Pipeline (dev → staging → prod)
 
@@ -450,8 +450,8 @@ promotion:
 |---|---|---|
 | `deploy-web.yml` | push to main (apps/web/**, packages/**, pnpm-lock.yaml) | Builds web image, cosign-signs, commits digest to `infra/k8s/overlays/staging/kustomization.yaml` |
 | `deploy-worker.yml` | push to main (apps/worker/**, packages/**, pnpm-lock.yaml) | Same shape for worker image |
-| `promote-to-prod.yml` | manual | Copies staged digests into `infra/k8s/production/kustomization.yaml` after soak + smoke |
-| `rollback-prod.yml` | manual | Rollbacks target digest(s) in `infra/k8s/production/kustomization.yaml` and re-runs production smoke |
+| `promote-to-prod.yml` | manual | Copies staged digests into `infra/k8s/production/kustomization.yaml` after soak + `verify-post-deploy` smoke |
+| `rollback-prod.yml` | manual | Rollbacks target digest(s) in production kustomization; `verify-post-deploy` prod health recheck |
 
 ## Local Development
 ```bash

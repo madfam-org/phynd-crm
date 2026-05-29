@@ -113,14 +113,15 @@ Tool manifest: [`SELVA_CRM_AGENT_TOOLS.md`](../SELVA_CRM_AGENT_TOOLS.md)
 
 ## Wave 6 — Production promotion
 
-Phynd CRM uses **manual promotion** (30m soak + staging smoke):
+Phynd CRM uses **manual promotion** (30m soak + staging smoke via `verify-post-deploy`):
 
-1. Confirm staging smoke passed in `promote-to-prod.yml` prerequisites.
+1. Confirm staging smoke passed in `promote-to-prod.yml` prerequisites (6×20s health retries).
 2. Run `.github/workflows/promote-to-prod.yml` via GitHub Actions.
-3. Run `pnpm db:migrate` against production database.
-4. Re-run `pnpm verify:prod-auth` and spot-check Tablaco contact federation tabs (live or explicit `unavailable` — never silent mocks in prod).
+3. Run `DATABASE_URL=<prod> pnpm db:migrate:tier` against production database.
+4. `CRM_BASE_URL=https://crm.madfam.io pnpm verify:post-deploy -- --with-prod-auth`
+5. Spot-check Tablaco contact federation tabs (live or explicit `unavailable` — never silent mocks in prod).
 
-Emergency rollback: `.github/workflows/rollback-prod.yml`
+Emergency rollback: `.github/workflows/rollback-prod.yml` (production smoke via `verify-post-deploy`, default `https://crm.madfam.io/api/health`)
 
 ## Feature flag rollout (post-migrate)
 
@@ -133,6 +134,7 @@ Emergency rollback: `.github/workflows/rollback-prod.yml`
 
 ## Exit criteria
 
+- [ ] `CRM_BASE_URL=<tier> pnpm verify:post-deploy` passes (health `status: ok`)
 - [ ] `admin@madfam.io` SSO on `crm.madfam.io` without callback error
 - [ ] Migrations `0008`–`0010` applied on target DB
 - [ ] Staging webhook probes return 2xx for Selva + Tulana lanes

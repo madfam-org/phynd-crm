@@ -40,6 +40,8 @@ spec:
             - secretRef:
                 name: phynd-crm-secrets
             - secretRef:
+                name: phynd-crm-pilot-overlay
+            - secretRef:
                 name: phynd-acca-secrets
                 optional: true
           resources:

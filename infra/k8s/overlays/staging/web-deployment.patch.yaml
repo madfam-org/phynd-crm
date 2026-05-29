@@ -12,5 +12,7 @@ spec:
             - secretRef:
                 name: phynd-crm-staging-secrets
             - secretRef:
+                name: phynd-crm-staging-pilot-overlay
+            - secretRef:
                 name: phynd-acca-staging-secrets
                 optional: true

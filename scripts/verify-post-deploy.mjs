@@ -113,11 +113,11 @@ export async function checkHealthWithRetries(baseUrl, retries, retryDelayMs) {
   return { ok: false, error: lastError, attempts: retries }
 }
 
-function runNode(script, args = []) {
+function runNode(script, args = [], extraEnv = {}) {
   const result = spawnSync('node', [script, ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env },
+    env: { ...process.env, ...extraEnv },
   })
   const output = `${result.stdout || ''}${result.stderr || ''}`.trim()
   return { ok: result.status === 0, output, status: result.status ?? 1 }
@@ -164,7 +164,14 @@ export async function runPostDeployChecks(options, env = process.env) {
         error: 'FEDERATION_API_TOKEN required for --with-selva-agent',
       }
     }
-    const selva = runNode('scripts/verify-selva-agent-integration.mjs', ['--json'])
+    if (!env.SELVA_SEARCH_QUERY?.trim() && baseUrl.includes('crm.madfam.io')) {
+      env.SELVA_SEARCH_QUERY = 'Avala'
+    }
+    const selva = runNode('scripts/verify-selva-agent-integration.mjs', ['--json'], {
+      FEDERATION_API_TOKEN: token,
+      CRM_BASE_URL: baseUrl,
+      SELVA_SEARCH_QUERY: env.SELVA_SEARCH_QUERY,
+    })
     let selvaOk = selva.ok
     try {
       const parsed = JSON.parse(selva.output)

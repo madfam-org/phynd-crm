@@ -53,6 +53,11 @@ listed in `.env.example`. Key variables:
 | `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | Secret-store value |
 | `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`) | Secret-store value |
+| `TULANA_API_BASE_URL` | Tulana API base URL used for commercial GA evidence write-back | `https://tulana-api.madfam.io/api/v1` |
+| `TULANA_COMMERCIAL_GA_EVIDENCE_TOKEN` | Bearer token used by PhyndCRM to write G4 evidence into Tulana after approved consented sends | Secret-store value |
+| `TULANA_COMMERCIAL_GA_ENVIRONMENT` | Tulana evidence environment for production SKU readiness writes | `production` |
+| `TULANA_COMMERCIAL_GA_PERIOD` | Tulana evidence period for the active commercial GA campaign window | `2026-06` |
+| `PHYND_CRM_PUBLIC_URL` | Public PhyndCRM URL used in Tulana evidence links; use `crm.madfam.io` for the MADFAM tenant slice | `https://phynd.app` |
 | `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | Secret-store value |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | Secret-store value |
 | `FEDERATION_API_TOKEN` | Optional service-to-service token for Selva agent tRPC + GraphQL reads | Secret-store value |

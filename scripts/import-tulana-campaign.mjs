@@ -10,7 +10,7 @@ function usage() {
       '  PHYND_CAMPAIGN_IMPORT_SECRET=... node scripts/import-tulana-campaign.mjs <payload.json>',
       '',
       'Optional env:',
-      '  PHYND_CAMPAIGN_IMPORT_URL=https://phynecrm.madfam.io/api/v1/campaigns/import',
+      '  PHYND_CAMPAIGN_IMPORT_URL=https://crm.madfam.io/api/v1/campaigns/import',
       '  PHYND_WEBHOOK_HOST=crm.madfam.io',
     ].join('\n'),
   )
@@ -30,7 +30,7 @@ if (!secret) {
 
 const url =
   process.env.PHYND_CAMPAIGN_IMPORT_URL ||
-  'https://phynecrm.madfam.io/api/v1/campaigns/import'
+  'https://crm.madfam.io/api/v1/campaigns/import'
 const host = process.env.PHYND_WEBHOOK_HOST
 const raw = fs.readFileSync(payloadPath, 'utf8')
 const parsed = JSON.parse(raw)

@@ -30,9 +30,9 @@ export PHYND_G4_APPROVAL_CONFIRMATION=approved
 Optional:
 
 ```sh
-export PHYND_CAMPAIGN_IMPORT_URL=https://phynecrm.madfam.io/api/v1/campaigns/import
-export PHYND_CAMPAIGN_REVIEW_URL=https://phynecrm.madfam.io/api/v1/campaigns/review
-export PHYND_CAMPAIGN_SEND_URL=https://phynecrm.madfam.io/api/v1/campaigns/send
+export PHYND_CAMPAIGN_IMPORT_URL=https://crm.madfam.io/api/v1/campaigns/import
+export PHYND_CAMPAIGN_REVIEW_URL=https://crm.madfam.io/api/v1/campaigns/review
+export PHYND_CAMPAIGN_SEND_URL=https://crm.madfam.io/api/v1/campaigns/send
 export PHYND_WEBHOOK_HOST=crm.madfam.io
 ```
 

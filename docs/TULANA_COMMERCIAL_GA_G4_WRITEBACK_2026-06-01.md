@@ -20,7 +20,7 @@ TULANA_API_BASE_URL=https://tulana-api.madfam.io/api/v1
 TULANA_COMMERCIAL_GA_EVIDENCE_TOKEN=...
 TULANA_COMMERCIAL_GA_ENVIRONMENT=production
 TULANA_COMMERCIAL_GA_PERIOD=2026-06
-PHYND_CRM_PUBLIC_URL=https://phynecrm.madfam.io
+PHYND_CRM_PUBLIC_URL=https://crm.madfam.io
 ```
 
 Do not print or store the Tulana evidence token.

@@ -9,7 +9,7 @@ function usage() {
       '  PHYND_CAMPAIGN_IMPORT_SECRET=... node scripts/send-tulana-campaign.mjs <campaign_id> <contact_id>',
       '',
       'Optional env:',
-      '  PHYND_CAMPAIGN_SEND_URL=https://phynecrm.madfam.io/api/v1/campaigns/send',
+      '  PHYND_CAMPAIGN_SEND_URL=https://crm.madfam.io/api/v1/campaigns/send',
       '  PHYND_WEBHOOK_HOST=crm.madfam.io',
     ].join('\n'),
   )
@@ -30,7 +30,7 @@ if (!secret) {
 
 const url =
   process.env.PHYND_CAMPAIGN_SEND_URL ||
-  'https://phynecrm.madfam.io/api/v1/campaigns/send'
+  'https://crm.madfam.io/api/v1/campaigns/send'
 const host = process.env.PHYND_WEBHOOK_HOST
 const body = JSON.stringify({ campaign_id: campaignId, contact_id: contactId })
 const signature = crypto.createHmac('sha256', secret).update(body).digest('hex')

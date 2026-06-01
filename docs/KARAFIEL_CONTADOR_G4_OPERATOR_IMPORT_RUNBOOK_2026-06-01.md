@@ -29,7 +29,7 @@ node scripts/import-tulana-campaign.mjs \
 Optional overrides:
 
 ```bash
-PHYND_CAMPAIGN_IMPORT_URL=https://phynecrm.madfam.io/api/v1/campaigns/import
+PHYND_CAMPAIGN_IMPORT_URL=https://crm.madfam.io/api/v1/campaigns/import
 PHYND_WEBHOOK_HOST=crm.madfam.io
 ```
 

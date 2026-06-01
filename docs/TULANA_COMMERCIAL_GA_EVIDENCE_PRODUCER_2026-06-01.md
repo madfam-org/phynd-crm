@@ -27,7 +27,7 @@ POST /api/v1/madfam-skus/{product_slug}/{tier_slug}/commercial-ga-evidence/
   "status": "passed",
   "confidence": "high",
   "evidence_type": "phynecrm_consent_send_gate",
-  "evidence_url": "https://phynecrm.madfam.io/evidence/campaigns/{campaign_id}/send-gate",
+  "evidence_url": "https://crm.madfam.io/evidence/campaigns/{campaign_id}/send-gate",
   "source_system": "phynd-crm",
   "source_record_id": "{campaign_id}",
   "metadata": {

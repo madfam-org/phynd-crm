@@ -14,9 +14,9 @@ function usage() {
       '  PHYND_G4_APPROVAL_CONFIRMATION=approved',
       '',
       'Optional env:',
-      '  PHYND_CAMPAIGN_IMPORT_URL=https://phynecrm.madfam.io/api/v1/campaigns/import',
-      '  PHYND_CAMPAIGN_REVIEW_URL=https://phynecrm.madfam.io/api/v1/campaigns/review',
-      '  PHYND_CAMPAIGN_SEND_URL=https://phynecrm.madfam.io/api/v1/campaigns/send',
+      '  PHYND_CAMPAIGN_IMPORT_URL=https://crm.madfam.io/api/v1/campaigns/import',
+      '  PHYND_CAMPAIGN_REVIEW_URL=https://crm.madfam.io/api/v1/campaigns/review',
+      '  PHYND_CAMPAIGN_SEND_URL=https://crm.madfam.io/api/v1/campaigns/send',
       '  PHYND_WEBHOOK_HOST=crm.madfam.io',
       '  PHYND_G4_CAMPAIGN_ID=<campaign id if import response does not return one>',
     ].join('\n'),
@@ -120,13 +120,13 @@ async function main() {
   const secret = requireEnv('PHYND_CAMPAIGN_IMPORT_SECRET')
   const importUrl = optionalEnv(
     'PHYND_CAMPAIGN_IMPORT_URL',
-    'https://phynecrm.madfam.io/api/v1/campaigns/import',
+    'https://crm.madfam.io/api/v1/campaigns/import',
   )
   const reviewUrl = optionalEnv(
     'PHYND_CAMPAIGN_REVIEW_URL',
-    'https://phynecrm.madfam.io/api/v1/campaigns/review',
+    'https://crm.madfam.io/api/v1/campaigns/review',
   )
-  const sendUrl = optionalEnv('PHYND_CAMPAIGN_SEND_URL', 'https://phynecrm.madfam.io/api/v1/campaigns/send')
+  const sendUrl = optionalEnv('PHYND_CAMPAIGN_SEND_URL', 'https://crm.madfam.io/api/v1/campaigns/send')
 
   const rawPayload = fs.readFileSync(payloadPath, 'utf8')
   const importBody = JSON.stringify(JSON.parse(rawPayload))

@@ -24,7 +24,7 @@ function stripTrailingSlash(value: string): string {
 }
 
 function resolveEvidenceUrl(campaignId: string): string {
-  const baseUrl = process.env.PHYND_CRM_PUBLIC_URL ?? 'https://phynecrm.madfam.io'
+  const baseUrl = process.env.PHYND_CRM_PUBLIC_URL ?? 'https://phynd.app'
   return `${stripTrailingSlash(baseUrl)}/campaigns?campaign_id=${encodeURIComponent(campaignId)}`
 }
 

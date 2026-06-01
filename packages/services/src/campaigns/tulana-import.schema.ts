@@ -46,10 +46,10 @@ export const tulanaCampaignImportSchema = z.object({
   commercial_ga_status: z.enum(['blocked', 'candidate', 'ga_ready', 'paused']).optional(),
   commercial_ga_gate_version: z.string().max(32).optional(),
   commercial_ga_environment: z.string().max(32).optional(),
-    commercial_ga_period: z
-      .string()
-      .regex(/^\d{4}-\d{2}$/)
-      .optional(),
+  commercial_ga_period: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional(),
   audience_id: z.string().max(255).optional(),
   consent_basis: z.string().max(255).optional(),
   human_approver_email: z.string().email().optional(),

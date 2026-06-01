@@ -101,7 +101,11 @@ export async function recordTulanaCommercialGaG4Evidence(
   const completeApproval = Boolean(audienceId && consentBasis)
   const config = resolveTulanaConfig(input.tulanaMetadata)
   if (!config.ok) return { attempted: false, status: 'skipped', reason: config.reason }
-  const body = { ...buildEvidenceBody(input, completeApproval), environment: config.environment, period: config.period }
+  const body = {
+    ...buildEvidenceBody(input, completeApproval),
+    environment: config.environment,
+    period: config.period,
+  }
 
   try {
     const response = await fetch(

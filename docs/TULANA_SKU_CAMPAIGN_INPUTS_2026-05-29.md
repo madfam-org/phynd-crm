@@ -120,3 +120,9 @@ pseudonymized buyer-signal evidence for pricing and GA readiness.
 - Guardrail test that non-GA copy cannot be approved as GA.
 - Consent/suppression send-block test.
 - Feedback event export test with PII redaction.
+
+## Commercial GA hard gate addendum - 2026-06-01
+
+Paid revenue campaigns must now also satisfy [Commercial GA campaign SKU gates](./COMMERCIAL_GA_CAMPAIGN_SKU_GATES_2026-06-01.md). PhyndCRM must not send or approve paid-GA copy for a SKU unless `commercial_ga_status=ga_ready` and gates G0-G9 have evidence references. `candidate` SKUs are limited to discovery, waitlist, or manually controlled warm-pilot workflows.
+
+Initial first-pesos campaign candidates are `karafiel__contador` and `coforma__startup`; both remain campaign candidates until checkout, ledger, entitlement, BBVA payout, and Converge revenue evidence are proven.

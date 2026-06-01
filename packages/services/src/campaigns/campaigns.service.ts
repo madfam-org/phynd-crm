@@ -5,6 +5,60 @@ import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
 import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
 import { type CampaignSendEligibility, checkCampaignSendEligibility } from './campaign-send-gate'
+import { recordTulanaCommercialGaG4Evidence } from './tulana-commercial-ga-evidence'
+
+const PAID_GA_CAMPAIGN_TYPES = new Set([
+  'paid_ga',
+  'paid_revenue',
+  'revenue_campaign',
+  'campaign_ga',
+])
+
+const CANDIDATE_ALLOWED_CAMPAIGN_TYPES = new Set([
+  'controlled_pilot',
+  'warm_pilot',
+  'discovery',
+  'waitlist',
+])
+
+function metadataString(metadata: Record<string, unknown> | null, key: string): string | null {
+  const value = metadata?.[key]
+  return typeof value === 'string' ? value : null
+}
+
+function assertCommercialGaCampaignAllowed(campaign: {
+  gaReadiness: string | null
+  tulanaMetadata: Record<string, unknown> | null
+}) {
+  const commercialGaStatus = metadataString(campaign.tulanaMetadata, 'commercial_ga_status')
+  const campaignType = metadataString(campaign.tulanaMetadata, 'campaign_type')
+
+  if (campaign.gaReadiness === 'not_ready') {
+    throw new ValidationError(
+      'Cannot approve send: Tulana marks this SKU as not_ready. Reject or wait for readiness evidence.',
+    )
+  }
+
+  if (commercialGaStatus === 'blocked' || commercialGaStatus === 'paused') {
+    throw new ValidationError(
+      `Cannot approve send: Tulana commercial GA status is ${commercialGaStatus}.`,
+    )
+  }
+
+  if (campaignType && PAID_GA_CAMPAIGN_TYPES.has(campaignType) && commercialGaStatus !== 'ga_ready') {
+    throw new ValidationError('Cannot approve paid-GA campaign unless Tulana status is ga_ready.')
+  }
+
+  if (
+    commercialGaStatus === 'candidate' &&
+    campaignType &&
+    !CANDIDATE_ALLOWED_CAMPAIGN_TYPES.has(campaignType)
+  ) {
+    throw new ValidationError(
+      'Candidate SKUs are limited to controlled_pilot, warm_pilot, discovery, or waitlist campaigns.',
+    )
+  }
+}
 
 export type CampaignListFilters = {
   status?: string
@@ -152,11 +206,7 @@ export class CampaignsService {
       return this.update(id, { status: 'rejected' })
     }
 
-    if (campaign.gaReadiness === 'not_ready') {
-      throw new ValidationError(
-        'Cannot approve send: Tulana marks this SKU as not_ready. Reject or wait for readiness evidence.',
-      )
-    }
+    assertCommercialGaCampaignAllowed(campaign)
 
     return this.update(id, { status: 'approved' })
   }
@@ -183,6 +233,7 @@ export class CampaignsService {
     if (campaign.status !== 'approved' && campaign.status !== 'scheduled') {
       throw new ValidationError('Campaign must be approved or scheduled before send')
     }
+    assertCommercialGaCampaignAllowed(campaign)
 
     const eligibility = await checkCampaignSendEligibility(this.ctx, { campaignId, contactId })
     const signalService = new CampaignBuyerSignalService(this.ctx)
@@ -224,6 +275,13 @@ export class CampaignsService {
     })
 
     await this.update(campaignId, { status: 'sent' })
+    await recordTulanaCommercialGaG4Evidence({
+      campaignId,
+      contactId,
+      skuKey: campaign.skuKey,
+      channel: eligibility.channel,
+      tulanaMetadata: campaign.tulanaMetadata,
+    })
 
     return {
       outcome: 'sent' as const,

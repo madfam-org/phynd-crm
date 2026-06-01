@@ -1,0 +1,89 @@
+{
+  "idempotency_key": "karafiel-contador-first-pesos-2026-06-v1",
+  "source": "tulana",
+  "orchestrator": "selva",
+  "sku_key": "karafiel__contador",
+  "platform": "Karafiel",
+  "audience": "Mexico-based accountants serving SMBs through warm, consented relationships",
+  "ga_readiness": "near_ready",
+  "commercial_ga_status": "candidate",
+  "commercial_ga_gate_version": "2026-06-01",
+  "commercial_ga_environment": "production",
+  "commercial_ga_period": "2026-06",
+  "audience_id": "warm-accountants-mx-first-pesos-2026-06",
+  "consent_basis": "warm_relationship_or_explicit_opt_in_required_per_contact",
+  "campaign_type": "controlled_pilot",
+  "value_prop": "Karafiel Contador is available as a controlled paid pilot for accountants managing recurring CFDI/fiscal workflows for SMB clients.",
+  "gate_evidence": [
+    {
+      "gate_id": "G0",
+      "status": "passed",
+      "evidence_url": "https://api.dhan.am/v1/billing/catalog",
+      "source_system": "dhanam",
+      "source_record_id": "public_catalog"
+    },
+    {
+      "gate_id": "G1",
+      "status": "passed",
+      "evidence_url": "/api/v1/admin/dhanam-pricing-proposal/?refresh=true",
+      "source_system": "tulana",
+      "source_record_id": "pricing_proposal"
+    },
+    {
+      "gate_id": "G2",
+      "status": "passed",
+      "evidence_url": "/api/v1/admin/selva-handoff-readiness/",
+      "source_system": "selva",
+      "source_record_id": "applied_to_dhanam"
+    },
+    {
+      "gate_id": "G3",
+      "status": "passed",
+      "evidence_url": "repo://selva-office/docs/KARAFIEL_CONTADOR_G3_CAMPAIGN_PROOF_PACK_2026-06.md",
+      "source_system": "selva",
+      "source_record_id": "selva-proof-karafiel-contador-first-pesos-2026-06"
+    },
+    {
+      "gate_id": "G4",
+      "status": "pending",
+      "evidence_url": "repo://phynd-crm/docs/KARAFIEL_CONTADOR_G4_SEND_GATE_REQUEST_2026-06.md",
+      "source_system": "phynd-crm",
+      "source_record_id": "pending-karafiel-contador-g4"
+    }
+  ],
+  "money_path": {
+    "checkout_required": true,
+    "payment_required": true,
+    "entitlement_required": true,
+    "bbva_payout_required": true,
+    "converge_revenue_required": true
+  },
+  "proof_points": [
+    {
+      "label": "Price",
+      "value": "MXN 1,299/month for Karafiel Contador",
+      "source_url": "https://api.dhan.am/v1/billing/catalog"
+    },
+    {
+      "label": "Campaign proof pack",
+      "value": "Selva proof pack approved for controlled pilot copy and risk controls"
+    }
+  ],
+  "guardrails": {
+    "policy_state": "controlled_pilot_only",
+    "last_verified_at": "2026-06-01",
+    "do_not_claim": [
+      "Do not claim Karafiel replaces a certified accountant.",
+      "Do not claim guaranteed SAT, CFDI, tax, legal, or compliance outcomes.",
+      "Do not claim ecosystem-wide Commercial GA.",
+      "Do not claim BBVA payout or recognized dashboard revenue until Tulana G8 and G9 pass."
+    ]
+  },
+  "drafts": [
+    {
+      "channel": "email",
+      "locale": "es-MX",
+      "body": "Estamos abriendo un piloto pagado y controlado de Karafiel Contador para despachos que manejan operaciones CFDI/fiscales recurrentes para PyMEs. El plan Contador cuesta MXN 1,299/mes. Si te interesa, te paso el enlace de pago y activamos el acceso con seguimiento humano."
+    }
+  ]
+}

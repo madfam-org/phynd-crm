@@ -213,3 +213,7 @@ Report-only CSP in `next.config.ts` includes the same `frame-ancestors` allowlis
 - [MADFAM truth layer remediation](./MADFAM_TRUTH_LAYER_REMEDIATION.md) — WS6
 - [Tulana SKU campaign inputs](./TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md) — WS4
 - [ROADMAP](./ROADMAP.md) — Phase 5
+
+## Commercial GA campaign tool restriction - 2026-06-01
+
+Selva service principals may read CRM and create approved campaign handoff artifacts only through the scoped campaign flow. They must not mark SKUs as Commercial GA. Paid campaign send eligibility is governed by [Commercial GA campaign SKU gates](./COMMERCIAL_GA_CAMPAIGN_SKU_GATES_2026-06-01.md), including evidence-backed `commercial_ga_status=ga_ready`, PhyndCRM consent/suppression checks, and human approval.

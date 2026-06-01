@@ -30,12 +30,12 @@ listed in `.env.example`. Key variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://phynd:secret@db:5432/phynd_crm` |
+| `DATABASE_URL` | PostgreSQL connection string | Secret-store-provided PostgreSQL URL |
 | `REDIS_URL` | Redis connection string | `redis://redis:6379` |
-| `AUTH_SECRET` | Auth.js session secret (min 16 chars) | `your-production-secret` |
+| `AUTH_SECRET` | Auth.js session secret (min 16 chars) | Secret-store value |
 | `AUTH_JANUA_ISSUER` | Janua OIDC issuer URL | `https://janua.example.com` |
 | `AUTH_JANUA_CLIENT_ID` | Janua OIDC client ID | `phynd-crm` |
-| `AUTH_JANUA_CLIENT_SECRET` | Janua OIDC client secret | `secret` |
+| `AUTH_JANUA_CLIENT_SECRET` | Janua OIDC client secret | Secret-store value |
 | `AUTH_TRUST_HOST` | Auth.js trusted-host behavior behind Cloudflare/Enclii | `true` |
 | `NEXT_PUBLIC_APP_URL` | Public-facing app URL | `https://crm.example.com` |
 | `JANUA_API_URL` | Janua Identity API | `https://api.janua.example.com` |
@@ -43,19 +43,19 @@ listed in `.env.example`. Key variables:
 | `DHANAM_API_URL` | Dhanam Billing API | `https://api.dhanam.example.com` |
 | `COTIZA_API_URL` | Cotiza Studio API | `https://api.cotiza.example.com` |
 | `PRAVARA_BASE_URL` | PravaraMES API | `https://api.pravara.example.com` |
-| `PRAVARA_API_KEY` | PravaraMES API key | `key` |
+| `PRAVARA_API_KEY` | PravaraMES API key | Secret-store value |
 | `SELVA_API_URL` | Selva project dispatch API | `https://api.selva.example.com` |
-| `SELVA_API_KEY` | Selva API key | `key` |
+| `SELVA_API_KEY` | Selva API key | Secret-store value |
 | `FORJ_API_URL` | Forj Assets API | `https://api.forj.example.com` |
-| `OPENAI_API_KEY` | LLM API key (AutoSwarm or OpenAI) | `sk-...` or AutoSwarm worker token |
+| `OPENAI_API_KEY` | LLM API key (Selva-routed or provider fallback) | Secret-store value |
 | `OPENAI_BASE_URL` | LLM endpoint override (AutoSwarm Nexus) | `http://nexus-api.autoswarm.svc.cluster.local/v1` |
-| `RESEND_API_KEY` | Resend email API key | `re_...` |
+| `RESEND_API_KEY` | Resend email API key | Secret-store value |
 | `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
-| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | `secret` |
-| `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`) | `secret` |
-| `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | `secret` |
-| `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | `secret` |
-| `FEDERATION_API_TOKEN` | Optional service-to-service token for Selva agent tRPC + GraphQL reads | `secret` |
+| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | Secret-store value |
+| `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`) | Secret-store value |
+| `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | Secret-store value |
+| `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | Secret-store value |
+| `FEDERATION_API_TOKEN` | Optional service-to-service token for Selva agent tRPC + GraphQL reads | Secret-store value |
 | `FEDERATION_SERVICE_USER_ID` | Machine principal id for service token (default `service:selva`) | `service:selva` |
 | `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks prod MADFAM URLs) | `production` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |

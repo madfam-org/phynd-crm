@@ -25,6 +25,9 @@ on:
         description: Skip production health recheck
         required: false
         default: "false"
+      break_glass_reason:
+        description: Required when production rollback smoke verification is skipped
+        required: false
       prod_health_url:
         description: Production health endpoint to verify after rollback
         required: false
@@ -48,6 +51,15 @@ jobs:
         with:
           token: ${{ secrets.MADFAM_BOT_PAT }}
           fetch-depth: 0
+
+      - name: Require break-glass reason when skipping smoke check
+        if: ${{ inputs.skip_smoke_check == 'true' }}
+        run: |
+          if [ -z "${{ inputs.break_glass_reason }}" ]; then
+            echo "break_glass_reason is required when skip_smoke_check is true." >&2
+            exit 1
+          fi
+          echo "Rollback smoke check skipped with recorded reason: ${{ inputs.break_glass_reason }}"
 
       - name: Resolve target digests
         id: resolve
@@ -240,6 +252,7 @@ jobs:
               \"metadata\": {
                 \"service\": \"phynd-crm\",
                 \"workflow\": \"rollback-prod\",
+                \"break_glass_reason\": \"${{ inputs.break_glass_reason }}\",
                 \"component\": \"${{ steps.resolve.outputs.component }}\",
                 \"source_commit\": \"${{ steps.resolve.outputs.source_commit }}\",
                 \"web_digest\": \"${{ steps.resolve.outputs.web_digest }}\",

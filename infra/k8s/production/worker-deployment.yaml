@@ -36,11 +36,22 @@ spec:
           env:
             - name: WORKER_HEALTH_PORT
               value: "3001"
+            - name: PHYND_CRM_PUBLIC_URL
+              value: "https://crm.madfam.io"
+            - name: TULANA_API_BASE_URL
+              value: "https://tulana-api.madfam.io/api/v1"
+            - name: TULANA_COMMERCIAL_GA_ENVIRONMENT
+              value: "production"
+            - name: TULANA_COMMERCIAL_GA_PERIOD
+              value: "2026-06"
           envFrom:
             - secretRef:
                 name: phynd-crm-secrets
             - secretRef:
                 name: phynd-crm-pilot-overlay
+            - secretRef:
+                name: phynd-crm-commercial-ga-secrets
+                optional: true
             - secretRef:
                 name: phynd-acca-secrets
                 optional: true

@@ -449,7 +449,7 @@ import { POST } from '../route'
 // Test helpers
 // ---------------------------------------------------------------------------
 
-const SECRET = 'whsec_test_dhanam_2026'
+const SECRET = 'DUMMY_WEBHOOK_SECRET_DO_NOT_USE'
 
 function expectArrayItem<T>(items: T[], index: number, label: string): T {
   const item = items[index]

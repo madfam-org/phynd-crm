@@ -335,7 +335,7 @@ describe('DhanamCheckoutService', () => {
       dhanamApiUrl: 'https://api-staging.dhan.am',
       fetch: fetchMock as never,
       signingSecret:
-        'signingSecret' in overrides ? overrides.signingSecret : 'whsec_test_dhanam_2026',
+        'signingSecret' in overrides ? overrides.signingSecret : 'DUMMY_WEBHOOK_SECRET_DO_NOT_USE',
     })
   }
 

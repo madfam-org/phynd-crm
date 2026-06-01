@@ -65,7 +65,7 @@ vi.mock('drizzle-orm', () => ({
 // Now import the route under test
 import { POST } from '../route'
 
-const SECRET = 'whsec_test_routecraft_2026'
+const SECRET = 'DUMMY_WEBHOOK_SECRET_DO_NOT_USE'
 const PHYND_CRM_EVENTS_SECRET_ORIGINAL = process.env.PHYND_CRM_EVENTS_SECRET
 
 function signedRequest(body: string, headerOverride?: string): Request {

@@ -10,7 +10,7 @@ function computeSignature(payload: string, secret: string): string {
 }
 
 describe('validateWebhookSignature', () => {
-  const SECRET = 'whsec_test_secret_key_2026'
+  const SECRET = 'DUMMY_WEBHOOK_SECRET_DO_NOT_USE'
 
   it('returns true for a valid HMAC-SHA256 signature', () => {
     const payload = JSON.stringify({ event: 'invoice.paid', id: 'inv_123' })
@@ -103,7 +103,7 @@ describe('validateWebhookSignature', () => {
 })
 
 describe('validateMadfamSignature', () => {
-  const SECRET = 'whsec_madfam_test_secret_2026'
+  const SECRET = 'DUMMY_WEBHOOK_SECRET_DO_NOT_USE'
 
   function madfamHeader(body: string, secret: string, ts: number): string {
     const hmac = crypto.createHmac('sha256', secret).update(`${ts}.${body}`).digest('hex')

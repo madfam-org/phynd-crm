@@ -300,3 +300,9 @@ The receiver:
 - maps Avala search/page/conversion/user/tenant/billing events into CRM activity and conversion records.
 
 Avala producers must send the shared event envelope documented in Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md`.
+
+## Production domain truth
+
+The only valid production domains for PhyndCRM are `https://phynd.app` for the product surface and `https://crm.madfam.io` for the MADFAM tenant slice. Any local, demo, staging, or preview URL in this repository is non-production and must not be used in campaign traffic.
+
+Public repo sanitization and campaign-readiness requirements are tracked in `docs/PUBLIC_DOMAIN_AND_REPO_SANITIZATION_2026-06-01.md`.

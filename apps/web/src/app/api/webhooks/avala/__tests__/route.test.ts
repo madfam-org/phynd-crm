@@ -101,7 +101,7 @@ vi.mock('@phynd/services', () => ({
 
 import { POST } from '../route'
 
-const SECRET = 'whsec_test_avala_2026'
+const SECRET = 'DUMMY_WEBHOOK_SECRET_DO_NOT_USE'
 const ORIGINAL_SECRET = process.env.PHYND_CRM_EVENTS_SECRET
 
 function signedRequest(body: string, headerOverride?: string): Request {

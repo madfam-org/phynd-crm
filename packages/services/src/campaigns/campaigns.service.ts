@@ -45,7 +45,11 @@ function assertCommercialGaCampaignAllowed(campaign: {
     )
   }
 
-  if (campaignType && PAID_GA_CAMPAIGN_TYPES.has(campaignType) && commercialGaStatus !== 'ga_ready') {
+  if (
+    campaignType &&
+    PAID_GA_CAMPAIGN_TYPES.has(campaignType) &&
+    commercialGaStatus !== 'ga_ready'
+  ) {
     throw new ValidationError('Cannot approve paid-GA campaign unless Tulana status is ga_ready.')
   }
 

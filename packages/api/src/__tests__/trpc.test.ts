@@ -131,7 +131,7 @@ describe('protectedProcedure service auth scopes', () => {
     const createCaller = createCallerFactory(serviceQueryRouter)
     const caller = createCaller(
       createMockServiceContext({
-        userId: 'service:autoswarm',
+        userId: 'service:selva',
         roles: ['service'],
         scopes: ['leads:read'],
       }),
@@ -150,7 +150,7 @@ describe('protectedProcedure service auth scopes', () => {
     const createCaller = createCallerFactory(serviceQueryRouter)
     const caller = createCaller(
       createMockServiceContext({
-        userId: 'service:autoswarm',
+        userId: 'service:selva',
         roles: ['service'],
         scopes: ['contacts:read'],
       }),
@@ -170,7 +170,7 @@ describe('protectedProcedure service auth scopes', () => {
     const createCaller = createCallerFactory(serviceMutationRouter)
     const caller = createCaller(
       createMockServiceContext({
-        userId: 'service:autoswarm',
+        userId: 'service:selva',
         roles: ['service'],
         scopes: ['leads:read'],
       }),

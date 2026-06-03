@@ -23,7 +23,7 @@ describe('pii mask', () => {
     setFeatureFlags({ piiMasking: true })
     expect(
       shouldMaskPiiForAgent({
-        userId: 'service:autoswarm',
+        userId: 'service:selva',
         tenantId: 'madfam',
         roles: ['service'],
         scopes: ['contacts:read'],

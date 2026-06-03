@@ -48,7 +48,7 @@ listed in `.env.example`. Key variables:
 | `SELVA_API_KEY` | Selva API key | Secret-store value |
 | `FORJ_API_URL` | Forj Assets API | `https://api.forj.example.com` |
 | `OPENAI_API_KEY` | LLM API key (Selva-routed or provider fallback) | Secret-store value |
-| `OPENAI_BASE_URL` | LLM endpoint override (AutoSwarm Nexus) | `http://nexus-api.autoswarm.svc.cluster.local/v1` |
+| `OPENAI_BASE_URL` | LLM endpoint override (Selva Nexus) | `http://nexus-api.selva.svc.cluster.local/v1` |
 | `RESEND_API_KEY` | Resend email API key | Secret-store value |
 | `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | Secret-store value |

@@ -10,7 +10,7 @@
  * - DLQ after 3 failed processing attempts
  * - Blocking reads with configurable timeout
  *
- * Reference: autoswarm-office/packages/redis-pool/src/autoswarm_redis_pool/task_stream.py
+ * Reference: selva-office/packages/redis-pool/src/selva_redis_pool/task_stream.py
  */
 
 import type { ServiceEventEnvelope } from '@phynd/types'

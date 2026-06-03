@@ -27,7 +27,7 @@ export const DEV_AUTH: AuthContext = {
   accessToken: process.env.DEV_ACCESS_TOKEN || crypto.randomUUID(),
 }
 
-/** Scopes for Selva / AutoSwarm service-to-service reads (expand in Phase 5). */
+/** Scopes for Selva / Selva service-to-service reads (expand in Phase 5). */
 export const SERVICE_AUTH_SCOPES = [
   'leads:read',
   'activities:read',

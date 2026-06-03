@@ -3,7 +3,7 @@
  *
  * Idempotent synthetic-lead upsert used by madfam-revenue-loop-probe.
  *
- * Contract (from `autoswarm-office/packages/revenue-loop-probe/.../steps/crm.py`):
+ * Contract (from `selva-office/packages/revenue-loop-probe/.../steps/crm.py`):
  *   - Bearer auth with `PHYND_CRM_PROBE_TOKEN`.
  *   - Body: `{ correlation_id, dry_run, channel, lead: { email, stage, score, source_agent } }`.
  *   - Idempotent on (tenant, correlation_id) OR (tenant, lead.email).

@@ -654,7 +654,7 @@ describe('RedditBotService.processWebhook', () => {
 })
 
 // ---------------------------------------------------------------------------
-// OpenAI baseURL routing — AutoSwarm integration
+// OpenAI baseURL routing — Selva integration
 // ---------------------------------------------------------------------------
 describe('RedditBotService OpenAI baseURL routing', () => {
   afterEach(() => {
@@ -665,7 +665,7 @@ describe('RedditBotService OpenAI baseURL routing', () => {
 
   it('passes OPENAI_BASE_URL to OpenAI client when set', () => {
     vi.stubEnv('OPENAI_API_KEY', 'test-key')
-    vi.stubEnv('OPENAI_BASE_URL', 'http://nexus-api.autoswarm.svc.cluster.local/v1')
+    vi.stubEnv('OPENAI_BASE_URL', 'http://nexus-api.selva.svc.cluster.local/v1')
     vi.stubEnv('TEZCA_API_URL', 'http://tezca-test:8000')
     vi.stubEnv('INTERNAL_TEZCA_KEY', 'test-key')
     const ctx = createTestContext()
@@ -673,7 +673,7 @@ describe('RedditBotService OpenAI baseURL routing', () => {
     expect(openaiConstructorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         apiKey: 'test-key',
-        baseURL: 'http://nexus-api.autoswarm.svc.cluster.local/v1',
+        baseURL: 'http://nexus-api.selva.svc.cluster.local/v1',
       }),
     )
   })

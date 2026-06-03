@@ -6,10 +6,10 @@
  * `@routecraft/payments` `emitPaymentSucceeded()`).
  *
  * PhyndCRM is the "attribution" leg of the revenue flywheel — it
- * records a conversion tied to (lead, billing event) so the autoswarm
+ * records a conversion tied to (lead, billing event) so the selva
  * Thompson-sampling bandit can reward the source agent later.
  *
- * Contract (from `REBRAND_AUTOSWARM_TO_SELVA` + factory manifests):
+ * Contract (from `REBRAND_SELVA_TO_SELVA` + factory manifests):
  *   - Header: `x-madfam-signature: t=<ts>,v1=<hex>`
  *   - Secret: env var `PHYND_CRM_EVENTS_SECRET`
  *   - Idempotent on `event.event_id` (dedupe against webhook_events table).

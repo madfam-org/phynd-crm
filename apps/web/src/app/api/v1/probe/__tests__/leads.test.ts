@@ -2,7 +2,7 @@
  * Contract tests for POST /api/v1/probe/leads.
  *
  * Locks the wire contract documented in
- * `autoswarm-office/packages/revenue-loop-probe/.../steps/crm.py`:
+ * `selva-office/packages/revenue-loop-probe/.../steps/crm.py`:
  *   - 503 when PHYND_CRM_PROBE_TOKEN is unset
  *   - 401 when bearer is missing or wrong
  *   - 400 when correlation_id is missing

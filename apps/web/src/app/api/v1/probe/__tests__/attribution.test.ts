@@ -2,7 +2,7 @@
  * Contract tests for GET /api/v1/probe/attribution.
  *
  * Locks the wire contract documented in
- * `autoswarm-office/packages/revenue-loop-probe/.../steps/phynd_attribution.py`:
+ * `selva-office/packages/revenue-loop-probe/.../steps/phynd_attribution.py`:
  *   - 503 when PHYND_CRM_PROBE_TOKEN is unset
  *   - 401 when bearer is missing or wrong
  *   - 400 when lead_id or billing_id query params missing

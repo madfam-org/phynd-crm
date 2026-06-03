@@ -145,7 +145,7 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 
 ## Phase 5 — Selva sales copilot
 
-**Owner:** Phynd CRM + Selva (autoswarm-office)
+**Owner:** Phynd CRM + Selva (selva-office)
 
 | ID | Work item | Status |
 | --- | --- | --- |

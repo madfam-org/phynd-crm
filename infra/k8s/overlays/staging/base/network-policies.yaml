@@ -114,7 +114,7 @@ spec:
     - to:
         - podSelector: {}
 ---
-# Allow egress to internal MADFAM services (tezca, autoswarm, karafiel)
+# Allow egress to internal MADFAM services (tezca, selva, karafiel)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -136,7 +136,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: autoswarm
+              kubernetes.io/metadata.name: selva
       ports:
         - protocol: TCP
           port: 80

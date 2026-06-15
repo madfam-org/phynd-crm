@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
 import { TRPCProvider } from '@/lib/trpc/provider'
+import { EcosystemBannerClient } from '@/components/EcosystemBannerClient'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -23,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen font-sans antialiased">
+      <body className="min-h-screen font-sans antialiased pb-8">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -32,6 +33,7 @@ export default function RootLayout({
         >
           <TRPCProvider>{children}</TRPCProvider>
           <Toaster richColors position="bottom-right" />
+          <EcosystemBannerClient />
         </ThemeProvider>
       </body>
     </html>

@@ -27,12 +27,22 @@ export {
   type EngagementTimelineEntry,
 } from './engagements/engagements.service'
 export {
+  PublishQuoteToPortalService,
+  type PublishQuoteToPortalInput,
+  type PublishQuoteToPortalResult,
+} from './engagements/publish-quote-to-portal.service'
+export {
+  EngagementRecoveryService,
+  type DeliveryTrack as EngagementDeliveryTrack,
+} from './engagements/engagement-recovery.service'
+export {
   type CotizaEngagementEvent,
   type CotizaEngagementEventType,
   dispatchCotizaEngagementEvent,
   emitCotizaEngagementEvent,
 } from './engagements/cotiza-engagement-emitter.service'
 export { EngagementPortalMagicLinkService } from './engagement-portal/magic-link.service'
+export { EngagementPortalSignoffService } from './engagement-portal/signoff.service'
 export { createServiceContext, type ServiceContext } from './context'
 export { GrantsService } from './grants/grants.service'
 export { LeadScoringService } from './lead-scoring/lead-scoring.service'

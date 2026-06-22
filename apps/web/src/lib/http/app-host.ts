@@ -4,6 +4,25 @@ const AUTHENTICATED_APP_HOSTS = new Set(['crm.madfam.io', 'crm.phynd.app'])
 const MARKETING_HOSTS = new Set(['phynd.app', 'www.phynd.app'])
 export const CANONICAL_PHYND_APP_HOST = 'crm.phynd.app'
 
+/** Hosts that must not serve Auth.js directly — redirect to the CRM app host. */
+export const MARKETING_AUTH_REDIRECT_HOSTS = MARKETING_HOSTS
+
+/** Public https origin Auth.js should use for callback/signin URLs on this host. */
+export function resolveAuthOriginFromHost(host: string | null | undefined): string {
+  const normalized = normalizeHost(host)
+
+  if (normalized === 'crm.madfam.io') return 'https://crm.madfam.io'
+  if (normalized === 'crm.phynd.app') return 'https://crm.phynd.app'
+  if (MARKETING_HOSTS.has(normalized)) return `https://${CANONICAL_PHYND_APP_HOST}`
+
+  const fallback = process.env.NEXT_PUBLIC_APP_URL ?? `https://${CANONICAL_PHYND_APP_HOST}`
+  try {
+    return new URL(fallback).origin
+  } catch {
+    return `https://${CANONICAL_PHYND_APP_HOST}`
+  }
+}
+
 export function isAuthenticatedAppHost(host: string | null | undefined): boolean {
   return AUTHENTICATED_APP_HOSTS.has(normalizeHost(host))
 }

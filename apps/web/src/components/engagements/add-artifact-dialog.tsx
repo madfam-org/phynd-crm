@@ -26,6 +26,9 @@ import { toast } from 'sonner'
 const ARTIFACT_TYPES = [
   'quote',
   'signed_proposal',
+  'service_agreement',
+  'statement_of_work',
+  'msa',
   'invoice',
   'deliverable',
   'nft_receipt',

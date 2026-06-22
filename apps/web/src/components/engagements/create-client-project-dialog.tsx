@@ -218,7 +218,7 @@ export function CreateClientProjectDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button>
+        <Button data-testid="onboard-client-project-trigger">
           <Rocket className="mr-2 h-4 w-4" />
           Onboard Client Project
         </Button>

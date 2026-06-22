@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EngagementArtifactsPanel } from './engagement-artifacts-panel'
+import { EngagementBlockedEventsPanel } from './engagement-blocked-events-panel'
 import { EngagementInfoForm } from './engagement-info-form'
 import { EngagementTimeline } from './engagement-timeline'
 
@@ -23,7 +24,8 @@ export function EngagementDetailTabs({ engagement }: EngagementDetailTabsProps) 
         <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
         <TabsTrigger value="info">Info</TabsTrigger>
       </TabsList>
-      <TabsContent value="timeline" className="mt-4">
+      <TabsContent value="timeline" className="mt-4 space-y-4">
+        <EngagementBlockedEventsPanel engagementId={engagement.id} />
         <div className="rounded-lg border bg-card p-6">
           <EngagementTimeline engagementId={engagement.id} />
         </div>

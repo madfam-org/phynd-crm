@@ -26,12 +26,14 @@ export const REQUIRED_JANUA_REDIRECT_URIS = [
 export const LIVE_AUTH_BASES = [
   'https://crm.madfam.io',
   'https://crm.phynd.app',
+  'https://phynd.app',
   STAGING_CRM_BASE_URL,
 ]
 
-/** Prod alias hosts share NEXTAUTH_URL with the canonical madfam.io host. */
+/** Per-host expected Auth.js callback origin (see apps/web/src/lib/http/app-host.ts). */
 export const AUTH_CALLBACK_CANONICAL_BASE = {
-  'https://crm.phynd.app': 'https://crm.madfam.io',
+  'https://phynd.app': 'https://crm.phynd.app',
+  'https://www.phynd.app': 'https://crm.phynd.app',
 }
 
 export const JANUA_ADMIN_REQUIREMENTS = [

@@ -5,6 +5,7 @@ import {
   getAuthenticatedAppRootRedirect,
   getCanonicalLoginHost,
   isAuthenticatedAppHost,
+  resolveAuthOriginFromHost,
 } from '../app-host'
 
 describe('authenticated app host routing', () => {
@@ -34,5 +35,12 @@ describe('authenticated app host routing', () => {
   it('does not treat app.phynd.app as a generic app host', () => {
     expect(isAuthenticatedAppHost('app.phynd.app')).toBe(false)
     expect(getAuthenticatedAppRootRedirect('app.phynd.app', '/', false)).toBeNull()
+  })
+
+  it('resolves Auth.js origins per host', () => {
+    expect(resolveAuthOriginFromHost('crm.madfam.io')).toBe('https://crm.madfam.io')
+    expect(resolveAuthOriginFromHost('crm.phynd.app')).toBe('https://crm.phynd.app')
+    expect(resolveAuthOriginFromHost('phynd.app')).toBe(`https://${CANONICAL_PHYND_APP_HOST}`)
+    expect(resolveAuthOriginFromHost('www.phynd.app')).toBe(`https://${CANONICAL_PHYND_APP_HOST}`)
   })
 })

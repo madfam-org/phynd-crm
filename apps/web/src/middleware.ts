@@ -1,6 +1,12 @@
+import { normalizeHost } from '@/lib/branding/tenant-brand'
 import { auth } from '@/lib/auth'
 import { DEMO_COOKIE_NAME } from '@/lib/demo'
-import { getAuthenticatedAppRootRedirect, getCanonicalLoginHost } from '@/lib/http/app-host'
+import {
+  CANONICAL_PHYND_APP_HOST,
+  getAuthenticatedAppRootRedirect,
+  getCanonicalLoginHost,
+  MARKETING_AUTH_REDIRECT_HOSTS,
+} from '@/lib/http/app-host'
 import { applyFrameEmbeddingHeaders } from '@/lib/http/frame-embed'
 import { externalUrl } from '@/lib/http/origin'
 import { NextResponse } from 'next/server'
@@ -29,8 +35,18 @@ export default auth((req) => {
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/callback')
   const hasDemoCookie = !!req.cookies.get(DEMO_COOKIE_NAME)?.value
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
+  const normalizedHost = normalizeHost(host)
   const canonicalLoginHost = getCanonicalLoginHost(host, pathname)
   const appRootRedirect = getAuthenticatedAppRootRedirect(host, pathname, isLoggedIn)
+
+  if (
+    pathname.startsWith('/api/auth') &&
+    MARKETING_AUTH_REDIRECT_HOSTS.has(normalizedHost)
+  ) {
+    return NextResponse.redirect(
+      new URL(`${pathname}${req.nextUrl.search}`, `https://${CANONICAL_PHYND_APP_HOST}`),
+    )
+  }
 
   if (canonicalLoginHost) {
     return NextResponse.redirect(

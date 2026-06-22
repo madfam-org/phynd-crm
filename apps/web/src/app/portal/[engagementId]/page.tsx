@@ -1,6 +1,7 @@
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
+import { timelineEventTone } from '@/lib/engagements/timeline-presentations'
 import { getDb } from '@phynd/db'
-import { contacts, engagements, orders, quotes } from '@phynd/db/schema'
+import { contacts, engagementEvents, engagements, orders, quotes } from '@phynd/db/schema'
 import { EngagementsService } from '@phynd/services'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
@@ -24,6 +25,8 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
   const query = await searchParams
   const checkoutError = firstQueryValue(query?.checkout_error)
   const checkoutNotice = firstQueryValue(query?.checkout)
+  const signoffNotice = firstQueryValue(query?.signoff)
+  const signoffError = firstQueryValue(query?.signoff_error)
   const session = await readAndVerifyPortalSession()
 
   if (!session || session.engagementId !== engagementId) {
@@ -65,10 +68,11 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
     tenantId: 'madfam',
   })
 
-  const [timeline, artifacts, portalQuotes] = await Promise.all([
+  const [timeline, artifacts, portalQuotes, acceptedDeliverableIds] = await Promise.all([
     service.getTimeline(engagementId, 50),
     service.listArtifacts(engagementId),
     findPortalQuotes(db, row.engagement),
+    loadAcceptedDeliverableIds(db, engagementId),
   ])
   const quoteCards = await buildQuoteCards(db, portalQuotes)
   type QuoteCard = (typeof quoteCards)[number]
@@ -90,6 +94,18 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
           </p>
           <StatusBadge status={row.engagement.status} />
         </header>
+
+        {signoffNotice === 'accepted' && (
+          <p className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+            Deliverable accepted. Thank you — our team has been notified.
+          </p>
+        )}
+        {signoffError && (
+          <p className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            We could not record deliverable acceptance ({signoffError.replace(/_/g, ' ')}). Please
+            try again or contact your project lead.
+          </p>
+        )}
 
         <section className="mb-10">
           <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -157,7 +173,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
                   key={a.id}
                   className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="font-medium text-slate-900 dark:text-slate-100">
                         {a.title ?? formatArtifactType(a.type)}
@@ -166,16 +182,34 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
                         {formatArtifactType(a.type)} · {a.createdAt.toLocaleDateString()}
                       </p>
                     </div>
-                    {a.url && (
-                      <a
-                        className="shrink-0 rounded bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
-                        href={a.url}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        Open
-                      </a>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      {a.type === 'deliverable' && acceptedDeliverableIds.has(a.id) && (
+                        <span className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
+                          Accepted
+                        </span>
+                      )}
+                      {a.type === 'deliverable' && !acceptedDeliverableIds.has(a.id) && (
+                        <form action={`/portal/${engagementId}/signoff`} method="post">
+                          <input name="artifactId" type="hidden" value={a.id} />
+                          <button
+                            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            type="submit"
+                          >
+                            Accept deliverable
+                          </button>
+                        </form>
+                      )}
+                      {a.url && (
+                        <a
+                          className="shrink-0 rounded bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
+                          href={a.url}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          Open
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </li>
               ))}
@@ -193,12 +227,30 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ol className="space-y-3">
-              {timeline.map((entry: TimelineEntry) => (
+              {timeline.map((entry: TimelineEntry) => {
+                const tone =
+                  entry.kind === 'event' ? timelineEventTone(entry.status) : 'default'
+                const dotClass =
+                  tone === 'milestone'
+                    ? 'bg-violet-500'
+                    : tone === 'blocked'
+                      ? 'bg-amber-500'
+                      : 'bg-slate-400'
+                const cardClass =
+                  tone === 'milestone'
+                    ? 'border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/30'
+                    : tone === 'blocked'
+                      ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30'
+                      : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
+
+                return (
                 <li
                   key={entry.id}
-                  className="flex gap-3 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+                  className={`flex gap-3 rounded-md border p-3 ${cardClass}`}
                 >
-                  <span className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-slate-400" />
+                  <span
+                    className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-900 dark:text-slate-100">
                       {timelineMessage(entry)}
@@ -208,7 +260,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
                     </p>
                   </div>
                 </li>
-              ))}
+              )})}
             </ol>
           )}
         </section>
@@ -218,6 +270,28 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
 }
 
 type PortalQuote = typeof quotes.$inferSelect
+
+async function loadAcceptedDeliverableIds(
+  db: ReturnType<typeof getDb>,
+  engagementId: string,
+) {
+  const rows = await db
+    .select({ metadata: engagementEvents.metadata })
+    .from(engagementEvents)
+    .where(
+      and(
+        eq(engagementEvents.engagementId, engagementId),
+        eq(engagementEvents.eventType, 'portal:deliverable_accepted'),
+      ),
+    )
+
+  const ids = new Set<string>()
+  for (const row of rows) {
+    const artifactId = row.metadata?.artifact_id
+    if (typeof artifactId === 'string') ids.add(artifactId)
+  }
+  return ids
+}
 
 async function findPortalQuotes(
   db: ReturnType<typeof getDb>,
@@ -370,6 +444,9 @@ function formatArtifactType(type: string): string {
   const map: Record<string, string> = {
     quote: 'Quote',
     signed_proposal: 'Signed proposal',
+    service_agreement: 'Service agreement',
+    statement_of_work: 'Statement of work',
+    msa: 'Master service agreement',
     invoice: 'Invoice',
     deliverable: 'Deliverable',
     nft_receipt: 'NFT receipt',

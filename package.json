@@ -33,6 +33,8 @@
     "verify:post-deploy": "node scripts/verify-post-deploy.mjs",
     "verify:janua-oidc": "node scripts/verify-janua-oidc-checklist.mjs",
     "verify:selva-agent": "node scripts/verify-selva-agent-integration.mjs",
+    "verify:client-lifecycle-env": "node scripts/verify-client-lifecycle-env.mjs",
+    "verify:client-lifecycle": "node scripts/verify-client-lifecycle.mjs --skip-env",
     "test:pp5": "node --test scripts/__tests__/*.test.mjs",
     "clean": "turbo clean",
     "prepare": "husky"

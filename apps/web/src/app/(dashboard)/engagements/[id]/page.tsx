@@ -1,5 +1,6 @@
 import { DeleteEngagementButton } from '@/components/engagements/delete-engagement-button'
 import { EngagementDetailTabs } from '@/components/engagements/engagement-detail-tabs'
+import { PublishQuoteAndPortalButton } from '@/components/engagements/publish-quote-and-portal-button'
 import { SendPortalLinkButton } from '@/components/engagements/send-portal-link-button'
 import { Badge } from '@/components/ui/badge'
 import { getServerCaller } from '@/lib/trpc/server'
@@ -44,6 +45,7 @@ export default async function EngagementDetailPage({ params }: EngagementDetailP
           <p className="text-muted-foreground">Engagement detail</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <PublishQuoteAndPortalButton engagementId={engagement.id} disabled={!contactHasEmail} />
           <SendPortalLinkButton engagementId={engagement.id} disabled={!contactHasEmail} />
           <DeleteEngagementButton
             engagementId={engagement.id}

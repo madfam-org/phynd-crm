@@ -12,6 +12,12 @@ import { fileURLToPath } from 'node:url'
 
 export const INTERNAL_HOST_RE = /phynd-crm-web|\.svc\.|:\d{4,5}\//i
 
+/** Marketing hosts canonicalize Auth.js callbacks to the staff CRM app host. */
+export const AUTH_CALLBACK_CANONICAL_BASE = {
+  'https://phynd.app': 'https://crm.phynd.app',
+  'https://www.phynd.app': 'https://crm.phynd.app',
+}
+
 /** @param {string} base */
 /** @param {{ signinUrl?: string, callbackUrl?: string }} janua */
 /** @param {string} [canonicalBase] */
@@ -54,7 +60,11 @@ export function validateJanuaProviderUrls(base, janua, canonicalBase) {
   return { ok: true, signinUrl: janua.signinUrl, callbackUrl: janua.callbackUrl }
 }
 
-const DEFAULT_BASES = ['https://phynd.app', 'https://crm.madfam.io', 'https://crm.phynd.app']
+const DEFAULT_BASES = ['https://crm.madfam.io', 'https://crm.phynd.app', 'https://phynd.app']
+
+function canonicalBaseFor(base, canonicalByBase) {
+  return canonicalByBase.get(base) ?? AUTH_CALLBACK_CANONICAL_BASE[base] ?? base
+}
 
 function parseArgs(argv) {
   const bases = []
@@ -100,7 +110,7 @@ async function main() {
 
   for (const base of bases) {
     try {
-      const result = await checkBase(base, canonicalByBase.get(base))
+      const result = await checkBase(base, canonicalBaseFor(base, canonicalByBase))
       if (result.ok) {
         console.log(`PASS ${base} signin=${result.signinUrl}`)
       } else {

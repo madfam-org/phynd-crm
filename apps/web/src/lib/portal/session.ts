@@ -9,9 +9,14 @@ import { verifyJanuaAccessToken } from './jwks'
 // replayed cookie after a key rotation fails hard.
 
 export const PORTAL_COOKIE = 'phynd-portal-session'
+export const PORTAL_REFRESH_COOKIE = 'phynd-portal-refresh'
+
 // Janua access tokens default to 15 min; keep the cookie slightly
 // shorter so the token never expires between middleware and page render.
 const PORTAL_COOKIE_MAX_AGE_S = 14 * 60
+// Refresh token cookie — long enough for a working session; Janua may
+// revoke earlier. Not used for access decisions until exchanged.
+const PORTAL_REFRESH_MAX_AGE_S = 24 * 60 * 60
 
 export interface PortalSessionPayload {
   engagementId: string
@@ -21,7 +26,10 @@ export interface PortalSessionPayload {
   expiresAt: number
 }
 
-export async function setPortalSession(payload: PortalSessionPayload): Promise<void> {
+export async function setPortalSession(
+  payload: PortalSessionPayload,
+  refreshToken?: string,
+): Promise<void> {
   const jar = await cookies()
   jar.set(PORTAL_COOKIE, JSON.stringify(payload), {
     httpOnly: true,
@@ -30,6 +38,21 @@ export async function setPortalSession(payload: PortalSessionPayload): Promise<v
     path: '/portal',
     maxAge: PORTAL_COOKIE_MAX_AGE_S,
   })
+
+  if (refreshToken) {
+    jar.set(PORTAL_REFRESH_COOKIE, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/portal',
+      maxAge: PORTAL_REFRESH_MAX_AGE_S,
+    })
+  }
+}
+
+export async function readPortalRefreshToken(): Promise<string | null> {
+  const jar = await cookies()
+  return jar.get(PORTAL_REFRESH_COOKIE)?.value ?? null
 }
 
 // Fast read — cookie shape + expiry only. Does NOT verify the Janua
@@ -55,6 +78,14 @@ export async function readPortalSession(): Promise<PortalSessionPayload | null> 
   } catch {
     return null
   }
+}
+
+/** True when the access token expires within the refresh window. */
+export function portalSessionNeedsRefresh(
+  session: PortalSessionPayload,
+  windowMs = 2 * 60 * 1000,
+): boolean {
+  return session.expiresAt - Date.now() <= windowMs
 }
 
 // Access-gating read. Validates the cookie shape + expiry AND the
@@ -84,4 +115,5 @@ export async function readAndVerifyPortalSession(): Promise<PortalSessionPayload
 export async function clearPortalSession(): Promise<void> {
   const jar = await cookies()
   jar.delete(PORTAL_COOKIE)
+  jar.delete(PORTAL_REFRESH_COOKIE)
 }

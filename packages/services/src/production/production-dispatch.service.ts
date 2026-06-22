@@ -79,6 +79,21 @@ async function resolveDeliveryTracks(
   tx: DispatchTx,
   engagementId: string,
 ): Promise<DeliveryTrack[]> {
+  const [configured] = await tx
+    .select({ metadata: engagementEvents.metadata })
+    .from(engagementEvents)
+    .where(
+      and(
+        eq(engagementEvents.engagementId, engagementId),
+        eq(engagementEvents.eventType, 'system:delivery_tracks_configured'),
+      ),
+    )
+    .orderBy(desc(engagementEvents.createdAt))
+    .limit(1)
+
+  const configuredTracks = normalizeDeliveryTracks(configured?.metadata?.delivery_tracks)
+  if (configuredTracks.length > 0) return configuredTracks
+
   const [intake] = await tx
     .select({ metadata: engagementEvents.metadata })
     .from(engagementEvents)

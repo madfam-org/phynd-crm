@@ -260,4 +260,31 @@ describe('EngagementPortalMagicLinkService', () => {
       expect(session.refreshToken).toBe('flat-refresh')
     })
   })
+
+  describe('refreshPortalSession', () => {
+    it('POSTs refresh grant to Janua and returns a new access token pair', async () => {
+      const ctx = createTestContext([])
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          user: { id: 'usr-janua-001', email: 'tablaco@example.com', email_verified: true },
+          tokens: {
+            access_token: 'access-refreshed',
+            refresh_token: 'refresh-rotated',
+            expires_in: 900,
+            token_type: 'bearer',
+          },
+        }),
+      } as unknown as Response)
+
+      const service = new EngagementPortalMagicLinkService(ctx)
+      const session = await service.refreshPortalSession('refresh-xyz-long-enough')
+
+      expect(fetchSpy).toHaveBeenCalledWith(`${JANUA_URL}/api/v1/auth/token`, expect.any(Object))
+      expect(session.accessToken).toBe('access-refreshed')
+      expect(session.refreshToken).toBe('refresh-rotated')
+      expect(session.email).toBe('tablaco@example.com')
+    })
+  })
 })

@@ -1,7 +1,9 @@
 import {
   ClientProjectOnboardingService,
   EngagementPortalMagicLinkService,
+  EngagementRecoveryService,
   EngagementsService,
+  PublishQuoteToPortalService,
 } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
@@ -176,5 +178,72 @@ export const engagementsRouter = router({
     .mutation(({ ctx, input }) => {
       const service = new EngagementPortalMagicLinkService(ctx)
       return service.sendPortalLink(input.engagementId)
+    }),
+
+  publishQuoteToPortal: protectedProcedure
+    .input(
+      z.object({
+        engagementId: z.string(),
+        quoteId: z.string().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new PublishQuoteToPortalService(ctx)
+      return service.publish(input)
+    }),
+
+  publishQuoteAndSendPortalLink: protectedProcedure
+    .input(
+      z.object({
+        engagementId: z.string(),
+        quoteId: z.string().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new PublishQuoteToPortalService(ctx)
+      return service.publishAndSendPortalLink(input)
+    }),
+
+  listBlockedEvents: protectedProcedure
+    .input(z.object({ engagementId: z.string() }))
+    .query(({ ctx, input }) => {
+      const service = new EngagementRecoveryService(ctx)
+      return service.listBlockedEvents(input.engagementId)
+    }),
+
+  linkPaymentToOrder: protectedProcedure
+    .input(
+      z.object({
+        blockedEventId: z.string(),
+        orderId: z.string(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new EngagementRecoveryService(ctx)
+      return service.linkPaymentToOrder(input)
+    }),
+
+  retryProductionDispatch: protectedProcedure
+    .input(
+      z.object({
+        blockedEventId: z.string(),
+        deliveryTracks: z.array(deliveryTrack).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new EngagementRecoveryService(ctx)
+      return service.retryProductionDispatch(input)
+    }),
+
+  resolveBlockedEvent: protectedProcedure
+    .input(
+      z.object({
+        blockedEventId: z.string(),
+        note: z.string().max(500).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new EngagementRecoveryService(ctx)
+      return service.resolveBlockedEvent(input)
     }),
 })

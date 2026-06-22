@@ -1,11 +1,11 @@
 import { handlers } from '@/lib/auth'
-import { normalizeAuthRequest } from '@/lib/auth/request'
+import { withRequestAuthOrigin } from '@/lib/auth/with-request-auth-origin'
 import type { NextRequest } from 'next/server'
 
 export function GET(request: NextRequest) {
-  return handlers.GET(normalizeAuthRequest(request))
+  return withRequestAuthOrigin(request, (normalized) => handlers.GET(normalized))
 }
 
 export function POST(request: NextRequest) {
-  return handlers.POST(normalizeAuthRequest(request))
+  return withRequestAuthOrigin(request, (normalized) => handlers.POST(normalized))
 }

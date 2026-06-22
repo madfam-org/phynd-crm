@@ -40,6 +40,7 @@ function main() {
           ...(options.skipProdAuth ? ['--skip-prod-auth'] : []),
         ]),
     },
+    { name: 'verify-client-lifecycle', run: () => run('pnpm', ['verify:client-lifecycle']) },
     { name: 'verify-post-deploy-dry-run', run: () => run('node', ['scripts/verify-post-deploy.mjs', '--dry-run']) },
   ]
 

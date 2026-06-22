@@ -40,13 +40,16 @@ export async function GET(req: Request) {
 
     const session = await service.verifyPortalLink({ token, engagementId })
 
-    await setPortalSession({
-      engagementId,
-      email: session.email,
-      januaUserId: session.januaUserId,
-      accessToken: session.accessToken,
-      expiresAt: session.expiresAt,
-    })
+    await setPortalSession(
+      {
+        engagementId,
+        email: session.email,
+        januaUserId: session.januaUserId,
+        accessToken: session.accessToken,
+        expiresAt: session.expiresAt,
+      },
+      session.refreshToken,
+    )
 
     return NextResponse.redirect(new URL(`/portal/${encodeURIComponent(engagementId)}`, url), 302)
   } catch (err) {

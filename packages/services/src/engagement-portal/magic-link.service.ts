@@ -67,6 +67,57 @@ export class EngagementPortalMagicLinkService {
     return base.replace(/\/$/, '')
   }
 
+  // Exchange a Janua refresh token for a new access/refresh pair.
+  async refreshPortalSession(refreshToken: string): Promise<PortalSession> {
+    if (!refreshToken || refreshToken.length < 16) {
+      throw new ValidationError('Invalid portal refresh token')
+    }
+
+    const resp = await fetch(`${this.januaApiUrl}/api/v1/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '')
+      throw new ServiceError(
+        `Janua token refresh failed (${resp.status}): ${text || resp.statusText}`,
+        'JANUA_ERROR',
+        resp.status === 401 ? 401 : 502,
+      )
+    }
+
+    const data = (await resp.json()) as JanuaMagicLinkVerifyResponse & {
+      user?: JanuaMagicLinkVerifyResponse['user']
+    }
+
+    const accessToken = data.tokens?.access_token ?? data.access_token
+    const nextRefresh = data.tokens?.refresh_token ?? data.refresh_token ?? refreshToken
+    const expiresIn = data.tokens?.expires_in ?? data.expires_in ?? 900
+
+    if (!accessToken) {
+      throw new ServiceError('Janua did not return a refreshed access token', 'JANUA_ERROR', 502)
+    }
+
+    const email = data.user?.email
+    const januaUserId = data.user?.id
+    if (!email || !januaUserId) {
+      throw new ServiceError('Janua refresh response missing user identity', 'JANUA_ERROR', 502)
+    }
+
+    return {
+      accessToken,
+      refreshToken: nextRefresh,
+      expiresAt: Date.now() + expiresIn * 1000,
+      email: email.toLowerCase().trim(),
+      januaUserId,
+    }
+  }
+
   // Resolves the target email + redirect URL for the engagement, then
   // asks Janua to send the magic-link email to the client. Returns a
   // neutral "sent" ack — never leaks the email back to the caller.

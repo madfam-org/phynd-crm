@@ -231,7 +231,7 @@ describe('reconcileDhanamPayment', () => {
       status: 'confirmed',
     })
 
-    installAwaitSequence([[order], [{ id: 'eng-001' }], [], [], [], [], [], [], []])
+    installAwaitSequence([[order], [{ id: 'eng-001' }], [], [], [], [], [], [], [], []])
 
     const result = await reconcileDhanamPayment(mockDb as never, {
       amountMinor: 42_000,
@@ -268,6 +268,7 @@ describe('reconcileDhanamPayment', () => {
     installAwaitSequence([
       [order],
       [{ id: 'eng-001' }],
+      [],
       [],
       [],
       [],

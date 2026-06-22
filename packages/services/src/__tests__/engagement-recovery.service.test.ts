@@ -93,7 +93,9 @@ describe('EngagementRecoveryService', () => {
       metadata: { order_id: 'order-001' },
     }
 
-    ctx.db.select = vi.fn(() => createMockQueryBuilder([blockedEvent])) as unknown as typeof ctx.db.select
+    ctx.db.select = vi.fn(() =>
+      createMockQueryBuilder([blockedEvent]),
+    ) as unknown as typeof ctx.db.select
     ctx.db.update = vi.fn(() => createMockQueryBuilder([])) as unknown as typeof ctx.db.update
 
     const service = new EngagementRecoveryService(ctx)

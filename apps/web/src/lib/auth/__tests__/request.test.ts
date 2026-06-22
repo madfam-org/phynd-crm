@@ -37,6 +37,18 @@ describe('normalizeAuthRequest', () => {
     expect(request.headers.get('host')).toBe('crm.phynd.app')
   })
 
+  it('keeps the staging CRM host when the edge forwards it', () => {
+    const request = normalizeAuthRequest(
+      authRequest({
+        'x-forwarded-host': 'staging-crm.madfam.io',
+        'x-forwarded-proto': 'https',
+      }),
+    )
+
+    expect(request.url).toBe('https://staging-crm.madfam.io/api/auth/providers?foo=bar')
+    expect(request.headers.get('host')).toBe('staging-crm.madfam.io')
+  })
+
   it('keeps the MADFAM tenant host when the edge forwards it', () => {
     const request = normalizeAuthRequest(
       authRequest({

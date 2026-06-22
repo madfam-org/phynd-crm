@@ -1,6 +1,12 @@
 import type { NextRequest } from 'next/server'
 
-const TRUSTED_HOSTS = new Set(['phynd.app', 'www.phynd.app', 'crm.phynd.app', 'crm.madfam.io'])
+const TRUSTED_HOSTS = new Set([
+  'phynd.app',
+  'www.phynd.app',
+  'crm.phynd.app',
+  'crm.madfam.io',
+  'staging-crm.madfam.io',
+])
 
 function firstHeaderValue(value: string | null): string | null {
   return (

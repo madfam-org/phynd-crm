@@ -37,6 +37,13 @@ describe('authenticated app host routing', () => {
     expect(getAuthenticatedAppRootRedirect('app.phynd.app', '/', false)).toBeNull()
   })
 
+  it('treats staging-crm.madfam.io as an authenticated staging host', () => {
+    expect(isAuthenticatedAppHost('staging-crm.madfam.io')).toBe(true)
+    expect(resolveAuthOriginFromHost('staging-crm.madfam.io')).toBe(
+      'https://staging-crm.madfam.io',
+    )
+  })
+
   it('resolves Auth.js origins per host', () => {
     expect(resolveAuthOriginFromHost('crm.madfam.io')).toBe('https://crm.madfam.io')
     expect(resolveAuthOriginFromHost('crm.phynd.app')).toBe('https://crm.phynd.app')

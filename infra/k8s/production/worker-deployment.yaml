@@ -50,6 +50,9 @@ spec:
             - secretRef:
                 name: phynd-crm-pilot-overlay
             - secretRef:
+                name: phynd-crm-lifecycle-secrets
+                optional: true
+            - secretRef:
                 name: phynd-crm-commercial-ga-secrets
                 optional: true
             - secretRef:

@@ -1,6 +1,6 @@
 import { normalizeHost } from '@/lib/branding/tenant-brand'
 
-const AUTHENTICATED_APP_HOSTS = new Set(['crm.madfam.io', 'crm.phynd.app'])
+const AUTHENTICATED_APP_HOSTS = new Set(['crm.madfam.io', 'crm.phynd.app', 'staging-crm.madfam.io'])
 const MARKETING_HOSTS = new Set(['phynd.app', 'www.phynd.app'])
 export const CANONICAL_PHYND_APP_HOST = 'crm.phynd.app'
 
@@ -13,6 +13,7 @@ export function resolveAuthOriginFromHost(host: string | null | undefined): stri
 
   if (normalized === 'crm.madfam.io') return 'https://crm.madfam.io'
   if (normalized === 'crm.phynd.app') return 'https://crm.phynd.app'
+  if (normalized === 'staging-crm.madfam.io') return 'https://staging-crm.madfam.io'
   if (MARKETING_HOSTS.has(normalized)) return `https://${CANONICAL_PHYND_APP_HOST}`
 
   const fallback = process.env.NEXT_PUBLIC_APP_URL ?? `https://${CANONICAL_PHYND_APP_HOST}`

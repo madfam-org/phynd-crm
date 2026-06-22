@@ -25,8 +25,21 @@ export function PublishQuoteAndPortalButton({
     typeof engagementsRouter.publishQuoteAndSendPortalLink
   >
 
+  const utils = trpc.useUtils()
+  const engagementsUtils = utils.engagements as NonNullable<typeof utils.engagements>
+  const getTimelineUtils = engagementsUtils.getTimeline as NonNullable<
+    typeof engagementsUtils.getTimeline
+  >
+  const listArtifactsUtils = engagementsUtils.listArtifacts as NonNullable<
+    typeof engagementsUtils.listArtifacts
+  >
+
   const mutation = publishAndSend.useMutation({
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      await Promise.all([
+        getTimelineUtils.invalidate({ engagementId }),
+        listArtifactsUtils.invalidate({ engagementId }),
+      ])
       const description = result.alreadyPublished
         ? `Quote ${result.quoteNumber} was already sent. Portal link emailed to ${getEmailRedacted(result)}.`
         : `Quote ${result.quoteNumber} published to the portal and link sent to ${getEmailRedacted(result)}.`

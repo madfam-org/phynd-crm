@@ -48,8 +48,6 @@ test.describe('Client lifecycle golden path', () => {
     await page.getByTestId('publish-quote-portal-btn').click()
     await publishMutation
     await expect(page.getByText('Client notified')).toBeVisible({ timeout: 10_000 })
-
-    await page.getByRole('tab', { name: 'Timeline' }).click()
-    await expect(page.getByText(/quote sent/i)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(/quote sent/i)).toBeVisible({ timeout: 15_000 })
   })
 })

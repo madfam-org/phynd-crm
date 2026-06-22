@@ -53,9 +53,9 @@ describe('PublishQuoteToPortalService', () => {
       if (selectCount === 1) return engagementSelect
       if (selectCount === 2) return quoteSelect
       return artifactSelect
-    }) as typeof ctx.db.select
-    ctx.db.update = vi.fn(() => quoteUpdate) as typeof ctx.db.update
-    ctx.db.insert = vi.fn(() => createMockQueryBuilder([])) as typeof ctx.db.insert
+    }) as unknown as typeof ctx.db.select
+    ctx.db.update = vi.fn(() => quoteUpdate) as unknown as typeof ctx.db.update
+    ctx.db.insert = vi.fn(() => createMockQueryBuilder([])) as unknown as typeof ctx.db.insert
 
     const service = new PublishQuoteToPortalService(ctx)
     const result = await service.publish({ engagementId: 'eng-001' })
@@ -95,7 +95,7 @@ describe('PublishQuoteToPortalService', () => {
     ctx.db.select = vi.fn(() => {
       selectCount += 1
       return selectCount === 1 ? engagementSelect : quoteSelect
-    }) as typeof ctx.db.select
+    }) as unknown as typeof ctx.db.select
 
     const service = new PublishQuoteToPortalService(ctx)
     const result = await service.publish({ engagementId: 'eng-001' })
@@ -128,7 +128,7 @@ describe('PublishQuoteToPortalService', () => {
     ctx.db.select = vi.fn(() => {
       selectCount += 1
       return selectCount === 1 ? engagementSelect : quoteSelect
-    }) as typeof ctx.db.select
+    }) as unknown as typeof ctx.db.select
 
     const service = new PublishQuoteToPortalService(ctx)
     await expect(service.publish({ engagementId: 'eng-001' })).rejects.toBeInstanceOf(

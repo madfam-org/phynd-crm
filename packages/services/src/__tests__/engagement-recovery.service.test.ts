@@ -74,7 +74,7 @@ describe('EngagementRecoveryService', () => {
     ctx.db.select = vi
       .fn()
       .mockReturnValueOnce(createMockQueryBuilder([{ id: 'eng-001' }]))
-      .mockReturnValueOnce(createMockQueryBuilder(blocked)) as typeof ctx.db.select
+      .mockReturnValueOnce(createMockQueryBuilder(blocked)) as unknown as typeof ctx.db.select
 
     const service = new EngagementRecoveryService(ctx)
     const result = await service.listBlockedEvents('eng-001')
@@ -93,8 +93,8 @@ describe('EngagementRecoveryService', () => {
       metadata: { order_id: 'order-001' },
     }
 
-    ctx.db.select = vi.fn(() => createMockQueryBuilder([blockedEvent])) as typeof ctx.db.select
-    ctx.db.update = vi.fn(() => createMockQueryBuilder([])) as typeof ctx.db.update
+    ctx.db.select = vi.fn(() => createMockQueryBuilder([blockedEvent])) as unknown as typeof ctx.db.select
+    ctx.db.update = vi.fn(() => createMockQueryBuilder([])) as unknown as typeof ctx.db.update
 
     const service = new EngagementRecoveryService(ctx)
     await expect(

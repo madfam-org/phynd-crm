@@ -23,6 +23,8 @@ type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
+type PortalTimelineEntry = Awaited<ReturnType<EngagementsService['getTimeline']>>[number]
+
 export default async function EngagementPortalPage({ params, searchParams }: PageProps) {
   const { engagementId } = await params
   const query = await searchParams
@@ -80,7 +82,6 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
   const quoteCards = await buildQuoteCards(db, portalQuotes)
   type QuoteCard = (typeof quoteCards)[number]
   type Artifact = (typeof artifacts)[number]
-  type TimelineEntry = (typeof timeline)[number]
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -230,7 +231,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ol className="space-y-3">
-              {timeline.map((entry: TimelineEntry) => (
+              {timeline.map((entry: PortalTimelineEntry) => (
                 <PortalActivityItem entry={entry} key={entry.id} />
               ))}
             </ol>
@@ -262,7 +263,7 @@ function portalActivityStyles(tone: TimelineVisualTone) {
   }
 }
 
-function PortalActivityItem({ entry }: { entry: TimelineEntry }) {
+function PortalActivityItem({ entry }: { entry: PortalTimelineEntry }) {
   const tone = entry.kind === 'event' ? timelineEventTone(entry.status) : 'default'
   const { dotClass, cardClass } = portalActivityStyles(tone)
 

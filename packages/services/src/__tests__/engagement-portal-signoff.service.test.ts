@@ -47,11 +47,11 @@ describe('EngagementPortalSignoffService', () => {
       if (selectCount === 2) return createMockQueryBuilder([artifact])
       if (selectCount === 3) return createMockQueryBuilder([])
       return createMockQueryBuilder([])
-    }) as typeof ctx.db.select
+    }) as unknown as typeof ctx.db.select
 
     ctx.db.insert = vi.fn(() =>
       createMockQueryBuilder([{ id: 'evt-accept-001' }]),
-    ) as typeof ctx.db.insert
+    ) as unknown as typeof ctx.db.insert
 
     const service = new EngagementPortalSignoffService(ctx)
     const result = await service.acceptDeliverable({
@@ -74,7 +74,7 @@ describe('EngagementPortalSignoffService', () => {
         createMockQueryBuilder([
           { id: 'art-002', engagementId: 'eng-001', type: 'invoice', title: 'Invoice' },
         ]),
-      ) as typeof ctx.db.select
+      ) as unknown as typeof ctx.db.select
 
     const service = new EngagementPortalSignoffService(ctx)
     await expect(

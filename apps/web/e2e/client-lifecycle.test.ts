@@ -23,11 +23,11 @@ test.describe('Client lifecycle golden path', () => {
     await page.getByTestId('onboard-client-project-trigger').click()
     await expect(page.getByRole('dialog')).toBeVisible()
 
-    await page.getByLabel('Name *').fill(`E2E Client ${runId}`)
-    await page.getByLabel('Email').fill(clientEmail)
-    await page.getByLabel('Project Name *').fill(`E2E Project ${runId}`)
-    await page.getByLabel('Quote Amount').fill('12500')
-    await page.getByLabel('Currency').fill('USD')
+    await page.locator('#onboard-client-name').fill(`E2E Client ${runId}`)
+    await page.locator('#onboard-client-email').fill(clientEmail)
+    await page.locator('#onboard-project-name').fill(`E2E Project ${runId}`)
+    await page.locator('#onboard-amount').fill('12500')
+    await page.locator('#onboard-currency').fill('USD')
 
     await page.getByRole('button', { name: 'Onboard' }).click()
 

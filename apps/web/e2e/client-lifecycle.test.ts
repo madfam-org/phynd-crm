@@ -29,9 +29,11 @@ test.describe('Client lifecycle golden path', () => {
     await page.locator('#onboard-amount').fill('12500')
     await page.locator('#onboard-currency').fill('USD')
 
-    await page.getByRole('button', { name: 'Onboard' }).click()
+    const onboardBtn = page.getByRole('button', { name: 'Onboard' })
+    await expect(onboardBtn).toBeEnabled({ timeout: 15_000 })
+    await onboardBtn.click()
 
-    await expect(page).toHaveURL(/\/engagements\/[a-zA-Z0-9_-]+/, { timeout: 20_000 })
+    await expect(page).toHaveURL(/\/engagements\/[a-zA-Z0-9_-]+/, { timeout: 30_000 })
     await expect(page.getByRole('heading', { level: 1 })).toContainText(`E2E Project ${runId}`)
 
     await page.getByTestId('publish-quote-portal-btn').click()

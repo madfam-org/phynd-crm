@@ -67,22 +67,7 @@ jobs:
           set -euo pipefail
 
           parse_digest_file() {
-            local image="$1"
-            local file="$2"
-            local digest
-            digest=$(
-              awk -v target_image="$image" '
-                BEGIN { found = 0 }
-                $1 == "name:" && $2 == target_image { found = 1; next }
-                found && $1 == "digest:" { print $2; exit }
-                found && $1 == "name:" { found = 0 }
-              ' "$file"
-            )
-            if [ -z "$digest" ]; then
-              echo "Digest not found for $image in $file" >&2
-              exit 1
-            fi
-            echo "$digest"
+            node scripts/parse-kustomize-image-digest.mjs "$2" "$1"
           }
 
           parse_digest_from_commit() {

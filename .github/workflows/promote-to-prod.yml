@@ -88,37 +88,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          parse_digest() {
-            local image="$1"
-            local file="$2"
-            local digest
-            digest=$(
-              awk -v target_image="$image" '
-                $1 == "digest:" { pending = $2; next }
-                $1 == "name:" && $2 == target_image {
-                  if (pending != "") { print pending; exit }
-                  in_block = 1
-                  next
-                }
-                in_block && $1 == "digest:" { print $2; exit }
-                in_block && $1 == "name:" { in_block = 0 }
-              ' "$file"
-            )
-            if [ -z "$digest" ]; then
-              echo "Digest not found for $image in $file" >&2
-              exit 1
-            fi
-            echo "$digest"
+          resolve_digest() {
+            node scripts/parse-kustomize-image-digest.mjs "$1" "$2"
           }
 
           web_digest="${{ inputs.web_digest }}"
           if [ -z "$web_digest" ]; then
-            web_digest=$(parse_digest "${WEB_IMAGE}" "${STAGING_KUSTOMIZATION}")
+            web_digest=$(resolve_digest "${STAGING_KUSTOMIZATION}" "${WEB_IMAGE}")
           fi
 
           worker_digest="${{ inputs.worker_digest }}"
           if [ -z "$worker_digest" ]; then
-            worker_digest=$(parse_digest "${WORKER_IMAGE}" "${STAGING_KUSTOMIZATION}")
+            worker_digest=$(resolve_digest "${STAGING_KUSTOMIZATION}" "${WORKER_IMAGE}")
           fi
 
           echo "web_digest=${web_digest}" >> "$GITHUB_OUTPUT"

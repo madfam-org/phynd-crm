@@ -23,6 +23,14 @@ export const REQUIRED_JANUA_REDIRECT_URIS = [
   `${STAGING_CRM_BASE_URL}/api/auth/callback/janua`,
 ]
 
+/** Janua magic-link redirect_url prefix for external client portal (query: ?engagement=&token=). */
+export const REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS = [
+  'https://crm.madfam.io/portal/verify',
+  `${STAGING_CRM_BASE_URL}/portal/verify`,
+]
+
+export const PRODUCTION_MADFAM_PORTAL_BASE_URL = 'https://crm.madfam.io'
+
 export const LIVE_AUTH_BASES = [
   'https://crm.madfam.io',
   'https://crm.phynd.app',
@@ -38,9 +46,11 @@ export const AUTH_CALLBACK_CANONICAL_BASE = {
 
 export const JANUA_ADMIN_REQUIREMENTS = [
   'Register all REQUIRED_JANUA_REDIRECT_URIS on the Phynd CRM OIDC client in Janua',
+  'Allow magic-link redirect_url prefix REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS on the Janua auth API (portal client emails)',
   'Confirm admin@madfam.io has admin role/claims accepted by Phynd middleware',
   'Use distinct Janua staging issuer (AUTH_JANUA_ISSUER) for staging CRM host',
   'Never share production Janua client secret with staging',
+  'Production PORTAL_BASE_URL must be https://crm.madfam.io (not phynd.app) for MADFAM-branded client links',
 ]
 
 function parseArgs(argv) {
@@ -78,6 +88,8 @@ export function buildJanuaOidcChecklist(options = {}) {
     ok: failedLive === 0,
     callbackPath: JANUA_OIDC_CALLBACK_PATH,
     requiredRedirectUris: REQUIRED_JANUA_REDIRECT_URIS,
+    requiredPortalVerifyOrigins: REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS,
+    productionPortalBaseUrl: PRODUCTION_MADFAM_PORTAL_BASE_URL,
     adminRequirements: JANUA_ADMIN_REQUIREMENTS,
     liveChecks,
     failedLive,
@@ -99,6 +111,13 @@ function main() {
     for (const uri of report.requiredRedirectUris) {
       console.log(`  - ${uri}`)
     }
+    console.log('')
+    console.log('Register these magic-link portal verify origins (redirect_url prefix):')
+    for (const origin of report.requiredPortalVerifyOrigins) {
+      console.log(`  - ${origin}`)
+    }
+    console.log('')
+    console.log(`Production PORTAL_BASE_URL: ${report.productionPortalBaseUrl}`)
     console.log('')
     console.log('Janua admin requirements:')
     for (const item of report.adminRequirements) {

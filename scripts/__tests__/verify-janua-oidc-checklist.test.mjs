@@ -13,6 +13,13 @@ test('REQUIRED_JANUA_REDIRECT_URIS includes pilot hosts', () => {
   assert.ok(REQUIRED_JANUA_REDIRECT_URIS.some((uri) => uri.includes('staging-crm.madfam.io')))
 })
 
+test('REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS includes MADFAM production portal', async () => {
+  const { REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS } = await import('../verify-janua-oidc-checklist.mjs')
+  assert.ok(
+    REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS.some((uri) => uri === 'https://crm.madfam.io/portal/verify'),
+  )
+})
+
 test('buildJanuaOidcChecklist passes without live probes', () => {
   const report = buildJanuaOidcChecklist({ verifyLive: false })
   assert.equal(report.ok, true)

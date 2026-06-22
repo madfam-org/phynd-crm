@@ -50,7 +50,7 @@ listed in `.env.example`. Key variables:
 | `OPENAI_API_KEY` | LLM API key (Selva-routed or provider fallback) | Secret-store value |
 | `OPENAI_BASE_URL` | LLM endpoint override (Selva Nexus) | `http://nexus-api.selva.svc.cluster.local/v1` |
 | `RESEND_API_KEY` | Resend email API key | Secret-store value |
-| `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://phynd.app` |
+| `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://crm.madfam.io` (MADFAM prod); see [`runbooks/JANUA_PORTAL_MAGIC_LINK.md`](runbooks/JANUA_PORTAL_MAGIC_LINK.md) |
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | Secret-store value |
 | `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`); mounted from optional `phynd-crm-commercial-ga-secrets` in production | Secret-store value |
 | `TULANA_API_BASE_URL` | Tulana API base URL used for commercial GA evidence write-back; static production Deployment env | `https://tulana-api.madfam.io/api/v1` |

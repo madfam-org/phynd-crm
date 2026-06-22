@@ -9,6 +9,7 @@
 
 import fs from 'node:fs'
 import { readTierSecrets } from './pp5-k8s-env.mjs'
+import { PRODUCTION_MADFAM_PORTAL_BASE_URL } from './verify-janua-oidc-checklist.mjs'
 
 const REQUIRED_GROUPS = [
   {
@@ -111,6 +112,18 @@ function main() {
   const values = loadValues(options)
   const groups = REQUIRED_GROUPS.map((group) => evaluateGroup(group, values))
   const warnings = WARN_IF_SET_IN_PROD.filter((key) => Boolean(values.get(key)?.trim()))
+  if (options.fromK8s === 'production') {
+    const portalBase = values.get('PORTAL_BASE_URL')?.trim().replace(/\/$/, '')
+    if (portalBase !== PRODUCTION_MADFAM_PORTAL_BASE_URL) {
+      const portalGroup = groups.find((group) => group.name === 'portal')
+      if (portalGroup) {
+        portalGroup.ok = false
+        portalGroup.missing.push(
+          `PORTAL_BASE_URL must be ${PRODUCTION_MADFAM_PORTAL_BASE_URL} (got ${portalBase || '(unset)'})`,
+        )
+      }
+    }
+  }
   const failed = groups.filter((group) => !group.ok)
 
   const report = {

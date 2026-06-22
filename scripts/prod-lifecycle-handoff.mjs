@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const PROD_BASE = 'https://crm.madfam.io'
-const PROD_ALT = 'https://phynd.app'
+const PROD_MARKETING = 'https://phynd.app'
 
 const PROVIDER_RECEIVERS = [
   {
@@ -83,8 +83,10 @@ function main() {
 
   const handoff = {
     tier: 'production',
-    baseUrls: [PROD_BASE, PROD_ALT],
-    portalBaseUrl: 'https://phynd.app',
+    baseUrls: [PROD_BASE, PROD_MARKETING],
+    portalBaseUrl: PROD_BASE,
+    portalVerifyUrl: `${PROD_BASE}/portal/verify`,
+    januaChecklist: 'node scripts/verify-janua-oidc-checklist.mjs',
     providerReceivers: PROVIDER_RECEIVERS.map((row) => ({
       ...row,
       url: `${PROD_BASE}${row.path}`,
@@ -101,6 +103,7 @@ function main() {
       externalSecretReady: (eso.stdout || '').trim() === 'True',
     },
     nextSteps: [
+      'Janua admin: register OIDC callbacks + portal magic-link origins (pnpm verify:janua-oidc).',
       'Register provider webhooks at the URLs above with freshly exported secrets (never reuse staging).',
       'Obtain PRAVARA_API_KEY from PravaraMES ops if API-key dispatch is required (HMAC via PHYNDCRM_OUTBOUND_SECRET is sufficient for dispatch worker).',
       'After Vault keys exist: run pp5-backfill-vault-from-k8s.mjs without --dry-run, extend external-secret.yaml, force-sync ESO.',
@@ -116,7 +119,8 @@ function main() {
   console.log('Production client lifecycle handoff')
   console.log('')
   console.log('Base URLs:', handoff.baseUrls.join(', '))
-  console.log('Portal:', handoff.portalBaseUrl)
+  console.log('Portal verify URL:', handoff.portalVerifyUrl)
+  console.log('Janua checklist:', handoff.januaChecklist)
   console.log('')
   console.log('Provider webhook destinations (share secrets via export commands below):')
   for (const row of handoff.providerReceivers) {

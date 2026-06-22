@@ -57,7 +57,7 @@ One-time per tenant (MADFAM internal org, tenant `code='madfam'`):
    | Var | Value |
    |---|---|
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC-SHA256 32-byte secret; shared with Cotiza's `PHYNDCRM_ENGAGEMENT_SECRET` |
-| `PORTAL_BASE_URL` | `https://phynd.app` (prod) |
+| `PORTAL_BASE_URL` | `https://crm.madfam.io` (prod) — see [`JANUA_PORTAL_MAGIC_LINK.md`](../JANUA_PORTAL_MAGIC_LINK.md) |
 | `JANUA_API_URL` | `https://auth.madfam.io` |
 
 3. **Cotiza env vars**:

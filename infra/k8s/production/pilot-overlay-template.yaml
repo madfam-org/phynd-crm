@@ -1,0 +1,15 @@
+# Non-secret pilot overlay — apply after populating values:
+#   kubectl apply -f infra/k8s/production/pilot-overlay-template.yaml
+#
+# PORTAL_BASE_URL must match the MADFAM staff host so client magic links land on
+# the same branded domain as crm.madfam.io (see docs/runbooks/JANUA_PORTAL_MAGIC_LINK.md).
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: phynd-crm-pilot-overlay
+  namespace: phynd-crm
+type: Opaque
+stringData:
+  PORTAL_BASE_URL: "https://crm.madfam.io"
+  PHYND_DEPLOYMENT_TIER: "production"

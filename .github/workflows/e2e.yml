@@ -59,7 +59,9 @@ jobs:
           AUTH_JANUA_CLIENT_ID: e2e-client-id
           AUTH_JANUA_CLIENT_SECRET: e2e-client-secret
           NEXT_PUBLIC_APP_URL: http://localhost:3000
-          JANUA_API_URL: http://localhost:4001
+          NEXTAUTH_URL: http://localhost:3000
+          PORTAL_BASE_URL: http://localhost:3000
+          JANUA_API_URL: http://127.0.0.1:4001
           DHANAM_API_URL: http://localhost:4002
           COTIZA_API_URL: http://localhost:4003
           PRAVARA_BASE_URL: http://localhost:4004

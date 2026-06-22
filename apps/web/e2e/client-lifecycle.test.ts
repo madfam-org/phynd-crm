@@ -10,14 +10,6 @@ test.describe('Client lifecycle golden path', () => {
     const runId = Date.now()
     const clientEmail = `e2e-client-${runId}@example.com`
 
-    await page.route('**/api/v1/auth/magic-link', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ sent: true }),
-      })
-    })
-
     await gotoDashboard(page, '/engagements')
 
     await page.getByTestId('onboard-client-project-trigger').click()
@@ -46,8 +38,16 @@ test.describe('Client lifecycle golden path', () => {
     await expect(page).toHaveURL(/\/engagements\/[a-zA-Z0-9_-]+/, { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1 })).toContainText(`E2E Project ${runId}`)
 
+    const publishMutation = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/trpc') &&
+        response.url().includes('publishQuoteAndSendPortalLink') &&
+        response.ok(),
+      { timeout: 30_000 },
+    )
     await page.getByTestId('publish-quote-portal-btn').click()
-    await expect(page.getByText('Client notified')).toBeVisible({ timeout: 15_000 })
+    await publishMutation
+    await expect(page.getByText('Client notified')).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('tab', { name: 'Timeline' }).click()
     await expect(page.getByText(/quote sent/i)).toBeVisible({ timeout: 10_000 })

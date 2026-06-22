@@ -31,9 +31,19 @@ test.describe('Client lifecycle golden path', () => {
 
     const onboardBtn = page.getByRole('button', { name: 'Onboard' })
     await expect(onboardBtn).toBeEnabled({ timeout: 15_000 })
-    await onboardBtn.click()
 
-    await expect(page).toHaveURL(/\/engagements\/[a-zA-Z0-9_-]+/, { timeout: 30_000 })
+    const onboardMutation = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/trpc') &&
+        response.url().includes('onboardClientProject') &&
+        response.ok(),
+      { timeout: 30_000 },
+    )
+    await onboardBtn.click()
+    await onboardMutation
+    await expect(page.getByText('Client project onboarded')).toBeVisible({ timeout: 10_000 })
+
+    await expect(page).toHaveURL(/\/engagements\/[a-zA-Z0-9_-]+/, { timeout: 15_000 })
     await expect(page.getByRole('heading', { level: 1 })).toContainText(`E2E Project ${runId}`)
 
     await page.getByTestId('publish-quote-portal-btn').click()

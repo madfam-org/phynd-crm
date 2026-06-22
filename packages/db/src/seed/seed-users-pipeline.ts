@@ -14,9 +14,11 @@ export async function seedUsersAndPipeline(db: Db) {
     .onConflictDoNothing()
     .returning()
 
+  // id must match DEV_AUTH.userId in apps/web/src/lib/trpc/request-context.ts (AUTH_BYPASS / E2E)
   const [devAdmin] = await db
     .insert(users)
     .values({
+      id: 'dev-user',
       email: 'dev@madfam.com',
       name: 'Dev Admin',
       role: 'admin',

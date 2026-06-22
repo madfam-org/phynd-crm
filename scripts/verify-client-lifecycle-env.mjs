@@ -8,6 +8,7 @@
  */
 
 import fs from 'node:fs'
+import { readTierSecrets } from './pp5-k8s-env.mjs'
 
 const REQUIRED_GROUPS = [
   {
@@ -62,18 +63,23 @@ function parseEnvFile(filePath) {
 }
 
 function loadValues(options) {
+  if (options.fromK8s) return readTierSecrets(options.fromK8s)
   if (options.file) return parseEnvFile(options.file)
   return new Map(Object.entries(process.env).filter(([, value]) => value != null))
 }
 
 function parseArgs(argv) {
   let file = null
+  let fromK8s = null
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--file' && argv[i + 1]) {
       file = argv[++i]
     }
+    if (argv[i] === '--from-k8s' && argv[i + 1]) {
+      fromK8s = argv[++i]
+    }
   }
-  return { file, json: argv.includes('--json') }
+  return { file, fromK8s, json: argv.includes('--json') }
 }
 
 function evaluateGroup(group, values) {

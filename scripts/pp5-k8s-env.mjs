@@ -19,8 +19,33 @@ const TIERS = {
   },
   production: {
     namespace: 'phynd-crm',
-    secrets: ['phynd-crm-secrets', 'phynd-crm-pilot-overlay'],
+    secrets: ['phynd-crm-secrets', 'phynd-crm-pilot-overlay', 'phynd-crm-lifecycle-secrets'],
   },
+}
+
+const LIFECYCLE_ENV_KEYS = [
+  'PORTAL_BASE_URL',
+  'JANUA_API_URL',
+  'PHYND_ENGAGEMENT_EVENTS_SECRET',
+  'DHANAM_WEBHOOK_SECRET',
+  'PRAVARA_API_KEY',
+  'PRAVARA_BASE_URL',
+  'PRAVARA_DISPATCH_URL',
+  'SELVA_API_KEY',
+  'SELVA_DISPATCH_SECRET',
+  'SELVA_API_URL',
+  'SELVA_DISPATCH_URL',
+  'COTIZA_API_URL',
+  'PHYNDCRM_OUTBOUND_SECRET',
+]
+
+function exportEnvKeys(secrets, keys) {
+  for (const key of keys) {
+    const value = secrets.get(key)
+    if (!value) continue
+    const escaped = value.replace(/'/g, `'\\''`)
+    console.log(`export ${key}='${escaped}'`)
+  }
 }
 
 const WEBHOOK_ENV_KEYS = [
@@ -105,6 +130,7 @@ function parseArgs(argv) {
   const opts = {
     federationToken: false,
     exportWebhookEnv: false,
+    exportLifecycleEnv: false,
     tier: null,
     baseUrl: process.env.CRM_BASE_URL?.trim() ?? '',
   }
@@ -118,6 +144,10 @@ function parseArgs(argv) {
       opts.exportWebhookEnv = true
       continue
     }
+    if (arg === '--export-lifecycle-env') {
+      opts.exportLifecycleEnv = true
+      continue
+    }
     if (arg === '--tier') {
       opts.tier = argv[++i] ?? null
       continue
@@ -127,7 +157,7 @@ function parseArgs(argv) {
       continue
     }
     if (arg === '--help' || arg === '-h') {
-      console.log(`Usage: node scripts/pp5-k8s-env.mjs [--federation-token] [--export-webhook-env] [--tier staging|production] [--base-url URL]`)
+      console.log(`Usage: node scripts/pp5-k8s-env.mjs [--federation-token] [--export-webhook-env] [--export-lifecycle-env] [--tier staging|production] [--base-url URL]`)
       process.exit(0)
     }
     throw new Error(`Unknown argument: ${arg}`)
@@ -154,16 +184,16 @@ function main() {
   }
 
   if (opts.exportWebhookEnv) {
-    for (const key of WEBHOOK_ENV_KEYS) {
-      const value = secrets.get(key)
-      if (!value) continue
-      const escaped = value.replace(/'/g, `'\\''`)
-      console.log(`export ${key}='${escaped}'`)
-    }
+    exportEnvKeys(secrets, WEBHOOK_ENV_KEYS)
     return
   }
 
-  throw new Error('Pass --federation-token or --export-webhook-env')
+  if (opts.exportLifecycleEnv) {
+    exportEnvKeys(secrets, LIFECYCLE_ENV_KEYS)
+    return
+  }
+
+  throw new Error('Pass --federation-token, --export-webhook-env, or --export-lifecycle-env')
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

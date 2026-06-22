@@ -10,10 +10,16 @@
  *   VAULT_TOKEN=<write-capable> node scripts/pp5-backfill-vault-from-k8s.mjs \
  *     --namespace phynd-crm-staging --secret phynd-crm-staging-secrets \
  *     --vault-path secret/phynd-crm-staging --dry-run
+ *   node scripts/pp5-backfill-vault-from-k8s.mjs --tier production --dry-run
  */
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readTierSecrets } from './pp5-k8s-env.mjs'
+
+const TIER_VAULT_PATHS = {
+  staging: 'secret/phynd-crm-staging',
+  production: 'secret/phynd-crm',
+}
 
 function lowerSnake(key) {
   return key.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
@@ -26,12 +32,17 @@ function parseArgs(argv) {
     vaultPath: 'secret/phynd-crm-staging',
     vaultNamespace: 'vault',
     vaultPod: 'vault-0',
+    tier: null,
     dryRun: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--dry-run') {
       opts.dryRun = true
+      continue
+    }
+    if (arg === '--tier') {
+      opts.tier = argv[++i] ?? ''
       continue
     }
     if (arg === '--namespace') {
@@ -47,10 +58,19 @@ function parseArgs(argv) {
       continue
     }
     if (arg === '--help' || arg === '-h') {
-      console.log(`Usage: VAULT_TOKEN=... node scripts/pp5-backfill-vault-from-k8s.mjs [--dry-run]`)
+      console.log(
+        `Usage: VAULT_TOKEN=... node scripts/pp5-backfill-vault-from-k8s.mjs [--tier staging|production] [--dry-run]`,
+      )
       process.exit(0)
     }
     throw new Error(`Unknown argument: ${arg}`)
+  }
+  if (opts.tier) {
+    opts.vaultPath = TIER_VAULT_PATHS[opts.tier] ?? opts.vaultPath
+    if (opts.tier === 'production') {
+      opts.namespace = 'phynd-crm'
+      opts.secret = 'phynd-crm-lifecycle-secrets'
+    }
   }
   return opts
 }
@@ -126,8 +146,13 @@ function writeVaultPath(opts, token, payload) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2))
-  const secret = kubectlJson(['get', 'secret', opts.secret, '-n', opts.namespace])
-  const k8sValues = decodeSecretData(secret.data)
+  let k8sValues
+  if (opts.tier) {
+    k8sValues = readTierSecrets(opts.tier)
+  } else {
+    const secret = kubectlJson(['get', 'secret', opts.secret, '-n', opts.namespace])
+    k8sValues = decodeSecretData(secret.data)
+  }
   const vaultPayload = {}
   for (const [key, value] of k8sValues.entries()) {
     vaultPayload[lowerSnake(key)] = value

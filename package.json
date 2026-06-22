@@ -35,6 +35,7 @@
     "verify:selva-agent": "node scripts/verify-selva-agent-integration.mjs",
     "verify:client-lifecycle-env": "node scripts/verify-client-lifecycle-env.mjs",
     "verify:client-lifecycle": "node scripts/verify-client-lifecycle.mjs --skip-env",
+    "pp5:prod-lifecycle-handoff": "node scripts/prod-lifecycle-handoff.mjs",
     "test:pp5": "node --test scripts/__tests__/*.test.mjs",
     "clean": "turbo clean",
     "prepare": "husky"

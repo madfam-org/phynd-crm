@@ -25,13 +25,14 @@ const REQUIRED_GROUPS = [
   },
   {
     name: 'dispatch-pravara',
-    keys: ['PRAVARA_API_KEY'],
+    anyOf: ['PRAVARA_API_KEY', 'PRAVARA_DISPATCH_SECRET', 'PHYNDCRM_OUTBOUND_SECRET'],
     optionalUrlKeys: ['PRAVARA_BASE_URL', 'PRAVARA_DISPATCH_URL'],
   },
   {
     name: 'dispatch-selva',
-    anyOf: ['SELVA_API_KEY', 'SELVA_DISPATCH_SECRET'],
-    optionalUrlKeys: ['SELVA_API_URL', 'SELVA_DISPATCH_URL'],
+    anyOf: ['SELVA_API_KEY', 'SELVA_DISPATCH_SECRET', 'PHYNDCRM_OUTBOUND_SECRET'],
+    keys: ['SELVA_API_URL'],
+    optionalUrlKeys: ['SELVA_DISPATCH_URL'],
   },
   {
     name: 'cotiza-outbound',

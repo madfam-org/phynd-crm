@@ -18,15 +18,15 @@ export async function withRequestAuthOrigin(
   const savedNextAuthUrl = process.env.NEXTAUTH_URL
 
   process.env.AUTH_URL = origin
-  delete process.env.NEXTAUTH_URL
+  process.env.NEXTAUTH_URL = undefined
 
   try {
     return await handler(normalized)
   } finally {
-    if (savedAuthUrl === undefined) delete process.env.AUTH_URL
+    if (savedAuthUrl === undefined) process.env.AUTH_URL = undefined
     else process.env.AUTH_URL = savedAuthUrl
 
-    if (savedNextAuthUrl === undefined) delete process.env.NEXTAUTH_URL
+    if (savedNextAuthUrl === undefined) process.env.NEXTAUTH_URL = undefined
     else process.env.NEXTAUTH_URL = savedNextAuthUrl
   }
 }

@@ -3,8 +3,8 @@ import { ThemeProvider } from 'next-themes'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
-import { TRPCProvider } from '@/lib/trpc/provider'
 import { EcosystemBannerClient } from '@/components/EcosystemBannerClient'
+import { TRPCProvider } from '@/lib/trpc/provider'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 

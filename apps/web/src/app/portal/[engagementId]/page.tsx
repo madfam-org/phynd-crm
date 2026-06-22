@@ -1,5 +1,8 @@
+import {
+  type TimelineVisualTone,
+  timelineEventTone,
+} from '@/lib/engagements/timeline-presentations'
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
-import { timelineEventTone } from '@/lib/engagements/timeline-presentations'
 import { getDb } from '@phynd/db'
 import { contacts, engagementEvents, engagements, orders, quotes } from '@phynd/db/schema'
 import { EngagementsService } from '@phynd/services'
@@ -227,40 +230,9 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ol className="space-y-3">
-              {timeline.map((entry: TimelineEntry) => {
-                const tone =
-                  entry.kind === 'event' ? timelineEventTone(entry.status) : 'default'
-                const dotClass =
-                  tone === 'milestone'
-                    ? 'bg-violet-500'
-                    : tone === 'blocked'
-                      ? 'bg-amber-500'
-                      : 'bg-slate-400'
-                const cardClass =
-                  tone === 'milestone'
-                    ? 'border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/30'
-                    : tone === 'blocked'
-                      ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30'
-                      : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-
-                return (
-                <li
-                  key={entry.id}
-                  className={`flex gap-3 rounded-md border p-3 ${cardClass}`}
-                >
-                  <span
-                    className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-slate-900 dark:text-slate-100">
-                      {timelineMessage(entry)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      {entry.createdAt.toLocaleString()}
-                    </p>
-                  </div>
-                </li>
-              )})}
+              {timeline.map((entry: TimelineEntry) => (
+                <PortalActivityItem entry={entry} key={entry.id} />
+              ))}
             </ol>
           )}
         </section>
@@ -271,10 +243,43 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
 
 type PortalQuote = typeof quotes.$inferSelect
 
-async function loadAcceptedDeliverableIds(
-  db: ReturnType<typeof getDb>,
-  engagementId: string,
-) {
+function portalActivityStyles(tone: TimelineVisualTone) {
+  if (tone === 'milestone') {
+    return {
+      dotClass: 'bg-violet-500',
+      cardClass: 'border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/30',
+    }
+  }
+  if (tone === 'blocked') {
+    return {
+      dotClass: 'bg-amber-500',
+      cardClass: 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30',
+    }
+  }
+  return {
+    dotClass: 'bg-slate-400',
+    cardClass: 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900',
+  }
+}
+
+function PortalActivityItem({ entry }: { entry: TimelineEntry }) {
+  const tone = entry.kind === 'event' ? timelineEventTone(entry.status) : 'default'
+  const { dotClass, cardClass } = portalActivityStyles(tone)
+
+  return (
+    <li className={`flex gap-3 rounded-md border p-3 ${cardClass}`}>
+      <span className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-slate-900 dark:text-slate-100">{timelineMessage(entry)}</p>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          {entry.createdAt.toLocaleString()}
+        </p>
+      </div>
+    </li>
+  )
+}
+
+async function loadAcceptedDeliverableIds(db: ReturnType<typeof getDb>, engagementId: string) {
   const rows = await db
     .select({ metadata: engagementEvents.metadata })
     .from(engagementEvents)

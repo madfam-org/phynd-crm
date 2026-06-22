@@ -1,8 +1,4 @@
-import {
-  engagementEvents,
-  engagements,
-  orders,
-} from '@phynd/db/schema'
+import { engagementEvents, engagements, orders } from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
@@ -40,7 +36,10 @@ export class EngagementRecoveryService {
       .select()
       .from(engagementEvents)
       .where(
-        and(eq(engagementEvents.engagementId, engagementId), eq(engagementEvents.status, 'blocked')),
+        and(
+          eq(engagementEvents.engagementId, engagementId),
+          eq(engagementEvents.status, 'blocked'),
+        ),
       )
       .orderBy(desc(engagementEvents.createdAt))
       .limit(50)
@@ -185,11 +184,7 @@ async function getBlockedEvent(tx: RecoveryTx, eventId: string) {
   return event
 }
 
-async function assertOrderForEngagement(
-  tx: RecoveryTx,
-  engagementId: string,
-  orderId: string,
-) {
+async function assertOrderForEngagement(tx: RecoveryTx, engagementId: string, orderId: string) {
   const [engagement] = await tx
     .select()
     .from(engagements)

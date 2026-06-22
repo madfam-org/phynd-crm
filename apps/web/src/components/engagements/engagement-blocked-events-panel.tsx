@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { trpc } from '@/lib/trpc/client'
 import { isBlockedRecoveryEvent } from '@/lib/engagements/timeline-presentations'
+import { trpc } from '@/lib/trpc/client'
 import { AlertTriangle, CheckCircle2, Link2, RotateCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -122,7 +122,9 @@ export function EngagementBlockedEventsPanel({ engagementId }: EngagementBlocked
                     <Badge variant="warning" className="text-[10px] uppercase">
                       blocked
                     </Badge>
-                    <span className="text-sm font-medium">{event.eventType.replace('system:', '')}</span>
+                    <span className="text-sm font-medium">
+                      {event.eventType.replace('system:', '')}
+                    </span>
                   </div>
                   {event.message && (
                     <p className="mt-1 text-sm text-muted-foreground">{event.message}</p>

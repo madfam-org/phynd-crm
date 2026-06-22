@@ -1,5 +1,5 @@
-import { externalOriginForRequest } from '@/lib/http/origin'
 import { resolveAuthOriginFromHost } from '@/lib/http/app-host'
+import { externalOriginForRequest } from '@/lib/http/origin'
 import { NextRequest } from 'next/server'
 
 type NextRequestInit = NonNullable<ConstructorParameters<typeof NextRequest>[1]>

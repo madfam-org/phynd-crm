@@ -11,11 +11,11 @@
  */
 export interface EcosystemPlatform {
   /** Short uppercase keyword shown before the colon, e.g. "BUDGETING & WEALTH". */
-  keyword: string;
+  keyword: string
   /** Platform display name shown after the colon, e.g. "Dhanam". */
-  name: string;
+  name: string
   /** Apex domain URL, e.g. "https://dhan.am". No trailing slash. */
-  url: string;
+  url: string
 }
 
 export const DEFAULT_ECOSYSTEM_PLATFORMS: readonly EcosystemPlatform[] = [
@@ -33,4 +33,4 @@ export const DEFAULT_ECOSYSTEM_PLATFORMS: readonly EcosystemPlatform[] = [
   { keyword: 'ROUTING & LOGISTICS', name: 'RouteCraft', url: 'https://routecraft.app' },
   { keyword: 'CLIENT PORTAL & CRM', name: 'PhyndCRM', url: 'https://phynd.app' },
   // { keyword: 'PARAMETRIC CAD', name: 'Sim4D', url: 'https://sim4d.io' },                    // 2026-05-04: connection refused
-] as const;
+] as const

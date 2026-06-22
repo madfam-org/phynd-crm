@@ -1,9 +1,4 @@
-import {
-  engagementArtifacts,
-  engagementEvents,
-  engagements,
-  quotes,
-} from '@phynd/db/schema'
+import { engagementArtifacts, engagementEvents, engagements, quotes } from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { EngagementPortalMagicLinkService } from '../engagement-portal/magic-link.service'
@@ -34,10 +29,7 @@ export class PublishQuoteToPortalService {
         : await findPublishableQuote(tx, engagement)
 
       if (!quote) {
-        throw new NotFoundError(
-          'Quote',
-          input.quoteId ?? `engagement:${input.engagementId}`,
-        )
+        throw new NotFoundError('Quote', input.quoteId ?? `engagement:${input.engagementId}`)
       }
 
       if (quote.status !== 'draft' && quote.status !== 'sent') {
@@ -124,10 +116,7 @@ async function getQuoteForEngagement(
   return quote
 }
 
-async function findPublishableQuote(
-  tx: PublishTx,
-  engagement: typeof engagements.$inferSelect,
-) {
+async function findPublishableQuote(tx: PublishTx, engagement: typeof engagements.$inferSelect) {
   const conditions = [isNull(quotes.deletedAt)]
   if (engagement.opportunityId) {
     conditions.push(eq(quotes.opportunityId, engagement.opportunityId))
@@ -142,7 +131,9 @@ async function findPublishableQuote(
     .orderBy(desc(quotes.createdAt))
     .limit(10)
 
-  return rows.find((quote) => quote.status === 'draft' || quote.status === 'sent') ?? rows[0] ?? null
+  return (
+    rows.find((quote) => quote.status === 'draft' || quote.status === 'sent') ?? rows[0] ?? null
+  )
 }
 
 function quoteBelongsToEngagement(

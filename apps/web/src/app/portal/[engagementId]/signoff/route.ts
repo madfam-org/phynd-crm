@@ -21,7 +21,10 @@ export async function POST(req: Request, context: RouteContext) {
   const artifactId = form.get('artifactId')
   if (typeof artifactId !== 'string' || !artifactId) {
     return NextResponse.redirect(
-      new URL(`/portal/${encodeURIComponent(engagementId)}?signoff_error=missing_artifact`, req.url),
+      new URL(
+        `/portal/${encodeURIComponent(engagementId)}?signoff_error=missing_artifact`,
+        req.url,
+      ),
       303,
     )
   }
@@ -41,7 +44,10 @@ export async function POST(req: Request, context: RouteContext) {
 
   if (!artifact) {
     return NextResponse.redirect(
-      new URL(`/portal/${encodeURIComponent(engagementId)}?signoff_error=invalid_artifact`, req.url),
+      new URL(
+        `/portal/${encodeURIComponent(engagementId)}?signoff_error=invalid_artifact`,
+        req.url,
+      ),
       303,
     )
   }

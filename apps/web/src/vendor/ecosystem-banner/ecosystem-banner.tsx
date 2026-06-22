@@ -1,17 +1,17 @@
-'use client';
+'use client'
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 
-import { DEFAULT_ECOSYSTEM_PLATFORMS, type EcosystemPlatform } from './platforms';
+import { DEFAULT_ECOSYSTEM_PLATFORMS, type EcosystemPlatform } from './platforms'
 
 /**
  * Schema-versioned dismissal record. Bump `BANNER_VERSION` when the platform
  * list or ticker behaviour materially changes.
  */
-const STORAGE_KEY = 'madfam_ecosystem_banner';
-const BANNER_VERSION = 4;
-const DISMISS_DAYS = 30;
-const MARQUEE_SECONDS_PER_PLATFORM = 6;
+const STORAGE_KEY = 'madfam_ecosystem_banner'
+const BANNER_VERSION = 4
+const DISMISS_DAYS = 30
+const MARQUEE_SECONDS_PER_PLATFORM = 6
 
 const BANNER_STYLES = `
   @keyframes ecosystemBannerIn {
@@ -193,46 +193,46 @@ const BANNER_STYLES = `
       gap: 8px 16px;
     }
   }
-`;
+`
 
 interface DismissalRecord {
-  v: number;
-  dismissed_at: number;
+  v: number
+  dismissed_at: number
 }
 
 function readDismissal(): DismissalRecord | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return null
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<DismissalRecord>;
-    if (typeof parsed.dismissed_at !== 'number' || typeof parsed.v !== 'number') return null;
-    return parsed as DismissalRecord;
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<DismissalRecord>
+    if (typeof parsed.dismissed_at !== 'number' || typeof parsed.v !== 'number') return null
+    return parsed as DismissalRecord
   } catch {
-    return null;
+    return null
   }
 }
 
 function isStillDismissed(record: DismissalRecord | null): boolean {
-  if (!record) return false;
-  if (record.v !== BANNER_VERSION) return false;
-  const ageMs = Date.now() - record.dismissed_at;
-  return ageMs < DISMISS_DAYS * 24 * 60 * 60 * 1000;
+  if (!record) return false
+  if (record.v !== BANNER_VERSION) return false
+  const ageMs = Date.now() - record.dismissed_at
+  return ageMs < DISMISS_DAYS * 24 * 60 * 60 * 1000
 }
 
 export interface EcosystemBannerProps {
   /** Override the platform list (e.g. show only a subset on a niche landing). */
-  platforms?: readonly EcosystemPlatform[];
+  platforms?: readonly EcosystemPlatform[]
   /** Seconds for one full marquee loop across the duplicated track. */
-  marqueeDurationSec?: number;
+  marqueeDurationSec?: number
   /** Optional className for the outer fixed wrapper. */
-  className?: string;
+  className?: string
   /** Override host display label (defaults to "MADFAM ECOSYSTEM"). */
-  label?: string;
+  label?: string
   /** Optional test id for host-app E2E selectors. */
-  testId?: string;
+  testId?: string
   /** Force-render even if dismissed — useful for previews/Storybook. */
-  forceVisible?: boolean;
+  forceVisible?: boolean
 }
 
 /**
@@ -250,38 +250,37 @@ export function EcosystemBanner({
   testId,
   forceVisible = false,
 }: EcosystemBannerProps) {
-  const list = useMemo(() => platforms.filter((p) => p.keyword && p.name && p.url), [platforms]);
-  const track = useMemo(() => [...list, ...list], [list]);
-  const durationSec =
-    marqueeDurationSec ?? Math.max(30, list.length * MARQUEE_SECONDS_PER_PLATFORM);
+  const list = useMemo(() => platforms.filter((p) => p.keyword && p.name && p.url), [platforms])
+  const track = useMemo(() => [...list, ...list], [list])
+  const durationSec = marqueeDurationSec ?? Math.max(30, list.length * MARQUEE_SECONDS_PER_PLATFORM)
 
-  const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    setMounted(true);
+    setMounted(true)
     if (forceVisible) {
-      setVisible(true);
-      return;
+      setVisible(true)
+      return
     }
-    if (list.length === 0) return;
-    const dismissed = isStillDismissed(readDismissal());
-    setVisible(!dismissed);
-  }, [forceVisible, list.length]);
+    if (list.length === 0) return
+    const dismissed = isStillDismissed(readDismissal())
+    setVisible(!dismissed)
+  }, [forceVisible, list.length])
 
   const handleDismiss = useCallback(() => {
-    setVisible(false);
+    setVisible(false)
     try {
-      const record: DismissalRecord = { v: BANNER_VERSION, dismissed_at: Date.now() };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+      const record: DismissalRecord = { v: BANNER_VERSION, dismissed_at: Date.now() }
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(record))
     } catch {
       // localStorage unavailable — hide for this session only.
     }
-  }, []);
+  }, [])
 
-  if (!mounted || !visible || list.length === 0) return null;
+  if (!mounted || !visible || list.length === 0) return null
 
-  const tickerSummary = list.map((p) => p.name).join(', ');
+  const tickerSummary = list.map((p) => p.name).join(', ')
 
   return (
     <div
@@ -308,8 +307,30 @@ export function EcosystemBanner({
         <div className="madfam-eco-banner__viewport">
           <div className="madfam-eco-banner__track">
             {track.map((platform, index) => {
-              const fullPair = `${platform.keyword}: ${platform.name}`;
-              const isDuplicate = index >= list.length;
+              const fullPair = `${platform.keyword}: ${platform.name}`
+              const isDuplicate = index >= list.length
+              const itemContent = (
+                <>
+                  <span className="madfam-eco-banner__keyword">{platform.keyword}:</span>
+                  <span className="madfam-eco-banner__name">{platform.name}</span>
+                  <span className="madfam-eco-banner__external" aria-hidden="true">
+                    ↗
+                  </span>
+                </>
+              )
+
+              if (isDuplicate) {
+                return (
+                  <span
+                    key={`${platform.name}-${index}`}
+                    className="madfam-eco-banner__item"
+                    aria-hidden="true"
+                  >
+                    {itemContent}
+                  </span>
+                )
+              }
+
               return (
                 <a
                   key={`${platform.name}-${index}`}
@@ -318,14 +339,10 @@ export function EcosystemBanner({
                   rel="noopener noreferrer"
                   title={fullPair}
                   className="madfam-eco-banner__item"
-                  aria-hidden={isDuplicate ? true : undefined}
-                  tabIndex={isDuplicate ? -1 : undefined}
                 >
-                  <span className="madfam-eco-banner__keyword">{platform.keyword}:</span>
-                  <span className="madfam-eco-banner__name">{platform.name}</span>
-                  <span className="madfam-eco-banner__external">↗</span>
+                  {itemContent}
                 </a>
-              );
+              )
             })}
           </div>
         </div>
@@ -342,5 +359,5 @@ export function EcosystemBanner({
         </button>
       </div>
     </div>
-  );
+  )
 }

@@ -282,9 +282,14 @@ See the [walkthrough artifact](https://github.com/madfam-org/phynd-crm) for the 
 
 ## License
 
-No `LICENSE` file is currently committed. The public marketing UI advertises an
-MIT-licensed core, but treat the repository license as not formally declared
-until the legal license file is added.
+This project is licensed under the GNU Affero General Public License v3.0
+(AGPL-3.0-only), per the MADFAM public-repo licensing policy (RFC 0024 P1.4).
+See [LICENSE](./LICENSE) for the full text.
+
+Copyright (c) 2026 Innovaciones MADFAM SAS de C.V.
+
+Note: the marketing UI still contains legacy "MIT Licensed" copy that should be
+updated to reflect the AGPL-3.0 core.
 
 
 ## Avala webhook receiver

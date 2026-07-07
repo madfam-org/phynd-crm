@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import {
   type TimelineVisualTone,
-  formatTimelineEventType,
+  timelineEventLabel,
   timelineEventTone,
 } from '@/lib/engagements/timeline-presentations'
 import { trpc } from '@/lib/trpc/client'
@@ -42,7 +42,7 @@ function eventStatusVariant(tone: TimelineVisualTone) {
 }
 
 function TimelineEventItem({ entry }: { entry: Extract<TimelineEntry, { kind: 'event' }> }) {
-  const tone = timelineEventTone(entry.status)
+  const tone = timelineEventTone(entry.status, entry.eventType)
   return (
     <li className="relative pl-10">
       <div className="absolute left-2 flex h-5 w-5 items-center justify-center rounded-full border bg-background">
@@ -54,7 +54,7 @@ function TimelineEventItem({ entry }: { entry: Extract<TimelineEntry, { kind: 'e
             <Badge variant="secondary" className="uppercase text-[10px]">
               {entry.source}
             </Badge>
-            <span className="text-sm font-medium">{formatTimelineEventType(entry.eventType)}</span>
+            <span className="text-sm font-medium">{timelineEventLabel(entry.eventType)}</span>
           </div>
           {entry.status && (
             <Badge variant={eventStatusVariant(tone)} className="text-[10px]">

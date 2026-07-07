@@ -21,12 +21,12 @@ export function resolveTenantIdForWebhook(req: Request): string {
   return DEFAULT_TENANT_ID
 }
 
-export function createWebhookEngagementsService(
+export function createWebhookServiceContext(
   db: Database,
   source: string,
   tenantId: string = DEFAULT_TENANT_ID,
-): EngagementsService {
-  const ctx = {
+): ServiceContext {
+  return {
     db,
     cache: {} as ServiceContext['cache'],
     auth: {
@@ -38,6 +38,12 @@ export function createWebhookEngagementsService(
     },
     tenantId,
   } satisfies ServiceContext
+}
 
-  return new EngagementsService(ctx)
+export function createWebhookEngagementsService(
+  db: Database,
+  source: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): EngagementsService {
+  return new EngagementsService(createWebhookServiceContext(db, source, tenantId))
 }

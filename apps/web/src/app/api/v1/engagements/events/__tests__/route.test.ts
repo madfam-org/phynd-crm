@@ -3,11 +3,13 @@
  *
  * Contract verified:
  *   - 503 when PHYND_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)
- *   - HMAC signature + timestamp validation via shared handleWebhook
+ *   - HMAC signature + timestamp validation via the shared parser
  *   - payloads missing engagement_id/source/event_type are dropped silently (no throw)
  *   - explicit dedup_key from caller is preserved
  *   - derived dedup_key shape when caller omits it: `<source>:<event_type>:<timestamp>`
  *   - source-scoped auth (service:<source>) passed to EngagementsService
+ *   - Cotiza quote-lifecycle events are routed to CotizaQuoteLifecycleService
+ *     (engagement_id optional): resolved → 200, unresolvable → 202 skip
  */
 import crypto from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -36,16 +38,28 @@ vi.mock('@phynd/logging', () => ({
 
 // Vitest hoists `vi.mock` to the top of the file, so the factory closure
 // can't reference top-level consts directly. Use vi.hoisted to share refs.
-const { mockRecordEvent, EngagementsServiceMock } = vi.hoisted(() => {
-  const mockRecordEvent = vi.fn().mockResolvedValue({ deduplicated: false })
-  const EngagementsServiceMock = vi.fn().mockImplementation(() => ({
-    recordEvent: mockRecordEvent,
-  }))
-  return { mockRecordEvent, EngagementsServiceMock }
-})
+const { mockRecordEvent, EngagementsServiceMock, mockProcessWebhookPayload, CotizaServiceMock } =
+  vi.hoisted(() => {
+    const mockRecordEvent = vi.fn().mockResolvedValue({ deduplicated: false })
+    const EngagementsServiceMock = vi.fn().mockImplementation(() => ({
+      recordEvent: mockRecordEvent,
+    }))
+    const mockProcessWebhookPayload = vi.fn()
+    const CotizaServiceMock = vi.fn().mockImplementation(() => ({
+      processWebhookPayload: mockProcessWebhookPayload,
+    }))
+    return { mockRecordEvent, EngagementsServiceMock, mockProcessWebhookPayload, CotizaServiceMock }
+  })
 
 vi.mock('@phynd/services', () => ({
   EngagementsService: EngagementsServiceMock,
+  CotizaQuoteLifecycleService: CotizaServiceMock,
+  // Mirror the real detection predicate so routing between the generic and
+  // Cotiza lifecycle paths behaves like production.
+  isCotizaQuoteLifecycleEvent: (payload: Record<string, unknown>) =>
+    payload.source === 'cotiza' &&
+    typeof payload.event_type === 'string' &&
+    /^(cotiza:)?quote_(sent|viewed|approved|rejected|expired|ordered)$/.test(payload.event_type),
 }))
 
 import { POST } from '../route'
@@ -88,6 +102,15 @@ describe('POST /api/v1/engagements/events', () => {
     mockCheckRateLimit.mockResolvedValue({ allowed: true, remaining: 99 })
     mockValidateWebhookSignature.mockReturnValue(true)
     mockRecordEvent.mockResolvedValue({ deduplicated: false })
+    mockProcessWebhookPayload.mockResolvedValue({
+      outcome: 'recorded',
+      engagementId: 'eng_1',
+      contactId: 'contact_1',
+      quoteId: 'quote_1',
+      reflection: 'applied',
+      autoMaterializedEngagement: false,
+      createdQuote: false,
+    })
   })
 
   afterEach(() => {
@@ -153,8 +176,8 @@ describe('POST /api/v1/engagements/events', () => {
   it('derives dedup_key when caller omits it (format: source:eventType:timestamp)', async () => {
     const payload = {
       engagement_id: 'eng_1',
-      source: 'cotiza',
-      event_type: 'quote_approved',
+      source: 'selva',
+      event_type: 'milestone_complete',
       timestamp: '2026-04-19T09:00:00.000Z',
       // dedup_key intentionally omitted
     }
@@ -163,7 +186,21 @@ describe('POST /api/v1/engagements/events', () => {
     expect(res.status).toBe(200)
     const arg = getRecordedEventArg()
     // Shape of the derived key must be stable so a replay produces the same key.
-    expect(arg.dedupKey).toBe('cotiza:quote_approved:2026-04-19T09:00:00.000Z')
+    expect(arg.dedupKey).toBe('selva:milestone_complete:2026-04-19T09:00:00.000Z')
+  })
+
+  it('keeps non-lifecycle cotiza events on the generic path (engagement_id required)', async () => {
+    const payload = {
+      engagement_id: 'eng_1',
+      source: 'cotiza',
+      event_type: 'cotiza:proposal_revised',
+      timestamp: '2026-04-19T09:00:00.000Z',
+    }
+    const req = createSignedRequest(payload)
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(mockRecordEvent).toHaveBeenCalledTimes(1)
+    expect(mockProcessWebhookPayload).not.toHaveBeenCalled()
   })
 
   it('drops payloads missing engagement_id without calling recordEvent', async () => {
@@ -188,6 +225,92 @@ describe('POST /api/v1/engagements/events', () => {
     const req = createSignedRequest(payload)
     await POST(req)
     expect(mockRecordEvent).not.toHaveBeenCalled()
+  })
+
+  describe('cotiza quote lifecycle path', () => {
+    it('routes cotiza:quote_* events (no engagement_id) to CotizaQuoteLifecycleService', async () => {
+      const payload = {
+        source: 'cotiza',
+        event_type: 'cotiza:quote_sent',
+        dedup_key: 'cotiza:CQ-1:quote_sent',
+        metadata: {
+          cotiza_quote_id: 'CQ-1',
+          quote_number: 'Q-2026-100',
+          contact_email: 'client@acme.mx',
+        },
+      }
+      const req = createSignedRequest(payload)
+      const res = await POST(req)
+
+      expect(res.status).toBe(200)
+      expect(mockProcessWebhookPayload).toHaveBeenCalledTimes(1)
+      expect(mockProcessWebhookPayload).toHaveBeenCalledWith(expect.objectContaining(payload))
+      expect(mockRecordEvent).not.toHaveBeenCalled()
+
+      const body = (await res.json()) as Record<string, unknown>
+      expect(body).toMatchObject({
+        received: true,
+        deduplicated: false,
+        engagement_id: 'eng_1',
+        quote_id: 'quote_1',
+        reflection: 'applied',
+      })
+
+      // Service context is cotiza-scoped.
+      const ctorArgs = CotizaServiceMock.mock.calls.at(-1)?.[0]
+      expect(ctorArgs?.auth).toMatchObject({ userId: 'service:cotiza', roles: ['service'] })
+    })
+
+    it('returns 202 { skipped } for unresolvable cotiza events (never a 500)', async () => {
+      mockProcessWebhookPayload.mockResolvedValueOnce({
+        outcome: 'skipped',
+        reason: 'unresolved_contact',
+      })
+      const req = createSignedRequest({
+        source: 'cotiza',
+        event_type: 'cotiza:quote_viewed',
+        metadata: { cotiza_quote_id: 'CQ-404', contact_email: 'nobody@nowhere.mx' },
+      })
+      const res = await POST(req)
+
+      expect(res.status).toBe(202)
+      const body = (await res.json()) as Record<string, unknown>
+      expect(body).toMatchObject({ received: true, skipped: true, reason: 'unresolved_contact' })
+    })
+
+    it('reports deduplicated replays with a 200', async () => {
+      mockProcessWebhookPayload.mockResolvedValueOnce({
+        outcome: 'deduplicated',
+        engagementId: 'eng_1',
+        contactId: 'contact_1',
+        quoteId: 'quote_1',
+        reflection: 'noop',
+        autoMaterializedEngagement: false,
+        createdQuote: false,
+      })
+      const req = createSignedRequest({
+        source: 'cotiza',
+        event_type: 'cotiza:quote_approved',
+        dedup_key: 'cotiza:CQ-1:quote_approved',
+        metadata: { cotiza_quote_id: 'CQ-1' },
+      })
+      const res = await POST(req)
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as Record<string, unknown>
+      expect(body).toMatchObject({ received: true, deduplicated: true })
+    })
+
+    it('returns 500 when lifecycle processing throws', async () => {
+      mockProcessWebhookPayload.mockRejectedValueOnce(new Error('db down'))
+      const req = createSignedRequest({
+        source: 'cotiza',
+        event_type: 'cotiza:quote_sent',
+        metadata: { cotiza_quote_id: 'CQ-1' },
+      })
+      const res = await POST(req)
+      expect(res.status).toBe(500)
+    })
   })
 
   it('passes source-scoped service auth context (userId = service:<source>)', async () => {

@@ -1,5 +1,6 @@
 import {
   type TimelineVisualTone,
+  timelineEventLabel,
   timelineEventTone,
 } from '@/lib/engagements/timeline-presentations'
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
@@ -264,7 +265,7 @@ function portalActivityStyles(tone: TimelineVisualTone) {
 }
 
 function PortalActivityItem({ entry }: { entry: PortalTimelineEntry }) {
-  const tone = entry.kind === 'event' ? timelineEventTone(entry.status) : 'default'
+  const tone = entry.kind === 'event' ? timelineEventTone(entry.status, entry.eventType) : 'default'
   const { dotClass, cardClass } = portalActivityStyles(tone)
 
   return (
@@ -468,7 +469,7 @@ function firstQueryValue(value: string | string[] | undefined) {
 // biome-ignore lint/suspicious/noExplicitAny: discriminated union on entry.kind, cast for readability
 function timelineMessage(entry: any): string {
   if (entry.kind === 'event') {
-    return entry.message ?? `${entry.source}: ${entry.eventType}`
+    return entry.message ?? timelineEventLabel(entry.eventType)
   }
   if (entry.kind === 'activity') {
     return entry.title

@@ -1,6 +1,7 @@
 import { getDb } from '@phynd/db'
 import { contacts, leads } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
+import { CampaignEmailEventService, createServiceContext } from '@phynd/services'
 import { EmailService } from '@phynd/services/email'
 import { lastChanceEmail } from '@phynd/services/email/templates/last-chance'
 import { legalTipEmail } from '@phynd/services/email/templates/legal-tip'
@@ -104,7 +105,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
   }
 
   const contactRows = await db
-    .select({ email: contacts.email })
+    .select({ id: contacts.id, email: contacts.email })
     .from(contacts)
     .where(eq(contacts.id, lead.contactId))
     .limit(1)
@@ -147,7 +148,8 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
       return
   }
 
-  // Send email
+  // Send email — tags are echoed back by Resend webhooks so opens/clicks
+  // can be attributed to this lead/contact (see /api/webhooks/resend)
   const emailService = new EmailService()
   try {
     const result = await emailService.send({
@@ -155,11 +157,42 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
       subject: email.subject,
       html: email.html,
       unsubscribeUrl,
+      tags: [
+        { name: 'lead_id', value: leadId },
+        { name: 'contact_id', value: lead.contactId },
+        { name: 'drip_step', value: String(step) },
+      ],
     })
     logger.info(
       { leadId, step, emailId: result?.id, to: contact.email },
       `Drip step ${step} sent successfully`,
     )
+
+    // Persist the send so webhook events (opened/clicked/bounced) can be
+    // joined back to it. Non-blocking: a reporting failure must not retry
+    // the send and double-deliver the email.
+    try {
+      const eventService = new CampaignEmailEventService(
+        createServiceContext(db, {} as never, {
+          userId: 'service:email-drip',
+          tenantId: 'madfam',
+          roles: ['service'],
+          scopes: ['campaigns:write'],
+          accessToken: '',
+        }),
+      )
+      await eventService.record({
+        eventType: 'sent',
+        recipient: contact.email,
+        emailId: result?.id ?? null,
+        contactId: contact.id,
+        leadId,
+        dedupKey: result?.id ? `sent:${result.id}` : `sent:drip-${leadId}-step-${step}`,
+        metadata: { dripStep: step },
+      })
+    } catch (err) {
+      logger.warn({ err, leadId, step }, 'Failed to record drip send event')
+    }
   } catch (err) {
     logger.error({ err, leadId, step }, `Failed to send drip step ${step}`)
     throw err // Let BullMQ retry

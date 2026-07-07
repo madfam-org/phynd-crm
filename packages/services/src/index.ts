@@ -4,10 +4,52 @@ export { AnalyticsService } from './analytics/analytics.service'
 export { CampaignsService } from './campaigns/campaigns.service'
 export { CampaignBuyerSignalService } from './campaigns/campaign-buyer-signal.service'
 export {
+  CampaignEmailEventService,
+  type EmailEventType,
+  type IngestResult,
+  type RecordEmailEventInput,
+  type ResendWebhookEvent,
+} from './campaigns/campaign-email-event.service'
+export {
   checkCampaignSendEligibility,
+  consentChannelForOutreach,
   evaluateContactEligibility,
   type CampaignSendEligibility,
+  type ConsentGateInput,
 } from './campaigns/campaign-send-gate'
+export {
+  ConsentService,
+  type CaptureConsentInput,
+  type CaptureConsentResult,
+  type ConsentPermission,
+  type ConsentRecord,
+} from './consent/consent.service'
+export {
+  CONSENT_ACTIONS,
+  CONSENT_CHANNELS,
+  CONSENT_STATUSES,
+  isConsentAction,
+  isConsentChannel,
+  nextConsentStatus,
+  normalizeConsentIdentifier,
+  type ConsentAction,
+  type ConsentChannel,
+  type ConsentStatus,
+} from './consent/consent-state-machine'
+export {
+  buildConsentConfirmUrl,
+  generateDoubleOptInToken,
+  hashDoubleOptInToken,
+} from './consent/double-opt-in-token'
+export {
+  SUPPRESSION_CHANNELS,
+  SUPPRESSION_REASONS,
+  SuppressionService,
+  type AddSuppressionInput,
+  type SuppressionChannel,
+  type SuppressionCheckResult,
+  type SuppressionReason,
+} from './consent/suppression.service'
 export { TulanaCampaignImportService } from './campaigns/tulana-import.service'
 export { tulanaCampaignImportSchema } from './campaigns/tulana-import.schema'
 export { RedditBotService, type BotCampaignPayload } from './campaigns/reddit-bot'

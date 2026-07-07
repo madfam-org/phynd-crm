@@ -1,5 +1,8 @@
 import { campaigns, contacts, leads } from '@phynd/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
+import type { ConsentChannel } from '../consent/consent-state-machine'
+import { ConsentService } from '../consent/consent.service'
+import { SuppressionService } from '../consent/suppression.service'
 import type { ServiceContext } from '../context'
 import { NotFoundError } from '../errors'
 
@@ -7,6 +10,17 @@ export type CampaignSendEligibility = {
   eligible: boolean
   reasons: string[]
   channel: string
+}
+
+/**
+ * Consent-model inputs for the pure eligibility evaluation. When omitted the
+ * gate falls back to the legacy `contacts.marketingConsent` boolean only.
+ */
+export type ConsentGateInput = {
+  /** Current channel-scoped consent record status, or null when none exists. */
+  consentStatus: 'granted' | 'revoked' | 'pending_double_opt_in' | null
+  /** Matching suppression-list entries (channel or 'all'). */
+  suppressionReasons: string[]
 }
 
 type TulanaDraft = { channel?: string }
@@ -20,6 +34,18 @@ function resolveOutreachChannel(campaign: {
   return drafts[0]?.channel ?? campaign.channel
 }
 
+/**
+ * Maps an outreach channel to the consent channel it is gated on. Unknown
+ * channels (social, other…) fall back to email consent since email is the
+ * only direct-outreach medium they could carry.
+ */
+export function consentChannelForOutreach(channel: string): ConsentChannel {
+  const normalized = channel.toLowerCase()
+  if (normalized === 'sms' || normalized === 'phone') return 'sms'
+  if (normalized === 'whatsapp') return 'whatsapp'
+  return 'email'
+}
+
 export function evaluateContactEligibility(
   contact: {
     marketingConsent: boolean
@@ -29,15 +55,32 @@ export function evaluateContactEligibility(
   },
   leadRows: { unsubscribed: boolean }[],
   channel: string,
+  consentGate?: ConsentGateInput,
 ): CampaignSendEligibility {
   const reasons: string[] = []
+
+  // Suppression list wins over ANY consent — checked first, never overridden.
+  if (consentGate && consentGate.suppressionReasons.length > 0) {
+    reasons.push('suppressed')
+  }
 
   if (contact.deletedAt) {
     reasons.push('contact_deleted')
   }
-  if (!contact.marketingConsent) {
+
+  if (consentGate?.consentStatus) {
+    // An explicit channel-scoped consent record overrides the legacy boolean
+    // in both directions: granted permits, revoked/pending blocks.
+    if (consentGate.consentStatus === 'revoked') {
+      reasons.push('channel_consent_revoked')
+    } else if (consentGate.consentStatus === 'pending_double_opt_in') {
+      reasons.push('channel_consent_pending_double_opt_in')
+    }
+  } else if (!contact.marketingConsent) {
+    // No consent record for the channel — legacy boolean is the fallback.
     reasons.push('marketing_consent_missing')
   }
+
   if (leadRows.some((lead) => lead.unsubscribed)) {
     reasons.push('lead_unsubscribed')
   }
@@ -82,5 +125,20 @@ export async function checkCampaignSendEligibility(
     .where(and(eq(leads.contactId, input.contactId), isNull(leads.deletedAt)))
 
   const channel = resolveOutreachChannel(campaign)
-  return evaluateContactEligibility(contact, leadRows, channel)
+  const consentChannel = consentChannelForOutreach(channel)
+  const identifier = consentChannel === 'email' ? contact.email : contact.phone
+
+  let consentGate: ConsentGateInput | undefined
+  if (identifier) {
+    const consentService = new ConsentService(ctx)
+    const suppressionService = new SuppressionService(ctx)
+    const record = await consentService.getConsent(identifier, consentChannel)
+    const suppression = await suppressionService.check(identifier, consentChannel)
+    consentGate = {
+      consentStatus: (record?.status as ConsentGateInput['consentStatus']) ?? null,
+      suppressionReasons: suppression.entries.map((entry) => entry.reason),
+    }
+  }
+
+  return evaluateContactEligibility(contact, leadRows, channel, consentGate)
 }

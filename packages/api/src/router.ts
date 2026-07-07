@@ -2,6 +2,7 @@ import { activitiesRouter } from './routers/activities'
 import { aiKanbanRouter } from './routers/ai-kanban'
 import { analyticsRouter } from './routers/analytics'
 import { campaignsRouter } from './routers/campaigns'
+import { consentRouter } from './routers/consent'
 import { contactsRouter } from './routers/contacts'
 import { conversionsRouter } from './routers/conversions'
 import { engagementsRouter } from './routers/engagements'
@@ -31,6 +32,7 @@ export const appRouter = router({
   aiKanban: aiKanbanRouter,
   analytics: analyticsRouter,
   campaigns: campaignsRouter,
+  consent: consentRouter,
   contacts: contactsRouter,
   conversions: conversionsRouter,
   engagements: engagementsRouter,

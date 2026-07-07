@@ -61,6 +61,10 @@ export {
   type NormalizedDraftVariant,
 } from './campaigns/tulana-import.schema'
 export { CampaignDraftVariantService } from './campaigns/campaign-draft-variant.service'
+export {
+  pushBuyerSignalsToSelva,
+  type BuyerSignalPushResult,
+} from './campaigns/buyer-signal-pusher.service'
 export { RedditBotService, type BotCampaignPayload } from './campaigns/reddit-bot'
 export { RedditClient, createRedditClientFromEnv, type RedditPost } from './campaigns/reddit-client'
 export { postRedditComment, extractPostId } from './campaigns/reddit-poster'

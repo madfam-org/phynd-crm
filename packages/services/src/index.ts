@@ -152,6 +152,15 @@ export {
   type AcceptQuoteResult,
   QuotesService,
 } from './quotes/quotes.service'
+export {
+  COTIZA_QUOTE_LIFECYCLE_STATES,
+  CotizaQuoteLifecycleService,
+  type CotizaQuoteLifecycleResult,
+  type CotizaQuoteLifecycleState,
+  type CotizaQuoteReflection,
+  cotizaQuoteLifecycleState,
+  isCotizaQuoteLifecycleEvent,
+} from './quotes/cotiza-quote-lifecycle.service'
 export { ReferralService } from './referrals/referrals.service'
 export { PreferencesService } from './preferences/preferences.service'
 export { SearchService, type SearchResult } from './search/search.service'

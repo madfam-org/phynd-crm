@@ -31,6 +31,7 @@ These appear in portal timelines with prominent visual treatment and can be quer
 
 Everything else stays source-scoped and doesn't need a canonical alias. Examples:
 
+- `cotiza:quote_sent`, `cotiza:quote_viewed`, `cotiza:quote_rejected`, `cotiza:quote_expired`, `cotiza:quote_ordered` — Cotiza quote lifecycle states (dedup key `cotiza:<cotiza_quote_id>:<state>`). The approval state `cotiza:quote_approved` is the milestone case: Cotiza also emits the canonical `quote_approved` alias with dedup key `cotiza:<cotiza_quote_id>:milestone:quote_approved`. Inbound handling reflects these states onto the local `quotes` row (`sent` / `accepted` / `declined` / `expired`); `quote_viewed` and `quote_ordered` are event-only.
 - `pravara:queued`, `pravara:quality_check` — intermediate fab states
 - `selva:agent_task_assigned`, `selva:pr_opened` — digital execution checkpoints
 - `karafiel:nom151_stamped` — technical compliance checkpoints

@@ -20,6 +20,18 @@ type TulanaMetadata = {
   campaign_type?: string
 }
 
+type DraftVariantRow = {
+  id: string
+  variantId: string | null
+  format: string
+  language: string | null
+  subject: string | null
+  preheader: string | null
+  body: string
+  cta: string | null
+  claimKeysUsed: string[]
+}
+
 interface TulanaCampaignReviewDialogProps {
   campaign: {
     id: string
@@ -47,11 +59,22 @@ export function TulanaCampaignReviewDialog({
   >
   const campaignsUtils = utils.campaigns as NonNullable<typeof utils.campaigns>
   const listUtils = campaignsUtils.list as NonNullable<typeof campaignsUtils.list>
+  const listDraftVariants = campaignsRouter.listDraftVariants as NonNullable<
+    typeof campaignsRouter.listDraftVariants
+  >
 
   const metadata = (campaign.tulanaMetadata ?? {}) as TulanaMetadata
   const proofPoints = metadata.proof_points ?? []
   const doNotClaim = metadata.guardrails?.do_not_claim ?? []
   const drafts = metadata.drafts ?? []
+
+  // Persisted Selva/Tulana copy variants (campaign_draft_variants) — carries
+  // the claim_keys_used audit trail into this review step.
+  const draftVariantsQuery = listDraftVariants.useQuery(
+    { campaignId: campaign.id },
+    { enabled: open },
+  )
+  const draftVariants = (draftVariantsQuery.data ?? []) as DraftVariantRow[]
 
   const reviewMutation = reviewTulanaImport.useMutation({
     onSuccess: (_data, variables) => {
@@ -114,6 +137,64 @@ export function TulanaCampaignReviewDialog({
                   <li key={item}>{item}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {draftVariants.length > 0 && (
+            <div>
+              <p className="font-medium text-foreground">Copy variants</p>
+              <div className="mt-2 space-y-2">
+                {draftVariants.map((variant) => (
+                  <div key={variant.id} className="rounded-md border bg-muted/40 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">
+                        {variant.format === 'legacy_string' ? 'legacy' : 'structured'}
+                      </Badge>
+                      {variant.language && <Badge variant="secondary">{variant.language}</Badge>}
+                      {variant.variantId && (
+                        <span className="text-xs text-muted-foreground">{variant.variantId}</span>
+                      )}
+                    </div>
+                    {variant.subject && (
+                      <p className="mt-2 text-xs">
+                        <span className="font-medium uppercase text-muted-foreground">
+                          Subject:{' '}
+                        </span>
+                        {variant.subject}
+                      </p>
+                    )}
+                    {variant.preheader && (
+                      <p className="mt-1 text-xs">
+                        <span className="font-medium uppercase text-muted-foreground">
+                          Preheader:{' '}
+                        </span>
+                        {variant.preheader}
+                      </p>
+                    )}
+                    <p className="mt-2 whitespace-pre-wrap">{variant.body}</p>
+                    {variant.cta && (
+                      <p className="mt-1 text-xs">
+                        <span className="font-medium uppercase text-muted-foreground">CTA: </span>
+                        {variant.cta}
+                      </p>
+                    )}
+                    {variant.claimKeysUsed.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium uppercase text-muted-foreground">
+                          Claim keys used
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {variant.claimKeysUsed.map((key) => (
+                            <Badge key={key} variant="outline" className="text-xs">
+                              {key}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -5,6 +5,7 @@
 export function legalTipEmail(params: { domain?: string; unsubscribeUrl?: string }): {
   subject: string
   html: string
+  preheader: string
 } {
   const domain = params.domain ?? ''
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
@@ -38,6 +39,7 @@ export function legalTipEmail(params: { domain?: string; unsubscribeUrl?: string
 
   return {
     subject: tipContent.title,
+    preheader: tipContent.tip.length > 140 ? `${tipContent.tip.slice(0, 137)}...` : tipContent.tip,
     html: `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

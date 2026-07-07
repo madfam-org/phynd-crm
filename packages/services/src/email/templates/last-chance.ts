@@ -4,11 +4,13 @@
 export function lastChanceEmail(params?: { unsubscribeUrl?: string }): {
   subject: string
   html: string
+  preheader: string
 } {
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
 
   return {
     subject: 'No pierdas acceso — Tu prueba gratuita te espera',
+    preheader: 'Último recordatorio: tu prueba gratuita de Tezca sigue disponible.',
     html: `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

@@ -57,9 +57,33 @@ Minimum campaign payload:
       "locale": "en-US",
       "body": "Short draft text"
     }
+  ],
+  "draft_variants": [
+    "Legacy plain-string variant (still accepted)",
+    {
+      "variant_id": "9c1f6c3e-6f0f-4e88-9a3f-1c2d3e4f5a6b",
+      "language": "es-MX",
+      "subject": "Asunto del correo",
+      "preheader": "Texto de vista previa (opcional)",
+      "body": "Cuerpo del correo",
+      "cta": "Agenda una demo",
+      "claim_keys_used": ["issuer_verified_badges"]
+    }
   ]
 }
 ```
+
+### `draft_variants` (additive, 2026-07)
+
+`draft_variants` accepts either legacy plain strings (Selva
+`CrmCampaignHandoffRequest.draft_variants: list[str]` stays wire-compatible)
+or structured variants matching Selva's generate-copy output
+(`{variant_id, language, subject, preheader?, body, cta?, claim_keys_used[]}`).
+Each variant is persisted to `campaign_draft_variants` so the
+`claim_keys_used` audit trail survives the draft → `needs_review` →
+`approved` flow; reviewers see subjects, preheaders, CTAs, and claim keys in
+the campaign review dialog (`campaigns.listDraftVariants`). The existing
+`drafts` field is unchanged. Requires migration `0012_yellow_proemial_gods`.
 
 ## Audience and consent requirements
 

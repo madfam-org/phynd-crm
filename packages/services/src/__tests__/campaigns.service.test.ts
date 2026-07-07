@@ -16,6 +16,15 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
   isNotNull: vi.fn((col: unknown) => ({ _tag: 'isNotNull', col })),
+  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
+}))
+
+// EmailService is exercised in the eligible send path; spy on its send so we
+// can assert dispatch without hitting Resend. Returns a provider id like a
+// real send would.
+const emailSendSpy = vi.fn().mockResolvedValue({ id: 'resend-msg-001' })
+vi.mock('../email/email.service', () => ({
+  EmailService: vi.fn().mockImplementation(() => ({ send: emailSendSpy })),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
@@ -23,6 +32,8 @@ vi.mock('@phynd/db/schema', () => ({
     id: 'campaigns.id',
     status: 'campaigns.status',
   },
+  contacts: { id: 'contacts.id', email: 'contacts.email', deletedAt: 'contacts.deleted_at' },
+  leads: { id: 'leads.id', contactId: 'leads.contact_id', deletedAt: 'leads.deleted_at' },
   campaignDraftVariants: {
     id: 'campaign_draft_variants.id',
     campaignId: 'campaign_draft_variants.campaign_id',
@@ -309,7 +320,7 @@ describe('CampaignsService', () => {
       expect(result.reasons).toContain('marketing_consent_missing')
     })
 
-    it('marks campaign sent when eligibility passes', async () => {
+    it('sends the draft variant and marks campaign sent when eligibility passes', async () => {
       const campaign = makeCampaign({
         id: 'camp-tulana',
         skuKey: 'avala__issuer',
@@ -317,7 +328,20 @@ describe('CampaignsService', () => {
         tulanaMetadata: { audience: 'credential issuers', drafts: [{ channel: 'email' }] },
       })
 
-      mockDb._qb._result = [campaign]
+      // The mock db resolves every query to the same _result; give it a row
+      // that satisfies the campaign, contact, draft-variant and lead reads the
+      // send path performs (email + body + id fields on one object).
+      mockDb._qb._result = [
+        {
+          ...campaign,
+          email: 'lead@example.com',
+          body: 'Governed campaign body grounded in campaign-safe claims.',
+          subject: 'A subject from the Selva variant',
+          preheader: 'Preview text',
+          cta: 'See how it works',
+          variantId: 'var-abc',
+        },
+      ]
       vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
         eligible: true,
         reasons: [],
@@ -327,6 +351,44 @@ describe('CampaignsService', () => {
 
       const result = await service.attemptTulanaSend('camp-tulana', 'contact-001')
       expect(result.outcome).toBe('sent')
+
+      // The break this fix closes: an eligible send now actually dispatches the
+      // approved copy, tagged for open/click attribution.
+      expect(emailSendSpy).toHaveBeenCalledTimes(1)
+      const sendArg = emailSendSpy.mock.calls.at(0)?.at(0)
+      expect(sendArg.to).toBe('lead@example.com')
+      expect(sendArg.subject).toBe('A subject from the Selva variant')
+      expect(sendArg.html).toContain('Governed campaign body')
+      expect(sendArg.tags).toEqual(
+        expect.arrayContaining([
+          { name: 'campaign_id', value: 'camp-tulana' },
+          { name: 'contact_id', value: 'contact-001' },
+          { name: 'sku_key', value: 'avala__issuer' },
+        ]),
+      )
+      expect(result.providerMessageId).toBe('resend-msg-001')
+    })
+
+    it('does not send when the contact is suppressed', async () => {
+      const campaign = makeCampaign({
+        id: 'camp-tulana',
+        skuKey: 'avala__issuer',
+        status: 'approved',
+        tulanaMetadata: { drafts: [{ channel: 'email' }] },
+      })
+
+      mockDb._qb._result = [campaign]
+      vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
+        eligible: false,
+        reasons: ['suppressed'],
+        channel: 'email',
+      })
+      vi.spyOn(service, 'update').mockResolvedValue({ ...campaign, status: 'suppressed' })
+
+      const result = await service.attemptTulanaSend('camp-tulana', 'contact-001')
+      expect(result.outcome).toBe('suppressed')
+      // Gate honored: a suppressed contact is never emailed.
+      expect(emailSendSpy).not.toHaveBeenCalled()
     })
   })
 })

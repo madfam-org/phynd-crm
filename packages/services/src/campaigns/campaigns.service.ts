@@ -1,7 +1,10 @@
-import { campaigns } from '@phynd/db/schema'
+import { campaignDraftVariants, campaigns, contacts, leads } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt, isNotNull } from 'drizzle-orm'
+import { and, asc, eq, gt, isNotNull, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { EmailService } from '../email/email.service'
+import { campaignVariantEmail } from '../email/templates/campaign-variant'
+import { buildUnsubscribeUrl } from '../email/unsubscribe-token'
 import { NotFoundError, ValidationError } from '../errors'
 import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
 import { CampaignDraftVariantService } from './campaign-draft-variant.service'
@@ -282,6 +285,13 @@ export class CampaignsService {
       }
     }
 
+    // Actually dispatch the approved copy (Phase 3.4 completion). The gates
+    // above have already cleared consent/suppression/GA-readiness; here we send
+    // the governed Selva draft variant to the eligible contact, then record the
+    // buyer signal so `delivered` reflects a real send.
+    const providerMessageId =
+      eligibility.channel === 'email' ? await this.dispatchCampaignEmail(campaign, contactId) : null
+
     await signalService.record({
       campaignId,
       contactId,
@@ -290,7 +300,10 @@ export class CampaignsService {
       eventType: 'delivered',
       signalStrength: 'medium',
       dedupKey,
-      metadata: { channel: eligibility.channel },
+      metadata: {
+        channel: eligibility.channel,
+        ...(providerMessageId ? { providerMessageId } : { dispatch: 'dry_run_no_provider' }),
+      },
     })
 
     await this.update(campaignId, { status: 'sent' })
@@ -306,6 +319,76 @@ export class CampaignsService {
       outcome: 'sent' as const,
       reasons: [] as string[],
       channel: eligibility.channel,
+      providerMessageId,
     }
+  }
+
+  /**
+   * Render and send a campaign's governed draft variant to an eligible contact.
+   * The caller has already cleared the consent/suppression/GA gates.
+   *
+   * Dry-run-safe: EmailService.send returns null (logs, no-op) when
+   * RESEND_API_KEY is unset, so the full loop can run before a sender identity
+   * exists. Returns the Resend provider message id (for open/click
+   * attribution) or null on a dry run.
+   */
+  private async dispatchCampaignEmail(
+    campaign: NonNullable<Awaited<ReturnType<CampaignsService['getById']>>>,
+    contactId: string,
+  ): Promise<string | null> {
+    const [contact] = await this.ctx.db
+      .select({ email: contacts.email })
+      .from(contacts)
+      .where(and(eq(contacts.id, contactId), isNull(contacts.deletedAt)))
+
+    const [variant] = await this.ctx.db
+      .select()
+      .from(campaignDraftVariants)
+      .where(eq(campaignDraftVariants.campaignId, campaign.id))
+      .orderBy(asc(campaignDraftVariants.createdAt), asc(campaignDraftVariants.id))
+      .limit(1)
+
+    // A campaign cleared for send with no email or no approved copy is a
+    // pipeline bug, not a send: surface it rather than silently no-op.
+    if (!contact?.email) {
+      throw new ValidationError('Eligible contact has no email address')
+    }
+    if (!variant) {
+      throw new ValidationError('Campaign has no draft variant to send')
+    }
+
+    // The unsubscribe link is keyed on the contact's lead so one-click
+    // unsubscribe flows back into suppression the same way the drip does.
+    const [lead] = await this.ctx.db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(and(eq(leads.contactId, contactId), isNull(leads.deletedAt)))
+      .limit(1)
+    const unsubscribeUrl = lead ? buildUnsubscribeUrl(lead.id) : undefined
+
+    const rendered = campaignVariantEmail({
+      subject: variant.subject ?? campaign.name,
+      body: variant.body,
+      preheader: variant.preheader,
+      cta: variant.cta,
+      unsubscribeUrl,
+    })
+
+    const tags = [
+      { name: 'campaign_id', value: campaign.id },
+      { name: 'contact_id', value: contactId },
+      ...(campaign.skuKey ? [{ name: 'sku_key', value: campaign.skuKey }] : []),
+      ...(variant.variantId ? [{ name: 'variant_id', value: variant.variantId }] : []),
+    ]
+
+    const sent = await new EmailService().send({
+      to: contact.email,
+      subject: rendered.subject,
+      html: rendered.html,
+      preheader: rendered.preheader,
+      unsubscribeUrl,
+      tags,
+    })
+    return sent?.id ?? null
   }
 }

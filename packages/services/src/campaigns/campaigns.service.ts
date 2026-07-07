@@ -1,7 +1,10 @@
-import { campaigns } from '@phynd/db/schema'
+import { campaigns, campaignDraftVariants, contacts, leads } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt, isNotNull } from 'drizzle-orm'
+import { and, asc, eq, gt, isNotNull, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { EmailService } from '../email/email.service'
+import { campaignVariantEmail } from '../email/templates/campaign-variant'
+import { buildUnsubscribeUrl } from '../email/unsubscribe-token'
 import { NotFoundError, ValidationError } from '../errors'
 import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
 import { CampaignDraftVariantService } from './campaign-draft-variant.service'
@@ -282,6 +285,72 @@ export class CampaignsService {
       }
     }
 
+    // Actually dispatch the approved copy (Phase 3.4 completion). The gates
+    // above have already cleared consent/suppression/GA-readiness; here we send
+    // the governed Selva draft variant to the eligible contact, then record the
+    // buyer signal so `delivered` reflects a real send. EmailService.send is
+    // dry-run-safe: with no RESEND_API_KEY it returns null and logs, so the loop
+    // (gates → signal → Tulana) can be exercised end-to-end before a sender
+    // identity exists. providerMessageId is captured on the signal for
+    // open/click attribution via the Resend event webhook.
+    let providerMessageId: string | null = null
+    if (eligibility.channel === 'email') {
+      const [contact] = await this.ctx.db
+        .select({ email: contacts.email })
+        .from(contacts)
+        .where(and(eq(contacts.id, contactId), isNull(contacts.deletedAt)))
+
+      const [variant] = await this.ctx.db
+        .select()
+        .from(campaignDraftVariants)
+        .where(eq(campaignDraftVariants.campaignId, campaignId))
+        .orderBy(asc(campaignDraftVariants.createdAt), asc(campaignDraftVariants.id))
+        .limit(1)
+
+      // A campaign cleared for send with no email or no approved copy is a
+      // pipeline bug, not a send: surface it rather than silently no-op.
+      if (!contact?.email) {
+        throw new ValidationError('Eligible contact has no email address')
+      }
+      if (!variant) {
+        throw new ValidationError('Campaign has no draft variant to send')
+      }
+
+      // The unsubscribe link is keyed on the contact's lead so one-click
+      // unsubscribe flows back into suppression the same way the drip does.
+      const [lead] = await this.ctx.db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(and(eq(leads.contactId, contactId), isNull(leads.deletedAt)))
+        .limit(1)
+      const unsubscribeUrl = lead ? buildUnsubscribeUrl(lead.id) : undefined
+
+      const rendered = campaignVariantEmail({
+        subject: variant.subject ?? campaign.name,
+        body: variant.body,
+        preheader: variant.preheader,
+        cta: variant.cta,
+        unsubscribeUrl,
+      })
+
+      const sent = await new EmailService().send({
+        to: contact.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        preheader: rendered.preheader,
+        unsubscribeUrl,
+        // Tags let the Resend event webhook attribute opens/clicks/bounces back
+        // to this campaign, contact, and SKU. UUIDs/keys are tag-safe.
+        tags: [
+          { name: 'campaign_id', value: campaignId },
+          { name: 'contact_id', value: contactId },
+          { name: 'sku_key', value: campaign.skuKey },
+          ...(variant.variantId ? [{ name: 'variant_id', value: variant.variantId }] : []),
+        ],
+      })
+      providerMessageId = sent?.id ?? null
+    }
+
     await signalService.record({
       campaignId,
       contactId,
@@ -290,7 +359,10 @@ export class CampaignsService {
       eventType: 'delivered',
       signalStrength: 'medium',
       dedupKey,
-      metadata: { channel: eligibility.channel },
+      metadata: {
+        channel: eligibility.channel,
+        ...(providerMessageId ? { providerMessageId } : { dispatch: 'dry_run_no_provider' }),
+      },
     })
 
     await this.update(campaignId, { status: 'sent' })
@@ -306,6 +378,7 @@ export class CampaignsService {
       outcome: 'sent' as const,
       reasons: [] as string[],
       channel: eligibility.channel,
+      providerMessageId,
     }
   }
 }

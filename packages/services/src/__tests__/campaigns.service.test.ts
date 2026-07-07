@@ -355,7 +355,7 @@ describe('CampaignsService', () => {
       // The break this fix closes: an eligible send now actually dispatches the
       // approved copy, tagged for open/click attribution.
       expect(emailSendSpy).toHaveBeenCalledTimes(1)
-      const sendArg = emailSendSpy.mock.calls[0]![0]
+      const sendArg = emailSendSpy.mock.calls.at(0)?.at(0)
       expect(sendArg.to).toBe('lead@example.com')
       expect(sendArg.subject).toBe('A subject from the Selva variant')
       expect(sendArg.html).toContain('Governed campaign body')

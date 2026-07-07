@@ -4,6 +4,10 @@ import type { ServiceContext } from '../context'
 
 export type BuyerSignalEventType =
   | 'delivered'
+  | 'opened'
+  | 'clicked'
+  | 'bounced'
+  | 'complained'
   | 'replied'
   | 'interested'
   | 'rejected'

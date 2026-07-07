@@ -18,6 +18,13 @@ export interface SendEmailParams {
   subject: string
   html: string
   unsubscribeUrl?: string
+  /**
+   * Resend tags — echoed back in webhook events (email.opened /
+   * email.clicked …) so opens/clicks can be attributed to a campaign, lead,
+   * or contact. Values may only contain ASCII letters, numbers, underscores,
+   * or dashes (UUIDs are fine).
+   */
+  tags?: { name: string; value: string }[]
 }
 
 export class EmailService {
@@ -33,6 +40,7 @@ export class EmailService {
       to: params.to,
       subject: params.subject,
       html: params.html,
+      ...(params.tags?.length && { tags: params.tags }),
       ...(params.unsubscribeUrl && {
         headers: {
           'List-Unsubscribe': `<${params.unsubscribeUrl}>`,

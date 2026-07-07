@@ -12,6 +12,7 @@ vi.mock('../campaigns/campaign-buyer-signal.service', () => ({
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
+  asc: vi.fn((col: unknown) => ({ _tag: 'asc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
   isNotNull: vi.fn((col: unknown) => ({ _tag: 'isNotNull', col })),
@@ -21,6 +22,11 @@ vi.mock('@phynd/db/schema', () => ({
   campaigns: {
     id: 'campaigns.id',
     status: 'campaigns.status',
+  },
+  campaignDraftVariants: {
+    id: 'campaign_draft_variants.id',
+    campaignId: 'campaign_draft_variants.campaign_id',
+    createdAt: 'campaign_draft_variants.created_at',
   },
 }))
 
@@ -186,6 +192,33 @@ describe('CampaignsService', () => {
       mockDb._qb._result = []
       const result = await service.delete('nonexistent')
       expect(result).toBeNull()
+    })
+  })
+
+  describe('listDraftVariants()', () => {
+    it('returns persisted draft variants for a campaign', async () => {
+      const campaign = makeCampaign({ id: 'campaign-tulana', skuKey: 'avala__issuer' })
+      const variants = [
+        {
+          id: 'variant-row-1',
+          campaignId: 'campaign-tulana',
+          variantId: 'v-1',
+          format: 'structured',
+          claimKeysUsed: ['issuer_verified_badges'],
+        },
+      ]
+      vi.spyOn(service, 'getById').mockResolvedValue(
+        campaign as Awaited<ReturnType<typeof service.getById>>,
+      )
+      mockDb._qb._result = variants
+
+      const result = await service.listDraftVariants('campaign-tulana')
+      expect(result).toEqual(variants)
+    })
+
+    it('throws NotFoundError for an unknown campaign', async () => {
+      vi.spyOn(service, 'getById').mockResolvedValue(null)
+      await expect(service.listDraftVariants('missing')).rejects.toThrow('Campaign')
     })
   })
 

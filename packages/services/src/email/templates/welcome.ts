@@ -5,6 +5,7 @@
 export function welcomeEmail(params: { domain?: string; unsubscribeUrl?: string }): {
   subject: string
   html: string
+  preheader: string
 } {
   const domain = params.domain ?? ''
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
@@ -14,6 +15,7 @@ export function welcomeEmail(params: { domain?: string; unsubscribeUrl?: string 
 
   return {
     subject: 'Bienvenido a Tezca — Tu acceso a la legislación mexicana',
+    preheader: 'Accede a más de 30,000 leyes federales, estatales y municipales.',
     html: `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

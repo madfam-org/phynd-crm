@@ -2,13 +2,19 @@ import { campaignImports, campaigns, skuCatalog } from '@phynd/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError } from '../errors'
-import { type TulanaCampaignImportInput, tulanaCampaignImportSchema } from './tulana-import.schema'
+import { CampaignDraftVariantService } from './campaign-draft-variant.service'
+import {
+  type TulanaCampaignImportInput,
+  normalizeDraftVariant,
+  tulanaCampaignImportSchema,
+} from './tulana-import.schema'
 
 export type TulanaImportResult = {
   campaignId: string
   skuKey: string
   deduplicated: boolean
   status: string
+  draftVariantCount: number
 }
 
 export class TulanaCampaignImportService {
@@ -16,6 +22,7 @@ export class TulanaCampaignImportService {
 
   async importCampaign(raw: unknown): Promise<TulanaImportResult> {
     const input = tulanaCampaignImportSchema.parse(raw)
+    const draftVariants = input.draft_variants.map(normalizeDraftVariant)
 
     const [existingImport] = await this.ctx.db
       .select()
@@ -29,6 +36,7 @@ export class TulanaCampaignImportService {
         skuKey: input.sku_key,
         deduplicated: true,
         status: 'draft_imported',
+        draftVariantCount: 0,
       }
     }
 
@@ -106,12 +114,24 @@ export class TulanaCampaignImportService {
           proof_points: input.proof_points,
           guardrails: input.guardrails,
           drafts: input.drafts,
+          draft_variants: input.draft_variants,
         },
       })
       .returning()
 
     if (!campaign) {
       throw new ConflictError('Failed to create campaign from Tulana import')
+    }
+
+    // Persist structured/legacy draft variants so claim_keys_used survives
+    // into the draft → approved review flow (campaign_draft_variants).
+    if (draftVariants.length > 0) {
+      const variantService = new CampaignDraftVariantService(this.ctx)
+      await variantService.recordMany({
+        campaignId: campaign.id,
+        source: input.source,
+        variants: draftVariants,
+      })
     }
 
     await this.ctx.db.insert(campaignImports).values({
@@ -126,6 +146,7 @@ export class TulanaCampaignImportService {
       skuKey: input.sku_key,
       deduplicated: false,
       status: campaign.status,
+      draftVariantCount: draftVariants.length,
     }
   }
 

@@ -129,7 +129,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
   const unsubscribeUrl = buildUnsubscribeUrl(leadId)
 
   // Build email for this step
-  let email: { subject: string; html: string }
+  let email: { subject: string; html: string; preheader?: string }
   switch (step) {
     case 0:
       email = welcomeEmail({ domain, unsubscribeUrl })
@@ -156,6 +156,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
       to: contact.email,
       subject: email.subject,
       html: email.html,
+      preheader: email.preheader,
       unsubscribeUrl,
       tags: [
         { name: 'lead_id', value: leadId },

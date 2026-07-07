@@ -4,6 +4,7 @@ import { and, eq, gt, isNotNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
 import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
+import { CampaignDraftVariantService } from './campaign-draft-variant.service'
 import { type CampaignSendEligibility, checkCampaignSendEligibility } from './campaign-send-gate'
 import { recordTulanaCommercialGaG4Evidence } from './tulana-commercial-ga-evidence'
 
@@ -191,6 +192,20 @@ export class CampaignsService {
   async delete(id: string) {
     const [deleted] = await this.ctx.db.delete(campaigns).where(eq(campaigns.id, id)).returning()
     return deleted ?? null
+  }
+
+  /**
+   * Persisted draft copy variants for a campaign (Selva/Tulana handoff).
+   * Surfaces claim_keys_used in the review flow so approvers can audit which
+   * claims ground each variant.
+   */
+  async listDraftVariants(campaignId: string) {
+    const campaign = await this.getById(campaignId)
+    if (!campaign) {
+      throw new NotFoundError('Campaign', campaignId)
+    }
+    const variantService = new CampaignDraftVariantService(this.ctx)
+    return variantService.listByCampaignId(campaignId)
   }
 
   /**

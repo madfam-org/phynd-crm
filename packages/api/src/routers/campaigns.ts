@@ -117,6 +117,16 @@ export const campaignsRouter = router({
       return service.delete(input.id)
     }),
 
+  // Persisted Selva/Tulana draft copy variants — surfaces claim_keys_used in
+  // the review flow (audit trail for generated campaign copy).
+  listDraftVariants: protectedProcedure
+    .input(z.object({ campaignId: z.string().uuid() }))
+    .query(({ ctx, input }) => {
+      assertFunnelManagement()
+      const service = new CampaignsService(ctx)
+      return service.listDraftVariants(input.campaignId)
+    }),
+
   reviewTulanaImport: protectedProcedure
     .input(
       z.object({

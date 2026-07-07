@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { injectPreheader } from './preheader'
 
 const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'Tezca <noreply@janua.dev>'
 
@@ -17,6 +18,12 @@ export interface SendEmailParams {
   to: string
   subject: string
   html: string
+  /**
+   * Preview text shown after the subject in inbox list views. Rendered as a
+   * hidden div right after <body> (standard hidden-preheader pattern).
+   * Omitted cleanly when not provided.
+   */
+  preheader?: string
   unsubscribeUrl?: string
   /**
    * Resend tags — echoed back in webhook events (email.opened /
@@ -39,7 +46,7 @@ export class EmailService {
       from: FROM_ADDRESS,
       to: params.to,
       subject: params.subject,
-      html: params.html,
+      html: injectPreheader(params.html, params.preheader),
       ...(params.tags?.length && { tags: params.tags }),
       ...(params.unsubscribeUrl && {
         headers: {

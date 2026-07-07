@@ -15,6 +15,7 @@ const DEFAULT_REQUIRED = [
   '0009_lazy_wrecker',
   '0010_lyrical_shooting_star',
   '0011_steady_human_fly',
+  '0012_yellow_proemial_gods',
 ]
 const JOURNAL_PATH = 'packages/db/src/migrations/meta/_journal.json'
 const MIGRATIONS_DIR = 'packages/db/src/migrations'

@@ -5,11 +5,13 @@
 export function trialInviteEmail(params?: { unsubscribeUrl?: string }): {
   subject: string
   html: string
+  preheader: string
 } {
   const tezcaUrl = process.env.TEZCA_PUBLIC_URL ?? 'https://tezca.mx'
 
   return {
     subject: 'Prueba Tezca gratis — Accede a funciones avanzadas',
+    preheader: '3 días de prueba gratuita, sin tarjeta de crédito.',
     html: `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

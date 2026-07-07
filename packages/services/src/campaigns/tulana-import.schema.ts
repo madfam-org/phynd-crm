@@ -35,6 +35,63 @@ const draftSchema = z.object({
   body: z.string().min(1),
 })
 
+// Structured campaign copy variant matching Selva's generate-copy output
+// (selva-office `CampaignCopyVariant`). `claim_keys_used` is the claims audit
+// trail — it must survive into the draft → approved review flow.
+export const structuredDraftVariantSchema = z.object({
+  variant_id: z.string().min(1).max(64),
+  language: z.string().min(1).max(16),
+  subject: z.string().min(1).max(500),
+  preheader: z.string().max(500).optional(),
+  body: z.string().min(1).max(8000),
+  cta: z.string().max(500).optional(),
+  claim_keys_used: z.array(z.string().min(1)).default([]),
+})
+
+// Wire-compat: legacy handoffs send `draft_variants: list[str]` (Selva
+// `CrmCampaignHandoffRequest.draft_variants`); structured variants are the
+// additive extension.
+export const draftVariantSchema = z.union([z.string().min(1), structuredDraftVariantSchema])
+
+export type StructuredDraftVariantInput = z.infer<typeof structuredDraftVariantSchema>
+export type DraftVariantInput = z.infer<typeof draftVariantSchema>
+
+export type NormalizedDraftVariant = {
+  variantId: string | null
+  format: 'structured' | 'legacy_string'
+  language: string | null
+  subject: string | null
+  preheader: string | null
+  body: string
+  cta: string | null
+  claimKeysUsed: string[]
+}
+
+export function normalizeDraftVariant(variant: DraftVariantInput): NormalizedDraftVariant {
+  if (typeof variant === 'string') {
+    return {
+      variantId: null,
+      format: 'legacy_string',
+      language: null,
+      subject: null,
+      preheader: null,
+      body: variant,
+      cta: null,
+      claimKeysUsed: [],
+    }
+  }
+  return {
+    variantId: variant.variant_id,
+    format: 'structured',
+    language: variant.language,
+    subject: variant.subject,
+    preheader: variant.preheader ?? null,
+    body: variant.body,
+    cta: variant.cta ?? null,
+    claimKeysUsed: variant.claim_keys_used,
+  }
+}
+
 export const tulanaCampaignImportSchema = z.object({
   idempotency_key: z.string().min(1).max(255),
   source: z.string().min(1).max(32).default('tulana'),
@@ -60,6 +117,10 @@ export const tulanaCampaignImportSchema = z.object({
   proof_points: z.array(proofPointSchema).default([]),
   guardrails: guardrailsSchema.optional(),
   drafts: z.array(draftSchema).default([]),
+  // Additive: structured variants (or legacy strings) from Selva's
+  // crm-handoff. Persisted to `campaign_draft_variants` for the claims audit
+  // trail; `drafts` above keeps working unchanged.
+  draft_variants: z.array(draftVariantSchema).default([]),
 })
 
 export type TulanaCampaignImportInput = z.infer<typeof tulanaCampaignImportSchema>

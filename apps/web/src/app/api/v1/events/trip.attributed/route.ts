@@ -90,24 +90,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
 
-  if (event.schema_version !== '1') {
-    return NextResponse.json(
-      { error: `unsupported schema_version: ${event.schema_version}` },
-      { status: 400 },
-    )
-  }
-  const missingField = missingRequiredField(event)
-  if (missingField) {
-    return NextResponse.json({ error: `missing required field: ${missingField}` }, { status: 400 })
-  }
-  if (
-    event.pipeline_value !== undefined &&
-    (!Number.isFinite(event.pipeline_value) || event.pipeline_value < 0)
-  ) {
-    return NextResponse.json(
-      { error: 'pipeline_value must be a non-negative number' },
-      { status: 400 },
-    )
+  const validationError = validateEvent(event)
+  if (validationError) {
+    return NextResponse.json({ error: validationError.error }, { status: validationError.status })
   }
 
   const db = getDb()
@@ -132,6 +117,65 @@ export async function POST(request: Request) {
   const campaignId = await resolveCampaignId(db, event.attribution?.campaign_id)
   const value = event.pipeline_value !== undefined ? event.pipeline_value.toFixed(2) : null
 
+  return await recordTripConversion(db, event, { contactId, campaignId, value })
+}
+
+type ValidationError = { error: string; status: number }
+
+/** Validate an already-parsed event; returns the first problem or null. Kept
+ *  separate from POST so the handler's cognitive complexity stays in budget. */
+function validateEvent(event: TripAttributedEvent): ValidationError | null {
+  if (event.schema_version !== '1') {
+    return { error: `unsupported schema_version: ${event.schema_version}`, status: 400 }
+  }
+  const missingField = missingRequiredField(event)
+  if (missingField) {
+    return { error: `missing required field: ${missingField}`, status: 400 }
+  }
+  if (
+    event.pipeline_value !== undefined &&
+    (!Number.isFinite(event.pipeline_value) || event.pipeline_value < 0)
+  ) {
+    return { error: 'pipeline_value must be a non-negative number', status: 400 }
+  }
+  return null
+}
+
+/** Build the metadata bag stored on the conversion row from the trip event. */
+function buildConversionMetadata(
+  event: TripAttributedEvent,
+  webhookEventId: string | null,
+): Record<string, unknown> {
+  return {
+    event_id: event.event_id,
+    webhook_event_id: webhookEventId,
+    provider: event.provider,
+    trip_id: event.trip_id,
+    trip_name: event.trip_name ?? null,
+    organization_id: event.organization_id ?? null,
+    cities: event.cities ?? null,
+    start_date: event.start_date ?? null,
+    end_date: event.end_date ?? null,
+    total_score: event.total_score ?? null,
+    business_score: event.business_score ?? null,
+    events: event.events ?? null,
+    estimated_cost: event.estimated_cost ?? null,
+    actual_cost: event.actual_cost ?? null,
+    pipeline_value: event.pipeline_value ?? null,
+    deals_created: event.deals_created ?? null,
+    meetings_held: event.meetings_held ?? null,
+    attribution: event.attribution ?? null,
+    occurred_at: event.occurred_at,
+    source_metadata: event.metadata ?? null,
+  }
+}
+
+/** Persist the webhook event + conversion row atomically and return the 201. */
+async function recordTripConversion(
+  db: ReturnType<typeof getDb>,
+  event: TripAttributedEvent,
+  resolved: { contactId: string | null; campaignId: string | null; value: string | null },
+) {
   return await db.transaction(async (tx) => {
     const wh = await tx
       .insert(webhookEvents)
@@ -148,31 +192,10 @@ export async function POST(request: Request) {
       .insert(conversions)
       .values({
         type: 'trip_attributed',
-        contactId,
-        campaignId,
-        value,
-        metadata: {
-          event_id: event.event_id,
-          webhook_event_id: webhookEvent?.id ?? null,
-          provider: event.provider,
-          trip_id: event.trip_id,
-          trip_name: event.trip_name ?? null,
-          organization_id: event.organization_id ?? null,
-          cities: event.cities ?? null,
-          start_date: event.start_date ?? null,
-          end_date: event.end_date ?? null,
-          total_score: event.total_score ?? null,
-          business_score: event.business_score ?? null,
-          events: event.events ?? null,
-          estimated_cost: event.estimated_cost ?? null,
-          actual_cost: event.actual_cost ?? null,
-          pipeline_value: event.pipeline_value ?? null,
-          deals_created: event.deals_created ?? null,
-          meetings_held: event.meetings_held ?? null,
-          attribution: event.attribution ?? null,
-          occurred_at: event.occurred_at,
-          source_metadata: event.metadata ?? null,
-        },
+        contactId: resolved.contactId,
+        campaignId: resolved.campaignId,
+        value: resolved.value,
+        metadata: buildConversionMetadata(event, webhookEvent?.id ?? null),
       })
       .returning({ id: conversions.id })
     const conversion = inserted[0]

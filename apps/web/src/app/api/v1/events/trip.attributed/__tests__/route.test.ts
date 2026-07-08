@@ -31,7 +31,11 @@ vi.mock('@phynd/db', () => ({
   getDb: () => mockDb,
   conversions: { id: 'conversions.id' },
   contacts: { id: 'contacts.id', externalJanuaId: 'contacts.external_janua_id' },
-  campaigns: { id: 'campaigns.id', utmCampaign: 'campaigns.utm_campaign', createdAt: 'campaigns.created_at' },
+  campaigns: {
+    id: 'campaigns.id',
+    utmCampaign: 'campaigns.utm_campaign',
+    createdAt: 'campaigns.created_at',
+  },
   webhookEvents: {
     id: 'webhook_events.id',
     provider: 'webhook_events.provider',

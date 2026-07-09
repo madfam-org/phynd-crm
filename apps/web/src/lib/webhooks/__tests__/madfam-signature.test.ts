@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_REPLAY_WINDOW_SECONDS,
+  rotationSecrets,
   signMadfamBody,
   verifyMadfamSignature,
 } from '../madfam-signature'
@@ -156,5 +157,57 @@ describe('signMadfamBody', () => {
   it('round-trips cleanly through the verifier', () => {
     const header = signMadfamBody(BODY, SECRET, NOW)
     expect(verifyMadfamSignature(BODY, header, SECRET, { nowSec: NOW })).toEqual({ ok: true })
+  })
+})
+
+describe('dual-secret rotation window', () => {
+  const CURRENT = 'current-secret'
+  const PREVIOUS = 'previous-secret'
+
+  it('accepts a signature made with either the current or the previous secret', () => {
+    const secrets = [CURRENT, PREVIOUS]
+    const signedNew = signMadfamBody(BODY, CURRENT, NOW)
+    const signedOld = signMadfamBody(BODY, PREVIOUS, NOW)
+    expect(verifyMadfamSignature(BODY, signedNew, secrets, { nowSec: NOW })).toEqual({ ok: true })
+    expect(verifyMadfamSignature(BODY, signedOld, secrets, { nowSec: NOW })).toEqual({ ok: true })
+  })
+
+  it('rejects a signature made with a secret not in the set', () => {
+    const header = signMadfamBody(BODY, 'some-other-secret', NOW)
+    expect(verifyMadfamSignature(BODY, header, [CURRENT, PREVIOUS], { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'signature_mismatch',
+    })
+  })
+
+  it('rejects when the secret list is empty', () => {
+    const header = signMadfamBody(BODY, CURRENT, NOW)
+    expect(verifyMadfamSignature(BODY, header, [], { nowSec: NOW })).toEqual({
+      ok: false,
+      reason: 'missing_secret',
+    })
+  })
+
+  it('single-string secret still works (backward compatible)', () => {
+    const header = signMadfamBody(BODY, CURRENT, NOW)
+    expect(verifyMadfamSignature(BODY, header, CURRENT, { nowSec: NOW })).toEqual({ ok: true })
+  })
+})
+
+describe('rotationSecrets', () => {
+  it('returns [current] when no previous is set', () => {
+    expect(rotationSecrets('a')).toEqual(['a'])
+    expect(rotationSecrets('a', undefined)).toEqual(['a'])
+    expect(rotationSecrets('a', '')).toEqual(['a'])
+  })
+
+  it('returns [current, previous] in order during a rotation', () => {
+    expect(rotationSecrets('a', 'b')).toEqual(['a', 'b'])
+  })
+
+  it('drops empty/undefined and de-duplicates', () => {
+    expect(rotationSecrets(undefined, undefined)).toEqual([])
+    expect(rotationSecrets('', 'b')).toEqual(['b'])
+    expect(rotationSecrets('a', 'a')).toEqual(['a'])
   })
 })

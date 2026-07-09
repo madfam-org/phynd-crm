@@ -44,10 +44,13 @@ function parseSignatureHeader(signatureHeader: string): Record<string, string> {
 export function verifyMadfamSignature(
   rawBody: string,
   signatureHeader: string | undefined | null,
-  secret: string,
+  secret: string | string[],
   opts: { nowSec?: number; replayWindowSec?: number } = {},
 ): SignatureResult {
-  if (!secret) return { ok: false, reason: 'missing_secret' }
+  const secrets = (Array.isArray(secret) ? secret : [secret]).filter(
+    (s): s is string => typeof s === 'string' && s.length > 0,
+  )
+  if (secrets.length === 0) return { ok: false, reason: 'missing_secret' }
   if (!signatureHeader) return { ok: false, reason: 'missing_signature_header' }
 
   const parts = parseSignatureHeader(signatureHeader)
@@ -68,17 +71,36 @@ export function verifyMadfamSignature(
     return { ok: false, reason: 'signature_mismatch' }
   }
 
-  const expected = createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex')
-
-  const expectedBuf = Buffer.from(expected, 'hex')
+  // Accept the signature if it verifies against ANY configured secret. During a
+  // rotation window the caller passes [current, previous] so a briefly-stale
+  // emitter still verifies; outside a rotation it is just the current secret.
   const receivedBuf = Buffer.from(v1, 'hex')
-  if (expectedBuf.length !== receivedBuf.length) {
-    return { ok: false, reason: 'signature_mismatch' }
+  for (const s of secrets) {
+    const expected = createHmac('sha256', s).update(`${ts}.${rawBody}`).digest('hex')
+    const expectedBuf = Buffer.from(expected, 'hex')
+    if (expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf)) {
+      return { ok: true }
+    }
   }
-  if (!timingSafeEqual(expectedBuf, receivedBuf)) {
-    return { ok: false, reason: 'signature_mismatch' }
+  return { ok: false, reason: 'signature_mismatch' }
+}
+
+/**
+ * Ordered secret list for a rotation window: current first, then an optional
+ * previous secret. Empty and duplicate entries are dropped. During a rotation
+ * pass both (so a briefly-stale emitter still verifies); outside one, pass just
+ * the current secret. Keeps the zero-downtime rotation contract in one place —
+ * see `runbooks/2026-07-08-event-bus-reliability.md` in internal-devops.
+ */
+export function rotationSecrets(
+  current: string | undefined | null,
+  previous?: string | undefined | null,
+): string[] {
+  const out: string[] = []
+  for (const s of [current, previous]) {
+    if (typeof s === 'string' && s.length > 0 && !out.includes(s)) out.push(s)
   }
-  return { ok: true }
+  return out
 }
 
 export function signMadfamBody(

@@ -1,6 +1,7 @@
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
 import { contacts, engagements, quotes } from '@phynd/db/schema'
+import { NoopCacheManager } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import { FederationError, NotFoundError, ValidationError } from '@phynd/services/errors'
 import { DhanamCheckoutService } from '@phynd/services/payments/dhanam-checkout'
@@ -45,8 +46,7 @@ export async function POST(req: Request, context: RouteContext) {
         scopes: ['quotes:accept', 'payments:write'],
         accessToken: session.accessToken,
       },
-      // biome-ignore lint/suspicious/noExplicitAny: portal route does not need cache access
-      cache: {} as any,
+      cache: new NoopCacheManager(),
       db,
       tenantId: 'madfam',
     }).createForQuote({

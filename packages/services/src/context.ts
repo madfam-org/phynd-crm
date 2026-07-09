@@ -1,6 +1,6 @@
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import type { Database } from '@phynd/db'
-import type { CacheManager, FederationClient, ProviderHealthChecker } from '@phynd/federation'
+import type { CacheManagerLike, FederationClient, ProviderHealthChecker } from '@phynd/federation'
 import type { AuthContext } from '@phynd/types/auth'
 import type {
   CotizaManufacturing,
@@ -22,7 +22,7 @@ export interface FederationClients {
 
 export interface ServiceContext {
   db: Database
-  cache: CacheManager
+  cache: CacheManagerLike
   auth: AuthContext
   tenantId: string
   federation?: {
@@ -33,7 +33,7 @@ export interface ServiceContext {
 
 export function createServiceContext(
   db: Database,
-  cache: CacheManager,
+  cache: CacheManagerLike,
   auth: AuthContext,
   tenantId?: string,
 ): ServiceContext {

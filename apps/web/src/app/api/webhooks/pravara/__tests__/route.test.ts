@@ -29,6 +29,13 @@ vi.mock('@phynd/federation', () => ({
   CacheInvalidator: vi.fn().mockImplementation(() => ({
     invalidate: vi.fn().mockResolvedValue(undefined),
   })),
+  NoopCacheManager: vi.fn().mockImplementation(() => ({
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue(undefined),
+    invalidate: vi.fn().mockResolvedValue(undefined),
+    invalidatePattern: vi.fn().mockResolvedValue(undefined),
+    getStale: vi.fn().mockResolvedValue(null),
+  })),
 }))
 
 vi.mock('@/lib/federation/clients', () => ({

@@ -1,5 +1,6 @@
 import { setPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
+import { NoopCacheManager } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import { EngagementPortalMagicLinkService } from '@phynd/services'
 import { NextResponse } from 'next/server'
@@ -26,8 +27,7 @@ export async function GET(req: Request) {
     const db = getDb()
     const service = new EngagementPortalMagicLinkService({
       db,
-      // biome-ignore lint/suspicious/noExplicitAny: portal verify runs anon
-      cache: {} as any,
+      cache: new NoopCacheManager(),
       auth: {
         userId: 'anon:portal',
         tenantId: 'madfam',

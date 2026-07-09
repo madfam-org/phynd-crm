@@ -2,7 +2,7 @@ import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
 import { getDb } from '@phynd/db'
 import { activities, engagements, externalReferences } from '@phynd/db/schema'
-import { CacheInvalidator } from '@phynd/federation'
+import { CacheInvalidator, NoopCacheManager } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import { EngagementsService } from '@phynd/services'
 import { and, eq, isNull } from 'drizzle-orm'
@@ -171,8 +171,7 @@ async function recordEngagementEvent(payload: Record<string, unknown>) {
 
     const service = new EngagementsService({
       db,
-      // biome-ignore lint/suspicious/noExplicitAny: webhook context has no user
-      cache: {} as any,
+      cache: new NoopCacheManager(),
       auth: {
         userId: 'service:pravara',
         tenantId: 'madfam',

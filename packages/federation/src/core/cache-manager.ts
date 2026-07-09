@@ -1,6 +1,20 @@
 import type Redis from 'ioredis'
 
-export class CacheManager {
+/**
+ * Public cache surface shared by the Redis-backed {@link CacheManager} and the
+ * {@link NoopCacheManager}. `ServiceContext.cache` is typed as this interface so
+ * request paths that never touch federation caching (portal, webhook receivers)
+ * can pass a real no-op instead of `{} as any`.
+ */
+export interface CacheManagerLike {
+  get<T>(prefix: string, id: string): Promise<{ data: T; cachedAt: Date } | null>
+  set<T>(prefix: string, id: string, data: T, ttlSeconds: number): Promise<void>
+  invalidate(prefix: string, id: string): Promise<void>
+  invalidatePattern(prefix: string): Promise<void>
+  getStale<T>(prefix: string, id: string): Promise<T | null>
+}
+
+export class CacheManager implements CacheManagerLike {
   private readonly staleKeySuffix = ':stale'
 
   constructor(

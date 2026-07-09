@@ -92,13 +92,24 @@ describe('validateWebhookSignature', () => {
     expect(validateWebhookSignature(payload, wrongPrefixedSignature, SECRET)).toBe(false)
   })
 
-  it('throws when signature length does not match expected HMAC length', () => {
+  it('returns false (without throwing) when signature length does not match expected HMAC length', () => {
     const payload = JSON.stringify({ event: 'test' })
     const signature = computeSignature(payload, SECRET)
     const shortSignature = signature.slice(0, 32) // truncated to 32 chars
 
-    // crypto.timingSafeEqual throws when buffer lengths differ
-    expect(() => validateWebhookSignature(payload, shortSignature, SECRET)).toThrow()
+    // Regression guard: crypto.timingSafeEqual throws a RangeError on
+    // mismatched buffer lengths, which would surface as a 500 in the calling
+    // webhook route. A malformed-length signature must be a clean reject.
+    expect(() => validateWebhookSignature(payload, shortSignature, SECRET)).not.toThrow()
+    expect(validateWebhookSignature(payload, shortSignature, SECRET)).toBe(false)
+  })
+
+  it('returns false (without throwing) for an over-length signature', () => {
+    const payload = JSON.stringify({ event: 'test' })
+    const longSignature = 'a'.repeat(128)
+
+    expect(() => validateWebhookSignature(payload, longSignature, SECRET)).not.toThrow()
+    expect(validateWebhookSignature(payload, longSignature, SECRET)).toBe(false)
   })
 })
 

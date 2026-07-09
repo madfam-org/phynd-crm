@@ -15,7 +15,7 @@
  *   - Idempotent on `event.event_id` (dedupe against webhook_events table).
  */
 
-import { verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
+import { rotationSecrets, verifyMadfamSignature } from '@/lib/webhooks/madfam-signature'
 import { getDb } from '@phynd/db'
 import { conversions, leads, webhookEvents } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
@@ -65,15 +65,20 @@ function missingRequiredPaymentField(event: EcosystemPaymentSucceededEvent) {
 }
 
 export async function POST(request: Request) {
-  const secret = process.env.PHYND_CRM_EVENTS_SECRET
-  if (!secret) {
+  // Accept the current secret plus, during a rotation window, the previous one
+  // (PHYND_CRM_EVENTS_SECRET_PREVIOUS) so a briefly-stale emitter still verifies.
+  const secrets = rotationSecrets(
+    process.env.PHYND_CRM_EVENTS_SECRET,
+    process.env.PHYND_CRM_EVENTS_SECRET_PREVIOUS,
+  )
+  if (secrets.length === 0) {
     logger.warn('PHYND_CRM_EVENTS_SECRET not configured')
     return NextResponse.json({ error: 'secret not configured' }, { status: 503 })
   }
 
   const rawBody = await request.text()
   const sig = request.headers.get('x-madfam-signature')
-  const verification = verifyMadfamSignature(rawBody, sig, secret)
+  const verification = verifyMadfamSignature(rawBody, sig, secrets)
   if (!verification.ok) {
     logger.warn({ reason: verification.reason }, 'signature rejected')
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })

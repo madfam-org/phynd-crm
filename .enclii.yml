@@ -18,11 +18,15 @@ spec:
     port: 3000
     replicas: 2
     healthCheck: /api/health
-  environment:
-    NODE_ENV: production
-    NEXT_PUBLIC_APP_URL: https://phynd.app
-    AUTH_TRUST_HOST: "true"
-    AUTH_JANUA_ISSUER: https://auth.madfam.io
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: NEXT_PUBLIC_APP_URL
+      value: https://phynd.app
+    - name: AUTH_TRUST_HOST
+      value: "true"
+    - name: AUTH_JANUA_ISSUER
+      value: https://auth.madfam.io
   domains:
     - name: phynd.app
       environment: production

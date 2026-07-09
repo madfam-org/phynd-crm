@@ -18,7 +18,7 @@ const metrics = [
     color: 'var(--color-accent-violet)',
   },
   {
-    value: 'MIT',
+    value: 'AGPLv3',
     label: 'Licensed',
     description: 'Open source core',
     color: 'var(--color-accent-amber)',

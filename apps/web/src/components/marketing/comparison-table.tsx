@@ -39,7 +39,7 @@ const rows = [
   },
   {
     feature: 'Self-Hosting',
-    phynd: 'Yes (MIT licensed)',
+    phynd: 'Yes (AGPL-3.0 licensed)',
     salesforce: 'No',
     hubspot: 'No',
     oss: 'Yes',

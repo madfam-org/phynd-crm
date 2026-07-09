@@ -12,7 +12,7 @@ const communityFeatures = [
   'Federation engine (5 providers)',
   'Contacts, leads, pipelines',
   'Circuit breaker resilience',
-  'Full source access (MIT)',
+  'Full source access (AGPL-3.0)',
 ]
 
 const cloudFeatures = [

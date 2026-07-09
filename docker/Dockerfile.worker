@@ -1,4 +1,7 @@
-FROM node:22-alpine AS base
+# Digest-pinned per ecosystem convention (audit 2026-07-09 C7). Tag retained for
+# readability; the digest is the multi-arch index for node:22-alpine. Bump the
+# digest deliberately when updating the base image.
+FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS base
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 

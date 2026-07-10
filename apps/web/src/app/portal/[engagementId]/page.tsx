@@ -6,6 +6,7 @@ import {
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
 import { contacts, engagementEvents, engagements, orders, quotes } from '@phynd/db/schema'
+import { NoopCacheManager } from '@phynd/federation'
 import { EngagementsService } from '@phynd/services'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
@@ -62,8 +63,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
 
   const service = new EngagementsService({
     db,
-    // biome-ignore lint/suspicious/noExplicitAny: portal page reads directly
-    cache: {} as any,
+    cache: new NoopCacheManager(),
     auth: {
       userId: `portal:${session.januaUserId}`,
       tenantId: 'madfam',

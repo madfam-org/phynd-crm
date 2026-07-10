@@ -27,7 +27,7 @@ const phyndBrand: TenantBrand = {
   heroHighlight: 'Physical + Digital',
   heroDescription:
     'Phynd federates real-time data from your entire ecosystem into one unified view. No data duplication. No vendor lock-in. No per-seat pricing.',
-  badges: ['Open Source', 'Self-Hostable', 'MIT Licensed'],
+  badges: ['Open Source', 'Self-Hostable', 'AGPL-3.0 Licensed'],
   primaryCta: 'Get Started Free',
   secondaryCta: 'Try Live Demo',
   ogUrl: 'https://phynd.app',

@@ -1,5 +1,6 @@
 import { handleWebhook } from '@/lib/webhooks/handler'
 import { getDb } from '@phynd/db'
+import { NoopCacheManager } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import { EngagementsService } from '@phynd/services'
 import { NextResponse } from 'next/server'
@@ -43,8 +44,7 @@ export async function POST(req: Request) {
       const db = getDb()
       const service = new EngagementsService({
         db,
-        // biome-ignore lint/suspicious/noExplicitAny: webhook has no user ctx
-        cache: {} as any,
+        cache: new NoopCacheManager(),
         auth: {
           userId: 'service:cotiza',
           tenantId: 'madfam',

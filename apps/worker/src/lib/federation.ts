@@ -1,3 +1,4 @@
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { getFederationConfig } from '@phynd/config/federation'
 import {
   CacheManager,
@@ -51,7 +52,7 @@ function getBaseUrls() {
 
 function getRedis(): Redis {
   if (redis) return redis
-  const url = process.env.REDIS_URL ?? 'redis://localhost:6379'
+  const url = resolveRedisUrl()
   redis = new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true })
   return redis
 }

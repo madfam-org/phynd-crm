@@ -1,6 +1,7 @@
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
 import { engagementArtifacts } from '@phynd/db/schema'
+import { NoopCacheManager } from '@phynd/federation'
 import { EngagementPortalSignoffService } from '@phynd/services'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -55,8 +56,7 @@ export async function POST(req: Request, context: RouteContext) {
   try {
     const service = new EngagementPortalSignoffService({
       db,
-      // biome-ignore lint/suspicious/noExplicitAny: portal signoff has no staff ctx
-      cache: {} as any,
+      cache: new NoopCacheManager(),
       auth: {
         userId: `portal:${session.januaUserId}`,
         tenantId: 'madfam',

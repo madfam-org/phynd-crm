@@ -36,7 +36,7 @@ const columns = [
     links: [
       { label: 'Privacy Policy', href: '#' },
       { label: 'Terms of Service', href: '#' },
-      { label: 'MIT License', href: '#' },
+      { label: 'AGPL-3.0 License', href: '#' },
     ],
   },
 ]

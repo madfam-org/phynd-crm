@@ -5,7 +5,7 @@
 > sequencing or target state.
 >
 > **Last updated:** 2026-05-28  
-> **Baseline evidence:** [`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md)  
+> **Baseline evidence:** [`CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md) (supersedes the 2026-05-27 note)  
 > **Master remediation plan:** [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md)  
 > **Staging / PP.5:** [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md), [`PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md)
 
@@ -29,7 +29,12 @@ cross-platform fulfillment — not demo fixtures or silent mock fallbacks.
 | Human sales pilot (`crm.madfam.io`) | ~75% UI | auth URLs verified | ~50% |
 | Selva / AI sales copilot | ~40% | ~25% | ~30% |
 
-**Composite distance from north star:** ~**55–62%** (code ~78–80% pilot-ready; ops execution remaining).
+**Distance from north star (two-axis, 2026-07-09):** capability built (code)
+**~80–85%**; truthful-in-prod / pilot-ready **~30–55%** by dimension. Report the
+axis, not a lone number — the earlier "~55–62% composite" and the README's
+"~25–35%" measured different axes. Remaining distance is dominated by ops
+execution and prod verification, not missing code. See
+[`CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md).
 
 ## Phase map
 

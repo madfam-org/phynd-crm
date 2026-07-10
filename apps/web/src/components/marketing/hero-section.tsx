@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { DashboardPreview } from './dashboard-preview'
 
 export function HeroSection({ brand }: { brand?: TenantBrand }) {
-  const badges = brand?.badges ?? ['Open Source', 'Self-Hostable', 'MIT Licensed']
+  const badges = brand?.badges ?? ['Open Source', 'Self-Hostable', 'AGPL-3.0 Licensed']
   const heroPrefix = brand?.heroPrefix ?? 'The CRM Built for'
   const heroHighlight = brand?.heroHighlight ?? 'Physical + Digital'
   const heroDescription =

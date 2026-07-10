@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { isFeatureEnabled } from '@phynd/config/features'
 import { createLogger } from '@phynd/logging'
 import { Worker } from 'bullmq'
@@ -19,7 +20,7 @@ import { createQueues, createRedisConnection } from './queues'
 
 const logger = createLogger('worker:main')
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'
+const REDIS_URL = resolveRedisUrl()
 
 async function main() {
   const connection = createRedisConnection(REDIS_URL)

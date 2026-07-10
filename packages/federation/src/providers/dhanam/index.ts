@@ -30,7 +30,10 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
   }
 
   async fetch(externalId: string, token: string, signal?: AbortSignal): Promise<DhanamRawCustomer> {
-    const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}`, {
+    // Dhanam mounts the federation API under the global prefix `/v1`
+    // (`@Controller('customers')` + `setGlobalPrefix('v1')`), i.e.
+    // `GET /v1/customers/:externalId`. `DHANAM_API_URL` is the host root.
+    const response = await fetch(`${this.baseUrl}/v1/customers/${externalId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -84,9 +87,9 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
     externalId: string,
     planId: string,
     token: string,
-    options?: { successUrl?: string; cancelUrl?: string },
+    options?: { successUrl?: string; cancelUrl?: string; metadata?: Record<string, unknown> },
   ): Promise<{ checkoutUrl: string; sessionId: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}/checkout`, {
+    const response = await fetch(`${this.baseUrl}/v1/customers/${externalId}/checkout`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -96,6 +99,8 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
         planId,
         successUrl: options?.successUrl,
         cancelUrl: options?.cancelUrl,
+        // Dhanam checkout accepts optional metadata for ecosystem attribution.
+        ...(options?.metadata ? { metadata: options.metadata } : {}),
       }),
       signal: AbortSignal.timeout(10000),
     })
@@ -107,34 +112,5 @@ export class DhanamProvider implements FederationProvider<DhanamRawCustomer, Dha
     }
 
     return response.json() as Promise<{ checkoutUrl: string; sessionId: string }>
-  }
-
-  async mutate(
-    externalId: string,
-    payload: unknown,
-    token: string,
-    signal?: AbortSignal,
-    idempotencyKey?: string,
-  ): Promise<void> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    }
-    if (idempotencyKey) {
-      headers['Idempotency-Key'] = idempotencyKey
-    }
-
-    const response = await fetch(`${this.baseUrl}/api/v1/customers/${externalId}/mutate`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      signal: signal ?? AbortSignal.timeout(10000),
-    })
-
-    if (!response.ok) {
-      throw Object.assign(new Error(`Dhanam mutation error: ${response.statusText}`), {
-        status: response.status,
-      })
-    }
   }
 }

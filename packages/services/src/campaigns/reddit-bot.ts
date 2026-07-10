@@ -83,9 +83,18 @@ export class RedditBotService {
   private pipelinesService: PipelinesService
 
   constructor(private readonly ctx: ServiceContext) {
+    // Ecosystem policy: every LLM call routes through the Selva inference
+    // gateway (OpenAI-compatible /v1). Fail closed rather than defaulting the
+    // OpenAI SDK to api.openai.com when the gateway URL is not configured.
+    const inferenceBaseUrl = process.env.OPENAI_BASE_URL
+    if (!inferenceBaseUrl) {
+      throw new Error(
+        'OPENAI_BASE_URL must point at the Selva inference gateway; refusing to fall back to api.openai.com (ecosystem inference policy)',
+      )
+    }
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
-      baseURL: process.env.OPENAI_BASE_URL || undefined,
+      baseURL: inferenceBaseUrl,
     })
     this.campaignsService = new CampaignsService(ctx)
     this.contactsService = new ContactsService(ctx)

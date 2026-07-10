@@ -8,6 +8,14 @@ export function validateWebhookSignature(
   const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex')
   const normalizedSig = signature.startsWith('sha256=') ? signature.slice(7) : signature
 
+  // `timingSafeEqual` throws a RangeError when the two buffers differ in length,
+  // so a signature that is not exactly `expected.length` hex chars would surface
+  // as an unhandled 500 in the calling webhook route instead of a clean reject.
+  // Guard the length first (mirrors `validateMadfamSignature` below).
+  if (normalizedSig.length !== expected.length) {
+    return false
+  }
+
   return crypto.timingSafeEqual(Buffer.from(normalizedSig), Buffer.from(expected))
 }
 

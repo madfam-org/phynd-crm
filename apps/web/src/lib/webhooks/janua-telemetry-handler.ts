@@ -1,4 +1,5 @@
 import { getCacheManager } from '@/lib/federation/clients'
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { getDb } from '@phynd/db'
 import { visitorPageViews, visitorSessions } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
@@ -141,7 +142,7 @@ async function enqueueSessionIdentify(data: {
   startedAt: string
 }) {
   try {
-    const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+    const redisUrl = resolveRedisUrl()
     const url = new URL(redisUrl)
     const connection = {
       host: url.hostname,

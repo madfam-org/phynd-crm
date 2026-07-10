@@ -1,4 +1,5 @@
 import { getDb } from '@phynd/db'
+import { NoopCacheManager } from '@phynd/federation'
 import { EngagementPortalMagicLinkService } from '@phynd/services'
 import {
   portalSessionNeedsRefresh,
@@ -11,8 +12,7 @@ import {
 function portalServiceContext() {
   return {
     db: getDb(),
-    // biome-ignore lint/suspicious/noExplicitAny: portal refresh runs without staff ctx
-    cache: {} as any,
+    cache: new NoopCacheManager(),
     auth: {
       userId: 'anon:portal-refresh',
       tenantId: 'madfam',

@@ -18,11 +18,20 @@ spec:
     port: 3000
     replicas: 2
     healthCheck: /api/health
-  environment:
-    NODE_ENV: production
-    NEXT_PUBLIC_APP_URL: https://phynd.app
-    AUTH_TRUST_HOST: "true"
-    AUTH_JANUA_ISSUER: https://auth.madfam.io
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: NEXT_PUBLIC_APP_URL
+      value: https://phynd.app
+    - name: AUTH_TRUST_HOST
+      value: "true"
+    - name: AUTH_JANUA_ISSUER
+      value: https://auth.madfam.io
+  # Domain truth (verified live 2026-07-09): only the domains below serve
+  # traffic. app/admin/api.phynd.app were declared here but NXDOMAIN in DNS
+  # (never provisioned) and contradicted the README's production-domain policy,
+  # so they were removed; crm.phynd.app was live but undeclared, so it was
+  # added. Reconcile via `enclii domains` — do not re-add dead names here.
   domains:
     - name: phynd.app
       environment: production
@@ -30,13 +39,7 @@ spec:
     - name: www.phynd.app
       environment: production
       tlsEnabled: true
-    - name: app.phynd.app
-      environment: production
-      tlsEnabled: true
-    - name: admin.phynd.app
-      environment: production
-      tlsEnabled: true
-    - name: api.phynd.app
+    - name: crm.phynd.app
       environment: production
       tlsEnabled: true
     - name: crm.madfam.io

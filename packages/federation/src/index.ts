@@ -3,8 +3,10 @@ export {
   CacheManager,
   CircuitBreaker,
   FederationClient,
+  NoopCacheManager,
   withRetry,
 } from './core/index'
+export type { CacheManagerLike } from './core/index'
 export { ProviderHealthChecker } from './health/provider-health'
 export { CotizaProvider } from './providers/cotiza/index'
 export { DhanamProvider } from './providers/dhanam/index'

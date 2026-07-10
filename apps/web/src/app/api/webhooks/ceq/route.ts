@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
@@ -51,7 +52,7 @@ function isCeqInterestPayload(data: unknown): data is CeqInterestPayload {
 /** Enqueue the first drip email for a newly created lead (non-blocking). */
 async function enqueueDrip(leadId: string): Promise<void> {
   try {
-    const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+    const redisUrl = resolveRedisUrl()
     const url = new URL(redisUrl)
     const connection = {
       host: url.hostname,

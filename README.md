@@ -186,9 +186,12 @@ and [`docs/MADFAM_TRUTH_LAYER_REMEDIATION.md`](docs/MADFAM_TRUTH_LAYER_REMEDIATI
 for the full gap-closure plan (MADFAM tenant truth layer, SKU loop, Selva
 copilot).
 
-**Snapshot (2026-05-28):** ~25–35% of the north-star goal — strong CRM +
-federation seam, not yet ecosystem-complete truthful data for all SKUs,
-visitors, and agent sales.
+**Snapshot (2026-07-09, two-axis):** capability built (code) **~80–85%**;
+truthful-in-prod / pilot-ready **~30–55%** by dimension. The earlier single
+figures ("~25–35%" here, "~55–62%" in the roadmap) measured *different axes* and
+read as a contradiction — prefer the two-axis view. The remaining distance is
+dominated by ops execution and prod verification, not missing code. Evidence:
+[`docs/CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md`](docs/CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md).
 
 Evidence from `packages/config/src/features.ts`, `packages/api/src/router.ts`,
 and the route inventory:

@@ -68,7 +68,7 @@ const features = [
   {
     title: 'Open Source Core',
     description:
-      'MIT-licensed. Self-host anywhere. Inspect every line. No vendor lock-in, no black boxes, no surprise pricing changes.',
+      'AGPL-3.0-licensed. Self-host anywhere. Inspect every line. No vendor lock-in, no black boxes, no surprise pricing changes.',
     icon: (
       <svg
         aria-hidden="true"

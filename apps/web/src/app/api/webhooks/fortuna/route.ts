@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { pipelineStages, pipelines } from '@phynd/db/schema'
@@ -122,7 +123,7 @@ async function enqueueComplianceCheck(
   fortunaGrantId: string,
 ) {
   try {
-    const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+    const redisUrl = resolveRedisUrl()
     const url = new URL(redisUrl)
     const connection = {
       host: url.hostname,

@@ -7,6 +7,7 @@
  */
 
 import { getCacheManager } from '@/lib/federation/clients'
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
@@ -70,7 +71,7 @@ async function enqueueRewardDispatch(
   planId: string,
   revenueCents: number,
 ) {
-  const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+  const redisUrl = resolveRedisUrl()
   const connection = createRedisConnection(redisUrl)
   const queue = new Queue('referral-reward-dispatch', { connection })
 

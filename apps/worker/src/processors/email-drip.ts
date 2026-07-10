@@ -1,3 +1,4 @@
+import { resolveRedisUrl } from '@phynd/config/connections'
 import { getDb } from '@phynd/db'
 import { contacts, leads } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
@@ -204,7 +205,7 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
     const nextStep = step + 1
     const nextDelay = (DRIP_DELAYS_MS[nextStep] ?? 0) - (DRIP_DELAYS_MS[step] ?? 0)
 
-    const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+    const redisUrl = resolveRedisUrl()
     const connection = createRedisConnection(redisUrl)
     const queue = new Queue('email-drip', { connection })
 

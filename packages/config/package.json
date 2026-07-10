@@ -10,7 +10,8 @@
     "./constants": "./src/constants.ts",
     "./features": "./src/features.ts",
     "./outbound-guard": "./src/outbound-guard.ts",
-    "./service-auth": "./src/service-auth.ts"
+    "./service-auth": "./src/service-auth.ts",
+    "./connections": "./src/connections.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -39,7 +39,8 @@
     "pp5:prod-lifecycle-handoff": "node scripts/prod-lifecycle-handoff.mjs",
     "test:pp5": "node --test scripts/__tests__/*.test.mjs",
     "clean": "turbo clean",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:purge-seed": "node scripts/purge-seed-data.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.12.0",

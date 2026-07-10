@@ -5,9 +5,9 @@ Date: 2026-07-09
 Refreshes [`CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md).
 When the two conflict, this note is the newer status; the older note remains as
 history. Codebase observations below were re-derived from the repository this
-session. **Production observations were not re-run this session** — see the
-2026-05-27 note for the last live checks and §"Production status" below for the
-operator verification items.
+session. Live production checks **were re-run later the same day** — see
+§"Production verification (2026-07-09, live)" below, which supersedes the
+"not re-run" caveat in the original §"Production status".
 
 ## Codebase observations (2026-07-09)
 
@@ -72,6 +72,53 @@ project healthy). Before the next pilot, an operator should re-verify:
 - `DHANAM_API_URL` base matches the corrected `/v1/customers` path (C5).
 - Janua entitlements grant `admin@madfam.io` the `admin` role now that phynd
   reads roles from the access token (C4).
+
+## Production verification (2026-07-09, live)
+
+Read-only external checks run ~23:30 UTC. These supersede the "not re-run"
+caveat above.
+
+### Healthy ✅
+
+- `https://phynd.app/` and `https://www.phynd.app/` → HTTP 200 via Cloudflare
+  (<1s); `/api/health` → `{"status":"ok","service":"phynd-crm","version":"0.1.0"}`.
+- `https://crm.madfam.io/` → 307 → `/login` → 200 with **MADFAM CRM** branding
+  and the Janua SSO sign-in form; `/api/health` ok; `/api/auth/csrf` 200;
+  `/api/auth/session` returns `null` unauthenticated (correct).
+- **Pod-host leak (audit C11) is FIXED in prod:** `/api/auth/providers` on
+  `crm.madfam.io` returns only public origins
+  (`signinUrl`/`callbackUrl` on `https://crm.madfam.io/...`). `phynd.app`'s
+  providers endpoint 307s to `crm.phynd.app` per the domain-routing policy and
+  the final JSON is also public-only.
+- **OIDC first leg verified end-to-end (audit item 0.3):**
+  `POST /api/auth/signin/janua` with a CSRF token → 302 to
+  `auth.madfam.io/api/v1/oauth/authorize` with `response_type=code`,
+  `scope=openid profile email`, PKCE `S256`, the registered `jnc_…` client id,
+  and `redirect_uri=https://crm.madfam.io/api/auth/callback/janua`. Janua
+  **accepted** the client + redirect URI (no error param) and 302'd to its
+  login page (`/api/v1/auth/login`). The only leg not verifiable without
+  credentials is the post-login token exchange (the historical
+  `CallbackRouteError`) — needs one human SSO login to confirm.
+- Janua discovery healthy: issuer exactly `https://auth.madfam.io`, RS256-only
+  id_token signing, `S256` PKCE advertised, JWKS 200 — matches phynd's
+  `AUTH_JANUA_ISSUER`, so the audit's C2 concern is confirmed **masked in
+  prod** (env is correct at runtime; the manifest fix aligns file truth).
+- Security headers on `crm.madfam.io`: HSTS (2y, preload, includeSubDomains),
+  `x-frame-options: DENY`, `nosniff`, and a CSP-Report-Only whose
+  `frame-ancestors` includes `selva.town` per WS 5.6.
+- Tenant branding works: `crm.phynd.app/login` renders generic **Phynd**;
+  `crm.madfam.io/login` renders **MADFAM CRM**.
+
+### Gaps found ⚠️
+
+- **Domain drift (audit C12, confirmed live):** `app.phynd.app`,
+  `admin.phynd.app`, `api.phynd.app` were declared in `.enclii.yml` but are
+  **NXDOMAIN** — never provisioned, and they contradict the README's
+  production-domain policy. Removed from the manifest this session.
+  Conversely `crm.phynd.app` **is live** (DNS + TLS + serving) but was
+  undeclared — added to the manifest.
+- Marketing copy still shows "MIT Licensed" live — expected until the C16 fix
+  in PR #51 merges and deploys.
 
 ## Related
 

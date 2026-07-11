@@ -62,6 +62,7 @@ export {
 } from './campaigns/tulana-import.schema'
 export { CampaignDraftVariantService } from './campaigns/campaign-draft-variant.service'
 export {
+  isBuyerSignalPushConfigured,
   pushBuyerSignalsToSelva,
   type BuyerSignalPushResult,
 } from './campaigns/buyer-signal-pusher.service'

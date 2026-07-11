@@ -2,8 +2,10 @@ import http from 'node:http'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { isFeatureEnabled } from '@phynd/config/features'
 import { createLogger } from '@phynd/logging'
+import { isBuyerSignalPushConfigured } from '@phynd/services'
 import { Worker } from 'bullmq'
 import { initInstrumentation } from './instrumentation'
+import { processBuyerSignalPush } from './processors/buyer-signal-push'
 import { processCacheWarmup } from './processors/cache-warmup'
 import { processDemoCleanup } from './processors/demo-cleanup'
 import { processEmailDrip } from './processors/email-drip'
@@ -105,6 +107,12 @@ async function main() {
     maxStalledCount: 2,
   })
 
+  const buyerSignalPushWorker = new Worker('buyer-signal-push', processBuyerSignalPush, {
+    connection,
+    concurrency: 1,
+    maxStalledCount: 2,
+  })
+
   // Schedule repeatable jobs
   const queues = createQueues(connection)
   await queues.taskReminders.add('check-due-tasks', {}, { repeat: { pattern: '0 */4 * * *' } })
@@ -130,7 +138,22 @@ async function main() {
     logger.info('Reddit bot polling disabled — REDDIT_CLIENT_ID not set')
   }
 
+  // Buyer-signal pusher: aggregate campaign buyer signals → Selva every 15 minutes.
+  // The service itself no-ops without Selva credentials; guarding here too means
+  // one startup log line instead of a skipped-job entry every tick.
+  if (isBuyerSignalPushConfigured()) {
+    await queues.buyerSignalPush.add(
+      'push-buyer-signals',
+      {},
+      { repeat: { pattern: '*/15 * * * *' } },
+    )
+    logger.info('Buyer-signal pusher scheduled (every 15 min)')
+  } else {
+    logger.info('Buyer-signal pusher disabled — SELVA_API_URL / SELVA_API_KEY not set')
+  }
+
   const workers = [
+    { name: 'buyer-signal-push', worker: buyerSignalPushWorker },
     { name: 'cache-warmup', worker: cacheWorker },
     { name: 'demo-cleanup', worker: demoCleanupWorker },
     { name: 'email-drip', worker: emailDripWorker },
@@ -177,6 +200,7 @@ async function main() {
   logger.info(
     {
       workers: [
+        { concurrency: 1, name: 'buyer-signal-push' },
         { concurrency: 2, name: 'cache-warmup' },
         { concurrency: 1, name: 'demo-cleanup' },
         { concurrency: 2, name: 'email-drip' },
@@ -198,6 +222,7 @@ async function main() {
     logger.info('Shutting down workers...')
     healthServer.close()
     await Promise.all([
+      buyerSignalPushWorker.close(),
       cacheWorker.close(),
       demoCleanupWorker.close(),
       emailDripWorker.close(),
@@ -210,6 +235,7 @@ async function main() {
       referralRewardDispatchWorker.close(),
       sessionIdentifyWorker.close(),
       taskRemindersWorker.close(),
+      queues.buyerSignalPush.close(),
       queues.demoCleanup.close(),
       queues.emailDrip.close(),
       queues.grantComplianceCheck.close(),

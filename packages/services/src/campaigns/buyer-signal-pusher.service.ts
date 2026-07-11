@@ -42,6 +42,17 @@ function resolveSelvaConfig(env: EnvMap): SelvaConfig | null {
 }
 
 /**
+ * Whether Selva credentials are present, i.e. whether `pushBuyerSignalsToSelva`
+ * would do real work instead of returning `{ skipped: true }`. The worker uses
+ * this to decide whether to schedule the repeatable push job at startup (one
+ * log line, no per-tick noise) — keep it the single source of truth so the
+ * scheduling guard and the service no-op can never diverge.
+ */
+export function isBuyerSignalPushConfigured(env: EnvMap = process.env): boolean {
+  return resolveSelvaConfig(env) !== null
+}
+
+/**
  * Aggregate one SKU's signals into a Selva TulanaFeedbackRequest. Outcomes are
  * per-event-type counts (PII-free) plus the signal-strength mix, which is the
  * shape Tulana's SelvaBuyerSignalEvent ledger expects.

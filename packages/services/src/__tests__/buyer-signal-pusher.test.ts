@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { pushBuyerSignalsToSelva } from '../campaigns/buyer-signal-pusher.service'
+import {
+  isBuyerSignalPushConfigured,
+  pushBuyerSignalsToSelva,
+} from '../campaigns/buyer-signal-pusher.service'
 import * as buyerSignalModule from '../campaigns/campaign-buyer-signal.service'
 import type { ServiceContext } from '../context'
 
@@ -83,5 +86,34 @@ describe('pushBuyerSignalsToSelva', () => {
     })
     expect(result.skus).toBe(2)
     expect(result.pushed).toBe(1)
+  })
+})
+
+describe('isBuyerSignalPushConfigured', () => {
+  it('is false when no Selva env is set', () => {
+    expect(isBuyerSignalPushConfigured({})).toBe(false)
+  })
+
+  it('is false when only the URL half is set', () => {
+    expect(isBuyerSignalPushConfigured({ SELVA_API_URL: 'https://selva.test' })).toBe(false)
+  })
+
+  it('is false when only the key half is set', () => {
+    expect(isBuyerSignalPushConfigured({ SELVA_API_KEY: 'tok' })).toBe(false)
+  })
+
+  it('is true when SELVA_API_URL + SELVA_API_KEY are set', () => {
+    expect(
+      isBuyerSignalPushConfigured({ SELVA_API_URL: 'https://selva.test', SELVA_API_KEY: 'tok' }),
+    ).toBe(true)
+  })
+
+  it('honors the SELVA_BASE_URL / WORKER_API_TOKEN fallbacks', () => {
+    expect(
+      isBuyerSignalPushConfigured({
+        SELVA_BASE_URL: 'https://selva.test',
+        WORKER_API_TOKEN: 'tok',
+      }),
+    ).toBe(true)
   })
 })

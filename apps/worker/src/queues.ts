@@ -11,7 +11,7 @@ const HIGH_THROUGHPUT_RETENTION = {
   removeOnFail: { count: 5000 },
 } as const
 
-/** Medium-throughput queues: cache-warmup, lead-scoring, reddit-bot */
+/** Medium-throughput queues: cache-warmup, lead-scoring, reddit-bot, buyer-signal-push */
 const MEDIUM_THROUGHPUT_RETENTION = {
   removeOnComplete: { count: 100 },
   removeOnFail: { count: 500 },
@@ -144,7 +144,17 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
+  const buyerSignalPush = new Queue('buyer-signal-push', {
+    connection,
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: BACKOFF_DELAY_VERY_SLOW },
+      ...MEDIUM_THROUGHPUT_RETENTION,
+    },
+  })
+
   return {
+    buyerSignalPush,
     cacheWarmup,
     demoCleanup,
     emailDrip,

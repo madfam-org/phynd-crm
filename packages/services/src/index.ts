@@ -114,6 +114,7 @@ export {
   type ClientProjectOnboardingResult,
 } from './onboarding/client-project-onboarding.service'
 export { OpportunitiesService } from './opportunities/opportunities.service'
+export { OpsEventsService, type OpsEventIngestResult } from './ops-events/ops-events.service'
 export {
   maskEmail,
   maskFreeText,

@@ -1,4 +1,5 @@
 export * from './auth'
 export * from './crm'
 export * from './federation'
+export * from './ops-events'
 export * from './ui'

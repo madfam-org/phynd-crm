@@ -26,7 +26,8 @@ pod hostname, direct Janua signin probing returns HTTP 400, and Enclii
 Core required environment variables are defined and validated in
 `packages/config/src/env.ts` using Zod schemas. Additional worker, webhook,
 email, and campaign variables are read directly by their owning modules and are
-listed in `.env.example`. Key variables:
+listed (with placeholder values) in `.env.example`. Illustrative variables a
+public contributor needs for local development:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -36,7 +37,7 @@ listed in `.env.example`. Key variables:
 | `AUTH_JANUA_ISSUER` | Janua OIDC issuer URL | `https://janua.example.com` |
 | `AUTH_JANUA_CLIENT_ID` | Janua OIDC client ID | `phynd-crm` |
 | `AUTH_JANUA_CLIENT_SECRET` | Janua OIDC client secret | Secret-store value |
-| `AUTH_TRUST_HOST` | Auth.js trusted-host behavior behind Cloudflare/Enclii | `true` |
+| `AUTH_TRUST_HOST` | Auth.js trusted-host behavior behind a reverse proxy | `true` |
 | `NEXT_PUBLIC_APP_URL` | Public-facing app URL | `https://crm.example.com` |
 | `JANUA_API_URL` | Janua Identity API | `https://api.janua.example.com` |
 | `JANUA_TELEMETRY_API_URL` | Janua Telemetry API | `https://telemetry.janua.example.com` |
@@ -48,24 +49,26 @@ listed in `.env.example`. Key variables:
 | `SELVA_API_KEY` | Selva API key | Secret-store value |
 | `FORJ_API_URL` | Forj Assets API | `https://api.forj.example.com` |
 | `OPENAI_API_KEY` | LLM API key (Selva-routed or provider fallback) | Secret-store value |
-| `OPENAI_BASE_URL` | LLM endpoint override (Selva Nexus) | `http://nexus-api.selva.svc.cluster.local/v1` |
+| `OPENAI_BASE_URL` | Optional LLM endpoint override for routed completions | `https://llm-gateway.example.com/v1` |
 | `RESEND_API_KEY` | Resend email API key | Secret-store value |
-| `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://crm.madfam.io` (MADFAM prod); see [`runbooks/JANUA_PORTAL_MAGIC_LINK.md`](runbooks/JANUA_PORTAL_MAGIC_LINK.md) |
+| `PORTAL_BASE_URL` | Janua magic-link portal redirect base | `https://crm.example.com`; see [`runbooks/JANUA_PORTAL_MAGIC_LINK.md`](runbooks/JANUA_PORTAL_MAGIC_LINK.md) |
 | `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for engagement event/artifact API routes | Secret-store value |
-| `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for Tulana/Selva campaign APIs (`/api/v1/campaigns/import`, `/send`, `/buyer-signals`); mounted from optional `phynd-crm-commercial-ga-secrets` in production | Secret-store value |
-| `TULANA_API_BASE_URL` | Tulana API base URL used for commercial GA evidence write-back; static production Deployment env | `https://tulana-api.madfam.io/api/v1` |
-| `TULANA_COMMERCIAL_GA_EVIDENCE_TOKEN` | Bearer token used by PhyndCRM to write G4 evidence into Tulana after approved consented sends; mounted from optional `phynd-crm-commercial-ga-secrets` in production | Secret-store value |
-| `TULANA_COMMERCIAL_GA_ENVIRONMENT` | Tulana evidence environment for production SKU readiness writes; static production Deployment env | `production` |
-| `TULANA_COMMERCIAL_GA_PERIOD` | Tulana evidence period for the active commercial GA campaign window; static production Deployment env | `2026-06` |
-| `PHYND_CRM_PUBLIC_URL` | Public PhyndCRM URL used in Tulana evidence links; production MADFAM tenant slice is `crm.madfam.io` | `https://phynd.app` |
+| `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for the campaign import/send/export API routes | Secret-store value |
 | `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | Secret-store value |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | Secret-store value |
 | `FEDERATION_API_TOKEN` | Optional service-to-service token for Selva agent tRPC + GraphQL reads | Secret-store value |
 | `FEDERATION_SERVICE_USER_ID` | Machine principal id for service token (default `service:selva`) | `service:selva` |
-| `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks prod MADFAM URLs) | `production` |
+| `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks outbound calls to production hosts) | `production` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
 | `SENTRY_DSN` | Optional worker Sentry DSN | `https://...` |
 | `*_WEBHOOK_SECRET` | HMAC secrets for each provider | Unique per provider |
+
+This list is illustrative, not exhaustive. Several production-only integrations
+(additional partner API tokens, evidence/export write-back credentials,
+environment-scoped overrides) are read from `process.env` at runtime by their
+owning module but are intentionally not enumerated here. Those operational
+secrets — names, values, and Vault/secret-store mounts — are provisioned via
+the private `madfam-org/internal-devops` runbook; see the ops team for access.
 
 **Safety**: `AUTH_BYPASS=true` is blocked in production by Zod validation. The seed script refuses to run when `NODE_ENV=production`.
 

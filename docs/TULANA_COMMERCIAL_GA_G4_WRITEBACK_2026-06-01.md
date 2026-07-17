@@ -10,20 +10,14 @@ Target system: Tulana
 When PhyndCRM successfully sends a Tulana/Selva campaign after human approval
 and consent/suppression checks, it writes `G4` evidence back to Tulana.
 
-This closes the highest-ROI current blocker for `karafiel__contador` once a
-real campaign/contact send exists.
+## Configuration
 
-## Required environment
-
-```bash
-TULANA_API_BASE_URL=https://tulana-api.madfam.io/api/v1
-TULANA_COMMERCIAL_GA_EVIDENCE_TOKEN=...
-TULANA_COMMERCIAL_GA_ENVIRONMENT=production
-TULANA_COMMERCIAL_GA_PERIOD=2026-06
-PHYND_CRM_PUBLIC_URL=https://crm.madfam.io
-```
-
-Do not print or store the Tulana evidence token.
+The write-back target endpoint, auth token, and environment/period context
+are read from `process.env` at runtime by
+`packages/services/src/campaigns/tulana-commercial-ga-evidence.ts` and no-op
+when unset. The variable names, values, and secret-store mounts for this
+integration live in the private `madfam-org/internal-devops` runbook; see the
+ops team. Do not print or store the evidence token.
 
 ## Write trigger
 
@@ -49,19 +43,6 @@ The Tulana write is `passed` only if the campaign metadata includes:
 
 If the send succeeds but `audience_id` or `consent_basis` is missing, PhyndCRM
 writes partial `pending` evidence instead of falsely passing `G4`.
-
-## Current golden payload
-
-Use:
-
-`phynd-crm/docs/KARAFIEL_CONTADOR_G4_CAMPAIGN_IMPORT_PAYLOAD_2026-06.json`
-
-It includes:
-
-- `commercial_ga_environment=production`
-- `commercial_ga_period=2026-06`
-- `audience_id=warm-accountants-mx-first-pesos-2026-06`
-- `consent_basis=warm_relationship_or_explicit_opt_in_required_per_contact`
 
 ## No-go rules
 

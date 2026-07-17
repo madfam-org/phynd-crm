@@ -7,14 +7,12 @@ import {
 type EnvMap = Record<string, string | undefined>
 
 /**
- * PhyndCRM → Selva buyer-signal pusher (RFC 0031 loop).
+ * PhyndCRM → Selva buyer-signal pusher.
  *
  * PhyndCRM records buyer signals locally (Resend opens/clicks/bounces via the
- * event webhook, plus delivered/suppressed from the send path), but nothing
- * pushed them back to Selva — so PhyndCRM-origin outcomes never reached
- * Tulana's ledger. This closes that leg: it aggregates recent signals per SKU
- * into Selva's `/campaigns/tulana-feedback` shape and POSTs them; Selva's
- * already-wired `push_tulana_buyer_signal` forwards them to Tulana.
+ * event webhook, plus delivered/suppressed from the send path) and forwards
+ * aggregated, PII-free per-SKU outcomes to the configured Selva endpoint.
+ * Downstream routing of that feedback is Selva's concern, not PhyndCRM's.
  *
  * Inert until configured: with no SELVA_API_URL / SELVA_API_KEY the pusher is a
  * no-op that returns { pushed: 0, skipped: true }, so a dry run never fails.
@@ -53,9 +51,8 @@ export function isBuyerSignalPushConfigured(env: EnvMap = process.env): boolean 
 }
 
 /**
- * Aggregate one SKU's signals into a Selva TulanaFeedbackRequest. Outcomes are
- * per-event-type counts (PII-free) plus the signal-strength mix, which is the
- * shape Tulana's SelvaBuyerSignalEvent ledger expects.
+ * Aggregate one SKU's signals into the feedback shape Selva's endpoint
+ * expects: per-event-type counts (PII-free) plus the signal-strength mix.
  */
 function aggregateSkuFeedback(skuKey: string, rows: TulanaBuyerSignalExport[]) {
   const byEvent = new Map<string, number>()

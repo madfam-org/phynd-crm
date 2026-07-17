@@ -23,7 +23,8 @@ export const REQUIRED_JANUA_REDIRECT_URIS = [
   `${STAGING_CRM_BASE_URL}/api/auth/callback/janua`,
 ]
 
-/** Janua magic-link redirect_url prefix for external client portal (query: ?engagement=&token=). */
+/** Janua magic-link redirect_url prefix for external client portal (query: ?engagement=&token=).
+ *  Janua validates the **host** via deployment CORS_ORIGINS — see JANUA_PORTAL_MAGIC_LINK runbook. */
 export const REQUIRED_JANUA_PORTAL_VERIFY_ORIGINS = [
   'https://crm.madfam.io/portal/verify',
   `${STAGING_CRM_BASE_URL}/portal/verify`,

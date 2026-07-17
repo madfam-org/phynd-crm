@@ -33,6 +33,7 @@
     "verify:pilot-go-live": "node scripts/verify-pilot-go-live.mjs",
     "verify:post-deploy": "node scripts/verify-post-deploy.mjs",
     "verify:janua-oidc": "node scripts/verify-janua-oidc-checklist.mjs",
+    "verify:janua-portal-redirect": "node scripts/verify-janua-portal-redirect.mjs",
     "verify:selva-agent": "node scripts/verify-selva-agent-integration.mjs",
     "verify:client-lifecycle-env": "node scripts/verify-client-lifecycle-env.mjs",
     "verify:client-lifecycle": "node scripts/verify-client-lifecycle.mjs --skip-env",

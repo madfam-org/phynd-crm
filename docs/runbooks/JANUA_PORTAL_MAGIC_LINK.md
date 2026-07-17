@@ -33,18 +33,38 @@ Verify live:
 pnpm verify:janua-oidc -- --verify-live
 ```
 
-### 2. Client portal magic-link (new requirement)
+### 2. Client portal magic-link (Janua `CORS_ORIGINS`)
 
-Allow **`redirect_url`** prefixes on Janua's magic-link API (`POST /api/v1/auth/magic-link`):
+Janua validates magic-link `redirect_url` hosts from deployment env **`CORS_ORIGINS`**
+(see `janua/apps/api/app/core/url_security.py`) — **not** a separate path-prefix list
+and **not** the admin CORS DB settings alone.
 
-| Environment | Portal verify origin (prefix) |
-|---|---|
-| Production MADFAM | `https://crm.madfam.io/portal/verify` |
-| Staging | `https://staging-crm.madfam.io/portal/verify` |
+Production **`janua-api`** must include these origins in `CORS_ORIGINS`:
 
-Janua must accept query parameters `engagement` and `token` on that path.
+| Origin | Purpose |
+|--------|---------|
+| `https://crm.madfam.io` | MADFAM staff + client portal magic links |
+| `https://crm.phynd.app` | Generic PhyndCRM app host |
+| `https://phynd.app` | Marketing / legacy portal fallback |
+| `https://www.phynd.app` | Marketing alias |
+| `https://staging-crm.madfam.io` | Staging portal |
 
-**Do not** register `https://phynd.app/portal/verify` for production MADFAM clients unless you intentionally want Phynd-branded client URLs.
+Path `/portal/verify?engagement=&token=` is allowed automatically once the **host** is trusted.
+
+Verify on a running `janua-api` pod:
+
+```bash
+kubectl exec -n janua deploy/janua-api -- python -c "
+from app.core.url_security import is_safe_redirect_url
+print(is_safe_redirect_url('https://crm.madfam.io/portal/verify?engagement=x&token=y'))
+"
+# Expected: True
+```
+
+GitOps: patch `janua/k8s/base/deployments/janua-api.yaml` and roll out with a **pinned
+image digest** — `:main` currently crashes (SQLAlchemy `metadata` reserved name, 2026-06-22).
+
+**Do not** register only `https://phynd.app/portal/verify` for production MADFAM clients.
 
 ### 3. PhyndCRM env
 

@@ -35,6 +35,13 @@ spec:
           env:
             - name: PHYND_CRM_PUBLIC_URL
               value: "https://crm.madfam.io"
+            # Sender identity for outbound mail. Overrides the code default
+            # (email.service.ts: 'Tezca <noreply@janua.dev>') which sent from
+            # the wrong product's domain. madfam.io is a verified Resend
+            # sender. NOTE: the drip/welcome templates are still Tezca-branded;
+            # revisit both sender + templates per the launch-product (G3) call.
+            - name: EMAIL_FROM
+              value: "MADFAM <noreply@madfam.io>"
             - name: TULANA_API_BASE_URL
               value: "https://tulana-api.madfam.io/api/v1"
             - name: TULANA_COMMERCIAL_GA_ENVIRONMENT

@@ -1,9 +1,25 @@
+import { campaigns } from '@phynd/db/schema'
+import { eq } from 'drizzle-orm'
 import OpenAI from 'openai'
 import { ContactsService } from '../contacts/contacts.service'
 import type { ServiceContext } from '../context'
 import { LeadsService } from '../leads/leads.service'
 import { PipelinesService } from '../pipelines/pipelines.service'
 import { CampaignsService } from './campaigns.service'
+
+/**
+ * Owned social-identity profile Fortuna selects for a signal. `handle` is the
+ * account that authors the reply; `platform` selects which owned identity
+ * posts. This is attribution/identity metadata only — it never gates the
+ * consent-gated email send path.
+ */
+export interface FortunaBotProfile {
+  platform?: string
+  handle?: string
+  display_name?: string
+  tone?: string
+  sku_affinity?: string
+}
 
 export interface BotCampaignPayload {
   campaign_type: string
@@ -21,6 +37,46 @@ export interface BotCampaignPayload {
   orchestration: {
     instruction: string
   }
+  /**
+   * Master join key threading a Fortuna signal → phynd campaign → captured
+   * consent → conversion. Format `sig_{source_slug}_{sha256(source:title)[:12]}`.
+   * Attribution/metadata ONLY — mirrors the proven `fortuna_grant_id` grant path.
+   */
+  fortuna_signal_id?: string
+  /** Owned social identity Fortuna selected for this outreach. */
+  profile?: FortunaBotProfile
+}
+
+/**
+ * Build the attribution metadata bag persisted on the reddit_bot campaign's
+ * existing `tulanaMetadata` jsonb (zero-migration). Threads the Fortuna master
+ * join key (`fortuna_signal_id`) plus the selected posting profile through the
+ * campaign so per-signal attribution can resolve later.
+ *
+ * `utm_content` mirrors `fortuna_signal_id` as the signal-level attribution key
+ * (utm_campaign stays the campaign/legal-domain resolver). This is metadata
+ * only: reddit_bot campaigns carry no `skuKey`, so they never enter the
+ * consent-gated Tulana send path — the join key never influences the consent
+ * gate decision.
+ *
+ * Returns null when the payload carries neither the join key nor a profile, so
+ * the caller can skip the extra write for legacy Reddit-shaped payloads.
+ */
+export function buildFortunaAttributionMetadata(
+  payload: Pick<BotCampaignPayload, 'fortuna_signal_id' | 'profile'>,
+): Record<string, unknown> | null {
+  if (!payload.fortuna_signal_id && !payload.profile) {
+    return null
+  }
+  const metadata: Record<string, unknown> = { source: 'fortuna' }
+  if (payload.fortuna_signal_id) {
+    metadata.fortuna_signal_id = payload.fortuna_signal_id
+    metadata.utm_content = payload.fortuna_signal_id
+  }
+  if (payload.profile) {
+    metadata.profile = payload.profile
+  }
+  return metadata
 }
 
 export interface TezcaArticleHit {
@@ -272,13 +328,17 @@ export class RedditBotService {
   }
 
   private async draftResponse(payload: BotCampaignPayload, legalContext: string): Promise<string> {
+    // Prefer the Fortuna-selected owned identity (profile.handle) for the reply
+    // author; fall back to the payload's bot_identity for legacy Reddit-shaped
+    // payloads that carry no profile.
+    const botIdentity = payload.profile?.handle ?? payload.bot_identity
     try {
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4-turbo',
         messages: [
           {
             role: 'system',
-            content: `You are ${payload.bot_identity}, an automated legal outreach assistant operating on Reddit.
+            content: `You are ${botIdentity}, an automated legal outreach assistant operating on Reddit.
 You provide completely rigorous, highly polite, and highly accurate Mexican Legal Context.
 Do not guess. Use ONLY the extracted legal articles and judicial precedent provided in the context below.
 Advise the user to seek official counsel always.
@@ -314,8 +374,21 @@ Always end your response with:
       // Store the Reddit post URL in utmSource for retrieval at approval time
       utmSource: payload.outreach_target.url,
       utmMedium: 'reddit',
+      // utmCampaign stays the legal-domain resolver (coarse campaign bucket).
       utmCampaign: payload.legal_context.domain,
     })
+
+    // Thread the Fortuna master join key + selected posting profile through the
+    // campaign's existing jsonb metadata (zero-migration). Skipped entirely for
+    // legacy Reddit-shaped payloads that carry no join key/profile. This is
+    // attribution metadata only and never touches the consent gate.
+    const attributionMetadata = buildFortunaAttributionMetadata(payload)
+    if (attributionMetadata) {
+      await this.ctx.db
+        .update(campaigns)
+        .set({ tulanaMetadata: attributionMetadata })
+        .where(eq(campaigns.id, campaign.id))
+    }
 
     return campaign.id
   }

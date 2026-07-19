@@ -67,6 +67,7 @@ vi.mock('openai', () => {
 import {
   type BotCampaignPayload,
   RedditBotService,
+  buildFortunaAttributionMetadata,
   mapDomainToMateria,
 } from '../campaigns/reddit-bot'
 
@@ -689,5 +690,214 @@ describe('RedditBotService OpenAI baseURL routing', () => {
     const ctx = createTestContext()
     expect(() => new RedditBotService(ctx)).toThrow(/Selva inference gateway/)
     expect(openaiConstructorSpy).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildFortunaAttributionMetadata — join-key + profile threading (pure)
+// ---------------------------------------------------------------------------
+describe('buildFortunaAttributionMetadata', () => {
+  it('returns null for legacy Reddit-shaped payloads (no join key, no profile)', () => {
+    expect(buildFortunaAttributionMetadata({})).toBeNull()
+  })
+
+  it('threads the join key and mirrors it as utm_content (signal-level key)', () => {
+    const metadata = buildFortunaAttributionMetadata({
+      fortuna_signal_id: 'sig_reddit_deadbeef1234',
+    })
+    expect(metadata).toEqual({
+      source: 'fortuna',
+      fortuna_signal_id: 'sig_reddit_deadbeef1234',
+      utm_content: 'sig_reddit_deadbeef1234',
+    })
+  })
+
+  it('persists the selected posting profile', () => {
+    const profile = {
+      platform: 'reddit',
+      handle: 'madfam_legal',
+      display_name: 'MADFAM Legal',
+      tone: 'empathetic',
+      sku_affinity: 'tezca_pro',
+    }
+    const metadata = buildFortunaAttributionMetadata({
+      fortuna_signal_id: 'sig_reddit_abc',
+      profile,
+    })
+    expect(metadata).toMatchObject({
+      source: 'fortuna',
+      fortuna_signal_id: 'sig_reddit_abc',
+      utm_content: 'sig_reddit_abc',
+      profile,
+    })
+  })
+
+  it('handles a profile-only payload without a join key', () => {
+    const metadata = buildFortunaAttributionMetadata({ profile: { handle: 'madfam_legal' } })
+    expect(metadata).toEqual({ source: 'fortuna', profile: { handle: 'madfam_legal' } })
+    // No join key → no utm_content mirror.
+    expect(metadata).not.toHaveProperty('utm_content')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Fortuna join-key persistence + profile-driven bot identity
+// ---------------------------------------------------------------------------
+describe('RedditBotService — Fortuna signal threading', () => {
+  let service: RedditBotService
+  let mockDb: MockDatabase
+
+  const fortunaPayload: BotCampaignPayload = {
+    campaign_type: 'legal_outreach',
+    bot_identity: 'MadfamBot',
+    outreach_target: {
+      url: 'https://www.reddit.com/r/DerechoMexicano/comments/abc123/my_post/',
+      author: 'testuser',
+      original_post_content: 'Me despidieron injustamente...',
+    },
+    legal_context: {
+      distress_sentiment: 'high',
+      core_legal_problem: 'despido injustificado',
+      domain: 'labor',
+    },
+    orchestration: { instruction: 'Respond with empathy.' },
+    fortuna_signal_id: 'sig_reddit_deadbeef1234',
+    profile: {
+      platform: 'reddit',
+      handle: 'madfam_legal',
+      display_name: 'MADFAM Legal',
+      tone: 'empathetic',
+      sku_affinity: 'tezca_pro',
+    },
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('TEZCA_API_URL', 'http://tezca-test:8000')
+    vi.stubEnv('INTERNAL_TEZCA_KEY', 'test-key')
+    vi.stubEnv('OPENAI_BASE_URL', 'https://inference.selva.town/v1')
+    const ctx = createTestContext()
+    mockDb = ctx.mockDb
+    service = new RedditBotService(ctx)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  it('drafts the reply under the profile.handle identity when present', async () => {
+    const createMock = (
+      service as unknown as {
+        openai: { chat: { completions: { create: ReturnType<typeof vi.fn> } } }
+      }
+    ).openai.chat.completions.create
+    createMock.mockResolvedValueOnce({ choices: [{ message: { content: 'draft' } }] })
+
+    await (
+      service as unknown as {
+        draftResponse: (p: BotCampaignPayload, ctx: string) => Promise<string>
+      }
+    ).draftResponse(fortunaPayload, 'legal-context')
+
+    // The system prompt authors as the owned handle, not the generic bot_identity.
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('You are madfam_legal,'),
+          }),
+        ]),
+      }),
+    )
+  })
+
+  it('persists fortuna_signal_id + profile on the campaign via tulanaMetadata (zero-migration)', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      // queryTezcaArticles: semantic (empty) → keyword (empty)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) } as Response)
+      // queryTezcaJudicial
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) } as Response)
+
+    const contact = makeContact({ id: 'contact-new', name: 'u/testuser' })
+    const lead = makeLead({ id: 'lead-new', contactId: 'contact-new' })
+    const pipeline = makePipeline({ id: 'pipeline-001', isDefault: true })
+    const stage = makePipelineStage({ id: 'stage-001', pipelineId: 'pipeline-001' })
+    const campaign = makeCampaign({ id: 'campaign-new' })
+
+    let callCount = 0
+    mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
+      callCount++
+      const results: Record<number, unknown> = {
+        1: [], // getByName -> not found
+        2: [contact], // insert contact
+        3: [pipeline], // getDefault pipeline
+        4: [stage], // getStages
+        5: [lead], // insert lead
+        6: [{ id: 'conv-001' }], // conversion insert
+        7: [campaign], // insert campaign
+        8: [], // update campaign tulanaMetadata (attribution)
+      }
+      return Promise.resolve(results[callCount] ?? []).then(resolve)
+    })
+
+    const result = await service.processWebhook(fortunaPayload)
+
+    expect(result.status).toBe('success')
+    // The join key + profile land in the campaign's existing jsonb metadata.
+    expect(mockDb.update).toHaveBeenCalledWith(expect.objectContaining({ id: 'campaigns.id' }))
+    expect(mockDb._qb.set).toHaveBeenCalledWith({
+      tulanaMetadata: {
+        source: 'fortuna',
+        fortuna_signal_id: 'sig_reddit_deadbeef1234',
+        utm_content: 'sig_reddit_deadbeef1234',
+        profile: fortunaPayload.profile,
+      },
+    })
+  })
+
+  it('does NOT set skuKey from the profile — reddit_bot campaigns stay out of the consent-gated send', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) } as Response)
+
+    const insertedCampaignValues: Array<Record<string, unknown>> = []
+    const originalValues = mockDb._qb.values.getMockImplementation()
+    mockDb._qb.values.mockImplementation((data: Record<string, unknown>) => {
+      if (data && typeof data === 'object' && data.channel === 'reddit_bot') {
+        insertedCampaignValues.push(data)
+      }
+      return originalValues ? originalValues(data) : mockDb._qb
+    })
+
+    const contact = makeContact({ id: 'contact-new', name: 'u/testuser' })
+    const lead = makeLead({ id: 'lead-new', contactId: 'contact-new' })
+    const pipeline = makePipeline({ id: 'pipeline-001', isDefault: true })
+    const stage = makePipelineStage({ id: 'stage-001', pipelineId: 'pipeline-001' })
+    const campaign = makeCampaign({ id: 'campaign-new' })
+
+    let callCount = 0
+    mockDb._qb.then.mockImplementation((resolve: (v: unknown) => void) => {
+      callCount++
+      const results: Record<number, unknown> = {
+        1: [],
+        2: [contact],
+        3: [pipeline],
+        4: [stage],
+        5: [lead],
+        6: [{ id: 'conv-001' }],
+        7: [campaign],
+        8: [],
+      }
+      return Promise.resolve(results[callCount] ?? []).then(resolve)
+    })
+
+    await service.processWebhook(fortunaPayload)
+
+    expect(insertedCampaignValues).toHaveLength(1)
+    expect(insertedCampaignValues[0]).not.toHaveProperty('skuKey')
+    // utmCampaign stays the coarse legal-domain resolver, unaffected by the signal.
+    expect(insertedCampaignValues[0]?.utmCampaign).toBe('labor')
   })
 })

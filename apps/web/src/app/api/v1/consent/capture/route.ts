@@ -30,6 +30,30 @@ type CapturePayload = {
   metadata?: Record<string, unknown>
 }
 
+// Attribution join key threaded fortuna signal -> phynd campaign -> consent ->
+// conversion (RFC 0035 P4). The landing form forwards the querystring UTMs plus
+// the fortuna signal id; we standardize them into consent_records.metadata under
+// {utm_source, utm_medium, utm_campaign, utm_content, fortuna_signal_id}. This is
+// attribution ONLY — it never touches the consent-gate decision. utm_content
+// carries the fortuna_signal_id at the signal level; insight_id is the explicit
+// alias and wins when both are present.
+function buildAttributionMetadata(payload: Record<string, unknown>): Record<string, string> | null {
+  const utmSource = payload.utm_source as string | undefined
+  const utmMedium = payload.utm_medium as string | undefined
+  const utmCampaign = payload.utm_campaign as string | undefined
+  const utmContent = payload.utm_content as string | undefined
+  const fortunaSignalId = (payload.insight_id as string | undefined) ?? utmContent
+
+  const attribution: Record<string, string> = {}
+  if (utmSource) attribution.utm_source = utmSource
+  if (utmMedium) attribution.utm_medium = utmMedium
+  if (utmCampaign) attribution.utm_campaign = utmCampaign
+  if (utmContent) attribution.utm_content = utmContent
+  if (fortunaSignalId) attribution.fortuna_signal_id = fortunaSignalId
+
+  return Object.keys(attribution).length > 0 ? attribution : null
+}
+
 function parseCapturePayload(
   payload: Record<string, unknown>,
 ): { ok: true; input: CapturePayload } | { ok: false; error: string } {
@@ -55,6 +79,13 @@ function parseCapturePayload(
     return { ok: false, error: 'Missing email/phone identifier' }
   }
 
+  const callerMetadata = (payload.metadata as Record<string, unknown> | undefined) ?? undefined
+  const attribution = buildAttributionMetadata(payload)
+  // Merge attribution keys on top of any caller-supplied metadata. When no
+  // attribution is present, preserve the prior verbatim-metadata behavior
+  // (undefined so ConsentService.capture can fall back to the existing record).
+  const metadata = attribution ? { ...(callerMetadata ?? {}), ...attribution } : callerMetadata
+
   return {
     ok: true,
     input: {
@@ -65,7 +96,7 @@ function parseCapturePayload(
       evidence: payload.evidence as string | undefined,
       contactId: (payload.contact_id as string | undefined) ?? undefined,
       sendConfirmationEmail: payload.send_confirmation_email !== false,
-      metadata: (payload.metadata as Record<string, unknown> | undefined) ?? undefined,
+      metadata,
     },
   }
 }
@@ -107,7 +138,14 @@ async function maybeSendConfirmationEmail(
 //     evidence?: string,         // consent copy shown, form snapshot, IP…
 //     contact_id?: string,
 //     send_confirmation_email?: boolean,  // default true (email channel)
-//     metadata?: object
+//     metadata?: object,
+//     // Attribution (RFC 0035 P4) — forwarded from the landing querystring.
+//     // Persisted into consent_records.metadata; never gates the send.
+//     utm_source?: string,
+//     utm_medium?: string,
+//     utm_campaign?: string,
+//     utm_content?: string,       // carries fortuna_signal_id at signal level
+//     insight_id?: string         // explicit fortuna_signal_id alias
 //   }
 //
 // Secret: PHYND_CONSENT_EVENTS_SECRET (HMAC, shared with the calling product).

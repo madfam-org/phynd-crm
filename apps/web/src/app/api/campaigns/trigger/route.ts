@@ -1,6 +1,7 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
+import type { BotCampaignPayload } from '@phynd/services'
 import { createServiceContext } from '@phynd/services'
 import { RedditBotService } from '@phynd/services'
 import { NextResponse } from 'next/server'
@@ -23,7 +24,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized webhook trigger' }, { status: 401 })
     }
 
-    const payload = await req.json()
+    // The Fortuna signal payload now additionally carries the master join key
+    // (`fortuna_signal_id`, top-level) and the selected owned `profile`
+    // {platform, handle, display_name, tone, sku_affinity}. Both are optional on
+    // BotCampaignPayload; the bot service persists them as campaign attribution
+    // metadata. Legacy Reddit-shaped payloads keep working unchanged.
+    const payload = (await req.json()) as BotCampaignPayload
 
     // 2. Setup internal Service Context to inject into CRM service handlers
     const db = getDb()

@@ -203,4 +203,51 @@ describe('checkCampaignSendEligibility (integration with consent models)', () =>
     })
     expect(result.eligible).toBe(true)
   })
+
+  // Attribution join key (RFC 0035 P4): fortuna_signal_id / utm_content live in
+  // consent_records.metadata purely for attribution. They must NEVER move the
+  // send-gate decision — only status + suppression do.
+  describe('attribution metadata never influences the send gate', () => {
+    const attributionMetadata = {
+      fortuna_signal_id: 'sig_dhanam_abc123def456',
+      utm_content: 'sig_dhanam_abc123def456',
+      utm_campaign: 'peso-goldilocks',
+    }
+
+    it('granted consent stays eligible regardless of attribution metadata', async () => {
+      const ctx = createTestContext()
+      sequenceResults(ctx.mockDb, [
+        [campaign],
+        [contact],
+        [],
+        [{ status: 'granted', metadata: attributionMetadata }],
+        [],
+      ])
+
+      const result = await checkCampaignSendEligibility(ctx, {
+        campaignId: 'campaign-001',
+        contactId: 'contact-001',
+      })
+      expect(result.eligible).toBe(true)
+      expect(result.reasons).toHaveLength(0)
+    })
+
+    it('revoked consent stays blocked even when attribution metadata is present', async () => {
+      const ctx = createTestContext()
+      sequenceResults(ctx.mockDb, [
+        [campaign],
+        [contact],
+        [],
+        [{ status: 'revoked', metadata: attributionMetadata }],
+        [],
+      ])
+
+      const result = await checkCampaignSendEligibility(ctx, {
+        campaignId: 'campaign-001',
+        contactId: 'contact-001',
+      })
+      expect(result.eligible).toBe(false)
+      expect(result.reasons).toEqual(['channel_consent_revoked'])
+    })
+  })
 })

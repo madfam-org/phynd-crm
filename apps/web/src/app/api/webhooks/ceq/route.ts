@@ -22,6 +22,11 @@ const logger = createLogger('web:webhook:ceq')
  * when a free user clicks a premium-tagged template's CTA. Mirrors the Tezca
  * shape; the optional UTM fields are added by ceq when the user landed via
  * a tracked marketing campaign URL (Phase 2 of the ceq audit hookup).
+ *
+ * utm_content / insight_id carry the fortuna_signal_id — the master join key
+ * threading fortuna signal -> campaign -> consent -> conversion (RFC 0035 P4).
+ * utm_campaign remains the campaign resolver; the signal id is the finer key
+ * recorded into the conversion metadata for signal-level attribution.
  */
 interface CeqInterestPayload {
   email: string
@@ -33,6 +38,8 @@ interface CeqInterestPayload {
   utm_source?: string
   utm_medium?: string
   utm_campaign?: string
+  utm_content?: string
+  insight_id?: string
 }
 
 type CeqEventPayload = {
@@ -153,6 +160,11 @@ async function recordCampaignAttribution(
       return
     }
 
+    // utm_campaign resolved the campaign above; utm_content / insight_id carry
+    // the fortuna_signal_id — the finer, signal-level attribution key that
+    // closes the fortuna insight -> consent -> conversion loop (RFC 0035 P4).
+    const fortunaSignalId = data.insight_id ?? data.utm_content
+
     const conversionsService = new ConversionsService(ctx)
     await conversionsService.recordConversion({
       type: 'paid_lead',
@@ -163,6 +175,8 @@ async function recordCampaignAttribution(
         utm_source: data.utm_source,
         utm_medium: data.utm_medium,
         utm_campaign: data.utm_campaign,
+        utm_content: data.utm_content,
+        fortuna_signal_id: fortunaSignalId,
         source_page: data.source_page,
         feature_key: data.feature_key,
       },
@@ -172,6 +186,7 @@ async function recordCampaignAttribution(
         leadId,
         campaignId: campaign.id,
         utm_campaign: data.utm_campaign,
+        fortuna_signal_id: fortunaSignalId,
       },
       'Attributed ceq lead to paid campaign',
     )

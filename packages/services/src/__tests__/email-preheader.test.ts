@@ -99,7 +99,12 @@ describe('campaignVariantEmail', () => {
   it('omits the preheader key and cta cleanly when not provided', () => {
     const email = campaignVariantEmail({ subject: 'S', body: 'B' })
     expect(email.preheader).toBeUndefined()
-    expect(email.html).not.toContain('<a href')
+    // No CTA button and no unsubscribe link — the only anchor left is the
+    // always-on legal footer's Aviso de Privacidad.
+    expect(email.html).not.toContain('display:inline-block;background:#2563eb')
+    expect(email.html).not.toContain('Cancelar suscripción')
+    expect(email.html).toContain('Aviso de Privacidad')
+    expect(email.html).toContain('Innovaciones MADFAM')
   })
 
   it('escapes html in variant content', () => {

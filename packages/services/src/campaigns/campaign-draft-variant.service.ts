@@ -33,6 +33,7 @@ export class CampaignDraftVariantService {
           preheader: variant.preheader,
           body: variant.body,
           cta: variant.cta,
+          ctaUrl: variant.ctaUrl,
           claimKeysUsed: variant.claimKeysUsed,
           source: input.source,
         })),

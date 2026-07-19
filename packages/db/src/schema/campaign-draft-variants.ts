@@ -26,6 +26,9 @@ export const campaignDraftVariants = pgTable(
     preheader: varchar('preheader', { length: 500 }),
     body: text('body').notNull(),
     cta: varchar('cta', { length: 500 }),
+    // Landing/checkout URL the CTA button links to. Without it the CTA
+    // renders as plain bold text and the conversion path is dead.
+    ctaUrl: varchar('cta_url', { length: 1000 }),
     // Campaign-safe claim feature_keys grounding this variant (audit trail)
     claimKeysUsed: jsonb('claim_keys_used').$type<string[]>().notNull().default([]),
     source: varchar('source', { length: 32 }).notNull().default('tulana'),

@@ -45,6 +45,9 @@ export const structuredDraftVariantSchema = z.object({
   preheader: z.string().max(500).optional(),
   body: z.string().min(1).max(8000),
   cta: z.string().max(500).optional(),
+  // Landing/checkout URL for the CTA button — https only, so a compromised
+  // handoff cannot inject javascript:/data: links into outbound mail.
+  cta_url: z.string().url().max(1000).startsWith('https://').optional(),
   claim_keys_used: z.array(z.string().min(1)).default([]),
 })
 
@@ -64,6 +67,7 @@ export type NormalizedDraftVariant = {
   preheader: string | null
   body: string
   cta: string | null
+  ctaUrl: string | null
   claimKeysUsed: string[]
 }
 
@@ -77,6 +81,7 @@ export function normalizeDraftVariant(variant: DraftVariantInput): NormalizedDra
       preheader: null,
       body: variant,
       cta: null,
+      ctaUrl: null,
       claimKeysUsed: [],
     }
   }
@@ -88,6 +93,7 @@ export function normalizeDraftVariant(variant: DraftVariantInput): NormalizedDra
     preheader: variant.preheader ?? null,
     body: variant.body,
     cta: variant.cta ?? null,
+    ctaUrl: variant.cta_url ?? null,
     claimKeysUsed: variant.claim_keys_used,
   }
 }

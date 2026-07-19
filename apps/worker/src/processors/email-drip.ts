@@ -2,7 +2,11 @@ import { resolveRedisUrl } from '@phynd/config/connections'
 import { getDb } from '@phynd/db'
 import { contacts, leads } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
-import { CampaignEmailEventService, createServiceContext } from '@phynd/services'
+import {
+  CampaignEmailEventService,
+  SuppressionService,
+  createServiceContext,
+} from '@phynd/services'
 import { EmailService } from '@phynd/services/email'
 import { lastChanceEmail } from '@phynd/services/email/templates/last-chance'
 import { legalTipEmail } from '@phynd/services/email/templates/legal-tip'
@@ -16,6 +20,36 @@ import { createRedisConnection } from '../queues'
 
 const logger = createLogger('worker:email-drip')
 const DEFAULT_EMAIL_ALLOWLIST = new Set<string>()
+
+/**
+ * Consults the cross-product suppression list for a drip recipient.
+ * Returns true when suppressed, false when clear, and null when the list
+ * could not be consulted (callers must treat null as "do not send").
+ */
+async function checkDripSuppression(
+  db: ReturnType<typeof getDb>,
+  email: string,
+): Promise<boolean | null> {
+  try {
+    const suppression = new SuppressionService(
+      createServiceContext(
+        db,
+        {} as never,
+        {
+          userId: 'service:email-drip',
+          roles: ['service'],
+          scopes: ['campaigns:write'],
+          accessToken: '',
+        } as never,
+      ),
+    )
+    const { suppressed } = await suppression.check(email, 'email')
+    return suppressed
+  } catch (err) {
+    logger.error({ err }, 'Suppression check failed')
+    return null
+  }
+}
 
 function normalizeAllowlist(value: string | undefined): Set<string> {
   if (!value) {
@@ -123,6 +157,17 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
       { leadId, step, email: contact.email },
       'Email domain is not allowlisted for drip delivery — skipping',
     )
+    return
+  }
+
+  // Suppression gate: the drip previously honored only the lead's own
+  // unsubscribed flag, bypassing the cross-product suppression list that
+  // Resend bounce/complaint webhooks and campaign opt-outs write to.
+  // Suppression beats everything — same rule as the campaign send gate.
+  // Fail CLOSED: `null` means the list could not be consulted → do not send.
+  const suppressed = await checkDripSuppression(db, contact.email)
+  if (suppressed !== false) {
+    logger.info({ leadId, step, suppressed }, 'Drip blocked by suppression gate — skipping')
     return
   }
 

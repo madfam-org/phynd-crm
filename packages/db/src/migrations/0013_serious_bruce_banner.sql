@@ -1,0 +1,1 @@
+ALTER TABLE "campaign_draft_variants" ADD COLUMN "cta_url" varchar(1000);

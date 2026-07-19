@@ -366,12 +366,21 @@ export class CampaignsService {
       .limit(1)
     const unsubscribeUrl = lead ? buildUnsubscribeUrl(lead.id) : undefined
 
+    // Product-specific Aviso de Privacidad: dhanam campaigns point at the
+    // dhanam privacy page; everything else falls back to the corporate page
+    // inside campaignVariantEmail.
+    const privacyUrl = campaign.skuKey?.startsWith('dhanam')
+      ? 'https://app.dhan.am/privacy'
+      : undefined
+
     const rendered = campaignVariantEmail({
       subject: variant.subject ?? campaign.name,
       body: variant.body,
       preheader: variant.preheader,
       cta: variant.cta,
+      ctaUrl: variant.ctaUrl,
       unsubscribeUrl,
+      privacyUrl,
     })
 
     const tags = [

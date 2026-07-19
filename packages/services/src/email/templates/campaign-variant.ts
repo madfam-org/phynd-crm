@@ -14,6 +14,15 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;')
 }
 
+/**
+ * Legal footer required on every promotional send: physical postal address
+ * (CAN-SPAM) + Aviso de Privacidad link (LFPDPPP) + unsubscribe. The address
+ * is unconditional; the privacy link falls back to the MADFAM corporate page
+ * when the campaign has no product-specific Aviso.
+ */
+const POSTAL_ADDRESS = 'Innovaciones MADFAM S.A.S. de C.V. · Cuernavaca, Morelos, México'
+const DEFAULT_PRIVACY_URL = 'https://www.madfam.io/privacy'
+
 export function campaignVariantEmail(params: {
   subject: string
   body: string
@@ -21,10 +30,12 @@ export function campaignVariantEmail(params: {
   cta?: string | null
   ctaUrl?: string | null
   unsubscribeUrl?: string
+  privacyUrl?: string
 }): { subject: string; html: string; preheader?: string } {
   const bodyHtml = escapeHtml(params.body)
   const cta = params.cta?.trim()
   const ctaUrl = params.ctaUrl?.trim()
+  const privacyUrl = params.privacyUrl?.trim() || DEFAULT_PRIVACY_URL
 
   const ctaHtml = cta
     ? ctaUrl
@@ -42,15 +53,16 @@ export function campaignVariantEmail(params: {
   <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
     <p style="color:#374151;font-size:15px;line-height:1.6;white-space:pre-wrap;">${bodyHtml}</p>
     ${ctaHtml}
-    ${
-      params.unsubscribeUrl
-        ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
-      <p style="color:#9ca3af;font-size:11px;line-height:1.5;">
-        <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;margin:0 0 6px;">${POSTAL_ADDRESS}</p>
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;margin:0;">
+        <a href="${escapeHtml(privacyUrl)}" style="color:#6b7280;text-decoration:underline;">Aviso de Privacidad</a>${
+          params.unsubscribeUrl
+            ? ` · <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>`
+            : ''
+        }
       </p>
-    </div>`
-        : ''
-    }
+    </div>
   </div>
 </body>
 </html>`,

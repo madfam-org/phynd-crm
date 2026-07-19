@@ -35,7 +35,11 @@ export function welcomeEmail(params: { domain?: string; unsubscribeUrl?: string 
     ${
       params.unsubscribeUrl
         ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">
-      <p style="color:#9ca3af;font-size:11px;line-height:1.5;">
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;margin:0 0 6px;">
+        Innovaciones MADFAM S.A.S. de C.V. · Cuernavaca, Morelos, México ·
+        <a href="https://tezca.mx/privacidad" style="color:#6b7280;text-decoration:underline;">Aviso de Privacidad</a>
+      </p>
+      <p style="color:#9ca3af;font-size:11px;line-height:1.5;margin:0;">
         Recibes este correo porque te registraste en tezca.mx.
         <a href="${params.unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>
       </p>

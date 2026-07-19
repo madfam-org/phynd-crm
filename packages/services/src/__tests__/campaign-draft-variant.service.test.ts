@@ -13,6 +13,7 @@ describe('normalizeDraftVariant', () => {
       preheader: null,
       body: 'Plain draft text',
       cta: null,
+      ctaUrl: null,
       claimKeysUsed: [],
     })
   })
@@ -36,6 +37,7 @@ describe('normalizeDraftVariant', () => {
       preheader: 'Vista previa',
       body: 'Cuerpo',
       cta: 'CTA',
+      ctaUrl: null,
       claimKeysUsed: ['claim_a', 'claim_b'],
     })
   })

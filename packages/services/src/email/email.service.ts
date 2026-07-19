@@ -1,7 +1,10 @@
 import { Resend } from 'resend'
 import { injectPreheader } from './preheader'
 
-const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'Tezca <noreply@janua.dev>'
+// MADFAM is the neutral multi-product sender; the old 'Tezca <noreply@janua.dev>'
+// default branded EVERY product's mail (incl. dhanam campaigns) as Tezca on a
+// domain we use for auth, not outreach. Prod sets EMAIL_FROM explicitly.
+const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'MADFAM <noreply@madfam.io>'
 
 let resendClient: Resend | null = null
 

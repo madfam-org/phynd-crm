@@ -2,7 +2,7 @@ import { resolveRedisUrl } from '@phynd/config/connections'
 import { getDb } from '@phynd/db'
 import { contacts, leads } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
-import { CampaignEmailEventService, createServiceContext } from '@phynd/services'
+import { CampaignEmailEventService, SuppressionService, createServiceContext } from '@phynd/services'
 import { EmailService } from '@phynd/services/email'
 import { lastChanceEmail } from '@phynd/services/email/templates/last-chance'
 import { legalTipEmail } from '@phynd/services/email/templates/legal-tip'
@@ -123,6 +123,30 @@ export async function processEmailDrip(job: Job<EmailDripData>): Promise<void> {
       { leadId, step, email: contact.email },
       'Email domain is not allowlisted for drip delivery — skipping',
     )
+    return
+  }
+
+  // Suppression gate: the drip previously honored only the lead's own
+  // unsubscribed flag, bypassing the cross-product suppression list that
+  // Resend bounce/complaint webhooks and campaign opt-outs write to.
+  // Suppression beats everything — same rule as the campaign send gate.
+  try {
+    const suppression = new SuppressionService(
+      createServiceContext(db, {} as never, {
+        userId: 'service:email-drip',
+        roles: ['service'],
+        scopes: ['campaigns:write'],
+        accessToken: '',
+      } as never),
+    )
+    const { suppressed } = await suppression.check(contact.email, 'email')
+    if (suppressed) {
+      logger.info({ leadId, step }, 'Recipient suppressed — skipping drip')
+      return
+    }
+  } catch (err) {
+    // Fail CLOSED: if the suppression list cannot be consulted, do not send.
+    logger.error({ leadId, step, err }, 'Suppression check failed — skipping drip send')
     return
   }
 

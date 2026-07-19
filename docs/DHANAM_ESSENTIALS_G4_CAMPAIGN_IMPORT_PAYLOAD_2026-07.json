@@ -1,0 +1,140 @@
+{
+  "idempotency_key": "dhanam-essentials-consumer-launch-2026-07-v1",
+  "source": "tulana",
+  "orchestrator": "selva",
+  "sku_key": "dhanam__essentials",
+  "platform": "Dhanam",
+  "audience": "Spanish-speaking consumers in Mexico who track personal finances manually (spreadsheets/notes) and have explicitly opted in via double opt-in",
+  "ga_readiness": "near_ready",
+  "commercial_ga_status": "candidate",
+  "commercial_ga_gate_version": "2026-06-01",
+  "commercial_ga_environment": "production",
+  "commercial_ga_period": "2026-07",
+  "audience_id": "consumer-optin-mx-essentials-2026-07",
+  "consent_basis": "explicit_double_opt_in_required_per_contact",
+  "campaign_type": "consumer_launch_controlled",
+  "value_prop": "Dhanam Essentials organizes your personal finances from your own bank statements (CSV/PDF): AI categorization, budgets with alerts, 60-day cashflow forecast, and ESG crypto scoring — MX$150/month IVA included, with a free plan to start.",
+  "gate_evidence": [
+    {
+      "gate_id": "G0",
+      "status": "passed",
+      "evidence_url": "https://api.dhan.am/v1/billing/catalog",
+      "source_system": "dhanam",
+      "source_record_id": "public_catalog"
+    },
+    {
+      "gate_id": "G1",
+      "status": "passed",
+      "evidence_url": "/api/v1/admin/dhanam-pricing-proposal/?refresh=true",
+      "source_system": "tulana",
+      "source_record_id": "pricing_proposal_goldilocks_2026_07"
+    },
+    {
+      "gate_id": "G3",
+      "status": "passed",
+      "evidence_url": "repo://tulana/apps/api/madfam_catalog (campaign-claims register, dhanam SKUs 8x50/100 PILOT_READY)",
+      "source_system": "tulana",
+      "source_record_id": "dhanam-essentials-g3-proof-2026-07"
+    },
+    {
+      "gate_id": "G4",
+      "status": "pending",
+      "evidence_url": "repo://phynd-crm/docs/DHANAM_ESSENTIALS_G4_CAMPAIGN_IMPORT_PAYLOAD_2026-07.json",
+      "source_system": "phynd-crm",
+      "source_record_id": "pending-dhanam-essentials-g4"
+    }
+  ],
+  "money_path": {
+    "checkout_required": true,
+    "payment_required": true,
+    "entitlement_required": true,
+    "bbva_payout_required": true,
+    "converge_revenue_required": true,
+    "checkout_url": "https://app.dhan.am/register?ref=campaign&plan=essentials"
+  },
+  "proof_points": [
+    {
+      "label": "Price",
+      "value": "Dhanam Essentials: MX$129 + IVA = MX$150/month (catalog price, dhanam#660)",
+      "source_url": "https://api.dhan.am/v1/billing/catalog"
+    },
+    {
+      "label": "Statement import",
+      "value": "Bank statement import (CSV/PDF) proven end-to-end in production (BBVA CSV → transactions, idempotent)"
+    },
+    {
+      "label": "Free entry",
+      "value": "Free plan exists (1 space, statement import, 30-day forecast) — risk-free start, no card required"
+    }
+  ],
+  "guardrails": {
+    "policy_state": "consumer_launch_controlled",
+    "last_verified_at": "2026-07-19",
+    "do_not_claim": [
+      "Do not claim live/automatic bank synchronization — Belvo runs sandbox-only in production. Statement import (CSV/PDF) is the only live ingest path. The Belvo integration may only be described as arriving August 2026.",
+      "Do not claim investment advice, guaranteed savings amounts, or financial outcomes.",
+      "Do not claim user counts, scale, or track-record metrics.",
+      "Do not price-anchor against named competitors in outbound copy.",
+      "Do not claim DeFi or collectibles coverage (Pro-tier features held pending provider keys)."
+    ]
+  },
+  "drafts": [],
+  "draft_variants": [
+    {
+      "variant_id": "dhanam-essentials-es-a-orden",
+      "language": "es-MX",
+      "subject": "Tus finanzas, ordenadas este mismo mes",
+      "preheader": "Sube tu estado de cuenta y mira a dónde se va tu dinero — en minutos",
+      "body": "Hola:\n\n¿Sabes exactamente a dónde se fue tu dinero el mes pasado? La mayoría no — y no es por falta de disciplina, sino de herramientas.\n\nDhanam lo resuelve sin conectar nada: descargas tu estado de cuenta (CSV o PDF), lo subes, y la inteligencia artificial categoriza cada movimiento por ti. En minutos ves tus gastos organizados, tu presupuesto con alertas antes de pasarte, y una proyección de tu flujo de efectivo a 60 días.\n\nEl plan Essentials cuesta MX$150 al mes (IVA incluido) e incluye:\n· Categorización automática con IA\n· Importación de estados de cuenta de cualquier banco\n· 2 espacios financieros (personal + negocio)\n· Presupuestos con alertas y proyección a 60 días\n· Calificación ESG de tus criptomonedas\n\n¿Prefieres probar primero? Hay un plan gratuito — sin tarjeta.\n\nEn camino: la conexión bancaria automática vía Belvo llega en agosto de 2026. Todo lo que organices hoy se conserva cuando se active.\n\n— El equipo de Dhanam",
+      "cta": "Empieza gratis hoy",
+      "cta_url": "https://app.dhan.am/register?ref=campaign&plan=essentials",
+      "claim_keys_used": [
+        "price_mxn_150_gross_month",
+        "statement_import_csv_pdf",
+        "ai_categorization",
+        "budgets_alerts_60d_forecast",
+        "esg_crypto_scoring",
+        "free_tier_no_card",
+        "belvo_roadmap_aug_2026"
+      ]
+    },
+    {
+      "variant_id": "dhanam-essentials-es-b-hormiga",
+      "language": "es-MX",
+      "subject": "El gasto hormiga se esconde en tu estado de cuenta",
+      "preheader": "La IA de Dhanam lo encuentra en tu primer archivo importado",
+      "body": "Hola:\n\nCafés, suscripciones olvidadas, comisiones… el gasto hormiga vive escondido entre cientos de movimientos que nadie tiene tiempo de revisar a mano.\n\nDhanam los encuentra por ti: sube el estado de cuenta que tu banco ya te da (CSV o PDF) y la IA clasifica todo — cuánto en comida, cuánto en suscripciones, cuánto en comisiones. Después pones límites y Dhanam te avisa antes de que te pases, con tu flujo proyectado a 60 días.\n\nSin contraseñas bancarias, sin conectar nada: tú decides qué archivo compartir. (La conexión automática vía Belvo llega en agosto de 2026 — mientras tanto, importar toma dos minutos al mes.)\n\nEmpieza con el plan gratuito y, si quieres la categorización con IA y los presupuestos con alertas, Essentials cuesta MX$150 al mes con IVA incluido — menos que una salida al cine.\n\n— El equipo de Dhanam",
+      "cta": "Encuentra tu gasto hormiga",
+      "cta_url": "https://app.dhan.am/register?ref=campaign&plan=essentials",
+      "claim_keys_used": [
+        "price_mxn_150_gross_month",
+        "statement_import_csv_pdf",
+        "ai_categorization",
+        "budgets_alerts_60d_forecast",
+        "free_tier_no_card",
+        "belvo_roadmap_aug_2026",
+        "no_bank_credentials_required"
+      ]
+    },
+    {
+      "variant_id": "dhanam-essentials-es-c-control",
+      "language": "es-MX",
+      "subject": "Dos minutos al mes para tener el control completo",
+      "preheader": "Presupuestos, proyecciones y tu dinero claro — sin darle tus contraseñas a nadie",
+      "body": "Hola:\n\nLlevar tus finanzas no debería exigir una hoja de cálculo eterna ni entregarle las contraseñas de tu banco a una app.\n\nCon Dhanam funciona así:\n1. Descargas tu estado de cuenta (CSV o PDF) — dos minutos.\n2. Lo subes a Dhanam y la IA categoriza cada movimiento.\n3. Ves tu panorama completo: gastos por categoría, presupuestos con alertas y tu flujo de efectivo proyectado a 60 días.\n\nTú controlas exactamente qué información compartes. Y cuando la conexión bancaria automática (Belvo) llegue en agosto de 2026, todo tu historial y tus categorías se conservan.\n\nEl plan gratuito te deja empezar hoy sin tarjeta. Essentials — con IA, 2 espacios y calificación ESG de cripto — cuesta MX$150 al mes, IVA incluido. Cancelas cuando quieras.\n\n— El equipo de Dhanam",
+      "cta": "Toma el control hoy",
+      "cta_url": "https://app.dhan.am/register?ref=campaign&plan=essentials",
+      "claim_keys_used": [
+        "price_mxn_150_gross_month",
+        "statement_import_csv_pdf",
+        "ai_categorization",
+        "budgets_alerts_60d_forecast",
+        "esg_crypto_scoring",
+        "free_tier_no_card",
+        "belvo_roadmap_aug_2026",
+        "no_bank_credentials_required",
+        "cancel_anytime"
+      ]
+    }
+  ]
+}

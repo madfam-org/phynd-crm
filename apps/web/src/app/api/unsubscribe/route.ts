@@ -45,12 +45,16 @@ async function processUnsubscribe(token: string | null): Promise<boolean> {
         .limit(1)
       if (contact?.email) {
         const suppression = new SuppressionService(
-          createServiceContext(db, {} as never, {
-            userId: 'service:unsubscribe',
-            roles: ['service'],
-            scopes: ['campaigns:write'],
-            accessToken: '',
-          } as never),
+          createServiceContext(
+            db,
+            {} as never,
+            {
+              userId: 'service:unsubscribe',
+              roles: ['service'],
+              scopes: ['campaigns:write'],
+              accessToken: '',
+            } as never,
+          ),
         )
         await suppression.add({
           identifier: contact.email,

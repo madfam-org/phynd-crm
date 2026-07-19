@@ -59,6 +59,9 @@ spec:
                 name: phynd-crm-lifecycle-secrets
                 optional: true
             - secretRef:
+                name: phynd-crm-campaign-secrets
+                optional: true
+            - secretRef:
                 name: phynd-crm-commercial-ga-secrets
                 optional: true
             - secretRef:

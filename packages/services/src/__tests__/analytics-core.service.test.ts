@@ -33,6 +33,7 @@ vi.mock('@phynd/db/schema', () => ({
     name: 'campaigns.name',
     spend: 'campaigns.spend',
     status: 'campaigns.status',
+    tulanaMetadata: 'campaigns.tulanaMetadata',
   },
   conversions: {
     campaignId: 'conversions.campaignId',
@@ -529,6 +530,66 @@ describe('AnalyticsService', () => {
       expect(result.byProvider).toHaveLength(2)
       expect(result.byCampaign[0]?.campaignKey).toBe('spring-launch')
       expect(result.byReferral[0]?.referralCode).toBe('MADFAM10')
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // getSignalAttribution()
+  // -------------------------------------------------------------------------
+  describe('getSignalAttribution()', () => {
+    it('groups conversions by fortuna_signal_id and joins the posting profile', async () => {
+      const rows = [
+        {
+          fortunaSignalId: 'sig_reddit_deadbeef1234',
+          profileHandle: 'madfam_legal',
+          profilePlatform: 'reddit',
+          count: 2,
+          totalValue: '129.00',
+        },
+        {
+          fortunaSignalId: 'sig_twitter_abc',
+          profileHandle: 'madfam_x',
+          profilePlatform: 'twitter',
+          count: 1,
+          totalValue: '0',
+        },
+      ]
+      mockDb._qb._result = rows
+
+      const result = await service.getSignalAttribution()
+
+      // Joins campaigns on the conversion's campaignId to resolve the profile.
+      expect(mockDb._qb.leftJoin).toHaveBeenCalled()
+      expect(mockDb._qb.groupBy).toHaveBeenCalled()
+      expect(result).toHaveLength(2)
+      expect(result[0]).toEqual({
+        fortunaSignalId: 'sig_reddit_deadbeef1234',
+        profileHandle: 'madfam_legal',
+        profilePlatform: 'reddit',
+        count: 2,
+        totalValue: 129,
+      })
+      // Numeric coercion of the aggregated value.
+      expect(result[1]?.totalValue).toBe(0)
+    })
+
+    it('reads empty until the loop produces signal-attributed conversions', async () => {
+      mockDb._qb._result = []
+
+      const result = await service.getSignalAttribution()
+
+      expect(result).toEqual([])
+    })
+
+    it('applies date range filtering', async () => {
+      mockDb._qb._result = []
+
+      await service.getSignalAttribution({
+        from: new Date('2025-01-01'),
+        to: new Date('2025-06-30'),
+      })
+
+      expect(mockDb._qb.where).toHaveBeenCalled()
     })
   })
 })

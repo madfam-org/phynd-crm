@@ -1,3 +1,7 @@
+import {
+  AuthorizationSummary,
+  DecisionRecord,
+} from '@/components/campaigns/authorizations/authorization-summary'
 import { DecisionPanel } from '@/components/campaigns/authorizations/decision-panel'
 import {
   type RenderedVariant,
@@ -5,7 +9,6 @@ import {
 } from '@/components/campaigns/authorizations/variant-preview-tabs'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { getServerCaller } from '@/lib/trpc/server'
 import { TRPCError } from '@trpc/server'
 import { AlertTriangle, ArrowLeft } from 'lucide-react'
@@ -30,25 +33,6 @@ function formatDateTime(value: Date | string | null | undefined): string {
   return new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function CoverageRow({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string
-  value: number
-  emphasis?: boolean
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className={emphasis ? 'font-medium' : 'text-muted-foreground'}>{label}</dt>
-      <dd className={`tabular-nums ${emphasis ? 'text-lg font-semibold' : 'font-medium'}`}>
-        {value.toLocaleString('es-MX')}
-      </dd>
-    </div>
-  )
-}
-
 export default async function AuthorizationReviewPage({ params }: AuthorizationReviewPageProps) {
   const { id } = await params
   const caller = await getServerCaller()
@@ -62,7 +46,6 @@ export default async function AuthorizationReviewPage({ params }: AuthorizationR
   const { authorization, snapshot, rendered, stale } = preview
   const payload = snapshot.payload
   const context = snapshot.context
-  const coverage = context.coverage
   const isPending = authorization.status === 'pending'
 
   return (
@@ -156,76 +139,8 @@ export default async function AuthorizationReviewPage({ params }: AuthorizationR
             <CardHeader className="pb-3">
               <CardTitle className="text-base">What you are authorizing</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <dl className="space-y-2.5">
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Sender
-                  </dt>
-                  <dd className="mt-0.5 font-medium">{payload.sender}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Channel
-                  </dt>
-                  <dd className="mt-0.5 font-medium">{payload.channel}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Send window
-                  </dt>
-                  <dd className="mt-0.5 font-medium">
-                    {payload.schedule.startDate || payload.schedule.endDate
-                      ? `${formatDateTime(payload.schedule.startDate)} – ${formatDateTime(payload.schedule.endDate)}`
-                      : 'Not scheduled'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Audience
-                  </dt>
-                  <dd className="mt-0.5 font-medium">
-                    {payload.audienceDefinition ?? 'Not defined on the import'}
-                  </dd>
-                </div>
-                {payload.privacyUrl && (
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Aviso de Privacidad
-                    </dt>
-                    <dd className="mt-0.5 break-all font-medium">{payload.privacyUrl}</dd>
-                  </div>
-                )}
-              </dl>
-
-              <Separator />
-
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Consent coverage at snapshot
-                </p>
-                <dl className="mt-2 space-y-1.5">
-                  <CoverageRow label="Contacts with email" value={coverage.contactsWithEmail} />
-                  <CoverageRow label="Consent granted" value={coverage.consent.granted} />
-                  <CoverageRow
-                    label="Pending double opt-in"
-                    value={coverage.consent.pendingDoubleOptIn}
-                  />
-                  <CoverageRow label="Consent revoked" value={coverage.consent.revoked} />
-                  <CoverageRow label="Suppressed" value={coverage.suppressed} />
-                  <Separator className="my-1" />
-                  <CoverageRow
-                    label="Sendable today"
-                    value={coverage.grantedNotSuppressed}
-                    emphasis
-                  />
-                </dl>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Real counts from the consent ledger, captured {formatDateTime(context.capturedAt)}
-                  . Every contact is re-checked against consent and suppression at send time;
-                  suppression always wins.
-                </p>
-              </div>
+            <CardContent>
+              <AuthorizationSummary payload={payload} context={context} />
             </CardContent>
           </Card>
 
@@ -244,45 +159,13 @@ export default async function AuthorizationReviewPage({ params }: AuthorizationR
                   stale={stale}
                 />
               ) : (
-                <dl className="space-y-2.5 text-sm">
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Decided by
-                    </dt>
-                    <dd className="mt-0.5 font-medium">
-                      {authorization.decidedBy ?? '—'}
-                      {authorization.decidedVia && (
-                        <Badge variant="outline" className="ml-2 text-[10px] uppercase">
-                          via {authorization.decidedVia}
-                        </Badge>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Decided at
-                    </dt>
-                    <dd className="mt-0.5 font-medium">
-                      {formatDateTime(authorization.decidedAt)}
-                    </dd>
-                  </div>
-                  {authorization.decisionNote && (
-                    <div>
-                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Note
-                      </dt>
-                      <dd className="mt-0.5 whitespace-pre-wrap">{authorization.decisionNote}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Payload hash
-                    </dt>
-                    <dd className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                      {authorization.payloadHash}
-                    </dd>
-                  </div>
-                </dl>
+                <DecisionRecord
+                  decidedBy={authorization.decidedBy}
+                  decidedVia={authorization.decidedVia}
+                  decidedAt={authorization.decidedAt}
+                  decisionNote={authorization.decisionNote}
+                  payloadHash={authorization.payloadHash}
+                />
               )}
             </CardContent>
           </Card>

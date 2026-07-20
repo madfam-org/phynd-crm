@@ -39,6 +39,12 @@ export const SERVICE_AUTH_SCOPES = [
   'analytics:read',
   'federationHealth:read',
   'aiKanban:write',
+  // Campaign authorization review surface relayed through Selva. The write
+  // scope only reaches `campaignAuthorizations.decide/request` — the decision
+  // is still recorded in phynd's audit ledger with the asserted operator
+  // identity, and the send gate itself lives here, not in Selva.
+  'campaignAuthorizations:read',
+  'campaignAuthorizations:write',
 ] as const
 
 export function createServiceAuth(tenantId: string): AuthContext {

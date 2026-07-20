@@ -25,7 +25,7 @@ export type ConsentGateInput = {
 
 type TulanaDraft = { channel?: string }
 
-function resolveOutreachChannel(campaign: {
+export function resolveOutreachChannel(campaign: {
   channel: string
   tulanaMetadata: Record<string, unknown> | null
 }): string {

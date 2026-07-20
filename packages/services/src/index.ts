@@ -2,6 +2,24 @@ export { ActivitiesService } from './activities/activities.service'
 export { AiKanbanService } from './ai-kanban/ai-kanban.service'
 export { AnalyticsService } from './analytics/analytics.service'
 export { CampaignsService } from './campaigns/campaigns.service'
+export {
+  CampaignAuthorizationService,
+  buildAuthorizationPayload,
+  composeCampaignAuthorizationSnapshot,
+  hashAuthorizationPayload,
+  loadCampaignVariants,
+  loadConsentCoverage,
+  renderSnapshotVariant,
+  stableStringify,
+  type AuthorizationDecision,
+  type AuthorizedVariantPayload,
+  type CampaignAuthorizationContext,
+  type CampaignAuthorizationPayload,
+  type CampaignAuthorizationSnapshot,
+  type ConsentCoverage,
+} from './campaigns/campaign-authorization.service'
+export { assertCampaignSendAuthorized } from './campaigns/campaign-authorization-gate'
+export { resolveCampaignPrivacyUrl } from './campaigns/campaign-privacy'
 export { CampaignBuyerSignalService } from './campaigns/campaign-buyer-signal.service'
 export {
   CampaignEmailEventService,
@@ -171,4 +189,4 @@ export { TimelineService, type TimelineEntry } from './timeline/timeline.service
 export { UnifiedProfileService } from './unified-profile/profile.service'
 export { UsersService } from './users/users.service'
 export { VisitorTrackingService } from './visitor-tracking/visitor-tracking.service'
-export { EmailService } from './email/email.service'
+export { EmailService, resolveSenderIdentity } from './email/email.service'

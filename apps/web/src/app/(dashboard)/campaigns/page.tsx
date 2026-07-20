@@ -1,7 +1,7 @@
 import { CampaignsDataTable } from '@/components/campaigns/campaigns-data-table'
 import { Button } from '@/components/ui/button'
 import { getServerCaller } from '@/lib/trpc/server'
-import { Bot } from 'lucide-react'
+import { Bot, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function CampaignsPage({
@@ -11,7 +11,10 @@ export default async function CampaignsPage({
 }) {
   const params = await searchParams
   const caller = await getServerCaller()
-  const campaigns = await caller.campaigns.list()
+  const [campaigns, pendingAuthorizations] = await Promise.all([
+    caller.campaigns.list(),
+    caller.campaignAuthorizations.listPending().catch(() => []),
+  ])
 
   // Count reddit bot drafts for the badge
   const draftCount = campaigns.items.filter(
@@ -32,6 +35,19 @@ export default async function CampaignsPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-emerald-700/50 text-emerald-600 hover:bg-emerald-950/10 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
+            asChild
+          >
+            <Link href="/campaigns/authorizations">
+              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+              {pendingAuthorizations.length > 0
+                ? `${pendingAuthorizations.length} awaiting authorization`
+                : 'Authorizations'}
+            </Link>
+          </Button>
           {tulanaReviewCount > 0 && (
             <Button
               variant="outline"

@@ -1,10 +1,16 @@
 import { Resend } from 'resend'
 import { injectPreheader } from './preheader'
 
-// MADFAM is the neutral multi-product sender; the old 'Tezca <noreply@janua.dev>'
-// default branded EVERY product's mail (incl. dhanam campaigns) as Tezca on a
-// domain we use for auth, not outreach. Prod sets EMAIL_FROM explicitly.
-const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'MADFAM <noreply@madfam.io>'
+/**
+ * The sender identity outbound mail will actually carry. MADFAM is the
+ * neutral multi-product default; prod sets EMAIL_FROM explicitly. Exported so
+ * the campaign-authorization snapshot can show the owner the real FROM (and
+ * so a later EMAIL_FROM change invalidates a stale authorization via hash
+ * drift). Read per call — not captured at module load.
+ */
+export function resolveSenderIdentity(): string {
+  return process.env.EMAIL_FROM ?? 'MADFAM <noreply@madfam.io>'
+}
 
 let resendClient: Resend | null = null
 
@@ -46,7 +52,7 @@ export class EmailService {
     }
 
     const { data, error } = await resend.emails.send({
-      from: FROM_ADDRESS,
+      from: resolveSenderIdentity(),
       to: params.to,
       subject: params.subject,
       html: injectPreheader(params.html, params.preheader),

@@ -5,6 +5,7 @@ namespace: phynd-crm
 
 resources:
 - external-secret.yaml
+- phynd-crm-integration-secrets.yaml
 - namespace.yaml
 - web-deployment.yaml
 - web-service.yaml

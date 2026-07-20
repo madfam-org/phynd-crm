@@ -1,8 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as authGate from '../campaigns/campaign-authorization-gate'
+import { CampaignAuthorizationService } from '../campaigns/campaign-authorization.service'
 import * as sendGate from '../campaigns/campaign-send-gate'
 import { CampaignsService } from '../campaigns/campaigns.service'
 import { NotFoundError, ValidationError } from '../errors'
 import { type MockDatabase, createTestContext, makeCampaign } from './helpers'
+
+/** The `authorized` ledger row the send-gate spy hands back in happy paths. */
+function makeAuthorizationRecord(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'auth-001',
+    campaignId: 'camp-tulana',
+    status: 'authorized',
+    payloadHash: 'a'.repeat(64),
+    snapshot: {},
+    requestedBy: 'test-user',
+    decidedBy: 'owner@madfam.io',
+    decidedVia: 'web',
+    decisionNote: null,
+    decidedAt: new Date('2026-01-15T10:00:00Z'),
+    createdAt: new Date('2026-01-15T09:00:00Z'),
+    updatedAt: new Date('2026-01-15T10:00:00Z'),
+    ...overrides,
+  } as Awaited<ReturnType<typeof authGate.assertCampaignSendAuthorized>>
+}
 
 vi.mock('../campaigns/campaign-buyer-signal.service', () => ({
   CampaignBuyerSignalService: vi.fn().mockImplementation(() => ({
@@ -13,10 +34,13 @@ vi.mock('../campaigns/campaign-buyer-signal.service', () => ({
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
   asc: vi.fn((col: unknown) => ({ _tag: 'asc', col })),
+  desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
+  inArray: vi.fn((col: unknown, vals: unknown) => ({ _tag: 'inArray', col, vals })),
   isNotNull: vi.fn((col: unknown) => ({ _tag: 'isNotNull', col })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
+  sql: vi.fn((...args: unknown[]) => ({ _tag: 'sql', args })),
 }))
 
 // EmailService is exercised in the eligible send path; spy on its send so we
@@ -25,6 +49,7 @@ vi.mock('drizzle-orm', () => ({
 const emailSendSpy = vi.fn().mockResolvedValue({ id: 'resend-msg-001' })
 vi.mock('../email/email.service', () => ({
   EmailService: vi.fn().mockImplementation(() => ({ send: emailSendSpy })),
+  resolveSenderIdentity: vi.fn(() => 'MADFAM <noreply@madfam.io>'),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
@@ -38,6 +63,23 @@ vi.mock('@phynd/db/schema', () => ({
     id: 'campaign_draft_variants.id',
     campaignId: 'campaign_draft_variants.campaign_id',
     createdAt: 'campaign_draft_variants.created_at',
+  },
+  campaignAuthorizations: {
+    id: 'campaign_authorizations.id',
+    campaignId: 'campaign_authorizations.campaign_id',
+    status: 'campaign_authorizations.status',
+    payloadHash: 'campaign_authorizations.payload_hash',
+    decidedAt: 'campaign_authorizations.decided_at',
+    createdAt: 'campaign_authorizations.created_at',
+  },
+  consentRecords: {
+    identifier: 'consent_records.identifier',
+    channel: 'consent_records.channel',
+    status: 'consent_records.status',
+  },
+  suppressionEntries: {
+    identifier: 'suppression_entries.identifier',
+    channel: 'suppression_entries.channel',
   },
 }))
 
@@ -244,10 +286,35 @@ describe('CampaignsService', () => {
       const approved = { ...pending, status: 'approved' }
       mockDb._qb._result = [pending]
       vi.spyOn(service, 'update').mockResolvedValue(approved)
+      // Staff approval also queues the owner-authorization request.
+      const requestSpy = vi
+        .spyOn(CampaignAuthorizationService.prototype, 'request')
+        .mockResolvedValue(makeAuthorizationRecord({ status: 'pending' }))
 
       const result = await service.reviewTulanaImport('campaign-tulana', 'approved')
       expect(result?.status).toBe('approved')
       expect(service.update).toHaveBeenCalledWith('campaign-tulana', { status: 'approved' })
+      expect(requestSpy).toHaveBeenCalledWith('campaign-tulana', 'test-user')
+    })
+
+    it('still approves when the authorization request has nothing reviewable', async () => {
+      const pending = makeCampaign({
+        id: 'campaign-tulana',
+        skuKey: 'avala__issuer',
+        gaReadiness: 'ready',
+        status: 'needs_review',
+      })
+      const approved = { ...pending, status: 'approved' }
+      mockDb._qb._result = [pending]
+      vi.spyOn(service, 'update').mockResolvedValue(approved)
+      // No draft variants → request() refuses; approval itself must survive
+      // (the send path stays blocked until a request exists and is authorized).
+      vi.spyOn(CampaignAuthorizationService.prototype, 'request').mockRejectedValue(
+        new ValidationError('Campaign has no draft variants'),
+      )
+
+      const result = await service.reviewTulanaImport('campaign-tulana', 'approved')
+      expect(result?.status).toBe('approved')
     })
 
     it('rejects a Tulana import without GA guard', async () => {
@@ -299,6 +366,55 @@ describe('CampaignsService', () => {
   })
 
   describe('attemptTulanaSend()', () => {
+    // The two fail-closed tests run FIRST: they exercise the REAL
+    // authorization gate, before any test installs a spy on it (spy
+    // implementations persist across clearAllMocks).
+    it('blocks the send outright when no owner authorization exists (fail closed)', async () => {
+      const campaign = makeCampaign({
+        id: 'camp-tulana',
+        skuKey: 'avala__issuer',
+        status: 'approved',
+        tulanaMetadata: { drafts: [{ channel: 'email' }] },
+      })
+
+      // No authorized row in the ledger — the mock db returns [] for the
+      // gate's select. The real gate must throw before any consent
+      // evaluation or email dispatch happens.
+      mockDb._qb._result = []
+      vi.spyOn(service, 'getById').mockResolvedValue(
+        campaign as Awaited<ReturnType<typeof service.getById>>,
+      )
+      const eligibilitySpy = vi.spyOn(sendGate, 'checkCampaignSendEligibility')
+
+      await expect(service.attemptTulanaSend('camp-tulana', 'contact-001')).rejects.toThrow(
+        /no owner authorization/i,
+      )
+      expect(eligibilitySpy).not.toHaveBeenCalled()
+      expect(emailSendSpy).not.toHaveBeenCalled()
+      eligibilitySpy.mockRestore()
+    })
+
+    it('blocks the send when campaign content drifted after authorization (hash mismatch)', async () => {
+      const campaign = makeCampaign({
+        id: 'camp-tulana',
+        skuKey: 'avala__issuer',
+        status: 'approved',
+        tulanaMetadata: { drafts: [{ channel: 'email' }] },
+      })
+
+      // An authorized row exists, but its payloadHash was computed over
+      // different content than the campaign currently carries.
+      mockDb._qb._result = [makeAuthorizationRecord({ payloadHash: 'f'.repeat(64) })]
+      vi.spyOn(service, 'getById').mockResolvedValue(
+        campaign as Awaited<ReturnType<typeof service.getById>>,
+      )
+
+      await expect(service.attemptTulanaSend('camp-tulana', 'contact-001')).rejects.toThrow(
+        /changed after it was authorized/i,
+      )
+      expect(emailSendSpy).not.toHaveBeenCalled()
+    })
+
     it('suppresses send when consent checks fail', async () => {
       const campaign = makeCampaign({
         id: 'camp-tulana',
@@ -308,6 +424,9 @@ describe('CampaignsService', () => {
       })
 
       mockDb._qb._result = [campaign]
+      vi.spyOn(authGate, 'assertCampaignSendAuthorized').mockResolvedValue(
+        makeAuthorizationRecord(),
+      )
       vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
         eligible: false,
         reasons: ['marketing_consent_missing'],
@@ -342,6 +461,9 @@ describe('CampaignsService', () => {
           variantId: 'var-abc',
         },
       ]
+      vi.spyOn(authGate, 'assertCampaignSendAuthorized').mockResolvedValue(
+        makeAuthorizationRecord(),
+      )
       vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
         eligible: true,
         reasons: [],
@@ -378,6 +500,9 @@ describe('CampaignsService', () => {
       })
 
       mockDb._qb._result = [campaign]
+      vi.spyOn(authGate, 'assertCampaignSendAuthorized').mockResolvedValue(
+        makeAuthorizationRecord(),
+      )
       vi.spyOn(sendGate, 'checkCampaignSendEligibility').mockResolvedValue({
         eligible: false,
         reasons: ['suppressed'],

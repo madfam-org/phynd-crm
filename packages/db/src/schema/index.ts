@@ -1,5 +1,6 @@
 export * from './activities'
 export * from './ai-kanban-suggestions'
+export * from './campaign-authorizations'
 export * from './campaign-draft-variants'
 export * from './campaign-email-events'
 export * from './campaigns'

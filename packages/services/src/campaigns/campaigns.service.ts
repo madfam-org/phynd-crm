@@ -6,8 +6,11 @@ import { EmailService } from '../email/email.service'
 import { campaignVariantEmail } from '../email/templates/campaign-variant'
 import { buildUnsubscribeUrl } from '../email/unsubscribe-token'
 import { NotFoundError, ValidationError } from '../errors'
+import { assertCampaignSendAuthorized } from './campaign-authorization-gate'
+import { CampaignAuthorizationService } from './campaign-authorization.service'
 import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
 import { CampaignDraftVariantService } from './campaign-draft-variant.service'
+import { resolveCampaignPrivacyUrl } from './campaign-privacy'
 import { type CampaignSendEligibility, checkCampaignSendEligibility } from './campaign-send-gate'
 import { recordTulanaCommercialGaG4Evidence } from './tulana-commercial-ga-evidence'
 
@@ -230,7 +233,19 @@ export class CampaignsService {
 
     assertCommercialGaCampaignAllowed(campaign)
 
-    return this.update(id, { status: 'approved' })
+    const approved = await this.update(id, { status: 'approved' })
+
+    // Staff approval queues the campaign for the OWNER authorization gate —
+    // approval alone is not sendable. When the import carried no reviewable
+    // variants the request is skipped (the send path would refuse anyway);
+    // a request can be created manually from /campaigns/authorizations.
+    try {
+      await new CampaignAuthorizationService(this.ctx).request(id, this.ctx.auth.userId)
+    } catch (error) {
+      if (!(error instanceof ValidationError)) throw error
+    }
+
+    return approved
   }
 
   async getSendEligibility(
@@ -256,6 +271,11 @@ export class CampaignsService {
       throw new ValidationError('Campaign must be approved or scheduled before send')
     }
     assertCommercialGaCampaignAllowed(campaign)
+
+    // HARD owner gate (fail closed): requires an `authorized` record whose
+    // payload hash still matches this campaign's current content. No
+    // authorization — or content drift after authorization — blocks the send.
+    const authorization = await assertCampaignSendAuthorized(this.ctx, campaign)
 
     const eligibility = await checkCampaignSendEligibility(this.ctx, { campaignId, contactId })
     const signalService = new CampaignBuyerSignalService(this.ctx)
@@ -302,6 +322,7 @@ export class CampaignsService {
       dedupKey,
       metadata: {
         channel: eligibility.channel,
+        authorizationId: authorization.id,
         ...(providerMessageId ? { providerMessageId } : { dispatch: 'dry_run_no_provider' }),
       },
     })
@@ -366,12 +387,10 @@ export class CampaignsService {
       .limit(1)
     const unsubscribeUrl = lead ? buildUnsubscribeUrl(lead.id) : undefined
 
-    // Product-specific Aviso de Privacidad: dhanam campaigns point at the
-    // dhanam privacy page; everything else falls back to the corporate page
-    // inside campaignVariantEmail.
-    const privacyUrl = campaign.skuKey?.startsWith('dhanam')
-      ? 'https://app.dhan.am/privacy'
-      : undefined
+    // Product-specific Aviso de Privacidad (shared with the authorization
+    // preview so the owner reviews the exact footer that ships); falls back
+    // to the corporate page inside campaignVariantEmail.
+    const privacyUrl = resolveCampaignPrivacyUrl(campaign.skuKey)
 
     const rendered = campaignVariantEmail({
       subject: variant.subject ?? campaign.name,

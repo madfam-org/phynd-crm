@@ -131,6 +131,44 @@ export function mapDomainToMateria(domain: string): string {
   return mapping[normalized] ?? 'civil'
 }
 
+/**
+ * Owned social platforms Fortuna can dispatch through, each mapped to its UTM
+ * source/medium pair. `utm_source` is the platform so a twitter/linkedin/etc.
+ * dispatch is no longer mislabeled as `reddit`; `utm_medium` is `social` for
+ * every owned identity. Unknown/legacy platforms fall back to reddit/social.
+ */
+const DEFAULT_UTM: { source: string; medium: string } = { source: 'reddit', medium: 'social' }
+const PLATFORM_UTM: Record<string, { source: string; medium: string }> = {
+  reddit: DEFAULT_UTM,
+  twitter: { source: 'twitter', medium: 'social' },
+  linkedin: { source: 'linkedin', medium: 'social' },
+  instagram: { source: 'instagram', medium: 'social' },
+  bluesky: { source: 'bluesky', medium: 'social' },
+}
+
+/**
+ * Build the tezca.mx read-back CTA appended to every drafted reply.
+ *
+ * Threads the Fortuna master join key through `utm_content` (mirroring
+ * `fortuna_signal_id`) so the ceq InterestGate read-back captures a real signal
+ * id instead of null — closing the fortuna signal → consent → conversion loop
+ * (RFC 0035 P4; read back in apps/web/src/app/api/webhooks/ceq/route.ts).
+ * `utm_source`/`utm_medium` are derived from the posting profile's platform so
+ * non-reddit dispatches aren't mislabeled; `utm_campaign` stays the coarse
+ * legal-domain resolver.
+ */
+export function buildTezcaCtaUrl(
+  payload: Pick<BotCampaignPayload, 'fortuna_signal_id' | 'profile' | 'legal_context'>,
+): string {
+  const platform = payload.profile?.platform?.toLowerCase().trim()
+  const { source, medium } = (platform ? PLATFORM_UTM[platform] : undefined) ?? DEFAULT_UTM
+  return (
+    `https://tezca.mx/bienvenida?utm_source=${source}&utm_medium=${medium}` +
+    `&utm_campaign=${payload.legal_context.domain}` +
+    `&utm_content=${encodeURIComponent(payload.fortuna_signal_id ?? '')}`
+  )
+}
+
 export class RedditBotService {
   private openai: OpenAI
   private campaignsService: CampaignsService
@@ -332,6 +370,9 @@ export class RedditBotService {
     // author; fall back to the payload's bot_identity for legacy Reddit-shaped
     // payloads that carry no profile.
     const botIdentity = payload.profile?.handle ?? payload.bot_identity
+    // The CTA carries the Fortuna join key (utm_content) + platform-correct
+    // utm_source/utm_medium so the ceq read-back can attribute the conversion.
+    const ctaUrl = buildTezcaCtaUrl(payload)
     try {
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4-turbo',
@@ -343,7 +384,7 @@ You provide completely rigorous, highly polite, and highly accurate Mexican Lega
 Do not guess. Use ONLY the extracted legal articles and judicial precedent provided in the context below.
 Advise the user to seek official counsel always.
 Always end your response with:
-\n---\nConsulta la ley completa: https://tezca.mx/bienvenida?utm_source=reddit&utm_medium=social&utm_campaign=${payload.legal_context.domain}`,
+\n---\nConsulta la ley completa: ${ctaUrl}`,
           },
           {
             role: 'user',

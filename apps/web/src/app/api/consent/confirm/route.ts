@@ -6,16 +6,41 @@ import { type NextRequest, NextResponse } from 'next/server'
 
 const logger = createLogger('web:consent-confirm')
 
-function htmlPage(title: string, body: string, subtext: string): NextResponse {
+type ConsentBrand = { entity: string; accent: string }
+
+// Per-product landing branding. The consent `source` is prefixed with the
+// originating product (e.g. `karafiel_landing`, `dhanam_signup`), so the first
+// `_`-delimited segment selects the palette. Unknown/legacy sources fall back to
+// the generic MADFAM look (unchanged from before). Cosmetic only — no behavior
+// change to the double-opt-in flow.
+const GENERIC_BRAND: ConsentBrand = { entity: 'MADFAM', accent: '#111827' }
+const PRODUCT_BRANDS: Record<string, ConsentBrand> = {
+  karafiel: { entity: 'Karafiel', accent: '#7c3aed' },
+  dhanam: { entity: 'Dhanam', accent: '#0f766e' },
+  tezca: { entity: 'Tezca', accent: '#b91c1c' },
+}
+
+function brandingForSource(source?: string | null): ConsentBrand {
+  const product = source?.split('_')[0]?.toLowerCase().trim()
+  return (product ? PRODUCT_BRANDS[product] : undefined) ?? GENERIC_BRAND
+}
+
+function htmlPage(
+  title: string,
+  body: string,
+  subtext: string,
+  brand: ConsentBrand = GENERIC_BRAND,
+): NextResponse {
   return new NextResponse(
     `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;padding:60px;background:#f9fafb;">
-  <h1 style="font-size:24px;color:#111827;">${title}</h1>
+  <h1 style="font-size:24px;color:${brand.accent};">${title}</h1>
   <p style="color:#6b7280;font-size:16px;margin-top:12px;">${body}</p>
   <p style="color:#9ca3af;font-size:13px;margin-top:24px;">${subtext}</p>
+  <p style="color:#9ca3af;font-size:12px;margin-top:32px;">${brand.entity}</p>
 </body>
 </html>`,
     { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
@@ -43,7 +68,9 @@ export async function GET(req: NextRequest) {
   )
 
   try {
-    const { alreadyConfirmed } = await service.confirmDoubleOptIn(token, { actor: 'subject' })
+    const { alreadyConfirmed, record } = await service.confirmDoubleOptIn(token, {
+      actor: 'subject',
+    })
     logger.info({ alreadyConfirmed }, 'double opt-in confirmed')
     return htmlPage(
       'Suscripción confirmada',
@@ -51,6 +78,7 @@ export async function GET(req: NextRequest) {
         ? 'Tu consentimiento ya estaba confirmado. No necesitas hacer nada más.'
         : 'Gracias por confirmar tu consentimiento. Ya puedes recibir nuestras comunicaciones.',
       'Puedes cerrar esta pestaña. Puedes revocar tu consentimiento en cualquier momento.',
+      brandingForSource(record.source),
     )
   } catch (error) {
     if (error instanceof NotFoundError || error instanceof ValidationError) {

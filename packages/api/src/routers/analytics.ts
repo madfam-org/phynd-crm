@@ -232,4 +232,10 @@ export const analyticsRouter = router({
     const service = new AnalyticsService(ctx)
     return service.getPaymentAttributionSummary(toDateRange(input ?? undefined))
   }),
+
+  signalAttribution: protectedProcedure.input(dateRangeInput).query(({ ctx, input }) => {
+    assertAnalytics()
+    const service = new AnalyticsService(ctx)
+    return service.getSignalAttribution(toDateRange(input ?? undefined))
+  }),
 })

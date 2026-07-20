@@ -700,4 +700,48 @@ export class AnalyticsService {
       })),
     }
   }
+
+  /**
+   * Signal-level attribution (RFC 0035 P4). Groups conversions by the Fortuna
+   * master join key (`conversions.metadata->>'fortuna_signal_id'`, threaded from
+   * the tezca CTA's utm_content) and joins the owned posting profile recorded on
+   * the originating campaign (`campaigns.tulanaMetadata->'profile'`). Reads empty
+   * until the fortuna signal → post → consent → conversion loop has produced
+   * attributed conversions.
+   */
+  async getSignalAttribution(dateRange?: DateRange) {
+    const conditions: SQL[] = [sql`${conversions.metadata}->>'fortuna_signal_id' is not null`]
+    if (dateRange?.from) {
+      conditions.push(gte(conversions.convertedAt, dateRange.from))
+    }
+    if (dateRange?.to) {
+      conditions.push(lte(conversions.convertedAt, dateRange.to))
+    }
+
+    const rows = await this.ctx.db
+      .select({
+        fortunaSignalId: sql<string>`${conversions.metadata}->>'fortuna_signal_id'`,
+        profileHandle: sql<string | null>`${campaigns.tulanaMetadata}->'profile'->>'handle'`,
+        profilePlatform: sql<string | null>`${campaigns.tulanaMetadata}->'profile'->>'platform'`,
+        count: sql<number>`count(*)::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::numeric`,
+      })
+      .from(conversions)
+      .leftJoin(campaigns, eq(conversions.campaignId, campaigns.id))
+      .where(and(...conditions))
+      .groupBy(
+        sql`${conversions.metadata}->>'fortuna_signal_id'`,
+        sql`${campaigns.tulanaMetadata}->'profile'->>'handle'`,
+        sql`${campaigns.tulanaMetadata}->'profile'->>'platform'`,
+      )
+      .orderBy(sql`count(*) desc`)
+
+    return rows.map((row) => ({
+      fortunaSignalId: row.fortunaSignalId,
+      profileHandle: row.profileHandle,
+      profilePlatform: row.profilePlatform,
+      count: row.count,
+      totalValue: Number(row.totalValue),
+    }))
+  }
 }

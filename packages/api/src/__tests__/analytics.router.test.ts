@@ -132,4 +132,23 @@ describe('analytics router', () => {
     expect(result).toHaveProperty('byProvider')
     expect(result).toHaveProperty('byCampaign')
   })
+
+  it('signalAttribution returns signal-level attribution rows', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    const result = await caller.analytics.signalAttribution(undefined)
+    expect(result).toEqual([])
+  })
+
+  it('signalAttribution accepts an optional date range', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+
+    const result = await caller.analytics.signalAttribution({
+      dateFrom: new Date('2025-01-01'),
+      dateTo: new Date('2025-12-31'),
+    })
+    expect(result).toBeDefined()
+  })
 })

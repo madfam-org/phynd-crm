@@ -68,6 +68,7 @@ import {
   type BotCampaignPayload,
   RedditBotService,
   buildFortunaAttributionMetadata,
+  buildTezcaCtaUrl,
   mapDomainToMateria,
 } from '../campaigns/reddit-bot'
 
@@ -899,5 +900,58 @@ describe('RedditBotService — Fortuna signal threading', () => {
     expect(insertedCampaignValues[0]).not.toHaveProperty('skuKey')
     // utmCampaign stays the coarse legal-domain resolver, unaffected by the signal.
     expect(insertedCampaignValues[0]?.utmCampaign).toBe('labor')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildTezcaCtaUrl — closes the ceq read-back loop (pure)
+// ---------------------------------------------------------------------------
+describe('buildTezcaCtaUrl', () => {
+  const base = {
+    legal_context: { distress_sentiment: 'high', core_legal_problem: 'x', domain: 'labor' },
+  } satisfies Pick<BotCampaignPayload, 'legal_context'>
+
+  it('threads the fortuna_signal_id through utm_content (the ceq read-back key)', () => {
+    const url = buildTezcaCtaUrl({ ...base, fortuna_signal_id: 'sig_reddit_deadbeef1234' })
+    expect(url).toContain('utm_content=sig_reddit_deadbeef1234')
+    // utm_campaign stays the coarse legal-domain resolver.
+    expect(url).toContain('utm_campaign=labor')
+  })
+
+  it('emits an empty (not "null"/"undefined") utm_content when no signal id is present', () => {
+    const url = buildTezcaCtaUrl(base)
+    // Empty value — never the literal string "null"/"undefined" that would poison
+    // the ceq read-back's fortuna_signal_id.
+    expect(url).toContain('utm_content=')
+    expect(url).not.toContain('utm_content=null')
+    expect(url).not.toContain('utm_content=undefined')
+  })
+
+  it('url-encodes the signal id', () => {
+    const url = buildTezcaCtaUrl({ ...base, fortuna_signal_id: 'sig reddit/abc&x' })
+    expect(url).toContain(`utm_content=${encodeURIComponent('sig reddit/abc&x')}`)
+  })
+
+  it('derives utm_source from the posting profile platform so non-reddit is not mislabeled', () => {
+    const twitter = buildTezcaCtaUrl({ ...base, profile: { platform: 'twitter' } })
+    expect(twitter).toContain('utm_source=twitter')
+    expect(twitter).toContain('utm_medium=social')
+
+    const linkedin = buildTezcaCtaUrl({ ...base, profile: { platform: 'LinkedIn' } })
+    expect(linkedin).toContain('utm_source=linkedin')
+
+    for (const platform of ['reddit', 'instagram', 'bluesky']) {
+      expect(buildTezcaCtaUrl({ ...base, profile: { platform } })).toContain(
+        `utm_source=${platform}`,
+      )
+    }
+  })
+
+  it('falls back to reddit/social for legacy payloads and unknown platforms', () => {
+    expect(buildTezcaCtaUrl(base)).toContain('utm_source=reddit')
+    expect(buildTezcaCtaUrl(base)).toContain('utm_medium=social')
+    expect(buildTezcaCtaUrl({ ...base, profile: { platform: 'mastodon' } })).toContain(
+      'utm_source=reddit',
+    )
   })
 })

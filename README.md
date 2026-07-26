@@ -13,6 +13,34 @@ Current codebase and production observations are tracked in
 
 Phynd owns CRM-native entities (contacts, leads, opportunities, pipelines) and virtualizes identity, billing, custom orders, fabrication status, and 3D asset data from external systems. Rather than copying data through ETL pipelines, Phynd queries each upstream platform on demand through a federation layer that handles caching, circuit breaking, retry logic, and partial failure tolerance.
 
+## Role in the MADFAM monetization engine
+
+Phynd CRM is the **consent and attribution** end of MADFAM's commercial pipeline. Other platforms in the ecosystem
+discover demand, price it, take payment, and grant access. Phynd owns the two questions that bracket all of that:
+*are we permitted to contact this person at all?* and *which outreach produced this paying customer?*
+
+- **Consent** — system of record for marketing consent under Mexico's LFPDPPP, scoped per identifier and channel,
+  with an audit trail on every transition.
+- **Double opt-in** — a captured address is not a contactable address until the holder confirms it.
+- **Suppression** — a cross-product suppression list that outranks any consent record. Suppression always wins.
+- **One-click unsubscribe** — RFC-8058 unsubscribe support on outbound email.
+- **Authorization** — outbound campaigns pass an explicit authorization step before any send.
+- **Attribution** — a completed purchase is recorded back against the outreach and consent basis it came from,
+  which is what makes acquisition measurable for the rest of the ecosystem.
+
+Commercially this makes Phynd both a brake and a meter: it is the component entitled to say *no* to a send, and the
+place where revenue is tied back to the outreach that caused it.
+
+API-level detail for the consent and suppression surfaces lives in [`docs/CONSENT_API.md`](docs/CONSENT_API.md).
+
+> **Boundary note.** This is a deliberately sanitized summary of the repository's *designed* role. It is not a
+> statement about the live state of any deployment. The canonical end-to-end description of the monetization
+> pipeline is private and lives in the `internal-devops` repository at `docs/monetization-engine.md`. Deployment
+> topology, credential names, environment configuration, and incident detail are not reproduced here and should
+> not be added to this repository.
+
+_Last Updated: 2026-07-26_
+
 ## Architecture
 
 ```

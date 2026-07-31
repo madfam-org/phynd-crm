@@ -71,10 +71,25 @@ function makeRequest(event: Record<string, unknown>, signature?: string) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(signature === undefined ? { 'x-madfam-signature': sign(body) } : { 'x-madfam-signature': signature }),
+      ...(signature === undefined
+        ? { 'x-madfam-signature': sign(body) }
+        : { 'x-madfam-signature': signature }),
     },
     body,
   })
+}
+
+/**
+ * Read the single conversion the route should have written.
+ *
+ * Throws rather than returning undefined: if no conversion was recorded, the
+ * assertion that follows would compare against undefined and report a confusing
+ * mismatch instead of the real failure, which is that nothing was written.
+ */
+function firstConversion(): Record<string, unknown> {
+  const row = state.insertedConversions[0]
+  if (!row) throw new Error('expected a conversion row, none was inserted')
+  return row
 }
 
 const baseEvent = {
@@ -129,13 +144,17 @@ describe('POST /api/v1/events/payment.refunded', () => {
     expect(res.status).toBe(400)
   })
 
-  it.each(['event_id', 'provider', 'subscription_id', 'organization_id', 'currency', 'occurred_at'])(
-    'rejects a missing %s',
-    async (field) => {
-      const res = await POST(makeRequest({ ...baseEvent, [field]: '' }))
-      expect(res.status).toBe(400)
-    },
-  )
+  it.each([
+    'event_id',
+    'provider',
+    'subscription_id',
+    'organization_id',
+    'currency',
+    'occurred_at',
+  ])('rejects a missing %s', async (field) => {
+    const res = await POST(makeRequest({ ...baseEvent, [field]: '' }))
+    expect(res.status).toBe(400)
+  })
 
   it('rejects a non-positive amount — a refund of zero reverses nothing', async () => {
     expect((await POST(makeRequest({ ...baseEvent, amount_minor: 0 }))).status).toBe(400)
@@ -164,7 +183,7 @@ describe('POST /api/v1/events/payment.refunded', () => {
     expect(res.status).toBe(201)
 
     expect(state.insertedConversions).toHaveLength(1)
-    const conversion = state.insertedConversions[0]!
+    const conversion = firstConversion()
     expect(conversion.type).toBe('ecosystem_refund')
     expect(conversion.value).toBe('-499.00')
     expect(String(conversion.value).startsWith('-')).toBe(true)
@@ -175,7 +194,7 @@ describe('POST /api/v1/events/payment.refunded', () => {
     selectChain.limit = vi.fn(async () => (call++ === 0 ? [] : [{ id: 'lead_1' }]))
 
     await POST(makeRequest(baseEvent))
-    const metadata = state.insertedConversions[0]!.metadata as Record<string, unknown>
+    const metadata = firstConversion().metadata as Record<string, unknown>
     expect(metadata.refunded_amount_minor).toBe(49900)
     expect(metadata.reverses).toBe('ecosystem_payment')
     expect(metadata.event_id).toBe('payment.refunded:re_123')
@@ -191,7 +210,7 @@ describe('POST /api/v1/events/payment.refunded', () => {
         attribution: { source_agent_id: 'agent_7', campaign_id: 'camp_x', referral_code: 'REF1' },
       }),
     )
-    const metadata = state.insertedConversions[0]!.metadata as Record<string, unknown>
+    const metadata = firstConversion().metadata as Record<string, unknown>
     expect(metadata.source_agent_id).toBe('agent_7')
     expect(metadata.campaign_id).toBe('camp_x')
     expect(metadata.referral_code).toBe('REF1')
@@ -211,6 +230,6 @@ describe('POST /api/v1/events/payment.refunded', () => {
     selectChain.limit = vi.fn(async () => (call++ === 0 ? [] : [{ id: 'lead_1' }]))
 
     await POST(makeRequest({ ...baseEvent, amount_minor: 10000 }))
-    expect(state.insertedConversions[0]!.value).toBe('-100.00')
+    expect(firstConversion().value).toBe('-100.00')
   })
 })

@@ -81,14 +81,23 @@ function missingRequiredField(event: EcosystemPaymentRefundedEvent) {
   return null
 }
 
-export async function POST(request: Request) {
+/**
+ * Authenticate and validate the request.
+ *
+ * Split out of `POST` so the handler stays under the cognitive-complexity
+ * budget, and so the accept/reject decision reads as one unit: everything here
+ * is a reason to refuse, nothing here writes.
+ */
+async function parseAndVerify(
+  request: Request,
+): Promise<{ event: EcosystemPaymentRefundedEvent } | { response: Response }> {
   const secrets = rotationSecrets(
     process.env.PHYND_CRM_EVENTS_SECRET,
     process.env.PHYND_CRM_EVENTS_SECRET_PREVIOUS,
   )
   if (secrets.length === 0) {
     logger.warn('PHYND_CRM_EVENTS_SECRET not configured')
-    return NextResponse.json({ error: 'secret not configured' }, { status: 503 })
+    return { response: NextResponse.json({ error: 'secret not configured' }, { status: 503 }) }
   }
 
   const rawBody = await request.text()
@@ -96,36 +105,56 @@ export async function POST(request: Request) {
   const verification = verifyMadfamSignature(rawBody, sig, secrets)
   if (!verification.ok) {
     logger.warn({ reason: verification.reason }, 'signature rejected')
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    return { response: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) }
   }
 
   let event: EcosystemPaymentRefundedEvent
   try {
     event = JSON.parse(rawBody)
   } catch {
-    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
+    return { response: NextResponse.json({ error: 'invalid JSON body' }, { status: 400 }) }
   }
 
   if (event.schema_version !== '1') {
-    return NextResponse.json(
-      { error: `unsupported schema_version: ${event.schema_version}` },
-      { status: 400 },
-    )
+    return {
+      response: NextResponse.json(
+        { error: `unsupported schema_version: ${event.schema_version}` },
+        { status: 400 },
+      ),
+    }
   }
+
   const missingField = missingRequiredField(event)
   if (missingField) {
-    return NextResponse.json({ error: `missing required field: ${missingField}` }, { status: 400 })
+    return {
+      response: NextResponse.json(
+        { error: `missing required field: ${missingField}` },
+        { status: 400 },
+      ),
+    }
   }
 
   // A refund of zero is not a refund. Reject rather than writing a reversal
   // that reverses nothing — it would be indistinguishable from a real one in
   // the ledger while carrying no information.
   if (!Number.isFinite(event.amount_minor) || event.amount_minor <= 0) {
-    return NextResponse.json(
-      { error: 'amount_minor must be a positive integer' },
-      { status: 400 },
-    )
+    return {
+      response: NextResponse.json(
+        { error: 'amount_minor must be a positive integer' },
+        { status: 400 },
+      ),
+    }
   }
+
+  return { event }
+}
+
+export async function POST(request: Request) {
+  const parsed = await parseAndVerify(request)
+  if ('response' in parsed) {
+    return parsed.response
+  }
+  const { event } = parsed
 
   const db = getDb()
 
@@ -202,7 +231,10 @@ export async function POST(request: Request) {
       .returning({ id: conversions.id })
     const conversion = inserted[0]
     if (!conversion) {
-      logger.error({ event_id: event.event_id, lead_id: lead.id }, 'reversal insert returned no row')
+      logger.error(
+        { event_id: event.event_id, lead_id: lead.id },
+        'reversal insert returned no row',
+      )
       return NextResponse.json({ error: 'failed to record reversal' }, { status: 500 })
     }
 

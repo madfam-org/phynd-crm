@@ -14,7 +14,7 @@ resources:
 - base/pdb.yaml
 
 images:
-- digest: sha256:205e0a937c676d7f3589ffaefae2793312dc77b3608a4814c93de7542124d4f8
+- digest: sha256:05ccd55f9dde3cdfdf3d653678333dcc671fc9bd43954b5df2a737b3dd771d5f
   name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
 - digest: sha256:2a4f77774853132b945392e6f41e8e8e7c6afd2be6ef0bbb1d3fa00af6fd6616

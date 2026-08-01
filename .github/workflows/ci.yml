@@ -86,6 +86,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify vendored Bus A fixtures are intact
+        # The refund receiver's contract test asserts against these exact bytes,
+        # and Dhanam's producer contract asserts it emits them. Editing the
+        # local copy to make a failing test pass would silently break that join.
+        # Canonical source: internal-devops/contracts/bus-a/.
+        run: node contracts/bus-a/check-vendored.mjs contracts/bus-a
       - run: pnpm test
 
   build:

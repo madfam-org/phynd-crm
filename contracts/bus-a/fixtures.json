@@ -1,0 +1,139 @@
+{
+  "$schema_note": "Canonical Bus A contract fixtures. Source of truth: internal-devops/contracts/bus-a/. Vendored copies are digest-checked; see README.md. Regenerate with scripts/generate-fixtures.mjs — do not hand-edit.",
+  "contract_version": "1",
+  "signature_header": "x-madfam-signature",
+  "signature_format": "t=<unix-seconds>,v1=<hex hmac-sha256 over \"${t}.${raw_body}\">",
+  "signing": {
+    "secret": "whsec_bus_a_contract_fixture_not_a_real_secret",
+    "fixed_timestamp": 1785196800,
+    "note": "Synthetic test secret. Authenticates nothing, reaches no host. Consumers re-sign raw_body with this secret at test time to exercise the accept path, because a fixed past timestamp is correctly rejected by the replay window."
+  },
+  "required_fields": [
+    "schema_version",
+    "event_type",
+    "event_id",
+    "provider",
+    "subscription_id",
+    "organization_id",
+    "amount_minor",
+    "currency",
+    "occurred_at"
+  ],
+  "invariants": [
+    "event_id is derived as `${event_type}:${source_event_id}` — never random. A random id turns a PSP retry into a duplicate entitlement grant.",
+    "event_id is namespaced by event_type so one source event producing two lifecycle events cannot collide on a consumer idempotency key.",
+    "raw_body is authoritative. Signatures cover exact bytes; parse-then-reserialize does not round-trip and will fail verification.",
+    "An absent event_type means payment.succeeded — the pre-lifecycle emitter only ever sent that type.",
+    "Unknown event_type must be ACKNOWLEDGED (2xx), not rejected. A 4xx makes the producer treat a forward-compatible event as permanently failed.",
+    "amount_minor may legitimately be 0 on subscription.canceled. It must be > 0 on payment.refunded.",
+    "An empty subscription_id or organization_id is a half-envelope: the producer skips it rather than dispatching, because consumers key entitlement on those and would ack-and-drop."
+  ],
+  "events": [
+    {
+      "event_type": "payment.succeeded",
+      "note": "Full envelope including attribution. The attribution block is what Selva’s bandit ultimately consumes as reward, so it is part of the contract, not an optional extra.",
+      "raw_body": "{\"schema_version\":\"1\",\"event_type\":\"payment.succeeded\",\"event_id\":\"payment.succeeded:evt_contract_succeeded\",\"provider\":\"stripe\",\"subscription_id\":\"sub_contract_fixture\",\"organization_id\":\"org_contract_fixture\",\"amount_minor\":49900,\"currency\":\"MXN\",\"occurred_at\":\"2026-07-31T00:00:00.000Z\",\"attribution\":{\"source_agent_id\":\"agent_contract\",\"campaign_id\":\"camp_contract\",\"referral_code\":\"REFCONTRACT\",\"first_touch_at\":\"2026-07-01T00:00:00.000Z\"},\"metadata\":{\"invoice_id\":\"in_contract_fixture\"}}",
+      "envelope": {
+        "schema_version": "1",
+        "event_type": "payment.succeeded",
+        "event_id": "payment.succeeded:evt_contract_succeeded",
+        "provider": "stripe",
+        "subscription_id": "sub_contract_fixture",
+        "organization_id": "org_contract_fixture",
+        "amount_minor": 49900,
+        "currency": "MXN",
+        "occurred_at": "2026-07-31T00:00:00.000Z",
+        "attribution": {
+          "source_agent_id": "agent_contract",
+          "campaign_id": "camp_contract",
+          "referral_code": "REFCONTRACT",
+          "first_touch_at": "2026-07-01T00:00:00.000Z"
+        },
+        "metadata": {
+          "invoice_id": "in_contract_fixture"
+        }
+      },
+      "signature_at_fixed_timestamp": "t=1785196800,v1=a1d6c750422d7cc575bb262ee37874fbab09a7df223db9663f0d8a19674c7248"
+    },
+    {
+      "event_type": "payment.failed",
+      "note": "Drives past_due + dunning retry at the consumer. Unreachable before dhanam#704 — a failed charge left the customer fully entitled.",
+      "raw_body": "{\"schema_version\":\"1\",\"event_type\":\"payment.failed\",\"event_id\":\"payment.failed:evt_contract_failed\",\"provider\":\"stripe\",\"subscription_id\":\"sub_contract_fixture\",\"organization_id\":\"org_contract_fixture\",\"amount_minor\":49900,\"currency\":\"MXN\",\"occurred_at\":\"2026-07-31T00:00:00.000Z\",\"metadata\":{\"invoice_id\":\"in_contract_fixture\"}}",
+      "envelope": {
+        "schema_version": "1",
+        "event_type": "payment.failed",
+        "event_id": "payment.failed:evt_contract_failed",
+        "provider": "stripe",
+        "subscription_id": "sub_contract_fixture",
+        "organization_id": "org_contract_fixture",
+        "amount_minor": 49900,
+        "currency": "MXN",
+        "occurred_at": "2026-07-31T00:00:00.000Z",
+        "metadata": {
+          "invoice_id": "in_contract_fixture"
+        }
+      },
+      "signature_at_fixed_timestamp": "t=1785196800,v1=63fd9ae9c68df6e2a65a88a0c59ee43acd9ee52ae49317b480bda55b67dbf261"
+    },
+    {
+      "event_type": "payment.refunded",
+      "note": "Partial refund on purpose: consumers must not assume the full original amount. PhyndCRM records this as a NEGATIVE reversal conversion.",
+      "raw_body": "{\"schema_version\":\"1\",\"event_type\":\"payment.refunded\",\"event_id\":\"payment.refunded:re_contract_refunded\",\"provider\":\"stripe\",\"subscription_id\":\"sub_contract_fixture\",\"organization_id\":\"org_contract_fixture\",\"amount_minor\":20000,\"currency\":\"MXN\",\"occurred_at\":\"2026-07-31T00:00:00.000Z\",\"metadata\":{\"invoice_id\":\"in_contract_fixture\"}}",
+      "envelope": {
+        "schema_version": "1",
+        "event_type": "payment.refunded",
+        "event_id": "payment.refunded:re_contract_refunded",
+        "provider": "stripe",
+        "subscription_id": "sub_contract_fixture",
+        "organization_id": "org_contract_fixture",
+        "amount_minor": 20000,
+        "currency": "MXN",
+        "occurred_at": "2026-07-31T00:00:00.000Z",
+        "metadata": {
+          "invoice_id": "in_contract_fixture"
+        }
+      },
+      "signature_at_fixed_timestamp": "t=1785196800,v1=0c3b295603a8aac5b43a77d63d6001b08cb5e05fae478aae10a8124572a52efc"
+    },
+    {
+      "event_type": "payment.pending",
+      "note": "Async OXXO/SPEI rail. No producer yet; shape pinned ahead of the handler.",
+      "raw_body": "{\"schema_version\":\"1\",\"event_type\":\"payment.pending\",\"event_id\":\"payment.pending:evt_contract_pending\",\"provider\":\"stripe\",\"subscription_id\":\"sub_contract_fixture\",\"organization_id\":\"org_contract_fixture\",\"amount_minor\":49900,\"currency\":\"MXN\",\"occurred_at\":\"2026-07-31T00:00:00.000Z\",\"metadata\":{\"invoice_id\":\"in_contract_fixture\"}}",
+      "envelope": {
+        "schema_version": "1",
+        "event_type": "payment.pending",
+        "event_id": "payment.pending:evt_contract_pending",
+        "provider": "stripe",
+        "subscription_id": "sub_contract_fixture",
+        "organization_id": "org_contract_fixture",
+        "amount_minor": 49900,
+        "currency": "MXN",
+        "occurred_at": "2026-07-31T00:00:00.000Z",
+        "metadata": {
+          "invoice_id": "in_contract_fixture"
+        }
+      },
+      "signature_at_fixed_timestamp": "t=1785196800,v1=8116b2f9d4f4fdaab2cb0e25bd18127fbc77fa58798bbaf0f1cf4a28392cac2a"
+    },
+    {
+      "event_type": "subscription.canceled",
+      "note": "amount_minor 0 is legitimate here — nothing moved. Consumers must not treat 0 as malformed on this type.",
+      "raw_body": "{\"schema_version\":\"1\",\"event_type\":\"subscription.canceled\",\"event_id\":\"subscription.canceled:sub_contract_canceled\",\"provider\":\"stripe\",\"subscription_id\":\"sub_contract_fixture\",\"organization_id\":\"org_contract_fixture\",\"amount_minor\":0,\"currency\":\"MXN\",\"occurred_at\":\"2026-07-31T00:00:00.000Z\",\"metadata\":{\"invoice_id\":\"in_contract_fixture\"}}",
+      "envelope": {
+        "schema_version": "1",
+        "event_type": "subscription.canceled",
+        "event_id": "subscription.canceled:sub_contract_canceled",
+        "provider": "stripe",
+        "subscription_id": "sub_contract_fixture",
+        "organization_id": "org_contract_fixture",
+        "amount_minor": 0,
+        "currency": "MXN",
+        "occurred_at": "2026-07-31T00:00:00.000Z",
+        "metadata": {
+          "invoice_id": "in_contract_fixture"
+        }
+      },
+      "signature_at_fixed_timestamp": "t=1785196800,v1=7cf89c91334810c49acfd843d9df1d99ea42092b0066123886e8e12b8c2969f8"
+    }
+  ]
+}

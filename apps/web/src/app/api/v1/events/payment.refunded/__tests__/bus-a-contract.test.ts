@@ -91,15 +91,43 @@ interface FixtureDoc {
 // Resolved against this file, not process.cwd() — the working directory
 // depends on how the runner is invoked (turbo per-package vs repo root), and a
 // contract test that cannot find its own contract is a confusing way to fail.
-const HERE = dirname(fileURLToPath(import.meta.url))
-const doc: FixtureDoc = JSON.parse(
-  readFileSync(
-    join(HERE, '..', '..', '..', '..', '..', '..', 'lib', 'webhooks', '__contract__', 'bus-a', 'fixtures.json'),
-    'utf8',
-  ),
+//
+// The vendored copy lives at the repo root rather than under `src/`, matching
+// RouteCraft, and deliberately: it is a vendored artifact that must stay
+// byte-identical to the canonical copy in internal-devops, so it should not be
+// reachable by this repo's formatter.
+const REPO_ROOT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
 )
+const FIXTURES = join(REPO_ROOT, 'contracts', 'bus-a', 'fixtures.json')
+
+const doc: FixtureDoc = JSON.parse(readFileSync(FIXTURES, 'utf8'))
 const SECRET = doc.signing.secret
-const refunded = doc.events.find((e) => e.event_type === 'payment.refunded')!
+
+/**
+ * Look up a fixture by type.
+ *
+ * Throws rather than returning undefined: if the canonical event is missing,
+ * every assertion below would compare against `undefined` and report a
+ * confusing mismatch instead of the real failure, which is that the contract
+ * no longer carries this event at all.
+ */
+function fixture(eventType: string): Fixture {
+  const found = doc.events.find((e) => e.event_type === eventType)
+  if (!found) throw new Error(`Bus A contract carries no ${eventType} fixture`)
+  return found
+}
+
+const refunded = fixture('payment.refunded')
 
 function signedRequest(rawBody: string, ts = Math.floor(Date.now() / 1000)) {
   const mac = crypto.createHmac('sha256', SECRET).update(`${ts}.${rawBody}`).digest('hex')

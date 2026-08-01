@@ -91,7 +91,7 @@ jobs:
         # and Dhanam's producer contract asserts it emits them. Editing the
         # local copy to make a failing test pass would silently break that join.
         # Canonical source: internal-devops/contracts/bus-a/.
-        run: node apps/web/src/lib/webhooks/__contract__/bus-a/check-vendored.mjs apps/web/src/lib/webhooks/__contract__/bus-a
+        run: node contracts/bus-a/check-vendored.mjs contracts/bus-a
       - run: pnpm test
 
   build:

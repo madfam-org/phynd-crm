@@ -1,0 +1,31 @@
+# No `ports:` block — allow-all from the trust boundary, the preferred pattern
+# and the incident-level fix. Must PASS.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc
+  namespace: demo
+spec:
+  selector:
+    matchLabels: { app: svc }
+  template:
+    metadata:
+      labels: { app: svc }
+    spec:
+      containers:
+        - name: svc
+          image: example/svc
+          ports:
+            - containerPort: 7000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-ingress
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels: { app: svc }
+  ingress:
+    - from:
+        - namespaceSelector: {}

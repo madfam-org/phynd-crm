@@ -1,0 +1,32 @@
+# THE 2026-05-04 OUTAGE, reproduced: policy permits 80, pod exposes 8000.
+# Traffic reaches the pod IP and the CNI silently drops it. Must FAIL.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karafiel-api
+  namespace: demo
+spec:
+  selector:
+    matchLabels: { app: karafiel-api }
+  template:
+    metadata:
+      labels: { app: karafiel-api }
+    spec:
+      containers:
+        - name: api
+          image: example/karafiel-api
+          ports:
+            - containerPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cloudflared-ingress
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels: { app: karafiel-api }
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80

@@ -1,0 +1,32 @@
+# Ports intersect: policy permits 8000, pod exposes 8000. Must PASS.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: demo
+spec:
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      containers:
+        - name: api
+          image: example/api
+          ports:
+            - containerPort: 8000
+              name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-ingress
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels: { app: api }
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8000

@@ -42,6 +42,14 @@ jobs:
           python-version: '3.11'
       - name: Install PyYAML
         run: pip install pyyaml
+      - name: Prove the lint can still fail
+        # The lint has run in CI across several repos since the 2026-05-04
+        # outage and has never been seen to fail. That is not evidence it
+        # works. This plants violations it must catch -- and clean manifests it
+        # must NOT flag, since an over-eager gate gets switched off and reaches
+        # the same unprotected state by a slower route.
+        run: python3 -m unittest discover -s scripts/__tests__/networkpolicy-lint -p 'test_*.py'
+
       - name: Run NetworkPolicy port lint
         run: python3 scripts/check-networkpolicy-ports.py infra/k8s/
 

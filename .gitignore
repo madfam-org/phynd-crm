@@ -52,3 +52,7 @@ dump.rdb
 
 # Serena MCP tool state (per-machine IDE-like cache)
 .serena/
+
+# Python bytecode from the gate self-test suites (unittest discover)
+__pycache__/
+*.pyc

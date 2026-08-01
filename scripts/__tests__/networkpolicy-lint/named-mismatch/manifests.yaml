@@ -1,0 +1,32 @@
+# Named port that does not exist on the selected pods. Must FAIL.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: demo
+spec:
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: example/web
+          ports:
+            - containerPort: 3050
+              name: http-web
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-ingress
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels: { app: web }
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: metrics

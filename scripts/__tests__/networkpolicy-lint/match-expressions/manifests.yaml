@@ -1,0 +1,37 @@
+# Selector via matchExpressions rather than matchLabels, with a port mismatch.
+# Must FAIL — a resolver that only understood matchLabels would silently skip
+# this policy and report success.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tiered
+  namespace: demo
+  labels: { tier: backend }
+spec:
+  selector:
+    matchLabels: { tier: backend }
+  template:
+    metadata:
+      labels: { tier: backend }
+    spec:
+      containers:
+        - name: app
+          image: example/app
+          ports:
+            - containerPort: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tier-ingress
+  namespace: demo
+spec:
+  podSelector:
+    matchExpressions:
+      - key: tier
+        operator: In
+        values: [backend]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080

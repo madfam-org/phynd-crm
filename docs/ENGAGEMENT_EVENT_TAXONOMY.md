@@ -8,7 +8,7 @@
 <source>:<event_name>
 ```
 
-- **source** (20 chars max) is the writing platform: `cotiza`, `pravara`, `selva`, `karafiel`, `dhanam`, `system`, or any future producer.
+- **source** (20 chars max) is the writing platform: `cotiza`, `pravara`, `selva`, `karafiel`, `dhanam`, `nauta`, `system`, or any future producer.
 - **event_name** is free-form per-source, but when the event is a **client-visible milestone**, prefer a canonical name from the table below so cross-source filters work.
 
 ## Milestone names (canonical)
@@ -34,6 +34,7 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `cotiza:quote_sent`, `cotiza:quote_viewed`, `cotiza:quote_rejected`, `cotiza:quote_expired`, `cotiza:quote_ordered` — Cotiza quote lifecycle states (dedup key `cotiza:<cotiza_quote_id>:<state>`). The approval state `cotiza:quote_approved` is the milestone case: Cotiza also emits the canonical `quote_approved` alias with dedup key `cotiza:<cotiza_quote_id>:milestone:quote_approved`. Inbound handling reflects these states onto the local `quotes` row (`sent` / `accepted` / `declined` / `expired`); `quote_viewed` and `quote_ordered` are event-only.
 - `pravara:queued`, `pravara:quality_check` — intermediate fab states
 - `selva:agent_task_assigned`, `selva:pr_opened` — digital execution checkpoints
+- `nauta:qbr_published`, `nauta:roadmap_updated`, `nauta:audit_completed` — fractional-CTO engagement checkpoints for retained (tier-3) clients. Nauta runs the engagement; PhyndCRM stays the system of record for the client relationship, so these are written back here rather than forking the timeline into a second history. Deliberately **not** milestones: they are cadence artefacts of an ongoing retainer, and promoting a recurring quarterly review to milestone treatment would crowd out the delivery milestones a client actually looks for. Dedup key `nauta:<workspace_id>:<artifact_id>` — the artifact is the stable identity, so republishing the same QBR is idempotent while a genuinely new one is not.
 - `karafiel:nom151_stamped` — technical compliance checkpoints
 - `system:contact_linked` — internal housekeeping
 - `system:intake_created` — PhyndCRM created the client/project onboarding skeleton

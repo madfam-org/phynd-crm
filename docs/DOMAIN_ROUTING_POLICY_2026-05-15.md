@@ -64,3 +64,27 @@ for the full command evidence.
 - Auth.js provider metadata remains a routing/auth gap:
   `/api/auth/providers` still reports Janua signin/callback URLs on an internal
   `phynd-crm-web-...:3000` pod hostname.
+
+## Addendum 2026-08-12 — holding redirect on `crm.phynd.app`
+
+Tenancy intent is unchanged: `crm.madfam.io` is the MADFAM-internal CRM;
+`crm.phynd.app` is where external client tenants' CRM will live. But no
+non-MADFAM tenant is live yet, and a host with no users kept catching real
+sign-ins via stale bookmarks and old emails (see
+`SSO_LEAD_FLOW_INCIDENT_2026-08-12.md`).
+
+Until the first client tenant onboards:
+
+- Browser traffic on `crm.phynd.app` (every non-`/api` path) is **301'd to
+  `crm.madfam.io`**, path and query preserved. Implemented in app middleware
+  (`getDormantClientHostRedirect` in `apps/web/src/lib/http/app-host.ts`),
+  not at the Cloudflare edge, so it is versioned, tested, and reverted by
+  deleting one function and its call.
+- `/api/*` on `crm.phynd.app` keeps serving: webhook producers and OAuth
+  machinery do not follow redirects, and a 301 downgrades POST to GET.
+- The multi-tenant host architecture (host-derived tenantId, per-host auth
+  origin, Janua redirect URIs) is intentionally untouched.
+
+**Revert condition**: first non-MADFAM tenant goes live on `crm.phynd.app` —
+delete `getDormantClientHostRedirect`, its middleware call, and its tests.
+

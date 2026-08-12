@@ -92,9 +92,10 @@ verified live.
 
 ## Residual risks / open items
 
-- **crm.phynd.app**: still serves the app; recommendation is an edge 301 to
-  `crm.madfam.io`, pending an operator decision (it retires the legacy host
-  for any bookmarked users and non-MADFAM tenant plans).
+- **crm.phynd.app**: RESOLVED same day — operator decided a *holding*
+  redirect: browser paths 301 to `crm.madfam.io` until the first non-MADFAM
+  tenant onboards; `/api/*` keeps serving; tenancy architecture untouched.
+  See `DOMAIN_ROUTING_POLICY_2026-05-15.md` addendum.
 - **janua#517**: `dynamic_cors.py` and `global_rate_limit.py` import a
   `get_db_session` that `app.core.database` never exported — dynamic CORS
   and the DB rate-limit path are silently degraded in janua production.

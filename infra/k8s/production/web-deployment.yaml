@@ -42,6 +42,12 @@ spec:
             # revisit both sender + templates per the launch-product (G3) call.
             - name: EMAIL_FROM
               value: "MADFAM <noreply@madfam.io>"
+            # Who hears about a new nauta-landing lead. Comma-separated.
+            # Configuration, not code: the person on point changes more often
+            # than a release ships. Unset ⇒ the webhook logs a loud warning
+            # and still stores the lead — notification is best-effort by design.
+            - name: NAUTA_LEADS_NOTIFY_EMAIL
+              value: "aldo@madfam.io"
             - name: TULANA_API_BASE_URL
               value: "https://tulana-api.madfam.io/api/v1"
             - name: TULANA_COMMERCIAL_GA_ENVIRONMENT

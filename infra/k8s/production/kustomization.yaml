@@ -15,7 +15,11 @@ resources:
 - pdb.yaml
 
 images:
-- digest: sha256:034d4cb418435d7ae9b1667ac385e3e372b76c04f50dea187398c23720c67d7b
+# The images block is THE production pin — it OVERRIDES any digest written in
+# the raw deployment manifests (kustomize images transformer). PR #72 bumped
+# web-deployment.yaml alone and deployed nothing: the same judged-a-value-
+# never-deployed trap enclii#373 fixed in the onboarding gate. Bump HERE.
+- digest: sha256:52d183d3f8e0746685e1057e7f5ef0cd1d192e8a5cddd155c06c562c5b6e034a
   name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
 - digest: sha256:f0c27ae666279d7d0780f07a0d077131c8f67a69a69c597bd2b1cecacf2b3ad8

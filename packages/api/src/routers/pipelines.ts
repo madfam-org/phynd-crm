@@ -1,7 +1,7 @@
 import { PipelinesService } from '@phynd/services'
 import { z } from 'zod'
-import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
+import { entityId } from '../validation'
 
 const paginationInput = z
   .object({
@@ -59,12 +59,10 @@ export const pipelinesRouter = router({
       return service.update(id, data)
     }),
 
-  delete: protectedProcedure
-    .input(z.object({ id: entityId }))
-    .mutation(({ ctx, input }) => {
-      const service = new PipelinesService(ctx)
-      return service.delete(input.id)
-    }),
+  delete: protectedProcedure.input(z.object({ id: entityId })).mutation(({ ctx, input }) => {
+    const service = new PipelinesService(ctx)
+    return service.delete(input.id)
+  }),
 
   createStage: protectedProcedure
     .input(
@@ -95,12 +93,10 @@ export const pipelinesRouter = router({
       return service.updateStage(id, data)
     }),
 
-  deleteStage: protectedProcedure
-    .input(z.object({ id: entityId }))
-    .mutation(({ ctx, input }) => {
-      const service = new PipelinesService(ctx)
-      return service.deleteStage(input.id)
-    }),
+  deleteStage: protectedProcedure.input(z.object({ id: entityId })).mutation(({ ctx, input }) => {
+    const service = new PipelinesService(ctx)
+    return service.deleteStage(input.id)
+  }),
 
   reorderStages: protectedProcedure
     .input(

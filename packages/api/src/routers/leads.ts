@@ -1,7 +1,7 @@
 import { LeadsService } from '@phynd/services'
 import { z } from 'zod'
-import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
+import { entityId } from '../validation'
 
 const paginationInput = z
   .object({

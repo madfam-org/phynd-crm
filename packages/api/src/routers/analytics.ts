@@ -2,8 +2,8 @@ import { isFeatureEnabled } from '@phynd/config/features'
 import { AnalyticsService } from '@phynd/services'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
-import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
+import { entityId } from '../validation'
 
 function assertAnalytics() {
   if (!isFeatureEnabled('analytics')) {

@@ -269,13 +269,13 @@ describe('seeded slug ids pass input validation', () => {
   // pipeline (2026-08-12). Assert the ids now reach the service layer.
   const createCaller = createCallerFactory(appRouter)
 
-  it.each([
-    ['pipeline_default_sales'],
-    ['demo-cbd4d5a2-b4be-4568-94f5-4ee9e6ed9bb7-pipeline'],
-  ])('getStages accepts seeded pipeline id %s', async (pipelineId) => {
-    const caller = createCaller(createMockCtx())
-    await expect(caller.pipelines.getStages({ pipelineId })).resolves.toEqual([])
-  })
+  it.each([['pipeline_default_sales'], ['demo-cbd4d5a2-b4be-4568-94f5-4ee9e6ed9bb7-pipeline']])(
+    'getStages accepts seeded pipeline id %s',
+    async (pipelineId) => {
+      const caller = createCaller(createMockCtx())
+      await expect(caller.pipelines.getStages({ pipelineId })).resolves.toEqual([])
+    },
+  )
 
   it('getById accepts a slug pipeline id', async () => {
     const caller = createCaller(createMockCtx())

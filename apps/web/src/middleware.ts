@@ -6,6 +6,7 @@ import {
   MARKETING_AUTH_REDIRECT_HOSTS,
   getAuthenticatedAppRootRedirect,
   getCanonicalLoginHost,
+  getDormantClientHostRedirect,
 } from '@/lib/http/app-host'
 import { sanitizeForwardedHeaders } from '@/lib/http/forwarded-headers'
 import { applyFrameEmbeddingHeaders } from '@/lib/http/frame-embed'
@@ -47,6 +48,13 @@ const authMiddleware = auth((req) => {
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
   const normalizedHost = normalizeHost(host)
   const canonicalLoginHost = getCanonicalLoginHost(host, pathname)
+
+  // Holding redirect: crm.phynd.app has no live tenants yet — browser traffic
+  // goes to the MADFAM CRM; /api/* keeps serving. See getDormantClientHostRedirect.
+  const dormantHostRedirect = getDormantClientHostRedirect(host, pathname, req.nextUrl.search)
+  if (dormantHostRedirect) {
+    return NextResponse.redirect(dormantHostRedirect, 301)
+  }
   const appRootRedirect = getAuthenticatedAppRootRedirect(host, pathname, isLoggedIn)
 
   if (pathname.startsWith('/api/auth') && MARKETING_AUTH_REDIRECT_HOSTS.has(normalizedHost)) {

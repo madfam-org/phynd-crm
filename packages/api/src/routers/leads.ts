@@ -1,5 +1,6 @@
 import { LeadsService } from '@phynd/services'
 import { z } from 'zod'
+import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
 
 const paginationInput = z
@@ -56,8 +57,8 @@ export const leadsRouter = router({
         contactId: z.string().uuid().optional(),
         externalJanuaId: z.string().optional(),
         source: z.string().max(100).optional(),
-        pipelineId: z.string().uuid(),
-        stageId: z.string().uuid(),
+        pipelineId: entityId,
+        stageId: entityId,
       }),
     )
     .mutation(({ ctx, input }) => {
@@ -71,7 +72,7 @@ export const leadsRouter = router({
         id: z.string().uuid(),
         status: z.enum(['new', 'contacted', 'qualified', 'unqualified', 'converted']).optional(),
         score: z.number().int().min(0).max(100).optional(),
-        stageId: z.string().uuid().optional(),
+        stageId: entityId.optional(),
         ownerId: z.string().uuid().optional(),
       }),
     )
@@ -85,7 +86,7 @@ export const leadsRouter = router({
     .input(
       z.object({
         id: z.string().uuid(),
-        stageId: z.string().uuid(),
+        stageId: entityId,
       }),
     )
     .mutation(({ ctx, input }) => {

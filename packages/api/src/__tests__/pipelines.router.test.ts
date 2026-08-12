@@ -260,3 +260,30 @@ describe('pipelines router', () => {
     ).rejects.toThrow()
   })
 })
+
+describe('seeded slug ids pass input validation', () => {
+  // The production seed creates pipeline_default_sales / stage_default_new and
+  // the demo seeder mints demo-<uuid>-pipeline ids — none are UUIDs. These
+  // once failed z.string().uuid() with BAD_REQUEST before any service code
+  // ran, which is how the lead detail page 500'd on the app's own default
+  // pipeline (2026-08-12). Assert the ids now reach the service layer.
+  const createCaller = createCallerFactory(appRouter)
+
+  it.each([
+    ['pipeline_default_sales'],
+    ['demo-cbd4d5a2-b4be-4568-94f5-4ee9e6ed9bb7-pipeline'],
+  ])('getStages accepts seeded pipeline id %s', async (pipelineId) => {
+    const caller = createCaller(createMockCtx())
+    await expect(caller.pipelines.getStages({ pipelineId })).resolves.toEqual([])
+  })
+
+  it('getById accepts a slug pipeline id', async () => {
+    const caller = createCaller(createMockCtx())
+    await expect(caller.pipelines.getById({ id: 'pipeline_default_sales' })).resolves.toBeNull()
+  })
+
+  it('still rejects an empty pipeline id', async () => {
+    const caller = createCaller(createMockCtx())
+    await expect(caller.pipelines.getStages({ pipelineId: '' })).rejects.toThrow()
+  })
+})

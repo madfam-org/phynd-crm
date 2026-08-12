@@ -2,6 +2,7 @@ import { isFeatureEnabled } from '@phynd/config/features'
 import { AnalyticsService } from '@phynd/services'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
+import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
 
 function assertAnalytics() {
@@ -26,7 +27,7 @@ export const analyticsRouter = router({
   pipelineVelocity: protectedProcedure
     .input(
       z.object({
-        pipelineId: z.string().uuid(),
+        pipelineId: entityId,
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
       }),
@@ -64,7 +65,7 @@ export const analyticsRouter = router({
   stageVelocity: protectedProcedure
     .input(
       z.object({
-        pipelineId: z.string().uuid(),
+        pipelineId: entityId,
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
       }),

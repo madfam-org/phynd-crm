@@ -1,5 +1,6 @@
 import { OpportunitiesService } from '@phynd/services'
 import { z } from 'zod'
+import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
 
 const paginationInput = z
@@ -55,8 +56,8 @@ export const opportunitiesRouter = router({
       z.object({
         name: z.string().min(1).max(255),
         contactId: z.string().uuid().optional(),
-        pipelineId: z.string().uuid(),
-        stageId: z.string().uuid(),
+        pipelineId: entityId,
+        stageId: entityId,
         value: z.string().optional(),
         probability: z.number().int().min(0).max(100).optional(),
         expectedCloseDate: z.date().optional(),
@@ -72,7 +73,7 @@ export const opportunitiesRouter = router({
       z.object({
         id: z.string().uuid(),
         name: z.string().min(1).max(255).optional(),
-        stageId: z.string().uuid().optional(),
+        stageId: entityId.optional(),
         value: z.string().optional(),
         probability: z.number().int().min(0).max(100).optional(),
         status: z.enum(['open', 'won', 'lost']).optional(),
@@ -90,7 +91,7 @@ export const opportunitiesRouter = router({
     .input(
       z.object({
         id: z.string().uuid(),
-        stageId: z.string().uuid(),
+        stageId: entityId,
       }),
     )
     .mutation(({ ctx, input }) => {

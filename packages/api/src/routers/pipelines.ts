@@ -1,5 +1,6 @@
 import { PipelinesService } from '@phynd/services'
 import { z } from 'zod'
+import { entityId } from '../validation'
 import { protectedProcedure, router } from '../trpc'
 
 const paginationInput = z
@@ -15,13 +16,13 @@ export const pipelinesRouter = router({
     return service.list(input ?? undefined)
   }),
 
-  getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
+  getById: protectedProcedure.input(z.object({ id: entityId })).query(({ ctx, input }) => {
     const service = new PipelinesService(ctx)
     return service.getById(input.id)
   }),
 
   getStages: protectedProcedure
-    .input(z.object({ pipelineId: z.string().uuid() }))
+    .input(z.object({ pipelineId: entityId }))
     .query(({ ctx, input }) => {
       const service = new PipelinesService(ctx)
       return service.getStages(input.pipelineId)
@@ -47,7 +48,7 @@ export const pipelinesRouter = router({
   update: protectedProcedure
     .input(
       z.object({
-        id: z.string().uuid(),
+        id: entityId,
         name: z.string().min(1).max(255).optional(),
         isDefault: z.boolean().optional(),
       }),
@@ -59,7 +60,7 @@ export const pipelinesRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: entityId }))
     .mutation(({ ctx, input }) => {
       const service = new PipelinesService(ctx)
       return service.delete(input.id)
@@ -68,7 +69,7 @@ export const pipelinesRouter = router({
   createStage: protectedProcedure
     .input(
       z.object({
-        pipelineId: z.string().uuid(),
+        pipelineId: entityId,
         name: z.string().min(1).max(255),
         position: z.number().int().min(0),
         probability: z.number().int().min(0).max(100).optional(),
@@ -82,7 +83,7 @@ export const pipelinesRouter = router({
   updateStage: protectedProcedure
     .input(
       z.object({
-        id: z.string().uuid(),
+        id: entityId,
         name: z.string().min(1).max(255).optional(),
         position: z.number().int().min(0).optional(),
         probability: z.number().int().min(0).max(100).optional(),
@@ -95,7 +96,7 @@ export const pipelinesRouter = router({
     }),
 
   deleteStage: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: entityId }))
     .mutation(({ ctx, input }) => {
       const service = new PipelinesService(ctx)
       return service.deleteStage(input.id)
@@ -104,8 +105,8 @@ export const pipelinesRouter = router({
   reorderStages: protectedProcedure
     .input(
       z.object({
-        pipelineId: z.string().uuid(),
-        stageIds: z.array(z.string().uuid()).min(1),
+        pipelineId: entityId,
+        stageIds: z.array(entityId).min(1),
       }),
     )
     .mutation(({ ctx, input }) => {

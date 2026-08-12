@@ -3,6 +3,7 @@ import { AiKanbanService } from '@phynd/services'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
+import { entityId } from '../validation'
 
 function assertAiKanban() {
   if (!isFeatureEnabled('aiKanban')) {
@@ -17,7 +18,7 @@ const entityTypeSchema = z.enum(['lead', 'opportunity'])
 
 export const aiKanbanRouter = router({
   listPending: protectedProcedure
-    .input(z.object({ pipelineId: z.string().uuid() }))
+    .input(z.object({ pipelineId: entityId }))
     .query(({ ctx, input }) => {
       assertAiKanban()
       const service = new AiKanbanService(ctx)

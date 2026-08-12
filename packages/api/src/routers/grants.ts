@@ -3,6 +3,7 @@ import { GrantsService } from '@phynd/services'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
+import { entityId } from '../validation'
 
 function assertTreasuryHunter() {
   if (!isFeatureEnabled('treasuryHunter')) {
@@ -68,8 +69,8 @@ export const grantsRouter = router({
     .input(
       z.object({
         grantOpportunityId: z.string().uuid(),
-        pipelineId: z.string().uuid(),
-        stageId: z.string().uuid(),
+        pipelineId: entityId,
+        stageId: entityId,
         contactId: z.string().uuid().optional(),
         requestedAmount: z.string().optional(),
         ownerId: z.string().uuid().optional(),
@@ -85,7 +86,7 @@ export const grantsRouter = router({
     .input(
       z.object({
         id: z.string().uuid(),
-        stageId: z.string().uuid(),
+        stageId: entityId,
       }),
     )
     .mutation(({ ctx, input }) => {

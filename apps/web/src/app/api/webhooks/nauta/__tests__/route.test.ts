@@ -172,9 +172,7 @@ describe('POST /api/webhooks/nauta', () => {
   })
 
   it('rejects a non-nauta source with 400', async () => {
-    const res = await POST(
-      signedRequest(JSON.stringify(makeLeadEvent({ source: 'avala' }))),
-    )
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent({ source: 'avala' }))))
     expect(res.status).toBe(400)
     expect(mockCreateContact).not.toHaveBeenCalled()
   })

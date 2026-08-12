@@ -286,7 +286,12 @@ async function notifyNewNautaLead(lead: {
     return
   }
 
-  const crmBase = process.env.NEXT_PUBLIC_APP_URL ?? 'https://crm.madfam.io'
+  // Deliberately NOT NEXT_PUBLIC_APP_URL: that var is baked at image build
+  // time and still says crm.phynd.app, which routed a lead email into the
+  // legacy domain's broken SSO loop (2026-08-12). Deriving from the request
+  // host would propagate whichever alias the webhook arrived on into the
+  // email — same failure class. Email links always target the canonical host.
+  const crmBase = 'https://crm.madfam.io'
   const leadUrl = lead.leadId ? `${crmBase}/leads/${lead.leadId}` : `${crmBase}/leads`
   const esc = (value: string | undefined): string =>
     (value ?? '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

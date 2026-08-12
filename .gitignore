@@ -56,3 +56,4 @@ dump.rdb
 # Python bytecode from the gate self-test suites (unittest discover)
 __pycache__/
 *.pyc
+.worktrees/

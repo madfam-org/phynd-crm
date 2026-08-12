@@ -71,6 +71,7 @@ const mockGetDefaultPipeline = vi.fn().mockResolvedValue({ id: 'pipeline-1' })
 const mockGetStages = vi.fn().mockResolvedValue([{ id: 'stage-1' }])
 const mockCreateLead = vi.fn().mockResolvedValue(mockLead)
 const mockCreateNote = vi.fn().mockResolvedValue({ id: 'note-1' })
+const mockSendEmail = vi.fn().mockResolvedValue({ id: 'resend-msg-1' })
 
 vi.mock('@phynd/services', () => ({
   createServiceContext: (db: unknown) => ({ db }),
@@ -87,6 +88,9 @@ vi.mock('@phynd/services', () => ({
   })),
   NotesService: vi.fn().mockImplementation(() => ({
     create: mockCreateNote,
+  })),
+  EmailService: vi.fn().mockImplementation(() => ({
+    send: mockSendEmail,
   })),
 }))
 
@@ -146,10 +150,14 @@ beforeEach(() => {
   mockGetDefaultPipeline.mockClear().mockResolvedValue({ id: 'pipeline-1' })
   mockGetStages.mockClear().mockResolvedValue([{ id: 'stage-1' }])
   mockCreateLead.mockClear().mockResolvedValue(mockLead)
+  mockCreateNote.mockClear().mockResolvedValue({ id: 'resend-note-1' })
   mockCreateNote.mockClear().mockResolvedValue({ id: 'note-1' })
+  mockSendEmail.mockClear().mockResolvedValue({ id: 'resend-msg-1' })
+  process.env.NAUTA_LEADS_NOTIFY_EMAIL = 'ops@example.test'
 })
 
 afterEach(() => {
+  delete process.env.NAUTA_LEADS_NOTIFY_EMAIL
   if (ORIGINAL_SECRET === undefined) {
     delete process.env.PHYND_CRM_EVENTS_SECRET
   } else {
@@ -246,5 +254,56 @@ describe('POST /api/webhooks/nauta', () => {
     mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
     const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
     expect(res.status).toBe(429)
+  })
+})
+
+describe('lead notification via Resend', () => {
+  it('emails the configured recipients with the lead fields and CRM link', async () => {
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+    expect(mockSendEmail).toHaveBeenCalledTimes(1)
+    const call = mockSendEmail.mock.calls[0]?.[0] as {
+      to: string
+      subject: string
+      html: string
+      tags: Array<{ name: string; value: string }>
+    }
+    expect(call.to).toBe('ops@example.test')
+    expect(call.subject).toContain('Dra. Prospecto')
+    expect(call.subject).toContain('Clínica Ejemplo')
+    expect(call.html).toContain('plan Ecosistema para 60 familias')
+    expect(call.html).toContain('/leads/lead-1')
+    expect(call.tags).toContainEqual({ name: 'source', value: 'nauta' })
+    expect(call.tags).toContainEqual({ name: 'lead_id', value: 'lead-1' })
+  })
+
+  it('a Resend failure never bounces the webhook — the lead is already safe', async () => {
+    mockSendEmail.mockRejectedValue(new Error('resend down'))
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+    expect(mockCreateLead).toHaveBeenCalled()
+    expect(state.insertedWebhookEvents).toHaveLength(1)
+  })
+
+  it('skips with a warning when no recipient is configured — never a crash', async () => {
+    delete process.env.NAUTA_LEADS_NOTIFY_EMAIL
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+    expect(mockSendEmail).not.toHaveBeenCalled()
+  })
+
+  it('escapes HTML in prospect-controlled fields — the message is attacker text', async () => {
+    const event = makeLeadEvent()
+    ;(event.payload as { lead: Record<string, unknown> }).lead = {
+      email: 'prospect@clinica.mx',
+      name: '<script>alert(1)</script>',
+      message: '<img src=x onerror=alert(2)>',
+    }
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    const call = mockSendEmail.mock.calls[0]?.[0] as { html: string }
+    expect(call.html).not.toContain('<script>')
+    expect(call.html).not.toContain('<img src=x')
+    expect(call.html).toContain('&lt;script&gt;')
   })
 })

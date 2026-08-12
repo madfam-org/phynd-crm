@@ -17,16 +17,30 @@ export async function withRequestAuthOrigin(
   const savedAuthUrl = process.env.AUTH_URL
   const savedNextAuthUrl = process.env.NEXTAUTH_URL
 
+  // Unsetting an env key requires `delete`: assigning `undefined` coerces to
+  // the STRING "undefined", which is truthy to Auth.js — createActionURL then
+  // does new URL("undefined") and every later auth() in the process throws
+  // Invalid URL (2026-08-12 incident: one auth round-trip poisoned the pod and
+  // all post-SSO pages rendered the error boundary).
   process.env.AUTH_URL = origin
-  process.env.NEXTAUTH_URL = undefined
+  // biome-ignore lint/performance/noDelete: the rule's replacement (= undefined) IS the bug for process.env — it stores the string "undefined"
+  delete process.env.NEXTAUTH_URL
 
   try {
     return await handler(normalized)
   } finally {
-    if (savedAuthUrl === undefined) process.env.AUTH_URL = undefined
-    else process.env.AUTH_URL = savedAuthUrl
+    if (savedAuthUrl === undefined) {
+      // biome-ignore lint/performance/noDelete: see above — delete is the only way to unset an env key
+      delete process.env.AUTH_URL
+    } else {
+      process.env.AUTH_URL = savedAuthUrl
+    }
 
-    if (savedNextAuthUrl === undefined) process.env.NEXTAUTH_URL = undefined
-    else process.env.NEXTAUTH_URL = savedNextAuthUrl
+    if (savedNextAuthUrl === undefined) {
+      // biome-ignore lint/performance/noDelete: see above — delete is the only way to unset an env key
+      delete process.env.NEXTAUTH_URL
+    } else {
+      process.env.NEXTAUTH_URL = savedNextAuthUrl
+    }
   }
 }

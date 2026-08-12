@@ -71,7 +71,11 @@ const authMiddleware = auth((req) => {
   }
 
   if (!isPublic && !isLoggedIn && !devBypass) {
-    return NextResponse.redirect(externalUrl('/login', req))
+    // Carry the intended destination through the auth wall — email deep
+    // links (e.g. a lead notification's "Abrir en el CRM") previously
+    // landed on /overview after sign-in, losing the record they targeted.
+    const next = encodeURIComponent(`${pathname}${req.nextUrl.search}`)
+    return NextResponse.redirect(externalUrl(`/login?next=${next}`, req))
   }
 
   if (isAuthPage && isLoggedIn) {

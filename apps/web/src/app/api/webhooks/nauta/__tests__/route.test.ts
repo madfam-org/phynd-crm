@@ -292,6 +292,21 @@ describe('lead notification via Resend', () => {
     expect(mockSendEmail).not.toHaveBeenCalled()
   })
 
+  it('email links target the canonical CRM host even when NEXT_PUBLIC_APP_URL is the legacy domain', async () => {
+    // Regression: the build-time NEXT_PUBLIC_APP_URL still said crm.phynd.app,
+    // which routed a lead email into the legacy domain's broken SSO loop.
+    process.env.NEXT_PUBLIC_APP_URL = 'https://crm.phynd.app'
+    try {
+      const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+      expect(res.status).toBe(200)
+      const call = mockSendEmail.mock.calls[0]?.[0] as { html: string }
+      expect(call.html).toContain('https://crm.madfam.io/leads/lead-1')
+      expect(call.html).not.toContain('crm.phynd.app')
+    } finally {
+      delete process.env.NEXT_PUBLIC_APP_URL
+    }
+  })
+
   it('escapes HTML in prospect-controlled fields — the message is attacker text', async () => {
     const event = makeLeadEvent()
     ;(event.payload as { lead: Record<string, unknown> }).lead = {

@@ -3,13 +3,21 @@
  *
  * Contract verified:
  *   - 503 when PHYND_ENGAGEMENT_EVENTS_SECRET is unset (fail-closed)
- *   - HMAC signature + timestamp validation via the shared parser
+ *   - modern `x-madfam-signature: t=<unix>,v1=<hex hmac-sha256 of "t.body">`
+ *     accepted (#71) — the scheme nauta's emitEngagementEvent signs — with the
+ *     validator's 5-minute replay window and no legacy downgrade path
+ *   - legacy `x-webhook-signature` (plain hex HMAC of body + x-webhook-timestamp
+ *     header) still accepted during the deprecation window for cotiza + dhanam
  *   - payloads missing engagement_id/source/event_type are dropped silently (no throw)
  *   - explicit dedup_key from caller is preserved
  *   - derived dedup_key shape when caller omits it: `<source>:<event_type>:<timestamp>`
  *   - source-scoped auth (service:<source>) passed to EngagementsService
  *   - Cotiza quote-lifecycle events are routed to CotizaQuoteLifecycleService
  *     (engagement_id optional): resolved → 200, unresolvable → 202 skip
+ *
+ * Signatures here are REAL HMACs verified by the real @phynd/federation
+ * validators (no module mock) — same posture as the nauta webhook suite, so a
+ * drift between signer and verifier fails the build instead of passing a mock.
  */
 import crypto from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,11 +25,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mockCheckRateLimit = vi.fn().mockResolvedValue({ allowed: true, remaining: 99 })
 vi.mock('@/lib/webhooks/rate-limiter', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
-}))
-
-const mockValidateWebhookSignature = vi.fn().mockReturnValue(true)
-vi.mock('@phynd/federation/webhooks', () => ({
-  validateWebhookSignature: (...args: unknown[]) => mockValidateWebhookSignature(...args),
 }))
 
 vi.mock('@phynd/db', () => ({
@@ -79,6 +82,10 @@ function getRecordedEventArg(): RecordedEngagementEvent {
   return call?.[0] as RecordedEngagementEvent
 }
 
+// LEGACY scheme (deprecation window): plain hex HMAC of the body in
+// x-webhook-signature + a separate x-webhook-timestamp header. This is what
+// cotiza's phyndcrm-engagement.service and dhanam's
+// phyndcrm-engagement-notifier.service still send today.
 function createSignedRequest(body: object, options: { secret?: string } = {}) {
   const secret = options.secret ?? 'test-events-secret'
   const bodyStr = JSON.stringify(body)
@@ -94,13 +101,33 @@ function createSignedRequest(body: object, options: { secret?: string } = {}) {
   })
 }
 
+// MODERN ecosystem scheme (#71): x-madfam-signature: t=<unix>,v1=<hex> where
+// v1 = hmac-sha256(secret, `${t}.${rawBody}`). Byte-exact mirror of nauta's
+// signMadfamPayload — the producer this route's registration (#69) points at.
+function createModernSignedRequest(
+  body: object,
+  options: { secret?: string; header?: string; timestamp?: number } = {},
+) {
+  const secret = options.secret ?? 'test-events-secret'
+  const bodyStr = JSON.stringify(body)
+  const ts = options.timestamp ?? Math.floor(Date.now() / 1000)
+  const hmac = crypto.createHmac('sha256', secret).update(`${ts}.${bodyStr}`).digest('hex')
+  return new Request('http://localhost/api/v1/engagements/events', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-madfam-signature': options.header ?? `t=${ts},v1=${hmac}`,
+    },
+    body: bodyStr,
+  })
+}
+
 describe('POST /api/v1/engagements/events', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.PHYND_ENGAGEMENT_EVENTS_SECRET = 'test-events-secret'
     process.env.REDIS_URL = 'redis://localhost:6379'
     mockCheckRateLimit.mockResolvedValue({ allowed: true, remaining: 99 })
-    mockValidateWebhookSignature.mockReturnValue(true)
     mockRecordEvent.mockResolvedValue({ deduplicated: false })
     mockProcessWebhookPayload.mockResolvedValue({
       outcome: 'recorded',
@@ -131,12 +158,15 @@ describe('POST /api/v1/engagements/events', () => {
   })
 
   it('returns 401 on forged signature', async () => {
-    mockValidateWebhookSignature.mockReturnValueOnce(false)
-    const req = createSignedRequest({
-      engagement_id: 'eng_1',
-      source: 'dhanam',
-      event_type: 'payment.succeeded',
-    })
+    // Signed with the wrong secret — the real validator must reject it.
+    const req = createSignedRequest(
+      {
+        engagement_id: 'eng_1',
+        source: 'dhanam',
+        event_type: 'payment.succeeded',
+      },
+      { secret: 'not-the-configured-secret' },
+    )
     const res = await POST(req)
     expect(res.status).toBe(401)
     expect(mockRecordEvent).not.toHaveBeenCalled()
@@ -310,6 +340,113 @@ describe('POST /api/v1/engagements/events', () => {
       })
       const res = await POST(req)
       expect(res.status).toBe(500)
+    })
+  })
+
+  describe('modern x-madfam-signature scheme (#71)', () => {
+    // The exact event N8 step C3 emits via nauta's emitEngagementEvent.
+    const nautaPayload = {
+      engagement_id: 'eng_nauta_ctm',
+      source: 'nauta',
+      event_type: 'nauta:qbr_published',
+      status: 'completed',
+      timestamp: '2026-08-12T09:00:00.000Z',
+      dedup_key: 'nauta:qbr_published:2026-q3',
+    }
+
+    it('accepts t=<unix>,v1=<hmac of "t.body"> (nauta emitEngagementEvent contract)', async () => {
+      const res = await POST(createModernSignedRequest(nautaPayload))
+      expect(res.status).toBe(200)
+      expect(mockRecordEvent).toHaveBeenCalledTimes(1)
+      const arg = getRecordedEventArg()
+      expect(arg).toMatchObject({
+        engagementId: 'eng_nauta_ctm',
+        source: 'nauta',
+        eventType: 'nauta:qbr_published',
+        dedupKey: 'nauta:qbr_published:2026-q3',
+      })
+    })
+
+    it('rejects a garbage v1 digest with 401 and records nothing', async () => {
+      const res = await POST(
+        createModernSignedRequest(nautaPayload, {
+          header: `t=${Math.floor(Date.now() / 1000)},v1=${'0'.repeat(64)}`,
+        }),
+      )
+      expect(res.status).toBe(401)
+      expect(mockRecordEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a tampered body — the HMAC covers "t.body" byte-exactly', async () => {
+      const ts = Math.floor(Date.now() / 1000)
+      const signedOver = JSON.stringify(nautaPayload)
+      const hmac = crypto
+        .createHmac('sha256', 'test-events-secret')
+        .update(`${ts}.${signedOver}`)
+        .digest('hex')
+      const req = new Request('http://localhost/api/v1/engagements/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-madfam-signature': `t=${ts},v1=${hmac}`,
+        },
+        body: JSON.stringify({ ...nautaPayload, status: 'cancelled' }),
+      })
+      const res = await POST(req)
+      expect(res.status).toBe(401)
+      expect(mockRecordEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a stale timestamp (>5 min old) even when the HMAC is valid', async () => {
+      const res = await POST(
+        createModernSignedRequest(nautaPayload, {
+          timestamp: Math.floor(Date.now() / 1000) - 6 * 60,
+        }),
+      )
+      expect(res.status).toBe(401)
+      expect(mockRecordEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a future timestamp outside the window (replay guard is symmetric)', async () => {
+      const res = await POST(
+        createModernSignedRequest(nautaPayload, {
+          timestamp: Math.floor(Date.now() / 1000) + 6 * 60,
+        }),
+      )
+      expect(res.status).toBe(401)
+    })
+
+    it('rejects a signature minted with the wrong secret', async () => {
+      const res = await POST(createModernSignedRequest(nautaPayload, { secret: 'not-the-secret' }))
+      expect(res.status).toBe(401)
+    })
+
+    it('fails closed with 503 when the secret is unset, before any verification', async () => {
+      delete process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
+      const res = await POST(createModernSignedRequest(nautaPayload))
+      expect(res.status).toBe(503)
+      expect(mockRecordEvent).not.toHaveBeenCalled()
+    })
+
+    it('never downgrades: an invalid modern header 401s even with a valid legacy signature attached', async () => {
+      const bodyStr = JSON.stringify(nautaPayload)
+      const legacySig = crypto
+        .createHmac('sha256', 'test-events-secret')
+        .update(bodyStr)
+        .digest('hex')
+      const req = new Request('http://localhost/api/v1/engagements/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-madfam-signature': `t=${Math.floor(Date.now() / 1000)},v1=${'f'.repeat(64)}`,
+          'x-webhook-signature': legacySig,
+          'x-webhook-timestamp': new Date().toISOString(),
+        },
+        body: bodyStr,
+      })
+      const res = await POST(req)
+      expect(res.status).toBe(401)
+      expect(mockRecordEvent).not.toHaveBeenCalled()
     })
   })
 

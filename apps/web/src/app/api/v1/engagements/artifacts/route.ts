@@ -25,6 +25,12 @@ const logger = createLogger('web:engagements-artifacts')
 //   }
 //
 // Secret: PHYND_ENGAGEMENT_EVENTS_SECRET (same as events webhook).
+//
+// Signature (#71): modern-first `x-madfam-signature` (t=<unix>,v1=<hmac of
+// "t.body">) — what nauta's publishArtifact signs — with the legacy
+// `x-webhook-signature` kept as a deprecation window for cotiza's
+// recordArtifact (signed-proposal PDFs). Same decision + evidence as the
+// events route one directory over; drop 'legacy' together with it.
 export async function POST(req: Request) {
   const secret = process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
   if (!secret) {
@@ -33,6 +39,7 @@ export async function POST(req: Request) {
 
   return handleWebhook(req, {
     secret,
+    schemes: ['madfam', 'legacy'],
     onEvent: async (payload) => {
       const engagementId = payload.engagement_id as string | undefined
       const type = payload.type as string | undefined

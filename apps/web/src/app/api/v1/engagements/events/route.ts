@@ -38,13 +38,25 @@ const logger = createLogger('web:engagements-events')
 // fields are dropped silently with a 200.
 //
 // Secret: PHYND_ENGAGEMENT_EVENTS_SECRET. When unset, returns 503 to fail closed.
+//
+// Signature (#71): modern-first. Ecosystem producers sign
+// `x-madfam-signature: t=<unix>,v1=<hex hmac-sha256 of "t.body">` — the scheme
+// this repo's payment/avala/routecraft/nauta routes already verify and the one
+// nauta's emitEngagementEvent (taxonomy registration #69) sends. The legacy
+// `x-webhook-signature` (plain hex HMAC of the body + x-webhook-timestamp
+// header) stays accepted as a DEPRECATION WINDOW for the two producers still
+// shipping it: cotiza (digifab-quoting phyndcrm-engagement.service.ts) and
+// dhanam (phyndcrm-engagement-notifier.service.ts). Neither has ever delivered
+// in production — this secret is not projected into any prod pod (#71) — but
+// both are deployed, env-gated code paths that would 401 the day the secret
+// lands. Drop 'legacy' here once both sign the modern scheme.
 export async function POST(req: Request) {
   const secret = process.env.PHYND_ENGAGEMENT_EVENTS_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Engagement events secret not configured' }, { status: 503 })
   }
 
-  const parsed = await parseSignedWebhookRequest(req, secret)
+  const parsed = await parseSignedWebhookRequest(req, secret, { schemes: ['madfam', 'legacy'] })
   if (!parsed.ok) {
     return parsed.response
   }

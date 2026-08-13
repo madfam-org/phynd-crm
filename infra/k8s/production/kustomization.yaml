@@ -19,7 +19,7 @@ images:
 # the raw deployment manifests (kustomize images transformer). PR #72 bumped
 # web-deployment.yaml alone and deployed nothing: the same judged-a-value-
 # never-deployed trap enclii#373 fixed in the onboarding gate. Bump HERE.
-- digest: sha256:b22d3b73934efef4aadd45cd175f98221cc72dce028247002d69d7ed89627f81
+- digest: sha256:c5227fe2485faef4e2ec1c6947335034a801df2dd44ebfb7687f19053b3ef3db
   name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
 - digest: sha256:ffff5c0f127b5bf4fe2d5895b449a779d8a78a8e10225419ba7b42f047a473f8

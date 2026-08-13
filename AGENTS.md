@@ -209,7 +209,7 @@ PhyndCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 **New env vars:**
 | Var | Purpose |
 |---|---|
-| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for `/api/v1/engagements/events` + `/artifacts` webhooks (also shared with Cotiza + Pravara + others writing in) |
+| `PHYND_ENGAGEMENT_EVENTS_SECRET` | HMAC secret for `/api/v1/engagements/events` + `/artifacts` webhooks (also shared with Cotiza + Pravara + others writing in). Both routes verify the ecosystem `x-madfam-signature` (`t=<unix>,v1=<hmac of "t.body">`) modern-first; legacy `x-webhook-signature` accepted only as a deprecation window for cotiza + dhanam (#71) |
 | `PORTAL_BASE_URL` | Base URL for Janua magic-link `redirect_url`. Defaults to `NEXTAUTH_URL` |
 | `JANUA_API_URL` | Janua API base for magic-link calls. Defaults to `AUTH_JANUA_ISSUER` |
 

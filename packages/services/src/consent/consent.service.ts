@@ -83,7 +83,7 @@ function resolveConsentTimestamps(
 }
 
 /**
- * Channel-scoped marketing consent (LFPDPPP Art. 8) with double opt-in and a
+ * Channel-scoped marketing consent (LFPDPPP Art. 7) with double opt-in and a
  * full audit trail. Suppression (SuppressionService) always wins over any
  * consent status — see `checkPermission`.
  */

@@ -47,7 +47,7 @@ function htmlPage(
   )
 }
 
-// Double-opt-in confirmation landing (LFPDPPP Art. 8). The token in the
+// Double-opt-in confirmation landing (LFPDPPP Art. 7). The token in the
 // query string is the credential — issued by ConsentService.capture with
 // action=request_double_opt_in and delivered via the confirmation email.
 export async function GET(req: NextRequest) {

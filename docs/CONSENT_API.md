@@ -1,10 +1,23 @@
 # Cross-Product Consent & Suppression API
 
-PhyndCRM is the system of record for **marketing consent** (LFPDPPP Art. 8)
+PhyndCRM is the system of record for **marketing consent** (LFPDPPP Art. 7)
 and the **cross-product suppression list** across the MADFAM ecosystem.
 Consent-capture components on dhanam / karafiel / tezca call the HMAC-signed
 REST endpoints below. Staff and Selva-agent access goes through the tRPC
 `consent` router instead.
+
+> **Which article, and why it changed.** The LFPDPPP in force is the new law
+> (**DOF 2025-03-20**), which abrogated the 2010 law and renumbered pervasively.
+> Marketing consent is **Art. 7** (*consentimiento* — expreso o tácito), which is
+> word-for-word what **Art. 8 of the 2010 law** used to say. These docs and the
+> code comments previously cited "Art. 8"; under the law in force **Art. 8 is the
+> SENSITIVE-data rule** (consentimiento *expreso y por escrito*, via firma
+> autógrafa o electrónica). A marketing email address or phone number is not a
+> *dato sensible*, so Art. 8 is the wrong — and much heavier — standard for this
+> system. Double opt-in remains the right implementation; only the citation moved.
+> Verified against the Cámara de Diputados vigente text, not against tezca (whose
+> LFPDPPP corpus has an unfixed transitorio-collision that makes arts. 2, 8 and 9
+> return transitorio text).
 
 ## Model
 

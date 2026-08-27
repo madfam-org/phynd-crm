@@ -1,6 +1,6 @@
 /**
  * Double-opt-in confirmation email — sent when a marketing-consent capture
- * requires confirmation (LFPDPPP Art. 8). The link carries the raw
+ * requires confirmation (LFPDPPP Art. 7). The link carries the raw
  * double-opt-in token; clicking it confirms consent via
  * GET /api/consent/confirm.
  */

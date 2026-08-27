@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Pure consent state machine (LFPDPPP Art. 8).
+// Pure consent state machine (LFPDPPP Art. 7).
 //
 // States:
 //   (none)                  — no record exists for (identifier, channel)

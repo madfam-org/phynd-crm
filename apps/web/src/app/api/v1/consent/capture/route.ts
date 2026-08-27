@@ -125,7 +125,7 @@ async function maybeSendConfirmationEmail(
   }
 }
 
-// Cross-product marketing-consent capture (LFPDPPP Art. 8) — called by the
+// Cross-product marketing-consent capture (LFPDPPP Art. 7) — called by the
 // consent components on dhanam/karafiel/tezca. Contract: docs/CONSENT_API.md.
 //
 // Expected payload:

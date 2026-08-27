@@ -3,7 +3,7 @@ import { contacts } from './contacts'
 import { createId } from './utils'
 
 // ---------------------------------------------------------------------------
-// LFPDPPP-grade marketing consent (Art. 8) — channel-scoped consent records.
+// LFPDPPP-grade marketing consent (Art. 7) — channel-scoped consent records.
 //
 // One current-state row per (identifier, channel). `identifier` is a
 // lowercase email address (channel=email) or E.164 phone (channel=sms /

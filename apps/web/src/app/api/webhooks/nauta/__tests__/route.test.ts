@@ -130,7 +130,7 @@ function makeLeadEvent(overrides: Partial<Record<string, unknown>> = {}) {
         message: 'Nos interesa el plan Ecosistema para 60 familias.',
       },
       context: {
-        page: 'https://nauta.madfam.io/',
+        page: 'https://app.nauta.quest',
         plan_interest: 'ecosistema',
       },
     },

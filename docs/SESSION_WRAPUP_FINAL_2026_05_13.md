@@ -51,7 +51,7 @@ This document closes the current session with a full audit, implementation recor
 - `pp5:branch-protection-check`
   - blocked by environment network access to `api.github.com`
 - `pp5:wave0-check`
-  - blocked cluster/API access path (`37.27.235.104:6443: operation not permitted`)
+  - blocked cluster/API access path (`<k3s-api-endpoint>:6443: operation not permitted`; endpoint redacted 2026-09-23, node identity lives only in the private operations record)
   - `phynd-crm-staging-secrets` not found
   - ArgoCD application `phynd-crm-staging` not found
   - web/worker rollout not completed

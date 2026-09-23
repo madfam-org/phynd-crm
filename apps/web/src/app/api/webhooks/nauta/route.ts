@@ -299,7 +299,7 @@ async function notifyNewNautaLead(lead: {
   const html = [
     '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#1a232e">',
     '<h2 style="margin:0 0 4px">Nuevo lead — Nauta</h2>',
-    `<p style="margin:0 0 16px;color:#5a6a7a">Vía el formulario de ${esc(lead.page ?? 'nauta.madfam.io')}</p>`,
+    `<p style="margin:0 0 16px;color:#5a6a7a">Vía el formulario de ${esc(lead.page ?? 'app.nauta.quest')}</p>`,
     '<table style="border-collapse:collapse;width:100%;font-size:14px">',
     ...[
       ['Nombre', lead.name],

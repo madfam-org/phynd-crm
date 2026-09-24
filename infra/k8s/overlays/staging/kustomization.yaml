@@ -17,7 +17,7 @@ images:
 - digest: sha256:b7a69fe80af6434e521a6befd948afc19e5df83443d3302357aeb82cd8431d03
   name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
-- digest: sha256:365143f56ad2a18522fbafb9a604092ee95b9dcfc4d8d1b1682fec70e1929b0f
+- digest: sha256:1c95da827abc3ec36ce2f311efff2e3f23dcc254feb80f72f5ea784368ef6b1f
   name: ghcr.io/madfam-org/phynd-crm/worker
   newName: ghcr.io/madfam-org/phynd-crm/worker
 

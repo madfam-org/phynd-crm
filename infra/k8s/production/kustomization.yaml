@@ -14,14 +14,14 @@ resources:
 - resource-quota.yaml
 - pdb.yaml
 
-images:
 # The images block is THE production pin — it OVERRIDES any digest written in
 # the raw deployment manifests (kustomize images transformer). PR #72 bumped
 # web-deployment.yaml alone and deployed nothing: the same judged-a-value-
 # never-deployed trap enclii#373 fixed in the onboarding gate. Bump HERE.
-- digest: sha256:c5227fe2485faef4e2ec1c6947335034a801df2dd44ebfb7687f19053b3ef3db
+images:
+- digest: sha256:a86f0fcdaadec7b9aad487aeff054821976155fa755a37228bfd67d2dd8d0349
   name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
-- digest: sha256:ffff5c0f127b5bf4fe2d5895b449a779d8a78a8e10225419ba7b42f047a473f8
+- digest: sha256:1c95da827abc3ec36ce2f311efff2e3f23dcc254feb80f72f5ea784368ef6b1f
   name: ghcr.io/madfam-org/phynd-crm/worker
   newName: ghcr.io/madfam-org/phynd-crm/worker

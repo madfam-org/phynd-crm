@@ -40,6 +40,35 @@ function claimsFromAccessToken(accessToken: string | undefined): {
   }
 }
 
+/**
+ * The stable Janua subject (`sub`) for a sign-in.
+ *
+ * Auth.js v5 deliberately replaces the provider's user id with
+ * `crypto.randomUUID()` in its OAuth callback and keeps the provider id only as
+ * `account.providerAccountId`. Without a database adapter the default
+ * `token.sub` is therefore a new random value on every sign-in, so it must not
+ * be used as the user id. `providerAccountId` is what `profile()` returned as
+ * `id` (the OIDC `sub` claim); the raw `profile.sub` is the same claim. Both
+ * must be present and agree, otherwise the sign-in is refused rather than
+ * minting a session with an unstable identity.
+ */
+export function januaSubjectFromSignIn(
+  account: { providerAccountId?: string | null },
+  profile: { sub?: unknown } | undefined,
+): string {
+  const fromProfile = typeof profile?.sub === 'string' ? profile.sub : ''
+  const fromAccount = account.providerAccountId ?? ''
+  if (!fromProfile.trim()) {
+    throw new Error('Janua sign-in returned no `sub` claim; refusing to create a session')
+  }
+  if (fromAccount && fromAccount !== fromProfile) {
+    throw new Error(
+      'Janua sign-in `sub` does not match the account id; refusing to create a session',
+    )
+  }
+  return fromProfile
+}
+
 export const authConfig: NextAuthConfig = {
   trustHost: true,
   providers: [
@@ -65,6 +94,19 @@ export const authConfig: NextAuthConfig = {
   ],
   callbacks: {
     jwt({ token, account, profile }) {
+      if (account) {
+        // Sign-in: the session user id is the Janua subject, stable across
+        // logins and devices. See januaSubjectFromSignIn for why the default
+        // token.sub cannot be used.
+        const subject = januaSubjectFromSignIn(account, profile)
+        token.sub = subject
+        token.januaSub = subject
+      } else if (!token.januaSub) {
+        // A session minted before the user id was the Janua subject carries a
+        // random per-login id. Drop it so the user signs in again and gets the
+        // stable id, instead of writing more rows under the random one.
+        return null
+      }
       if (account && profile) {
         token.accessToken = account.access_token
         // Prefer claims carried in profile (id_token/userinfo); fall back to
@@ -79,7 +121,8 @@ export const authConfig: NextAuthConfig = {
     },
     session({ session, token }) {
       if (session.user) {
-        session.user.id = token.sub ?? ''
+        // The Janua subject (see the jwt callback). Never a random Auth.js id.
+        session.user.id = token.januaSub ?? ''
         session.accessToken = token.accessToken
         session.user.roles = token.roles ?? []
         session.user.scopes = token.scopes ?? []

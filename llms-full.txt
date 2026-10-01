@@ -58,6 +58,19 @@ to supersede older 2026-05-14 remediation notes when they conflict.
 
 MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-ready as of 2026-05-29; live pilot blocked on Enclii deploy, migrate, secrets, webhooks, OIDC.
 
+## Identity contract (2026-09-30)
+
+- The acting user id (`session.user.id` → `AuthContext.userId`) is the Janua OIDC
+  `sub`, set in the Auth.js `jwt` callback at sign-in. Auth.js v5's own
+  `token.sub` is a random UUID per sign-in (JWT sessions, no adapter) and must not
+  be used as an id.
+- Service and system actors keep fixed ids: `service:selva`, `system`,
+  `service:email-drip`, `dev-user` (dev only), `demo-{sessionId}`.
+- CRM `users.id` is separate; `users.external_janua_id` links it to a Janua
+  subject. FK owner columns reference `users.id`.
+- Details, known gaps and the read-only audit `scripts/audit-session-user-ids.mjs`:
+  `docs/IDENTITY.md`.
+
 ## Pilot ops scripts (2026-05-29)
 
 | Script | When |

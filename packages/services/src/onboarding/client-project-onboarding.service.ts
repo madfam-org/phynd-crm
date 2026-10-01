@@ -11,6 +11,7 @@ import {
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError } from '../errors'
+import { requireCrmUserId } from '../identity/actor'
 
 type OnboardingTx = Parameters<Parameters<ServiceContext['db']['transaction']>[0]>[0]
 
@@ -67,7 +68,8 @@ export class ClientProjectOnboardingService {
   constructor(private readonly ctx: ServiceContext) {}
 
   async create(input: ClientProjectOnboardingInput): Promise<ClientProjectOnboardingResult> {
-    const prepared = prepareInput(input, this.ctx.auth.userId)
+    // owner_id is a foreign key to users.id: default it to the caller's CRM user.
+    const prepared = prepareInput(input, input.ownerId ?? requireCrmUserId(this.ctx.auth))
 
     return this.ctx.db.transaction(async (tx) => {
       const contact = await resolveContact(tx, input, prepared.ownerId)

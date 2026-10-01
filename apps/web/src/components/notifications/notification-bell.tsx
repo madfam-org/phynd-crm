@@ -9,10 +9,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { trpc } from '@/lib/trpc/client'
+import { CRM_USER_NOT_LINKED_MESSAGE, isCrmUserNotLinkedError } from '@/lib/trpc/errors'
 import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { Bell } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 type NotificationsListOutput = inferRouterOutputs<AppRouter>['notifications']['list']
 type NotificationRow = NotificationsListOutput[number]
@@ -30,13 +32,28 @@ export function NotificationBell() {
   const markAllAsRead = notificationsRouter.markAllAsRead as NonNullable<
     typeof notificationsRouter.markAllAsRead
   >
-  const { data: unreadCountData } = unreadCountQuery.useQuery(undefined, {
-    refetchInterval: 30_000,
+  // Notifications belong to a CRM user. An unlinked Janua identity gets the
+  // not-linked error once; polling stops instead of repeating it every 30s.
+  const [notLinked, setNotLinked] = useState(false)
+  const pollInterval = notLinked ? false : 30_000
+  const { data: unreadCountData, error: unreadCountError } = unreadCountQuery.useQuery(undefined, {
+    refetchInterval: pollInterval,
   })
-  const { data: notificationsData } = listNotifications.useQuery(
+  const { data: notificationsData, error: listError } = listNotifications.useQuery(
     { limit: 10 },
-    { refetchInterval: 30_000 },
+    { refetchInterval: pollInterval },
   )
+  const meQuery = (trpc.users as NonNullable<typeof trpc.users>).me as NonNullable<
+    NonNullable<typeof trpc.users>['me']
+  >
+  const { data: meData } = meQuery.useQuery(undefined, { enabled: notLinked, retry: false })
+  const ownJanuaSub = (meData as { januaSub: string | null } | undefined)?.januaSub ?? null
+  if (
+    !notLinked &&
+    (isCrmUserNotLinkedError(unreadCountError) || isCrmUserNotLinkedError(listError))
+  ) {
+    setNotLinked(true)
+  }
   const unreadCount = typeof unreadCountData === 'number' ? unreadCountData : 0
   const notifications = (notificationsData as NotificationsListOutput | undefined) ?? []
 
@@ -101,7 +118,16 @@ export function NotificationBell() {
             </Button>
           )}
         </div>
-        {notifications.length === 0 ? (
+        {notLinked ? (
+          <div className="space-y-2 px-3 py-4 text-center text-sm text-muted-foreground">
+            <p>{CRM_USER_NOT_LINKED_MESSAGE}</p>
+            {ownJanuaSub && (
+              <p className="text-xs">
+                Identificador MADFAM: <span className="select-all font-mono">{ownJanuaSub}</span>
+              </p>
+            )}
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="px-3 py-4 text-center text-sm text-muted-foreground">
             No notifications
           </div>

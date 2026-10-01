@@ -66,10 +66,20 @@ MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-re
   be used as an id.
 - Service and system actors keep fixed ids: `service:selva`, `system`,
   `service:email-drip`, `dev-user` (dev only), `demo-{sessionId}`.
-- CRM `users.id` is separate; `users.external_janua_id` links it to a Janua
-  subject. FK owner columns reference `users.id`.
-- Details, known gaps and the read-only audit `scripts/audit-session-user-ids.mjs`:
-  `docs/IDENTITY.md`.
+- CRM `users.id` is separate; `users.external_janua_id` (unique) links it to a
+  Janua subject. FK owner columns reference `users.id`.
+- Resolution (2026-10-01): each request resolves `januaSub` → `crmUserId`
+  (`users.id` or null) once, cached 30 s. Signing in never creates a CRM user.
+- FK writes and per-user reads (`listMine`, notifications, `activities.create`,
+  `contacts.bulkCreate`) use `crmUserId`. Unlinked → tRPC `PRECONDITION_FAILED`,
+  `data.appCode = 'CRM_USER_NOT_LINKED'`, Spanish message for the UI.
+  Service/system/demo principals keep their fixed ids.
+- Free-text actor columns store the CRM user id when linked, else the Janua
+  `sub` (`actorIdOf`). Referral `*_janua_id` columns keep the Janua `sub`.
+- Admins link/unlink in Settings → Users (`users.linkJanua` / `unlinkJanua`,
+  audited, conflicts → `CONFLICT`). Backfill: `scripts/link-janua-users.mjs`
+  (dry-run default, `--apply`). Read-only audit:
+  `scripts/audit-session-user-ids.mjs`. Details: `docs/IDENTITY.md`.
 
 ## Pilot ops scripts (2026-05-29)
 

@@ -1,5 +1,9 @@
 import type { ServiceContext } from '@phynd/services/context'
-import type { AuthContext } from '@phynd/types/auth'
+import {
+  type AuthContext,
+  CRM_USER_NOT_LINKED,
+  CRM_USER_NOT_LINKED_MESSAGE,
+} from '@phynd/types/auth'
 import { TRPCError, initTRPC } from '@trpc/server'
 import superjson from 'superjson'
 
@@ -9,6 +13,13 @@ export type TRPCContext = ServiceContext
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
+  // `data.appCode` carries the ServiceError code (e.g. CRM_USER_NOT_LINKED) so
+  // the UI can react to a specific condition without parsing messages.
+  errorFormatter({ shape, error }) {
+    const cause = error.cause
+    if (!isServiceError(cause)) return shape
+    return { ...shape, data: { ...shape.data, appCode: cause.code } }
+  },
 })
 
 export const router = t.router
@@ -20,6 +31,12 @@ const serviceErrorToTrpcCode: Record<string, TRPCError['code']> = {
   VALIDATION_ERROR: 'BAD_REQUEST',
   CONFLICT: 'CONFLICT',
   FEDERATION_ERROR: 'INTERNAL_SERVER_ERROR',
+  [CRM_USER_NOT_LINKED]: 'PRECONDITION_FAILED',
+}
+
+// User-facing copy for codes whose message the UI shows as is.
+const serviceErrorUserMessage: Record<string, string> = {
+  [CRM_USER_NOT_LINKED]: CRM_USER_NOT_LINKED_MESSAGE,
 }
 
 const serviceErrorNames = new Set([
@@ -28,6 +45,7 @@ const serviceErrorNames = new Set([
   'ValidationError',
   'ConflictError',
   'FederationError',
+  'CrmUserNotLinkedError',
 ])
 
 function isServiceError(err: unknown): err is Error & { code: string } {
@@ -50,7 +68,7 @@ const handleServiceErrors = t.middleware(async ({ next }) => {
     if (isServiceError(cause)) {
       throw new TRPCError({
         code: serviceErrorToTrpcCode[cause.code] ?? 'INTERNAL_SERVER_ERROR',
-        message: cause.message,
+        message: serviceErrorUserMessage[cause.code] ?? cause.message,
         cause,
       })
     }

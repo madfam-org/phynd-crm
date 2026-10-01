@@ -3,6 +3,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { EngagementPortalMagicLinkService } from '../engagement-portal/magic-link.service'
 import { NotFoundError, ValidationError } from '../errors'
+import { actorIdOf } from '../identity/actor'
 
 type PublishTx = Parameters<Parameters<ServiceContext['db']['transaction']>[0]>[0]
 
@@ -58,7 +59,7 @@ export class PublishQuoteToPortalService {
           metadata: {
             quote_id: published.id,
             quote_number: published.quoteNumber,
-            published_by: this.ctx.auth.userId,
+            published_by: actorIdOf(this.ctx.auth),
           },
           dedupKey: `system:quote_sent:${published.id}`,
         })

@@ -188,5 +188,12 @@ export { TagsService } from './tags/tags.service'
 export { TimelineService, type TimelineEntry } from './timeline/timeline.service'
 export { UnifiedProfileService } from './unified-profile/profile.service'
 export { UsersService } from './users/users.service'
+export {
+  CRM_USER_CACHE_TTL_MS,
+  CrmUserResolver,
+  actorIdOf,
+  crmUserResolver,
+  requireCrmUserId,
+} from './identity'
 export { VisitorTrackingService } from './visitor-tracking/visitor-tracking.service'
 export { EmailService, resolveSenderIdentity } from './email/email.service'

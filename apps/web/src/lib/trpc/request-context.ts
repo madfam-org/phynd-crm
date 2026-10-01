@@ -10,6 +10,7 @@ import { resolveFederationServiceUserId } from '@phynd/config/service-auth'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
 import { createServiceContext } from '@phynd/services/context'
+import { crmUserResolver } from '@phynd/services/identity'
 import type { AuthContext } from '@phynd/types/auth'
 
 const serviceAuthLogger = createLogger('web:trpc:service-auth')
@@ -65,6 +66,16 @@ export const EMPTY_AUTH: AuthContext = {
   accessToken: '',
 }
 
+/**
+ * The CRM `users.id` linked to a Janua subject (`users.external_janua_id`), or
+ * null. Cached per tenant + subject for a short TTL (see CrmUserResolver).
+ * A database failure propagates: the request fails visibly rather than running
+ * as an unlinked user.
+ */
+async function resolveCrmUserId(tenantId: string, januaSub: string): Promise<string | null> {
+  return crmUserResolver.resolve(getDb(tenantId), tenantId, januaSub)
+}
+
 export async function resolveAuthContext(
   headers: Headers,
   options?: { demoSessionId?: string | null },
@@ -74,12 +85,14 @@ export async function resolveAuthContext(
 
   const session = await auth()
   if (session?.user) {
+    const januaSub = session.user.id ?? ''
     return {
-      userId: session.user.id ?? '',
+      userId: januaSub,
       tenantId,
       roles: session.user.roles ?? [],
       scopes: session.user.scopes ?? [],
       accessToken: session.accessToken ?? '',
+      ...(januaSub ? { januaSub, crmUserId: await resolveCrmUserId(tenantId, januaSub) } : {}),
     }
   }
   if (DEV_BYPASS) {

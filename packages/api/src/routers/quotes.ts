@@ -1,4 +1,4 @@
-import { QuotesService } from '@phynd/services'
+import { QuotesService, requireCrmUserId } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -28,7 +28,7 @@ export const quotesRouter = router({
     )
     .query(({ ctx, input }) => {
       const service = new QuotesService(ctx)
-      return service.list(input ?? undefined, { ownerId: ctx.auth.userId })
+      return service.list(input ?? undefined, { ownerId: requireCrmUserId(ctx.auth) })
     }),
 
   listByOpportunityId: protectedProcedure

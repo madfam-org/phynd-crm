@@ -3,6 +3,7 @@ import { aiKanbanSuggestions, leads, opportunities, pipelineStages } from '@phyn
 import { and, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
+import { actorIdOf } from '../identity/actor'
 import { LeadsService } from '../leads/leads.service'
 import { OpportunitiesService } from '../opportunities/opportunities.service'
 
@@ -59,7 +60,7 @@ export class AiKanbanService {
         title: input.title,
         rationale: input.rationale ?? null,
         proposedStageId: input.proposedStageId,
-        source: input.source ?? this.ctx.auth.userId,
+        source: input.source ?? actorIdOf(this.ctx.auth),
         status: 'pending',
       })
       .returning()
@@ -143,7 +144,7 @@ export class AiKanbanService {
       .update(aiKanbanSuggestions)
       .set({
         status: 'approved',
-        reviewedBy: this.ctx.auth.userId,
+        reviewedBy: actorIdOf(this.ctx.auth),
         reviewedAt: new Date(),
       })
       .where(eq(aiKanbanSuggestions.id, id))
@@ -160,7 +161,7 @@ export class AiKanbanService {
       .update(aiKanbanSuggestions)
       .set({
         status: 'rejected',
-        reviewedBy: this.ctx.auth.userId,
+        reviewedBy: actorIdOf(this.ctx.auth),
         reviewedAt: new Date(),
       })
       .where(eq(aiKanbanSuggestions.id, id))

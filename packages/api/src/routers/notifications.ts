@@ -1,4 +1,4 @@
-import { NotificationsService } from '@phynd/services'
+import { NotificationsService, requireCrmUserId } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -14,23 +14,23 @@ export const notificationsRouter = router({
     )
     .query(({ ctx, input }) => {
       const service = new NotificationsService(ctx)
-      return service.listForUser(ctx.auth.userId, input ?? undefined)
+      return service.listForUser(requireCrmUserId(ctx.auth), input ?? undefined)
     }),
 
   unreadCount: protectedProcedure.query(({ ctx }) => {
     const service = new NotificationsService(ctx)
-    return service.getUnreadCount(ctx.auth.userId)
+    return service.getUnreadCount(requireCrmUserId(ctx.auth))
   }),
 
   markAsRead: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(({ ctx, input }) => {
       const service = new NotificationsService(ctx)
-      return service.markAsRead(input.id)
+      return service.markAsRead(input.id, requireCrmUserId(ctx.auth))
     }),
 
   markAllAsRead: protectedProcedure.mutation(({ ctx }) => {
     const service = new NotificationsService(ctx)
-    return service.markAllAsRead(ctx.auth.userId)
+    return service.markAllAsRead(requireCrmUserId(ctx.auth))
   }),
 })

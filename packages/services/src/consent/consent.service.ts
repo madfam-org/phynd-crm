@@ -2,6 +2,7 @@ import { consentAudit, consentRecords, contacts } from '@phynd/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
+import { actorIdOf } from '../identity/actor'
 import {
   type ConsentAction,
   type ConsentChannel,
@@ -182,7 +183,7 @@ export class ConsentService {
         newStatus,
         source: input.source,
         evidence: input.evidence ?? null,
-        actor: input.actor ?? this.ctx.auth.userId ?? null,
+        actor: input.actor ?? (actorIdOf(this.ctx.auth) || null),
       })
 
       return row

@@ -2,6 +2,7 @@ import { notes } from '@phynd/db/schema'
 import type { EntityType } from '@phynd/types/crm'
 import { and, eq } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { actorIdOf } from '../identity/actor'
 
 export class NotesService {
   constructor(private readonly ctx: ServiceContext) {}
@@ -24,7 +25,7 @@ export class NotesService {
       .insert(notes)
       .values({
         ...data,
-        authorId: this.ctx.auth.userId,
+        authorId: actorIdOf(this.ctx.auth),
       })
       .returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row

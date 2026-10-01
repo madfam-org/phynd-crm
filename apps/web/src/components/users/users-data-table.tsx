@@ -17,6 +17,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { CreateUserDialog } from './create-user-dialog'
 import { EditUserDialog } from './edit-user-dialog'
+import { LinkJanuaDialog } from './link-janua-dialog'
 
 type UsersListOutput = inferRouterOutputs<AppRouter>['users']['list']
 type UserRow = UsersListOutput['items'][number]
@@ -43,12 +44,14 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
   const usersRouter = trpc.users as NonNullable<typeof trpc.users>
   const listUsers = usersRouter.list as NonNullable<typeof usersRouter.list>
   const deleteUser = usersRouter.delete as NonNullable<typeof usersRouter.delete>
+  const unlinkJanua = usersRouter.unlinkJanua as NonNullable<typeof usersRouter.unlinkJanua>
   const { data: usersData } = listUsers.useQuery(undefined, {
     initialData,
     refetchInterval: 120_000,
   })
   const users = (usersData as UsersListOutput | undefined) ?? initialData
   const [editUser, setEditUser] = useState<UserRow | null>(null)
+  const [linkUser, setLinkUser] = useState<UserRow | null>(null)
 
   const utils = trpc.useUtils()
   const usersUtils = utils.users as NonNullable<typeof utils.users>
@@ -59,6 +62,13 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
       toast.success('User deleted')
     },
     onError: (err) => toast.error('Failed to delete user', { description: err.message }),
+  })
+  const unlinkMutation = unlinkJanua.useMutation({
+    onSuccess: () => {
+      listUsersUtils.invalidate()
+      toast.success('Janua identity unlinked')
+    },
+    onError: (err) => toast.error('Failed to unlink Janua identity', { description: err.message }),
   })
 
   const columns: ColumnDef<UserRow>[] = [
@@ -80,6 +90,18 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
           {roleLabel[row.role] ?? row.role}
         </Badge>
       ),
+    },
+    {
+      id: 'janua',
+      header: 'Janua link',
+      cell: (row) =>
+        row.externalJanuaId ? (
+          <Badge variant="success" title={row.externalJanuaId}>
+            Linked · <span className="font-mono">{row.externalJanuaId.slice(0, 8)}</span>
+          </Badge>
+        ) : (
+          <Badge variant="secondary">Not linked</Badge>
+        ),
     },
     {
       id: 'createdAt',
@@ -106,6 +128,15 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setEditUser(row)}>Edit</DropdownMenuItem>
+            {row.externalJanuaId ? (
+              <DropdownMenuItem onClick={() => unlinkMutation.mutate({ id: row.id })}>
+                Unlink Janua identity
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => setLinkUser(row)}>
+                Link Janua identity
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               className="text-destructive"
               onClick={() => deleteMutation.mutate({ id: row.id })}
@@ -143,6 +174,13 @@ export function UsersDataTable({ initialData }: UsersDataTableProps) {
           user={editUser}
           open={!!editUser}
           onOpenChange={(open) => !open && setEditUser(null)}
+        />
+      )}
+      {linkUser && (
+        <LinkJanuaDialog
+          user={linkUser}
+          open={!!linkUser}
+          onOpenChange={(open) => !open && setLinkUser(null)}
         />
       )}
     </div>

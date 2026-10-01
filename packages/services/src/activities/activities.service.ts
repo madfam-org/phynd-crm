@@ -2,6 +2,7 @@ import { activities } from '@phynd/db/schema'
 import type { EntityType, PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, desc, eq, gt } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { requireCrmUserId } from '../identity/actor'
 
 export class ActivitiesService {
   constructor(private readonly ctx: ServiceContext) {}
@@ -22,11 +23,12 @@ export class ActivitiesService {
     entityType: EntityType
     entityId: string
   }) {
+    const ownerId = requireCrmUserId(this.ctx.auth)
     const [activity] = await this.ctx.db
       .insert(activities)
       .values({
         ...data,
-        ownerId: this.ctx.auth.userId,
+        ownerId,
       })
       .returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row

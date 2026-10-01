@@ -1,4 +1,4 @@
-import { ContactsService } from '@phynd/services'
+import { ContactsService, requireCrmUserId } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -28,7 +28,7 @@ export const contactsRouter = router({
     )
     .query(({ ctx, input }) => {
       const service = new ContactsService(ctx)
-      return service.list(input ?? undefined, { ownerId: ctx.auth.userId })
+      return service.list(input ?? undefined, { ownerId: requireCrmUserId(ctx.auth) })
     }),
 
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
@@ -66,8 +66,9 @@ export const contactsRouter = router({
         .max(500),
     )
     .mutation(({ ctx, input }) => {
+      const ownerId = requireCrmUserId(ctx.auth)
       const service = new ContactsService(ctx)
-      return service.bulkCreate(input.map((row) => ({ ...row, ownerId: ctx.auth.userId })))
+      return service.bulkCreate(input.map((row) => ({ ...row, ownerId })))
     }),
 
   update: protectedProcedure

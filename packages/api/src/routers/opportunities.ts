@@ -1,4 +1,4 @@
-import { OpportunitiesService } from '@phynd/services'
+import { OpportunitiesService, requireCrmUserId } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 import { entityId } from '../validation'
@@ -29,7 +29,7 @@ export const opportunitiesRouter = router({
     )
     .query(({ ctx, input }) => {
       const service = new OpportunitiesService(ctx)
-      return service.list(input ?? undefined, { ownerId: ctx.auth.userId })
+      return service.list(input ?? undefined, { ownerId: requireCrmUserId(ctx.auth) })
     }),
 
   listByContactId: protectedProcedure

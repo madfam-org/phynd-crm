@@ -9,6 +9,7 @@ import {
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { actorIdOf } from '../identity/actor'
 import { NotificationsService } from '../notifications/notifications.service'
 
 type QuoteTx = Parameters<Parameters<ServiceContext['db']['transaction']>[0]>[0]
@@ -174,7 +175,7 @@ export class QuotesService {
 
   async accept(id: string, input: AcceptQuoteInput = {}): Promise<AcceptQuoteResult | null> {
     return this.ctx.db.transaction((tx) =>
-      acceptQuoteInTransaction(tx, id, input, this.ctx.auth.userId),
+      acceptQuoteInTransaction(tx, id, input, actorIdOf(this.ctx.auth)),
     )
   }
 

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ConflictError, NotFoundError } from '../errors'
+import { crmUserResolver } from '../identity/crm-user-resolver'
 import { UsersService } from '../users/users.service'
 import { type MockDatabase, createTestContext, makeUser } from './helpers'
 
@@ -10,6 +12,7 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
+  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
@@ -38,7 +41,17 @@ describe('UsersService', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
+
+  /** Resolves the next awaited queries, in order, to these rows. */
+  function queueResults(...results: unknown[][]) {
+    for (const rows of results) {
+      mockDb._qb.then.mockImplementationOnce((resolve: (v: unknown) => void) =>
+        Promise.resolve(rows).then(resolve),
+      )
+    }
+  }
 
   // -------------------------------------------------------------------------
   // list()
@@ -164,7 +177,7 @@ describe('UsersService', () => {
         name: 'Admin User',
         role: 'admin',
       })
-      mockDb._qb._result = [newUser]
+      queueResults([], [newUser]) // Janua id is free, then the insert
 
       const result = await service.create({
         email: 'admin@example.com',
@@ -179,6 +192,129 @@ describe('UsersService', () => {
       expect(valuesArg?.name).toBe('Admin User')
       expect(valuesArg?.role).toBe('admin')
       expect(valuesArg?.externalJanuaId).toBe('janua-123')
+    })
+
+    it('rejects a Janua id already linked to another user', async () => {
+      queueResults([makeUser({ id: 'user-other', externalJanuaId: 'janua-123' })])
+
+      await expect(
+        service.create({ email: 'new@example.com', externalJanuaId: 'janua-123' }),
+      ).rejects.toBeInstanceOf(ConflictError)
+      expect(mockDb.insert).not.toHaveBeenCalled()
+    })
+
+    it('reports a unique violation from a concurrent insert as a conflict', async () => {
+      queueResults([])
+      mockDb._qb.then.mockImplementationOnce((_resolve: unknown, reject: (e: unknown) => void) =>
+        reject(Object.assign(new Error('query failed'), { cause: { code: '23505' } })),
+      )
+
+      await expect(
+        service.create({ email: 'new@example.com', externalJanuaId: 'janua-123' }),
+      ).rejects.toThrow('already linked to another CRM user')
+    })
+
+    it('treats an empty Janua id as no link and skips the check', async () => {
+      const newUser = makeUser({ id: 'user-new' })
+      mockDb._qb._result = [newUser]
+
+      await service.create({ email: 'new@example.com', externalJanuaId: '' })
+
+      expect(mockDb.select).not.toHaveBeenCalled()
+      const valuesArg = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+      expect(valuesArg?.externalJanuaId).toBeUndefined()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // linkJanua() / unlinkJanua()
+  // -------------------------------------------------------------------------
+  describe('linkJanua()', () => {
+    it('links an unlinked user and invalidates the resolver cache', async () => {
+      const invalidate = vi.spyOn(crmUserResolver, 'invalidate')
+      const linked = makeUser({ id: 'user-001', externalJanuaId: 'janua-sub-1' })
+      queueResults([makeUser({ id: 'user-001', externalJanuaId: null })], [], [linked])
+
+      const result = await service.linkJanua('user-001', 'janua-sub-1')
+
+      expect(result).toEqual(linked)
+      const setArg = mockDb._qb.set.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+      expect(setArg).toEqual({ externalJanuaId: 'janua-sub-1' })
+      expect(invalidate).toHaveBeenCalledWith('madfam', 'janua-sub-1')
+    })
+
+    it('is idempotent for the same pair', async () => {
+      const user = makeUser({ id: 'user-001', externalJanuaId: 'janua-sub-1' })
+      queueResults([user])
+
+      await expect(service.linkJanua('user-001', 'janua-sub-1')).resolves.toEqual(user)
+      expect(mockDb.update).not.toHaveBeenCalled()
+    })
+
+    it('refuses to relink a user that holds another Janua id', async () => {
+      queueResults([makeUser({ id: 'user-001', externalJanuaId: 'janua-sub-old' })])
+
+      await expect(service.linkJanua('user-001', 'janua-sub-1')).rejects.toThrow(
+        'already linked to a different Janua identity',
+      )
+      expect(mockDb.update).not.toHaveBeenCalled()
+    })
+
+    it('refuses a Janua id linked to another user', async () => {
+      queueResults(
+        [makeUser({ id: 'user-001', externalJanuaId: null })],
+        [makeUser({ id: 'user-002', externalJanuaId: 'janua-sub-1' })],
+      )
+
+      const err = await service.linkJanua('user-001', 'janua-sub-1').catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(ConflictError)
+      expect((err as ConflictError).details).toEqual({ userId: 'user-002' })
+      expect(mockDb.update).not.toHaveBeenCalled()
+    })
+
+    it('reports a concurrent link of the same user as a conflict', async () => {
+      queueResults([makeUser({ id: 'user-001', externalJanuaId: null })], [], [])
+
+      await expect(service.linkJanua('user-001', 'janua-sub-1')).rejects.toThrow(
+        'linked concurrently',
+      )
+    })
+
+    it('throws NotFoundError for an unknown user', async () => {
+      queueResults([])
+
+      await expect(service.linkJanua('missing', 'janua-sub-1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      )
+    })
+  })
+
+  describe('unlinkJanua()', () => {
+    it('clears the link and invalidates the previous subject', async () => {
+      const invalidate = vi.spyOn(crmUserResolver, 'invalidate')
+      const unlinked = makeUser({ id: 'user-001', externalJanuaId: null })
+      queueResults([makeUser({ id: 'user-001', externalJanuaId: 'janua-sub-1' })], [unlinked])
+
+      const result = await service.unlinkJanua('user-001')
+
+      expect(result).toEqual(unlinked)
+      const setArg = mockDb._qb.set.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+      expect(setArg).toEqual({ externalJanuaId: null })
+      expect(invalidate).toHaveBeenCalledWith('madfam', 'janua-sub-1')
+    })
+
+    it('is a no-op for a user that is not linked', async () => {
+      const user = makeUser({ id: 'user-001', externalJanuaId: null })
+      queueResults([user])
+
+      await expect(service.unlinkJanua('user-001')).resolves.toEqual(user)
+      expect(mockDb.update).not.toHaveBeenCalled()
+    })
+
+    it('throws NotFoundError for an unknown user', async () => {
+      queueResults([])
+
+      await expect(service.unlinkJanua('missing')).rejects.toBeInstanceOf(NotFoundError)
     })
   })
 

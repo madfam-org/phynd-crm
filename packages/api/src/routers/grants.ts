@@ -1,5 +1,5 @@
 import { isFeatureEnabled } from '@phynd/config/features'
-import { GrantsService } from '@phynd/services'
+import { GrantsService, actorIdOf } from '@phynd/services'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
@@ -113,7 +113,7 @@ export const grantsRouter = router({
     .mutation(({ ctx, input }) => {
       assertTreasuryHunter()
       const service = new GrantsService(ctx)
-      return service.approveForSubmission(input.id, ctx.auth.userId, input.notes)
+      return service.approveForSubmission(input.id, actorIdOf(ctx.auth), input.notes)
     }),
 
   rejectSubmission: protectedProcedure
@@ -126,7 +126,7 @@ export const grantsRouter = router({
     .mutation(({ ctx, input }) => {
       assertTreasuryHunter()
       const service = new GrantsService(ctx)
-      return service.rejectSubmission(input.id, ctx.auth.userId, input.notes)
+      return service.rejectSubmission(input.id, actorIdOf(ctx.auth), input.notes)
     }),
 
   markSubmitted: protectedProcedure

@@ -4,6 +4,7 @@ import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
+import { actorIdOf } from '../identity/actor'
 import { dispatchGrantAwarded } from './grant-webhook-dispatcher'
 import { summarizeKarafielCompliance } from './karafiel-compliance'
 
@@ -201,7 +202,7 @@ export class GrantsService {
       grantOpportunityId: data.grantOpportunityId,
       grantApplicationId: newApp.id,
       eventType: 'discovered',
-      actor: this.ctx.auth.userId,
+      actor: actorIdOf(this.ctx.auth),
     })
 
     return newApp
@@ -221,7 +222,7 @@ export class GrantsService {
         grantOpportunityId: current.grantOpportunityId,
         grantApplicationId: id,
         eventType: 'discovered',
-        actor: this.ctx.auth.userId,
+        actor: actorIdOf(this.ctx.auth),
         details: { fromStageId: current.stageId, toStageId: stageId },
       })
     }
@@ -243,7 +244,7 @@ export class GrantsService {
         grantOpportunityId: current.grantOpportunityId,
         grantApplicationId: id,
         eventType: 'hitl_requested',
-        actor: this.ctx.auth.userId,
+        actor: actorIdOf(this.ctx.auth),
       })
     }
 
@@ -342,7 +343,7 @@ export class GrantsService {
         grantOpportunityId: current.grantOpportunityId,
         grantApplicationId: id,
         eventType: 'submitted',
-        actor: this.ctx.auth.userId,
+        actor: actorIdOf(this.ctx.auth),
       })
     }
 
@@ -382,7 +383,7 @@ export class GrantsService {
         grantOpportunityId: current.grantOpportunityId,
         grantApplicationId: id,
         eventType: 'awarded',
-        actor: this.ctx.auth.userId,
+        actor: actorIdOf(this.ctx.auth),
         details: { awardedAmount },
       })
 

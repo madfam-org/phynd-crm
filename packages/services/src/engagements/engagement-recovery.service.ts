@@ -2,6 +2,7 @@ import { engagementEvents, engagements, orders } from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
+import { actorIdOf } from '../identity/actor'
 import {
   type DhanamPaymentReconciliationInput,
   reconcileDhanamPayment,
@@ -70,7 +71,7 @@ export class EngagementRecoveryService {
       await markEventResolved(tx, event.id, {
         action: 'link_payment_to_order',
         order_id: order.id,
-        reconciled_by: this.ctx.auth.userId,
+        reconciled_by: actorIdOf(this.ctx.auth),
       })
 
       return { eventId: event.id, orderId: order.id, reconciliation: result }
@@ -104,7 +105,7 @@ export class EngagementRecoveryService {
           message: `Operator configured delivery tracks: ${input.deliveryTracks.join(', ')}`,
           metadata: {
             delivery_tracks: input.deliveryTracks,
-            configured_by: this.ctx.auth.userId,
+            configured_by: actorIdOf(this.ctx.auth),
             source_blocked_event_id: event.id,
           },
           dedupKey: `delivery_tracks:${event.engagementId}:${event.id}`,
@@ -134,7 +135,7 @@ export class EngagementRecoveryService {
       await markEventResolved(tx, event.id, {
         action: 'retry_production_dispatch',
         dispatched_tracks: dispatch.dispatchedTracks,
-        resolved_by: this.ctx.auth.userId,
+        resolved_by: actorIdOf(this.ctx.auth),
       })
 
       return {
@@ -151,7 +152,7 @@ export class EngagementRecoveryService {
       await markEventResolved(tx, event.id, {
         action: 'manual_resolve',
         note: input.note ?? null,
-        resolved_by: this.ctx.auth.userId,
+        resolved_by: actorIdOf(this.ctx.auth),
       })
       return { eventId: event.id, status: 'completed' as const }
     })

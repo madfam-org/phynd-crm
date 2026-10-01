@@ -3,6 +3,7 @@ import { conversions, leads, stageTransitions } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { actorIdOf } from '../identity/actor'
 import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
 import { NotificationsService } from '../notifications/notifications.service'
 
@@ -142,7 +143,7 @@ export class LeadsService {
         entityId: id,
         fromStageId: current?.stageId ?? null,
         toStageId: stageId,
-        transitionedBy: this.ctx.auth.userId || null,
+        transitionedBy: actorIdOf(this.ctx.auth) || null,
       })
     }
 

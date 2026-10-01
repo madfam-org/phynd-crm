@@ -32,11 +32,14 @@ export class NotificationsService {
     return notification!
   }
 
-  async markAsRead(id: string) {
+  /** Marks one notification read. With `userId`, only that user's notification matches. */
+  async markAsRead(id: string, userId?: string) {
+    const conditions = [eq(notifications.id, id)]
+    if (userId !== undefined) conditions.push(eq(notifications.userId, userId))
     const [notification] = await this.ctx.db
       .update(notifications)
       .set({ isRead: true, readAt: new Date() })
-      .where(eq(notifications.id, id))
+      .where(and(...conditions))
       .returning()
     return notification ?? null
   }

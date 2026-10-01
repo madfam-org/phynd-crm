@@ -6,6 +6,7 @@ import { EmailService } from '../email/email.service'
 import { campaignVariantEmail } from '../email/templates/campaign-variant'
 import { buildUnsubscribeUrl } from '../email/unsubscribe-token'
 import { NotFoundError, ValidationError } from '../errors'
+import { actorIdOf } from '../identity/actor'
 import { assertCampaignSendAuthorized } from './campaign-authorization-gate'
 import { CampaignAuthorizationService } from './campaign-authorization.service'
 import { CampaignBuyerSignalService } from './campaign-buyer-signal.service'
@@ -240,7 +241,7 @@ export class CampaignsService {
     // variants the request is skipped (the send path would refuse anyway);
     // a request can be created manually from /campaigns/authorizations.
     try {
-      await new CampaignAuthorizationService(this.ctx).request(id, this.ctx.auth.userId)
+      await new CampaignAuthorizationService(this.ctx).request(id, actorIdOf(this.ctx.auth))
     } catch (error) {
       if (!(error instanceof ValidationError)) throw error
     }

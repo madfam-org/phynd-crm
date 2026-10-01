@@ -1,4 +1,4 @@
-import { ActivitiesService } from '@phynd/services'
+import { ActivitiesService, requireCrmUserId } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -28,7 +28,7 @@ export const activitiesRouter = router({
     )
     .query(({ ctx, input }) => {
       const service = new ActivitiesService(ctx)
-      return service.listRecent(input ?? undefined, { ownerId: ctx.auth.userId })
+      return service.listRecent(input ?? undefined, { ownerId: requireCrmUserId(ctx.auth) })
     }),
 
   listForEntity: protectedProcedure

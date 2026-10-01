@@ -1,3 +1,5 @@
+import { CRM_USER_NOT_LINKED } from '@phynd/types/auth'
+
 export class ServiceError extends Error {
   constructor(
     message: string,
@@ -35,5 +37,18 @@ export class ConflictError extends ServiceError {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'CONFLICT', 409, details)
     this.name = 'ConflictError'
+  }
+}
+
+/**
+ * The signed-in Janua identity has no CRM user linked through
+ * `users.external_janua_id`, so a procedure that writes or reads per-user rows
+ * (owner foreign keys, notifications) cannot run. An admin links the account.
+ * See docs/IDENTITY.md.
+ */
+export class CrmUserNotLinkedError extends ServiceError {
+  constructor() {
+    super('The signed-in Janua identity is not linked to a CRM user', CRM_USER_NOT_LINKED, 412)
+    this.name = 'CrmUserNotLinkedError'
   }
 }

@@ -32,8 +32,9 @@
  *   DATABASE_URL=postgresql://... node scripts/audit-session-user-ids.mjs [--json]
  *
  * Usage (in-cluster, piped from a checkout through the operator's cluster
- * access; the worker image ships `postgres` under node_modules/@phynd/db and has
- * DATABASE_URL in its environment). This is a read-only diagnostic, run under
+ * access; the worker image ships `postgres` inside node_modules/.pnpm, reached
+ * through the node_modules/@phynd/db symlink, and has DATABASE_URL in its
+ * environment — see resolvePostgresPath). This is a read-only diagnostic, run under
  * the break-glass rules in AGENTS.md:
  *   kubectl -n phynd-crm exec -i deploy/phynd-crm-worker -- \
  *     node --input-type=module - < scripts/audit-session-user-ids.mjs
@@ -43,9 +44,10 @@
  *   --database-env <NAME>   read the URL from env NAME (e.g. DATABASE_URL_TABLACO)
  */
 
+import { realpathSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 /** Columns that hold "who did this". `expr` is SQL over the table alias `t`. */
 export const TARGETS = [
@@ -155,25 +157,44 @@ function parseArgs(argv) {
   return args
 }
 
-/** `postgres` lives under @phynd/db (pnpm strict layout), in the repo and in the worker image. */
-function loadPostgres() {
-  const cwd = process.cwd()
-  const candidates = [
-    () => path.join(cwd, 'node_modules/@phynd/db/package.json'), // worker image (/app)
-    () => path.join(cwd, 'packages/db/package.json'), // repo checkout
-    () => new URL('../packages/db/package.json', import.meta.url).href, // run by path from scripts/
-    () => path.join(cwd, 'package.json'),
-  ]
-  for (const candidate of candidates) {
+/**
+ * Absolute path of the `postgres` driver, resolved the way it is installed.
+ *
+ * `postgres` is a dependency of @phynd/db only (pnpm strict layout). In the
+ * worker image (`pnpm deploy`, copied to /app) `node_modules/@phynd/db` is a
+ * SYMLINK into `node_modules/.pnpm/…/node_modules/@phynd/db`, and `postgres`
+ * sits next to the symlink's target, not next to the link. Node resolves
+ * relative to the path it is given without following the link, so the base
+ * must be the real path. Bases, first match wins:
+ *   1. <cwd>/node_modules/@phynd/db  — worker image (/app), pnpm deploy output
+ *   2. <cwd>/packages/db             — repo checkout, run from the root
+ *   3. <script dir>/../packages/db   — run by path from anywhere
+ *   4. <cwd>                         — a hoisted install
+ */
+export function resolvePostgresPath({ cwd = process.cwd(), scriptUrl = import.meta.url } = {}) {
+  const bases = [path.join(cwd, 'node_modules/@phynd/db'), path.join(cwd, 'packages/db')]
+  try {
+    bases.push(path.join(path.dirname(fileURLToPath(scriptUrl)), '../packages/db'))
+  } catch {
+    // piped on stdin: no script file to resolve from
+  }
+  bases.push(cwd)
+  for (const base of bases) {
     try {
-      return createRequire(candidate())('postgres')
+      const real = realpathSync(base)
+      return createRequire(path.join(real, 'package.json')).resolve('postgres')
     } catch {
       // try the next location
     }
   }
   throw new Error(
-    'cannot resolve the `postgres` package; run from the repo root or the worker /app',
+    `cannot resolve the \`postgres\` package from ${cwd}; run from the repo root (after pnpm install) or the worker /app`,
   )
+}
+
+function loadPostgres() {
+  const resolved = resolvePostgresPath()
+  return createRequire(resolved)(resolved)
 }
 
 async function existingColumns(tx) {

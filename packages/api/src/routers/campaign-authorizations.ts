@@ -1,5 +1,6 @@
 import { isFeatureEnabled } from '@phynd/config/features'
-import { CampaignAuthorizationService } from '@phynd/services'
+import { CampaignAuthorizationService, actorIdOf } from '@phynd/services'
+import type { AuthContext } from '@phynd/types/auth'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
@@ -24,11 +25,11 @@ function isServiceActor(userId: string, roles: string[]): boolean {
  * audit row then records both (`operator (via service:selva)`).
  */
 function resolveDecisionActor(
-  auth: { userId: string; roles: string[] },
+  auth: AuthContext,
   actor: string | undefined,
 ): { decidedBy: string; decidedVia: string } {
   if (!isServiceActor(auth.userId, auth.roles)) {
-    return { decidedBy: auth.userId, decidedVia: 'web' }
+    return { decidedBy: actorIdOf(auth), decidedVia: 'web' }
   }
   const operator = actor?.trim()
   if (!operator) {
@@ -66,7 +67,7 @@ export const campaignAuthorizationsRouter = router({
     .input(z.object({ campaignId: z.string() }))
     .mutation(({ ctx, input }) => {
       assertFunnelManagement()
-      return new CampaignAuthorizationService(ctx).request(input.campaignId, ctx.auth.userId)
+      return new CampaignAuthorizationService(ctx).request(input.campaignId, actorIdOf(ctx.auth))
     }),
 
   decide: protectedProcedure

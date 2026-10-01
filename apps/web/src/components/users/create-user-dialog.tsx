@@ -35,6 +35,7 @@ export function CreateUserDialog() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<string>('viewer')
+  const [januaSub, setJanuaSub] = useState('')
 
   const utils = trpc.useUtils()
   const usersRouter = trpc.users as NonNullable<typeof trpc.users>
@@ -55,6 +56,7 @@ export function CreateUserDialog() {
     setEmail('')
     setName('')
     setRole('viewer')
+    setJanuaSub('')
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -63,6 +65,7 @@ export function CreateUserDialog() {
       email,
       name: name || undefined,
       role: role as 'admin' | 'manager' | 'sales_rep' | 'viewer',
+      externalJanuaId: januaSub.trim() || undefined,
     })
   }
 
@@ -96,6 +99,17 @@ export function CreateUserDialog() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Full name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="create-user-janua-sub">Janua subject (optional)</Label>
+              <Input
+                id="create-user-janua-sub"
+                value={januaSub}
+                onChange={(e) => setJanuaSub(e.target.value)}
+                placeholder="Janua user id; links this user to their MADFAM sign-in"
+                className="font-mono"
+                autoComplete="off"
               />
             </div>
             <div className="grid gap-2">

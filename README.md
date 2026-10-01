@@ -80,7 +80,7 @@ All federation calls use `Promise.allSettled()` so that a failure in one provide
 | ORM            | Drizzle ORM                                     |
 | Database       | PostgreSQL 16                                   |
 | Cache / Queue  | Redis 7 (ioredis) + BullMQ                     |
-| Auth           | Auth.js v5 with Janua as OIDC provider          |
+| Auth           | Auth.js v5 with Janua as OIDC provider; the session user id is the Janua `sub` ([`docs/IDENTITY.md`](docs/IDENTITY.md)) |
 | Lint / Format  | Biome                                           |
 | Testing        | Vitest (unit), Playwright (E2E)                 |
 | Language       | TypeScript 5.7                                  |

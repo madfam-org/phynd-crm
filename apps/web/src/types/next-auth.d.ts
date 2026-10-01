@@ -22,6 +22,8 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
+    /** Janua OIDC subject; the session user id. Absent on pre-fix sessions. */
+    januaSub?: string
     accessToken?: string
     roles?: string[]
     scopes?: string[]

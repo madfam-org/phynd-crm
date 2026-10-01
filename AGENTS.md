@@ -68,7 +68,7 @@ Phynd is a phygital CRM — "Synthetic Single Pane of Glass" that federates data
 - **API**: tRPC v11 (MVP) — service layer is transport-agnostic for future GraphQL
 - **ORM**: Drizzle ORM + PostgreSQL 16
 - **Cache/Queue**: Redis (ioredis) + BullMQ
-- **Auth**: Auth.js v5 with Janua as OIDC provider
+- **Auth**: Auth.js v5 with Janua as OIDC provider. The session user id (`session.user.id` → `ctx.auth.userId`) is the Janua OIDC `sub`; see `docs/IDENTITY.md`
 - **Theming**: next-themes (dark mode via `.dark` class)
 - **Tooling**: Biome (lint/format), Vitest + Playwright (test), husky (pre-commit hooks)
 
@@ -130,6 +130,7 @@ pnpm verify:selva-agent     # Selva service-token integration smoke test
 - **Demo auth injection**: Both `getServerCaller()` and tRPC route handler check for demo cookie; if present and no real session, use `createDemoAuth(sessionId)` as auth context
 - **Feature flags**: `getFeatureFlags()` returns frozen copy; `setFeatureFlags()` throws in production. Production may opt into gated features via env only: `FEATURE_TREASURY_HUNTER`, `FEATURE_OBSERVABILITY`, `FEATURE_PII_MASKING`, `FEATURE_AI_KANBAN` (see `packages/config/src/features.ts`)
 - **Auth safety**: `AUTH_BYPASS=true` blocked in production via Zod superRefine
+- **User identity**: `session.user.id` is the Janua `sub`, set in the Auth.js `jwt` callback at sign-in (`apps/web/src/lib/auth/config.ts`), never Auth.js's default `token.sub` — with JWT sessions and no adapter that is a fresh `crypto.randomUUID()` per sign-in. Sessions without `token.januaSub` (minted before 2026-09-30) are dropped so the user signs in again. CRM `users.id` is a separate CRM-generated id linked by `users.external_janua_id`; FK owner columns reference `users.id`. Read-only damage audit: `scripts/audit-session-user-ids.mjs`. Full model and known gaps: `docs/IDENTITY.md`
 - **Federation token auth**: Service-to-service tRPC and GraphQL calls via `FEDERATION_API_TOKEN` env var. If request `Authorization: Bearer <token>` matches, creates `SERVICE_AUTH` context (`userId: 'service:selva'` via `FEDERATION_SERVICE_USER_ID`, `roles: ['service']`, scopes: `leads:read`, `activities:read`, `contacts:read`, `opportunities:read`, `unifiedProfile:read`, `engagements:read`, `search:read`, `analytics:read`, `aiKanban:write`) bypassing Auth.js session check. Shared resolver `createAppContextFromRequest()` in `apps/web/src/lib/trpc/request-context.ts`. Structured audit log on each service-auth request (`web:trpc:service-auth`, field `surface`: `trpc` | `graphql`). `enforceServiceScopes` middleware rejects out-of-scope tRPC procedures. Rate limiting still applies. Empty/unset token disables the path
 - **Error handling**: Structured errors (`ServiceError`, `NotFoundError`, `ValidationError`, `FederationError`, `ConflictError`) in `packages/services/src/errors.ts`
 - **Tezca webhook events**: `interest.created` (feature interest → contact + lead + drip), `newsletter.subscribed` (newsletter signup → contact + lead + drip). Both enqueue `email-drip` BullMQ job on lead creation

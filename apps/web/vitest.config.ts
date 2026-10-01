@@ -7,6 +7,13 @@ export default defineConfig({
     environment: 'node',
     exclude: ['node_modules', 'e2e', '.next'],
     passWithNoTests: true,
+    server: {
+      deps: {
+        // next-auth imports `next/server` without an extension, which Node's
+        // ESM resolver rejects; let Vite resolve it (janua-sign-in.test.ts).
+        inline: ['next-auth'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

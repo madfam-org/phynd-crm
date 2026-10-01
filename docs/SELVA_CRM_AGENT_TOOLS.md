@@ -31,7 +31,7 @@ Phynd CRM maps the bearer token to a **machine principal**, not a human Janua us
 | --- | --- |
 | Default `userId` | `service:selva` |
 | Override | `FEDERATION_SERVICE_USER_ID` env (must stay `service:*`) |
-| Human staff | `admin@madfam.io` via Auth.js OIDC — separate audit trail |
+| Human staff | `admin@madfam.io` via Auth.js OIDC — separate audit trail; `userId` is the staff member's Janua `sub` ([IDENTITY.md](./IDENTITY.md)) |
 
 Successful service-token requests emit structured JSON audit logs
 (`web:trpc:service-auth`, event `service_auth`) with `userId`, `tenantId`, and path.

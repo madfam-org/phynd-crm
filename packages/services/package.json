@@ -28,7 +28,7 @@
     "@phynd/federation": "workspace:*",
     "@phynd/logging": "workspace:*",
     "@phynd/types": "workspace:*",
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.3",
     "ioredis": "^5.4.2",
     "openai": "^6.33.0",
     "resend": "^4.1.0",

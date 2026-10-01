@@ -18,7 +18,7 @@
     "format": "biome format --write src/"
   },
   "dependencies": {
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.3",
     "postgres": "^3.4.5",
     "@phynd/config": "workspace:*"
   },

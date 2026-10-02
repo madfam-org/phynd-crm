@@ -101,6 +101,11 @@ jobs:
         # Canonical source: internal-devops/contracts/bus-a/.
         run: node contracts/bus-a/check-vendored.mjs contracts/bus-a
       - run: pnpm test
+      - name: Operator script regression tests
+        # Runs every scripts/__tests__/*.test.mjs (identity backfill + audit,
+        # postgres resolution, PP5 and pilot gates). Needs the install above:
+        # the postgres-resolution tests load the driver from the repo root.
+        run: pnpm test:pp5
 
   build:
     name: Build

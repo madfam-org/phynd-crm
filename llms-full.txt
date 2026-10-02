@@ -80,6 +80,18 @@ MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-re
   audited, conflicts → `CONFLICT`). Backfill: `scripts/link-janua-users.mjs`
   (dry-run default, `--apply`). Read-only audit:
   `scripts/audit-session-user-ids.mjs`. Details: `docs/IDENTITY.md`.
+- Operator order (dry-run first): run the read-only audit; run
+  `link-janua-users.mjs` with no flags to list unlinked users, then with
+  `--links <file>` to validate a `{ "<users.id>": "<janua sub>" }` mapping;
+  add `--apply` only when every link is valid (exit 3 = refused, nothing
+  written). Both print counts and short ids only. `--database-env` selects a
+  per-tenant DB. Commands: README § Identity and access.
+- Tests: `apps/web/src/lib/auth/__tests__/janua-sign-in.test.ts` (Auth.js flow
+  against a stub Janua), `apps/web/src/lib/trpc/__tests__/crm-user-resolution.test.ts`,
+  `packages/api/src/__tests__/crm-user-link.router.test.ts`, and
+  `scripts/__tests__/` (run by `pnpm test:pp5` in the CI Unit Tests job).
+- Janua token contract (issuer, JWKS, audience): Janua's
+  `docs/guides/ECOSYSTEM_INTEGRATION.md` § Token Validation.
 
 ## Pilot ops scripts (2026-05-29)
 

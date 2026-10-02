@@ -108,7 +108,21 @@ pnpm verify:post-deploy     # Live health smoke (set CRM_BASE_URL)
 pnpm db:migrate:tier        # Apply tier migrations (DATABASE_URL required)
 pnpm verify:janua-oidc     # Janua OIDC redirect URI checklist (Phase 0)
 pnpm verify:selva-agent     # Selva service-token integration smoke test
+pnpm test:pp5               # node --test scripts/__tests__/*.test.mjs (CI: Unit Tests job; needs pnpm install)
 ```
+
+Identity operator scripts (owner-run, counts and short ids only; dry-run first):
+
+```bash
+DATABASE_URL=... node scripts/audit-session-user-ids.mjs [--json]          # read-only, never writes
+DATABASE_URL=... node scripts/link-janua-users.mjs                         # dry-run: list unlinked users
+DATABASE_URL=... node scripts/link-janua-users.mjs --links links.json      # dry-run: validate a mapping
+DATABASE_URL=... node scripts/link-janua-users.mjs --links links.json --apply  # all-or-nothing write
+```
+
+`--database-env DATABASE_URL_<TENANT>` targets a per-tenant DB. In-cluster runs pipe the
+script into `deploy/phynd-crm-worker` (`node --input-type=module - … < scripts/<name>.mjs`)
+under the break-glass rules above; see README § Operator scripts and `docs/IDENTITY.md`.
 
 ## Key Patterns
 - **Federation**: `Promise.allSettled()` across 6 providers — partial failures don't block. Each provider has a dedicated contract test at `packages/federation/src/providers/<name>/__tests__/contract.test.ts` that asserts the raw response shape against a JSON Schema AND the `.map()` transformation. 115 tests total in the federation package (35 added 2026-04-17 to close ECOSYSTEM_AUDIT §6.6). Shared validator at `packages/federation/src/__tests__/contract-helpers.ts` (no ajv dep).
@@ -474,7 +488,7 @@ pnpm dev
 
 Source: ecosystem audit dated 2026-04-23 (org-internal — see `internal-devops/audits/`).
 
-- **🟡 T: `/tests` directory exists but contains zero test files** — auth/CRM endpoints untested; 5 auth-related tests appear to be skipped per sweep. Needs a test foundation sprint.
+- **🟢 T (updated 2026-10-01): tests are colocated, not under `/tests`.** ~148 Vitest files live in `__tests__/` folders under `apps/` and `packages/` (auth: `apps/web/src/lib/auth/__tests__/`, including a full Auth.js sign-in against a stub Janua issuer); 9 Playwright specs in `apps/web/e2e/`; operator-script tests in `scripts/__tests__/` (`pnpm test:pp5`). `/tests` holds one legacy Python file (`test_reddit_poster.py`) that no CI job runs. E2E skips are mode-dependent by design (redirect checks skip under `AUTH_BYPASS=true`; dashboard fixtures need it), plus one permanent skip: `pipeline.test.ts` › "shows fallback when no default pipeline is configured" (the seeded E2E DB always has a default pipeline).
 - **🟢 UI: Federation tabs** — `clients/[id]/loading.tsx` + health banner shipped 2026-05-28.
 - **🟢 UI: Delete confirmation** — leads/opportunities use confirmation dialogs (2026-05-28).
 - **🟢 UI: Sidebar `aria-label`** — desktop + mobile nav links (2026-05-28).

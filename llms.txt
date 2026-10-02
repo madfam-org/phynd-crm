@@ -11,7 +11,7 @@ Compact LLM context index for this repository.
 - `docs/ROADMAP.md` — canonical product/engineering phase map.
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable gap-closure plan (WS0–WS9).
 - `docs/SELVA_CRM_AGENT_TOOLS.md` — Selva service-token read tool manifest (WS6).
-- `docs/IDENTITY.md` — the session user id is the Janua `sub`; it resolves to a CRM user through `users.external_janua_id` (admins link users; no auto-creation); FK writes need a linked user; backfill `scripts/link-janua-users.mjs` and read-only audit `scripts/audit-session-user-ids.mjs`.
+- `docs/IDENTITY.md` — the session user id is the Janua `sub`; it resolves to a CRM user through `users.external_janua_id` (admins link/unlink in Settings → Users via `users.linkJanua` / `users.unlinkJanua`; no auto-creation); FK writes and per-user reads need a linked user, else tRPC `PRECONDITION_FAILED` (HTTP 412) with `data.appCode = 'CRM_USER_NOT_LINKED'`; backfill `scripts/link-janua-users.mjs` (dry-run by default, `--apply` all-or-nothing) and read-only audit `scripts/audit-session-user-ids.mjs`. README § Identity and access has the dry-run-first commands.
 - `docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` — latest codebase and
   production evidence snapshot.
 
@@ -31,4 +31,5 @@ before raw infrastructure tools. Direct `kubectl`, `helm`, SSH, provider CLIs,
 - `pnpm verify:migrations` — Tulana/SKU migration artifacts present through `0010`
 - `pnpm verify:pilot-readiness` — bundles prod auth + migrations + PP5 webhook probe lanes + Selva probe
 - `pnpm verify:janua-oidc` — Janua OIDC redirect URI checklist (Phase 0)
+- `pnpm test:pp5` — operator-script regression tests (`scripts/__tests__/*.test.mjs`; CI Unit Tests job)
 - Ops runbook: `docs/runbooks/PILOT_GO_LIVE.md`

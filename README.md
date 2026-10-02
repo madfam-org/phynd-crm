@@ -164,6 +164,73 @@ The app will be available at `http://localhost:3000`.
 | `pnpm verify:janua-oidc` | Janua OIDC redirect URI checklist for Phase 0 Janua admin |
 | `pnpm verify:selva-agent` | Selva service-token integration smoke test |
 
+## Identity and access
+
+The full model is in [`docs/IDENTITY.md`](docs/IDENTITY.md). In short:
+
+- **The acting user id is the Janua `sub`.** Staff sign in through Auth.js v5
+  with Janua as the OIDC provider (JWT sessions, no adapter). The `jwt`
+  callback sets `session.user.id` to the Janua OIDC `sub` at sign-in and refuses
+  a sign-in whose `sub` is missing or differs from `account.providerAccountId`.
+  Auth.js's own `token.sub` is a fresh random UUID at every sign-in and is never
+  used as an id. Sessions minted before 2026-09-30 carry no `januaSub` and are
+  dropped once, so the user signs in again.
+- **CRM users are linked, never auto-created.** A CRM `users` row has its own id
+  (`users.id`) and links to a Janua subject through the unique column
+  `users.external_janua_id`. Each request resolves the subject to the linked
+  `users.id` once (`crmUserId`, cached 30 s per tenant and subject).
+- **Admins link and unlink.** Settings → Users shows each user's link state with
+  **Link Janua identity** / **Unlink Janua identity**. The admin-only tRPC
+  procedures are `users.linkJanua({ id, januaSub })` and
+  `users.unlinkJanua({ id })`; `users.create` also accepts `externalJanuaId`.
+  Conflicts (user already linked, subject taken) return `CONFLICT`, reserved
+  principal ids are refused, and every change writes an audit log line.
+  `users.me` returns `{ januaSub, crmUserId, linked }` to any signed-in user.
+- **Unlinked users get a typed 412.** Owner foreign-key writes and per-user reads
+  (`listMine`, notifications, `activities.create`, `contacts.bulkCreate`) need a
+  linked CRM user. For an unlinked Janua identity they fail with tRPC
+  `PRECONDITION_FAILED` (HTTP 412) and `data.appCode = 'CRM_USER_NOT_LINKED'`;
+  the web client shows the Spanish «no vinculada» message once and does not
+  retry. Shared reads (lists, detail pages, search, analytics) keep working.
+- Service, system, demo and dev principals (`service:selva`, `system`,
+  `service:email-drip`, `demo-{sessionId}`, `dev-user`) keep their fixed ids.
+
+### Operator scripts (dry-run first)
+
+Both scripts are owner-run, print counts and short ids only, and resolve the
+`postgres` driver from the repo root or from the worker image. Run them locally
+against a port-forward, or piped into the worker pod under the break-glass rules
+in [`AGENTS.md`](AGENTS.md). Pass `--database-env DATABASE_URL_<TENANT>` for a
+per-tenant database and `--json` for machine-readable output.
+
+| Script | What it does | Writes? |
+| --- | --- | --- |
+| `scripts/audit-session-user-ids.mjs` | Per actor column, counts values that match no known Janua subject, CRM user, service principal or demo id (the per-login random ids written before 2026-09-30), with distinct counts and date ranges | Never: one `BEGIN READ ONLY` transaction, rolled back |
+| `scripts/link-janua-users.mjs` | Lists CRM users with no `external_janua_id`; validates a `{ "<users.id>": "<janua sub>" }` mapping | Only with `--apply`, all-or-nothing |
+
+```bash
+# 1. Read-only damage assessment
+DATABASE_URL=postgresql://... node scripts/audit-session-user-ids.mjs
+
+# 2. Dry-run: list unlinked users, then validate a mapping (no writes)
+DATABASE_URL=postgresql://... node scripts/link-janua-users.mjs
+DATABASE_URL=postgresql://... node scripts/link-janua-users.mjs --links links.json
+
+# 3. Apply only after the dry-run reports every link as valid
+DATABASE_URL=postgresql://... node scripts/link-janua-users.mjs --links links.json --apply
+
+# In-cluster variant (piped from a checkout; read the dry-run before any --apply)
+kubectl -n phynd-crm exec -i deploy/phynd-crm-worker -- \
+  node --input-type=module - --links-json '{"<users.id>":"<janua sub>"}' \
+  < scripts/link-janua-users.mjs
+```
+
+`link-janua-users.mjs` exits `3` when `--apply` was refused because a link was
+invalid (nothing is written), `2` when the database URL is missing, and `1` on
+any other error. Interpreting the audit output and the repair options (an owner
+decision; no data fix ships with the code) are covered in
+[`docs/IDENTITY.md`](docs/IDENTITY.md#damage-assessment-for-the-per-login-ids).
+
 ## Federation Layer
 
 Phynd uses a data virtualization pattern rather than ETL. Each external platform is represented by a class that implements the `FederationProvider` interface, exposing a uniform API for querying upstream data.
@@ -248,6 +315,27 @@ Run Playwright end-to-end tests (requires the dev server and infrastructure to b
 ```bash
 pnpm test:e2e
 ```
+
+Run the operator-script regression tests (`node:test`, no database needed;
+run `pnpm install` first, because the `postgres` resolution tests load the
+driver from the repo root). CI runs them in the **Unit Tests** job:
+
+```bash
+pnpm test:pp5   # node --test scripts/__tests__/*.test.mjs
+```
+
+Identity coverage lives in
+`apps/web/src/lib/auth/__tests__/janua-sign-in.test.ts` (full Auth.js sign-in
+against a stub Janua issuer), `apps/web/src/lib/trpc/__tests__/`
+(`crm-user-resolution`, `errors`), `packages/api/src/__tests__/crm-user-link.router.test.ts`,
+`packages/services/src/__tests__/identity.test.ts` and `users.service.test.ts`,
+and `scripts/__tests__/` (`audit-session-user-ids`, `link-janua-users`,
+`resolve-postgres`).
+
+Skipped E2E cases are deliberate: the redirect checks skip when
+`AUTH_BYPASS=true`, the dashboard fixtures skip without it, and
+`pipeline.test.ts` › "shows fallback when no default pipeline is configured"
+always skips because the seeded E2E database always has a default pipeline.
 
 ## Environment Variables
 
@@ -342,3 +430,14 @@ Avala producers must send the shared event envelope documented in Avala's `docs/
 The only valid production domains for PhyndCRM are `https://phynd.app` for the product surface and `https://crm.madfam.io` for the MADFAM tenant slice. Any local, demo, staging, or preview URL in this repository is non-production and must not be used in campaign traffic.
 
 Public repo sanitization and campaign-readiness requirements are tracked in `docs/PUBLIC_DOMAIN_AND_REPO_SANITIZATION_2026-06-01.md`.
+
+## Related repositories / contracts
+
+| Contract | Defined in | Phynd side |
+| --- | --- | --- |
+| Janua OIDC sign-in and token validation (issuer, JWKS, `kid`, audience) | [janua `docs/guides/ECOSYSTEM_INTEGRATION.md`](https://github.com/madfam-org/janua/blob/main/docs/guides/ECOSYSTEM_INTEGRATION.md) | `apps/web/src/lib/auth/config.ts`; [`docs/IDENTITY.md`](docs/IDENTITY.md) |
+| Janua `sub` as the stable user id, linked to CRM users | this repo | [`docs/IDENTITY.md`](docs/IDENTITY.md) |
+| Selva service-token read tools | this repo | [`docs/SELVA_CRM_AGENT_TOOLS.md`](docs/SELVA_CRM_AGENT_TOOLS.md) |
+| Marketing consent API | this repo | [`docs/CONSENT_API.md`](docs/CONSENT_API.md) |
+| Avala lifecycle events → `POST /api/webhooks/avala` | Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md` (shared event envelope) | [§ Avala webhook receiver](#avala-webhook-receiver) |
+| dev → staging → prod promotion | [internal-devops RFC 0001](https://github.com/madfam-org/internal-devops/blob/main/rfcs/0001-dev-staging-prod-pipeline.md) | [`AGENTS.md`](AGENTS.md) § Deployment Pipeline |

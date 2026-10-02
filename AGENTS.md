@@ -33,7 +33,7 @@ redirect and should not become the source of truth again.
 
 - `README.md`
 - `ECOSYSTEM.md`
-- `docs/ROADMAP.md` — canonical phase map and gap scorecard
+- `docs/ROADMAP.md` — canonical phase map, gap scorecard and "Pending work", the single prioritized backlog
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable workstreams WS0–WS9
 - `docs/runbooks/` — operator runbooks (`PILOT_GO_LIVE.md`, `TABLACO_ENGAGEMENT.md`)
 - `infra/`

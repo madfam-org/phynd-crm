@@ -54,7 +54,7 @@ when they conflict.
 
 ## Roadmap and remediation (2026-05-28)
 
-- `docs/ROADMAP.md` — canonical phase map (Phases 0–5), scorecard, feature-flag rollout schedule, and "Pending work (as of 2026-10-02)", the single prioritized backlog (P1: link CRM users to Janua subjects, an owner action; database-error scrubbing in logs and Sentry. P2: OpenTelemetry SDK 2.x and the open phase items). Do not keep a separate list here.
+- `docs/ROADMAP.md` — canonical phase map (Phases 0–5), scorecard, feature-flag rollout schedule, and "Pending work (as of 2026-10-02)", the single prioritized backlog (P1: link CRM users to Janua subjects, an owner action; database-error scrubbing in logs and Sentry; the Pravara → PhyndCRM webhook signature header drift. P2: OpenTelemetry SDK 2.x and the open phase items). Do not keep a separate list here.
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — workstreams WS0–WS9, acceptance tests, pilot milestones M1–M5, risk register.
 
 MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-ready as of 2026-05-29; live pilot blocked on Enclii deploy, migrate, secrets, webhooks, OIDC.

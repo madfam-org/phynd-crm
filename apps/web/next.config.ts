@@ -16,6 +16,16 @@ const nextConfig: NextConfig = {
     '@phynd/types',
   ],
   serverExternalPackages: ['pino', 'pino-pretty'],
+  // GHSA-2xp9-vwfh-vxw4 defence in depth: nothing in this app uses
+  // next/image, so the built-in optimizer is off and /_next/image answers 404.
+  // The middleware matcher skips /_next/image, so an enabled optimizer would
+  // be reachable without a session. The empty allow-list keeps re-enabling it
+  // from turning the app into an open image proxy. Guarded by
+  // src/__tests__/next-config-images.test.ts and scripts/verify-post-deploy.mjs.
+  images: {
+    unoptimized: true,
+    remotePatterns: [],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',

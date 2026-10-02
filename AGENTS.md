@@ -64,7 +64,7 @@ Phynd is a phygital CRM — "Synthetic Single Pane of Glass" that federates data
 
 ## Tech Stack
 - **Monorepo**: Turborepo + pnpm workspaces
-- **Frontend**: Next.js 15 (App Router) + React 19 + Tailwind CSS 4 + shadcn/ui + recharts
+- **Frontend**: Next.js 15 (App Router, next ^15.5.27) + React 19 + Tailwind CSS 4 + shadcn/ui + recharts
 - **API**: tRPC v11 (MVP) — service layer is transport-agnostic for future GraphQL
 - **ORM**: Drizzle ORM + PostgreSQL 16
 - **Cache/Queue**: Redis (ioredis) + BullMQ
@@ -379,12 +379,33 @@ Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
 - Secrets: `phynd-crm-secrets` (envFrom, required) + `phynd-acca-secrets` (envFrom, optional)
 - Images: `ghcr.io/madfam-org/phynd-crm/{web,worker}` with cosign-signed digests
 
+## Security invariant: Next image optimizer off
+
+`apps/web/next.config.ts` sets `images.unoptimized: true` with `remotePatterns: []`
+(GHSA-2xp9-vwfh-vxw4 defence in depth). Nothing in `apps/web` imports `next/image`,
+so `/_next/image` answers 404. This matters here because the middleware matcher
+skips `/_next/image`, so an enabled optimizer would be reachable without a session.
+Two layers enforce it:
+
+- `apps/web/src/__tests__/next-config-images.test.ts` (Vitest, CI Unit Tests): the
+  flag is on, the allow-list is exactly `[]` with no `domains`, and no `src/` file
+  imports `next/image`.
+- `scripts/verify-post-deploy.mjs`: after `/api/health`, `GET /_next/image` must
+  answer 404. It runs in `promote-to-prod.yml` (staging) and `rollback-prod.yml`
+  (production), so a rollback to a digest built before this posture fails that step
+  visibly after the rollback commit has landed.
+
+Re-enabling the optimizer or widening the allow-list is a security decision: change
+the config, the test and this section together.
+
 ## CI/CD
+- GitHub-hosted jobs are pinned to `runs-on: ubuntu-24.04`, not `ubuntu-latest`
+  (which moves to Ubuntu 26 on 2026-10-19). Moving to a newer image is a deliberate change.
 - `.github/workflows/ci.yml` — lint + typecheck + test (parallel) → build; `JANUA_TELEMETRY_API_URL` in build env
 - `.github/workflows/e2e.yml` — Playwright with Postgres/Redis services
 - `.github/workflows/deploy-web.yml` — Build + cosign sign + push web image to GHCR; updates `infra/k8s/overlays/staging/kustomization.yaml` digest; Enclii lifecycle callback
 - `.github/workflows/deploy-worker.yml` — Build + cosign sign + push worker image to GHCR; updates `infra/k8s/overlays/staging/kustomization.yaml` digest; Enclii lifecycle callback
-- `.github/workflows/promote-to-prod.yml` — Manual staging→production promotion; enforces 30m soak + `verify-post-deploy` staging smoke (6×20s) before kustomization sync
+- `.github/workflows/promote-to-prod.yml` — Manual staging→production promotion; enforces 30m soak + `verify-post-deploy` staging smoke (health 6×20s, then `/_next/image` → 404) before kustomization sync
 - `.github/workflows/rollback-prod.yml` — Manual rollback to previous production digests; re-runs `verify-post-deploy` against prod health URL
 
 ## Deployment Pipeline (dev → staging → prod)

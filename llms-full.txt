@@ -98,7 +98,7 @@ MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-re
 | Script | When |
 | --- | --- |
 | `pnpm verify:pilot-go-live` | Pre-flight before any tier deploy (static checks only) |
-| `pnpm verify:post-deploy` | After ArgoCD sync — live `/api/health` (+ optional auth/Selva probes) |
+| `pnpm verify:post-deploy` | After ArgoCD sync — live `/api/health`, then `/_next/image` must answer 404 (image optimizer off) (+ optional auth/Selva probes) |
 | `pnpm db:migrate:tier` | Artifact check (`--check-only`) or apply migrations with `DATABASE_URL` |
 | `pnpm verify:selva-agent` | After `FEDERATION_API_TOKEN` is set on target tier |
 

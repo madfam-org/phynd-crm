@@ -114,6 +114,30 @@ export async function checkHealthWithRetries(baseUrl, retries, retryDelayMs) {
   return { ok: false, error: lastError, attempts: retries }
 }
 
+// GHSA-2xp9-vwfh-vxw4 defence in depth: apps/web/next.config.ts sets
+// images.unoptimized, so /_next/image must answer 404. CI proves the config;
+// this proves what the live host actually serves. The middleware matcher skips
+// /_next/image, so the probe needs no session.
+export const IMAGE_OPTIMIZER_PROBE_PATH = '/_next/image?url=%2Ffavicon.ico&w=64&q=75'
+
+export async function checkImageOptimizerDisabled(baseUrl) {
+  const url = `${baseUrl.replace(/\/$/, '')}${IMAGE_OPTIMIZER_PROBE_PATH}`
+  let response
+  try {
+    response = await fetch(url, { redirect: 'manual' })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: `Network error for ${url}: ${message}` }
+  }
+  if (response.status !== 404) {
+    return {
+      ok: false,
+      error: `/_next/image returned HTTP ${response.status}, expected 404 (image optimizer enabled)`,
+    }
+  }
+  return { ok: true }
+}
+
 function runNode(script, args = [], extraEnv = {}) {
   const result = spawnSync('node', [script, ...args], {
     encoding: 'utf8',
@@ -135,6 +159,7 @@ export async function runPostDeployChecks(options, env = process.env) {
       baseUrl,
       steps: [
         `GET /api/health (retries=${options.retries})`,
+        'GET /_next/image -> 404 (image optimizer off)',
         ...(options.withProdAuth ? ['verify-prod-auth-urls --base'] : []),
         ...(options.withSelvaAgent ? ['verify-selva-agent-integration'] : []),
       ],
@@ -144,6 +169,12 @@ export async function runPostDeployChecks(options, env = process.env) {
   const health = await checkHealthWithRetries(baseUrl, options.retries, options.retryDelayMs)
   results.push({ name: 'health', ...health })
   if (!health.ok) {
+    return { ok: false, baseUrl, results }
+  }
+
+  const imageOptimizer = await checkImageOptimizerDisabled(baseUrl)
+  results.push({ name: 'image-optimizer-off', ...imageOptimizer })
+  if (!imageOptimizer.ok) {
     return { ok: false, baseUrl, results }
   }
 
@@ -221,8 +252,9 @@ async function main() {
   } else {
     console.error('FAIL verify-post-deploy')
     if (payload.error) console.error(`  ${payload.error}`)
-    const health = payload.results?.find((entry) => entry.name === 'health')
-    if (health?.error) console.error(`  health: ${health.error}`)
+    for (const result of payload.results ?? []) {
+      if (result.error) console.error(`  ${result.name}: ${result.error}`)
+    }
     if (payload.output) {
       for (const line of payload.output.split('\n').slice(0, 8)) {
         console.error(`  ${line}`)

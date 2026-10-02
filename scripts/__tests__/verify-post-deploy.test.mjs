@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import {
+  IMAGE_OPTIMIZER_PROBE_PATH,
   baseUrlFromHealthUrl,
   checkHealth,
+  checkImageOptimizerDisabled,
   checkHealthWithRetries,
   parsePostDeployArgs,
   runPostDeployChecks,
@@ -86,4 +88,80 @@ test('runPostDeployChecks dry-run does not require network', async () => {
   )
   assert.equal(payload.ok, true)
   assert.equal(payload.baseUrl, 'https://crm.madfam.io')
+})
+
+function stubFetch(routes) {
+  const seen = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url) => {
+    const { pathname } = new URL(url)
+    seen.push(pathname)
+    const route = routes[pathname]
+    if (!route) throw new Error(`unexpected fetch ${url}`)
+    return route()
+  }
+  return { seen, restore: () => (globalThis.fetch = originalFetch) }
+}
+
+const healthy = () => Response.json({ status: 'ok', service: 'phynd-crm', version: '0.1.0' })
+
+test('checkImageOptimizerDisabled passes only on 404', async () => {
+  for (const [status, ok] of [
+    [404, true],
+    [400, false],
+    [200, false],
+    [307, false],
+  ]) {
+    const stub = stubFetch({ '/_next/image': () => new Response('', { status }) })
+    try {
+      const result = await checkImageOptimizerDisabled(`${STAGING_CRM_BASE_URL}/`)
+      assert.equal(result.ok, ok, `HTTP ${status}`)
+      if (!ok) assert.match(result.error ?? '', new RegExp(`HTTP ${status}, expected 404`))
+    } finally {
+      stub.restore()
+    }
+  }
+})
+
+test('runPostDeployChecks fails when the image optimizer answers', async () => {
+  const stub = stubFetch({
+    '/api/health': healthy,
+    '/_next/image': () => new Response('"url" parameter is valid but upstream response is invalid', { status: 400 }),
+  })
+  try {
+    const payload = await runPostDeployChecks(parsePostDeployArgs([]), {
+      CRM_BASE_URL: STAGING_CRM_BASE_URL,
+    })
+    assert.equal(payload.ok, false)
+    const step = payload.results.find((entry) => entry.name === 'image-optimizer-off')
+    assert.equal(step?.ok, false)
+    assert.deepEqual(stub.seen, ['/api/health', '/_next/image'])
+  } finally {
+    stub.restore()
+  }
+})
+
+test('runPostDeployChecks passes with health ok and /_next/image 404', async () => {
+  const stub = stubFetch({
+    '/api/health': healthy,
+    '/_next/image': () => new Response('Not Found', { status: 404 }),
+  })
+  try {
+    const payload = await runPostDeployChecks(parsePostDeployArgs([]), {
+      CRM_BASE_URL: STAGING_CRM_BASE_URL,
+    })
+    assert.equal(payload.ok, true)
+    assert.deepEqual(
+      payload.results.map((entry) => entry.name),
+      ['health', 'image-optimizer-off'],
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test('the image-optimizer probe targets /_next/image with a same-origin url', () => {
+  const probe = new URL(IMAGE_OPTIMIZER_PROBE_PATH, STAGING_CRM_BASE_URL)
+  assert.equal(probe.pathname, '/_next/image')
+  assert.equal(probe.searchParams.get('url'), '/favicon.ico')
 })

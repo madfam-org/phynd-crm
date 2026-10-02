@@ -21,7 +21,7 @@ on:
 jobs:
   staging-refresh:
     name: Nightly PP5 staging refresh fallback
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4

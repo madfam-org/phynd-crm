@@ -8,12 +8,12 @@ Compact LLM context index for this repository.
 - `README.md` — human/product overview when present.
 - `ECOSYSTEM.md` — MADFAM ecosystem and Enclii deployment context when present.
 - `llms-full.txt` — full context map and durable operating contract.
-- `docs/ROADMAP.md` — canonical product/engineering phase map.
+- `docs/ROADMAP.md` — canonical product/engineering phase map and "Pending work", the single prioritized backlog.
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable gap-closure plan (WS0–WS9).
 - `docs/SELVA_CRM_AGENT_TOOLS.md` — Selva service-token read tool manifest (WS6).
 - `docs/IDENTITY.md` — the session user id is the Janua `sub`; it resolves to a CRM user through `users.external_janua_id` (admins link/unlink in Settings → Users via `users.linkJanua` / `users.unlinkJanua`; no auto-creation); FK writes and per-user reads need a linked user, else tRPC `PRECONDITION_FAILED` (HTTP 412) with `data.appCode = 'CRM_USER_NOT_LINKED'`; backfill `scripts/link-janua-users.mjs` (dry-run by default, `--apply` all-or-nothing) and read-only audit `scripts/audit-session-user-ids.mjs`. README § Identity and access has the dry-run-first commands.
-- `docs/CODEBASE_AND_PROD_EVIDENCE_2026-05-27.md` — latest codebase and
-  production evidence snapshot.
+- `docs/CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md` — latest codebase and
+  production evidence snapshot (supersedes 2026-05-27).
 
 ## Production operations
 

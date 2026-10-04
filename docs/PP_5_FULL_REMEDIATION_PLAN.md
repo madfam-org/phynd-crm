@@ -366,7 +366,7 @@ Preferred target:
 
 - Nightly masked production-to-staging refresh at 03:00 UTC.
 - PII masking before data is made available to staging app pods.
-- Deterministic fixture overlay after restore, including Tablaco/demo-safe data.
+- Deterministic fixture overlay after restore, including client-engagement fixture/demo-safe data.
 
 Operational status:
 

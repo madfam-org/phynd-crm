@@ -60,7 +60,7 @@ PII export without `piiMasking` flag (see WS6.5).
 ## Truth layer rules
 
 1. **Production:** mock federation fallback is **disabled** — unavailable providers
-   return `unavailable`, not synthetic Tablaco data.
+   return `unavailable`, not synthetic fixture data.
 2. **Demo tenants** (`demo-*`) may return seeded federation mocks — agents must
    not target demo hosts for pilot workflows.
 3. **Unified profile** partial failures are expected; agents should summarize per-provider
@@ -104,7 +104,7 @@ Federated ecosystem view for a contact (billing, quotes, fabrication, assets, te
 
 ### `get_engagement_timeline`
 
-Client engagement aggregate (Tablaco-style cross-platform projects).
+Client engagement aggregate (cross-platform fab + digital client projects).
 
 - **tRPC:** `engagements.getTimeline` query, input `{ engagementId: uuid }`
 - **Scope:** `engagements:read`
@@ -147,10 +147,10 @@ Suggest moving a lead or opportunity to a different pipeline stage (human must a
 curl -sS 'https://crm.madfam.io/api/trpc/search.search,contacts.getById?batch=1' \
   -H 'Authorization: Bearer '"$FEDERATION_API_TOKEN" \
   -H 'Content-Type: application/json' \
-  --data-raw '{"0":{"json":{"query":"tablaco","limit":5}},"1":{"json":{"id":"CONTACT_UUID"}}}'
+  --data-raw '{"0":{"json":{"query":"CONTACT_NAME","limit":5}},"1":{"json":{"id":"CONTACT_UUID"}}}'
 ```
 
-Replace `CONTACT_UUID` with a real contact id from search results.
+Replace `CONTACT_NAME` with a search term and `CONTACT_UUID` with a real contact id from the search results.
 
 ## Staging validation
 

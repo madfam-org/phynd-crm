@@ -1,4 +1,4 @@
-# Phynd production and Tablaco fulfillment remediation roadmap
+# Phynd production and client fulfillment remediation roadmap
 
 Last updated: 2026-05-14
 
@@ -24,7 +24,7 @@ registry does not fully match project junction observations.
 
 ## Scope
 
-Phynd must first be fully operational at `https://phynd.app`, then expose MADFAM's tenant/slice at `https://crm.madfam.io`. Tablaco should only enter Phynd as a client-facing priced engagement after Cotiza/Yantra/ForgeSight return a truthful quote.
+Phynd must first be fully operational at `https://phynd.app`, then expose MADFAM's tenant/slice at `https://crm.madfam.io`. A client engagement should only enter Phynd as a client-facing priced engagement after Cotiza/Yantra/ForgeSight return a truthful quote.
 
 ## Historical evidence - 2026-05-14
 
@@ -54,7 +54,7 @@ Phynd has substantial application-level implementation, but neither `phynd.app` 
 6. Keep `crm.madfam.io` as the MADFAM tenant slice only after `phynd.app` is healthy.
 7. Replace hardcoded `madfam` assumptions with host-derived tenant resolution where needed, keeping local/dev fallback safe.
 8. Verify Janua magic links, portal session cookies, Dhanam checkout, Dhanam webhooks, and production dispatch under both domains.
-9. Link Tablaco quotes to Phynd only when Cotiza returns `client_ready=true`.
+9. Link client quotes to Phynd only when Cotiza returns `client_ready=true`.
 
 ## Acceptance gates
 
@@ -63,7 +63,7 @@ Phynd has substantial application-level implementation, but neither `phynd.app` 
 - `https://crm.madfam.io` serves the MADFAM tenant without 502.
 - Portal magic links redirect to the correct host.
 - Quote acceptance, Dhanam checkout, payment reconciliation, and production dispatch tests pass.
-- Tablaco engagement pricing remains draft-only until the upstream strict quote is market verified.
+- Client engagement pricing remains draft-only until the upstream strict quote is market verified.
 
 ## 2026-05-14 follow-up evidence
 

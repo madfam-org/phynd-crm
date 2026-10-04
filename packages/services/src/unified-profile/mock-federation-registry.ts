@@ -1,4 +1,4 @@
-import { getTablacoFederationData } from './tablaco-federation-data'
+import { getProjectClientFederationData } from './project-client-federation-data'
 
 type BaseContact = {
   id: string
@@ -15,8 +15,8 @@ export function tryGetMockFederationData<C extends BaseContact>(contact: C) {
   if (!contact.externalJanuaId) return null
 
   switch (contact.externalJanuaId) {
-    case 'janua-tablaco-001':
-      return getTablacoFederationData(contact)
+    case 'janua-demo-project-001':
+      return getProjectClientFederationData(contact)
     default:
       return null
   }

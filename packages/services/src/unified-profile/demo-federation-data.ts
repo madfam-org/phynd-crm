@@ -7,7 +7,7 @@ import type {
   PravaraFabrication,
   ProviderStatus,
 } from '@phynd/types/federation'
-import { getTablacoFederationData } from './tablaco-federation-data'
+import { getProjectClientFederationData } from './project-client-federation-data'
 
 type FederationEntry<T> = {
   data: T
@@ -24,8 +24,8 @@ function entry<T>(data: T, provider: string): FederationEntry<T> {
 export function getDemoFederationData<
   C extends { id: string; name: string; email: string | null; externalJanuaId: string | null },
 >(contact: C) {
-  if (contact.externalJanuaId === 'janua-tablaco-001') {
-    return getTablacoFederationData(contact)
+  if (contact.externalJanuaId === 'janua-demo-project-001') {
+    return getProjectClientFederationData(contact)
   }
 
   const now = new Date()

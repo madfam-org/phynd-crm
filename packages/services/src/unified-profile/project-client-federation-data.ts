@@ -20,7 +20,7 @@ function entry<T>(data: T, provider: string): FederationEntry<T> {
   return { data, status: 'ok', cachedAt: new Date(), error: null, provider }
 }
 
-export function getTablacoFederationData<
+export function getProjectClientFederationData<
   C extends { id: string; name: string; email: string | null; externalJanuaId: string | null },
 >(contact: C) {
   const now = new Date()
@@ -28,9 +28,9 @@ export function getTablacoFederationData<
   const daysFromNow = (n: number) => new Date(now.getTime() + n * 24 * 60 * 60 * 1000)
 
   const identity: JanuaIdentity = {
-    userId: 'janua-tablaco-001',
-    email: 'rodrigo@tablaco.mx',
-    displayName: 'Rodrigo Tablaco',
+    userId: 'janua-demo-project-001',
+    email: 'mateo@acme-fabricacion.example',
+    displayName: 'Mateo Ríos',
     avatarUrl: null,
     roles: ['customer', 'project_client'],
     scopes: ['read:profile', 'read:orders', 'read:assets'],
@@ -39,31 +39,31 @@ export function getTablacoFederationData<
   }
 
   const billing: DhanamBilling = {
-    customerId: 'dhanam-tablaco-001',
+    customerId: 'dhanam-demo-project-001',
     plan: 'Project',
     status: 'active',
-    currentBalance: 15000,
+    currentBalance: 4800,
     currency: 'USD',
     invoices: [
       {
-        id: 'inv-tab-001',
-        amount: 15000,
+        id: 'inv-prj-001',
+        amount: 4800,
         currency: 'USD',
         status: 'paid',
         issuedAt: daysAgo(58),
         paidAt: daysAgo(55),
       },
       {
-        id: 'inv-tab-002',
-        amount: 15000,
+        id: 'inv-prj-002',
+        amount: 4800,
         currency: 'USD',
         status: 'paid',
         issuedAt: daysAgo(38),
         paidAt: daysAgo(35),
       },
       {
-        id: 'inv-tab-003',
-        amount: 15000,
+        id: 'inv-prj-003',
+        amount: 4800,
         currency: 'USD',
         status: 'pending',
         issuedAt: daysAgo(8),
@@ -72,7 +72,7 @@ export function getTablacoFederationData<
     ],
     paymentMethods: [
       {
-        id: 'pm-tab-001',
+        id: 'pm-prj-001',
         type: 'bank_transfer',
         last4: '7890',
         isDefault: true,
@@ -83,9 +83,9 @@ export function getTablacoFederationData<
   const manufacturing: CotizaManufacturing = {
     orders: [
       {
-        id: 'cotiza-tab-ord-001',
+        id: 'cotiza-prj-ord-001',
         status: 'in_progress',
-        productName: 'Tablaco Web Platform Phase 1+2',
+        productName: 'Product Configurator, Phases 1+2',
         quantity: 1,
         estimatedCompletion: daysFromNow(7),
         progress: 85,
@@ -94,9 +94,9 @@ export function getTablacoFederationData<
     ],
     activeQuotes: [
       {
-        id: 'cotiza-tab-qt-001',
+        id: 'cotiza-prj-qt-001',
         status: 'accepted',
-        totalAmount: 45000,
+        totalAmount: 14400,
         currency: 'USD',
         validUntil: daysFromNow(30),
         createdAt: daysAgo(60),
@@ -107,10 +107,10 @@ export function getTablacoFederationData<
   const fabrication: PravaraFabrication = {
     orders: [
       {
-        orderId: 'pravara-tab-001',
-        cotizaOrderId: 'cotiza-tab-ord-001',
+        orderId: 'pravara-prj-001',
+        cotizaOrderId: 'cotiza-prj-ord-001',
         status: 'in_progress',
-        productName: 'Tablaco Phase 1',
+        productName: 'Product Configurator, Phase 1',
         quantity: 1,
         startedAt: daysAgo(48).toISOString(),
         estimatedCompletion: daysFromNow(7).toISOString(),
@@ -130,22 +130,22 @@ export function getTablacoFederationData<
   const assets: ForjAssets = {
     assets: [
       {
-        id: 'forj-tablaco-3d-001',
-        name: 'Tablaco 3D Product Viewer',
+        id: 'forj-demo-3d-001',
+        name: '3D Product Viewer',
         type: 'model_3d',
         thumbnailUrl: null,
-        modelUrl: 'forj://asset/forj-tablaco-3d-001/view',
+        modelUrl: 'forj://asset/forj-demo-3d-001/view',
         format: 'glTF',
         nftCertificateUrl: null,
         createdAt: daysAgo(30),
         updatedAt: daysAgo(12),
       },
       {
-        id: 'forj-tablaco-scene-001',
-        name: 'yantra4d.com/tablaco Web Deployment',
+        id: 'forj-demo-scene-001',
+        name: 'Product Configurator Web Deployment',
         type: 'scene',
         thumbnailUrl: null,
-        modelUrl: 'forj://scene/forj-tablaco-scene-001/view',
+        modelUrl: 'forj://scene/forj-demo-scene-001/view',
         format: 'glTF',
         nftCertificateUrl: null,
         createdAt: daysAgo(15),
@@ -158,8 +158,8 @@ export function getTablacoFederationData<
   const telemetry: JanuaTelemetry = {
     sessions: [
       {
-        sessionId: 'sess-tablaco-001',
-        fingerprint: 'fp-tablaco-desktop',
+        sessionId: 'sess-demo-001',
+        fingerprint: 'fp-demo-desktop',
         contactId: contact.id,
         identified: true,
         ipCity: 'Mexico City',
@@ -171,20 +171,20 @@ export function getTablacoFederationData<
         utm: { source: 'direct', medium: null, campaign: null, term: null, content: null },
         pageViews: [
           {
-            url: '/tablaco',
-            title: 'Tablaco — yantra4d',
+            url: '/acme-demo',
+            title: 'Acme Fabricación — yantra4d',
             duration: 35,
             timestamp: daysAgo(20).toISOString(),
           },
           {
-            url: '/tablaco/gallery',
-            title: 'Tablaco Gallery — yantra4d',
+            url: '/acme-demo/gallery',
+            title: 'Acme Fabricación Gallery — yantra4d',
             duration: 55,
             timestamp: daysAgo(20).toISOString(),
           },
           {
-            url: 'forj://asset/forj-tablaco-3d-001/view',
-            title: 'Tablaco 3D Product Viewer',
+            url: 'forj://asset/forj-demo-3d-001/view',
+            title: '3D Product Viewer',
             duration: 42,
             timestamp: daysAgo(20).toISOString(),
           },
@@ -194,8 +194,8 @@ export function getTablacoFederationData<
         duration: 180,
       },
       {
-        sessionId: 'sess-tablaco-002',
-        fingerprint: 'fp-tablaco-mobile',
+        sessionId: 'sess-demo-002',
+        fingerprint: 'fp-demo-mobile',
         contactId: contact.id,
         identified: true,
         ipCity: 'Mexico City',
@@ -213,8 +213,8 @@ export function getTablacoFederationData<
         },
         pageViews: [
           {
-            url: '/tablaco',
-            title: 'Tablaco — yantra4d',
+            url: '/acme-demo',
+            title: 'Acme Fabricación — yantra4d',
             duration: 18,
             timestamp: daysAgo(8).toISOString(),
           },

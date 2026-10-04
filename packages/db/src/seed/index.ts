@@ -7,11 +7,11 @@ import { seedGrantsPipeline } from './seed-grants-pipeline'
 import { seedLeadsAndOpps } from './seed-leads-opps'
 import { seedOffersAndCampaigns } from './seed-offers-campaigns'
 import { seedPreferences } from './seed-preferences'
+import { seedProjectClient } from './seed-project-client'
 import { seedQuotesAndOrders } from './seed-quotes-orders'
 import { seedReferralCampaign } from './seed-referral-campaign'
 import { seedScoringRules } from './seed-scoring-rules'
 import { seedStageTransitions } from './seed-stage-transitions'
-import { seedTablaco } from './seed-tablaco'
 import { seedTagsAndNotifications } from './seed-tags-notifications'
 import { seedUsersAndPipeline } from './seed-users-pipeline'
 import { seedVisitorData } from './seed-visitor-data'
@@ -61,7 +61,7 @@ export async function seed(tenantId = 'madfam') {
   await seedStageTransitions(db, ids)
   await seedPreferences(db)
   await seedTagsAndNotifications(db, ids)
-  await seedTablaco(db, ids)
+  await seedProjectClient(db, ids)
   await seedGrantsPipeline(db)
   await seedReferralCampaign(db)
 

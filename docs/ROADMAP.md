@@ -120,7 +120,7 @@ See PP.5 rows 12, 18, 19 in [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md).
 ## Phase 2 — Ecosystem seam completion
 
 **Owner:** Phynd CRM + provider teams  
-**Reference engagement:** [`runbooks/TABLACO_ENGAGEMENT.md`](./runbooks/TABLACO_ENGAGEMENT.md)
+**Reference engagement:** operator runbook kept in the private operations repo
 
 | ID | Work item | Status |
 | --- | --- | --- |
@@ -216,7 +216,7 @@ Tracked from ecosystem audit 2026-04-23; not phase-gating but required for sales
 | [`PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md) | Staging pipeline and webhook split |
 | [`runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) | Enclii-first pilot checklist (migrate, secrets, webhooks, Selva) |
 | [`CLIENT_PROJECT_ONBOARDING.md`](./CLIENT_PROJECT_ONBOARDING.md) | Engagement onboarding operator flow |
-| [`runbooks/TABLACO_ENGAGEMENT.md`](./runbooks/TABLACO_ENGAGEMENT.md) | Reference engagement (Tablaco) |
+| Client-engagement operator runbook | Reference engagement; operator runbook kept in the private operations repo |
 | [`TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md`](./TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md) | SKU campaign contract |
 | [`ENGAGEMENT_EVENT_TAXONOMY.md`](./ENGAGEMENT_EVENT_TAXONOMY.md) | Cross-producer milestone vocabulary |
 | [`CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md) | Latest prod verification (supersedes 2026-05-27) |

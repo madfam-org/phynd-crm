@@ -283,7 +283,7 @@ Canonical execution plan: [`docs/PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REM
   `.github/workflows/pp5-staging-refresh.yml`; replace with true masked prod→staging
   restore once approved by RFC 0001.
 - Ensure PII is sanitized before restore and staging fixture path is deterministic.
-- Include tablaco fixture + demo-mode safety checks in seed or restore checks.
+- Include client-engagement fixture + demo-mode safety checks in seed or restore checks.
 
 ### Priority 4 — Post-PP.5 hardening (non-blocking backlog)
 

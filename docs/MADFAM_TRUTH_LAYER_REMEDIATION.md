@@ -59,7 +59,7 @@ gantt
 
 - **Shipped:** mock federation fallback disabled when `NODE_ENV=production`.
 - **Shipped:** Tezca returns honest `unavailable` without silent `ok`.
-- Dev-only Tablaco mock registry remains for local seed workflows.
+- Dev-only client-fixture mock registry remains for local seed workflows.
 
 ### 3. Ecosystem coverage is partial
 
@@ -140,7 +140,7 @@ pnpm verify:prod-auth
 
 - Unit: `getServerCaller()` assigns `madfam` for `crm.madfam.io` host header.
 - Unit: mock fallback returns `null` when `NODE_ENV=production`.
-- E2E: contact with missing providers shows explicit unavailable state, not Tablaco mock (unless `externalJanuaId=janua-tablaco-001` in dev only).
+- E2E: contact with missing providers shows explicit unavailable state, not the fixture mock (unless it is the seeded client-engagement fixture contact, in dev only).
 
 #### Exit criteria
 
@@ -197,12 +197,12 @@ pnpm verify:prod-auth
 
 - Service: idempotent `dedup_key` for Selva + Karafiel events (extend `engagements.service.test.ts`).
 - Integration: Selva staging POST → row in `engagement_events` → visible on `/portal/[id]`.
-- Runbook: update [`runbooks/TABLACO_ENGAGEMENT.md`](./runbooks/TABLACO_ENGAGEMENT.md) Step 6 from "pending" to verified.
+- Runbook: update Step 6 of the client-engagement operator runbook (kept in the private operations repo) from "pending" to verified.
 
 #### Exit criteria
 
 - [ ] Selva + Karafiel producers documented and verified in staging
-- [ ] Tablaco-class engagement shows fab + digital + compliance milestones without manual staff updates
+- [ ] A reference client engagement shows fab + digital + compliance milestones without manual staff updates
 
 ---
 
@@ -355,7 +355,7 @@ campaign_states (extend)
 
 **When:** Phase 0 + Phase 1 complete  
 **Who:** `admin@madfam.io` sales lead  
-**Scope:** One real engagement (Tablaco-class), live federation, no mock fallback  
+**Scope:** One real fab + digital client engagement, live federation, no mock fallback  
 **Not in scope:** all SKUs, Selva agent
 
 ### M2 — Ecosystem engagement pilot
@@ -406,7 +406,7 @@ pnpm pp5:data-safety --database-url "$DATABASE_URL" --allowlist-domains "$EMAIL_
 # Prod auth check (post WS0 deploy)
 curl -sS https://phynd.app/api/auth/providers | jq .
 
-# Local seed (Tablaco fixture)
+# Local seed (client-engagement fixture)
 pnpm db:seed
 ```
 

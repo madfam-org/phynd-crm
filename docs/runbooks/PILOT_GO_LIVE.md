@@ -122,7 +122,7 @@ Phynd CRM uses **manual promotion** (30m soak + staging smoke via `verify-post-d
 2. Run `.github/workflows/promote-to-prod.yml` via GitHub Actions.
 3. Run `DATABASE_URL=<prod> pnpm db:migrate:tier` against production database.
 4. `CRM_BASE_URL=https://crm.madfam.io pnpm verify:post-deploy -- --with-prod-auth`
-5. Spot-check Tablaco contact federation tabs (live or explicit `unavailable` — never silent mocks in prod).
+5. Spot-check a known client contact's federation tabs (live or explicit `unavailable` — never silent mocks in prod).
 
 Emergency rollback: `.github/workflows/rollback-prod.yml` (production smoke via `verify-post-deploy`, default `https://crm.madfam.io/api/health`)
 
@@ -150,4 +150,4 @@ Emergency rollback: `.github/workflows/rollback-prod.yml` (production smoke via 
 - [`STAGING_INGRESS.md`](./STAGING_INGRESS.md) — `staging-phynd.app` tunnel/TLS (PP.5 row 12)
 - [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](../MADFAM_TRUTH_LAYER_REMEDIATION.md)
 - [`ROADMAP.md`](../ROADMAP.md)
-- [`TABLACO_ENGAGEMENT.md`](./TABLACO_ENGAGEMENT.md)
+- Client-engagement operator runbook: kept in the private operations repo

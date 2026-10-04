@@ -35,7 +35,7 @@ redirect and should not become the source of truth again.
 - `ECOSYSTEM.md`
 - `docs/ROADMAP.md` — canonical phase map, gap scorecard and "Pending work", the single prioritized backlog
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable workstreams WS0–WS9
-- `docs/runbooks/` — operator runbooks (`PILOT_GO_LIVE.md`, `TABLACO_ENGAGEMENT.md`)
+- `docs/runbooks/` — operator runbooks (`PILOT_GO_LIVE.md`; the client-engagement operator runbook is kept in the private operations repo)
 - `infra/`
 - `.github/workflows/`
 
@@ -165,19 +165,19 @@ under the break-glass rules above; see README § Operator scripts and `docs/IDEN
 - **Feature flag enforcement**: 5 gated routers (lead-scoring, visitor-tracking, analytics, offers, campaigns) check `isFeatureEnabled()` at the top of each procedure; throw `TRPCError({ code: 'PRECONDITION_FAILED' })` when disabled
 - **Bulk array caps**: `bulkUpdateStatus` on leads/opportunities capped at `.max(100)` items via Zod
 - **Seed guard**: `seed.ts` exits with error when `NODE_ENV=production`
-- **Seed architecture**: `packages/db/src/seed.ts` is a thin entry point; 14 sub-seeders live in `packages/db/src/seed/` (types, users-pipeline, contacts, leads-opps, quotes-orders, activities-notes, offers-campaigns, conversions, visitor-data, scoring-rules, external-refs, stage-transitions, preferences, tags-notifications, tablaco); orchestrator in `seed/index.ts`
+- **Seed architecture**: `packages/db/src/seed.ts` is a thin entry point; 14 sub-seeders live in `packages/db/src/seed/` (types, users-pipeline, contacts, leads-opps, quotes-orders, activities-notes, offers-campaigns, conversions, visitor-data, scoring-rules, external-refs, stage-transitions, preferences, tags-notifications, and a client-engagement fixture); orchestrator in `seed/index.ts`
 - **Demo seed architecture**: `apps/web/src/lib/demo-seed.ts` is a transaction orchestrator (~80 lines); 19 pure data builder functions live in `demo-seed/data-builders.ts`
 - **Demo federation data**: `UnifiedProfileService` returns mock federation data for demo tenants (`demo-*` tenantId) via `demo-federation-data.ts` — no external API calls in demo mode
 - **Mock federation fallback**: When all 6 providers return `unavailable` and the contact has a known `externalJanuaId`, `UnifiedProfileService` falls back to mock data via `mock-federation-registry.ts` — **disabled in production** (`NODE_ENV !== 'production'` guard); makes federation tabs work in local dev without external services
 - **PII masking for service auth**: When `piiMasking` flag is on, `SearchService` and `UnifiedProfileService` mask email/phone fields for `service:` actors (Selva agent reads)
-- **Tablaco federation data**: `tablaco-federation-data.ts` provides Tablaco-specific mock data for all 6 providers; dispatched from both `demo-federation-data.ts` (by `externalJanuaId`) and `mock-federation-registry.ts` (dev fallback)
+- **Client-engagement fixture federation data**: a fixture module in `packages/services/src/unified-profile/` provides mock data for the fixture contact across all 6 providers; dispatched from both `demo-federation-data.ts` (by `externalJanuaId`) and `mock-federation-registry.ts` (dev fallback)
 - **Pre-commit hook**: husky pre-commit checks staged `.ts`/`.tsx` files (excludes tests, migrations, generated files); warns at 600 lines, blocks at 800 lines
 - **File size limits**: Source files should stay under 600 lines; pre-commit blocks commits with files over 800 lines
 - **Delete confirmations**: Offers, campaigns, scoring rules, leads, and opportunities use confirmation dialogs (no direct inline delete)
 - **Scoring rules CRUD UI**: Full create/edit/delete dialogs in `components/scoring/`
 - **Pipeline CRUD**: Full create/update/delete for pipelines and stages; delete rejects default pipeline (`ValidationError`) and pipelines/stages with FK references (`ConflictError`); reorder stages via transaction
 - **Multiple pipelines**: Seed creates "Default Sales Pipeline" (6 stages) + "Project Delivery" pipeline (Proposal → Scoping → Development → QA → Delivery → Support); Kanban page fetches all pipelines via `list()` and selects by `searchParams.pipelineId` or defaults to `isDefault: true`
-- **Tablaco seed data**: `seed-tablaco.ts` seeds a full project lifecycle: contact (Rodrigo Tablaco, `externalJanuaId: janua-tablaco-001`), converted lead, $45k opportunity on Delivery pipeline, 3 installment quotes, 3 orders (2 fulfilled, 1 confirmed), 6 activities, 4 notes, 4 tags, 6 external refs (all 6 providers), 2 conversions, 5 stage transitions, 2 visitor sessions, 4 page views
+- **Client-engagement fixture seed**: a dedicated sub-seeder in `packages/db/src/seed/` seeds a full project lifecycle: one fixture contact (with a fixed `externalJanuaId`), converted lead, an opportunity on the Delivery pipeline, 3 installment quotes, 3 orders (2 fulfilled, 1 confirmed), 6 activities, 4 notes, 4 tags, 6 external refs (all 6 providers), 2 conversions, 5 stage transitions, 2 visitor sessions, 4 page views
 - **Time-series analytics**: 4 trend methods (`getLeadTrend`, `getOpportunityTrend`, `getConversionTrend`, `getVisitorTrend`) using `date_trunc()` + GROUP BY with required date range and `day`/`week`/`month` bucketing
 - **CSV import**: `ContactsService.bulkCreate()` (max 500, wrapped in transaction); CSV parser handles RFC 4180 (quoted commas, BOM)
 - **Task reminders**: Repeatable BullMQ job (`task-reminders`, every 4h) scans activities due within 24h, creates notifications with 24h dedup; see ADR-006
@@ -198,7 +198,7 @@ under the break-glass rules above; see README § Operator scripts and `docs/IDEN
 - **Fail-closed rate limiting**: Both API and webhook rate limiters deny requests when Redis is unavailable (fail closed, not fail open)
 - **CI status gate**: E2E is now enforced through `.github/workflows/ci.yml` via reusable workflow call to `.github/workflows/e2e.yml` (`e2e` job). Branch protection should require the `CI` workflow checks.
 
-## Tablaco client-engagement flow (2026-04-19)
+## Client-engagement flow (2026-04-19)
 
 PhyndCRM is the seam across the MADFAM ecosystem for a single client's cross-platform work (fab + digital). The engagement aggregate + portal shipped with phynd-crm#9 + #10 + #11.
 
@@ -232,7 +232,7 @@ PhyndCRM is the seam across the MADFAM ecosystem for a single client's cross-pla
 - `packages/services/src/__tests__/engagements.service.test.ts` — 7 tests (recordEvent idempotency, addArtifact, getTimeline merge)
 - `packages/services/src/__tests__/engagement-portal-magic-link.service.test.ts` — 11 tests (sendPortalLink, verifyPortalLink, email-match enforcement, Janua response shape handling)
 
-**Tablaco runbook:** see `docs/runbooks/TABLACO_ENGAGEMENT.md`.
+**Operator runbook:** the step-by-step client-engagement runbook is kept in the private operations repo.
 
 **Event taxonomy:** shared vocabulary for milestone events across producers (Cotiza, Pravara, Selva, Karafiel, Dhanam) is defined in [`docs/ENGAGEMENT_EVENT_TAXONOMY.md`](docs/ENGAGEMENT_EVENT_TAXONOMY.md). Canonical milestone names (e.g. `prototype_shipped`, `payment_received`, `cfdi_stamped`) let portal filters work source-agnostically. Producers SHOULD emit both a native `<source>:<native_name>` event and a canonical `<source>:<canonical_name>` alias (separate dedup keys) when a status transition represents a client-visible milestone. Pravara's `/api/webhooks/pravara` is the reference implementation — it writes `pravara:shipped` + `pravara:prototype_shipped` on a single `status=shipped` delivery.
 

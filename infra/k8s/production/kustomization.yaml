@@ -19,9 +19,9 @@ resources:
 # web-deployment.yaml alone and deployed nothing: the same judged-a-value-
 # never-deployed trap enclii#373 fixed in the onboarding gate. Bump HERE.
 images:
-- digest: sha256:67933dd9d34a508f9999c9df37b0da0f67943654912dc55e86b0aa08101efdc6
+- digest: sha256:7c681d7c2f4dea9183fb35c79befb1f3bd0e4005efc0c2edda2acbe72f2b1a92
   name: ghcr.io/madfam-org/phynd-crm/web
   newName: ghcr.io/madfam-org/phynd-crm/web
-- digest: sha256:3eb31c62adb162aaf7fd4920bed40c63418dc0116ad02f0f25e475f0d50f4099
+- digest: sha256:bf69a69d855adcf53ab9b181e1ac5a0f0b99076c7026a7726255398efc0096dd
   name: ghcr.io/madfam-org/phynd-crm/worker
   newName: ghcr.io/madfam-org/phynd-crm/worker

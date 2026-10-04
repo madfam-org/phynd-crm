@@ -14,7 +14,7 @@ import { visitorPageViews } from '../schema/visitor-page-views'
 import { visitorSessions } from '../schema/visitor-sessions'
 import type { Db, SeedIds } from './types'
 
-export async function seedTablaco(db: Db, ids: SeedIds) {
+export async function seedProjectClient(db: Db, ids: SeedIds) {
   const { adminId, deliveryPipelineId, deliveryStages } = ids
 
   const now = new Date()
@@ -24,23 +24,23 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
   const stageId = (i: number) => deliveryStages[i]?.id ?? ''
 
   // --- Contact ---
-  const [tablacoContact] = await db
+  const [projectContact] = await db
     .insert(contacts)
     .values({
-      name: 'Rodrigo Tablaco',
-      email: 'rodrigo@tablaco.mx',
-      company: 'Tablaco',
+      name: 'Mateo Ríos',
+      email: 'mateo@acme-fabricacion.example',
+      company: 'Acme Fabricación',
       phone: '+52-55-1234-5678',
       status: 'active',
       ownerId: adminId,
-      externalJanuaId: 'janua-tablaco-001',
+      externalJanuaId: 'janua-demo-project-001',
     })
     .returning()
 
-  const contactId = tablacoContact?.id ?? ''
+  const contactId = projectContact?.id ?? ''
 
   // --- Lead (converted) ---
-  const [tablacoLead] = await db
+  const [projectLead] = await db
     .insert(leads)
     .values({
       contactId,
@@ -54,17 +54,17 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
     })
     .returning()
 
-  const leadId = tablacoLead?.id ?? ''
+  const leadId = projectLead?.id ?? ''
 
   // --- Opportunity ---
-  const [tablacoOpp] = await db
+  const [projectOpp] = await db
     .insert(opportunities)
     .values({
-      name: 'Tablaco Phase 1+2 Development',
+      name: 'Product Configurator, Phases 1+2',
       contactId,
       pipelineId: deliveryPipelineId,
       stageId: stageId(4),
-      value: '45000.00',
+      value: '14400.00',
       probability: 90,
       status: 'open',
       ownerId: adminId,
@@ -72,7 +72,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
     })
     .returning()
 
-  const oppId = tablacoOpp?.id ?? ''
+  const oppId = projectOpp?.id ?? ''
 
   // --- Quotes (3 installments) ---
   const [quote1] = await db
@@ -82,7 +82,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       opportunityId: oppId,
       contactId,
       status: 'accepted',
-      totalAmount: '15000.00',
+      totalAmount: '4800.00',
       currency: 'USD',
       validUntil: daysAgo(30),
       ownerId: adminId,
@@ -97,7 +97,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       opportunityId: oppId,
       contactId,
       status: 'accepted',
-      totalAmount: '15000.00',
+      totalAmount: '4800.00',
       currency: 'USD',
       validUntil: daysAgo(5),
       ownerId: adminId,
@@ -112,7 +112,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       opportunityId: oppId,
       contactId,
       status: 'sent',
-      totalAmount: '15000.00',
+      totalAmount: '4800.00',
       currency: 'USD',
       validUntil: daysFromNow(15),
       ownerId: adminId,
@@ -128,7 +128,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       quoteId: quote1?.id,
       contactId,
       status: 'fulfilled',
-      totalAmount: '15000.00',
+      totalAmount: '4800.00',
       currency: 'USD',
       estimatedCompletion: daysAgo(45),
       actualCompletion: daysAgo(44),
@@ -141,7 +141,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       quoteId: quote2?.id,
       contactId,
       status: 'fulfilled',
-      totalAmount: '15000.00',
+      totalAmount: '4800.00',
       currency: 'USD',
       estimatedCompletion: daysAgo(15),
       actualCompletion: daysAgo(14),
@@ -154,7 +154,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       quoteId: quote3?.id,
       contactId,
       status: 'confirmed',
-      totalAmount: '15000.00',
+      totalAmount: '4800.00',
       currency: 'USD',
       estimatedCompletion: daysFromNow(7),
       ownerId: adminId,
@@ -166,8 +166,8 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
   await db.insert(activities).values([
     {
       type: 'meeting',
-      title: 'Tablaco project kickoff',
-      description: 'Initial kickoff with Rodrigo — scope, timeline, deliverables agreed',
+      title: 'Project kickoff',
+      description: 'Initial kickoff with Mateo — scope, timeline, deliverables agreed',
       entityType: 'opportunity',
       entityId: oppId,
       ownerId: adminId,
@@ -177,8 +177,9 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
     },
     {
       type: 'task',
-      title: 'GitHub repo created for Tablaco',
-      description: 'Private repo set up: madfam/tablaco-web. Rodrigo added as collaborator',
+      title: 'Project repository created',
+      description:
+        'Private project repository set up; the client contact was added as a collaborator',
       entityType: 'opportunity',
       entityId: oppId,
       ownerId: adminId,
@@ -189,7 +190,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
     {
       type: 'task',
       title: 'Design mockups approved',
-      description: 'Rodrigo approved Figma designs for yantra4d.com/tablaco landing + gallery',
+      description: 'Mateo approved Figma designs for the product configurator landing + gallery',
       entityType: 'opportunity',
       entityId: oppId,
       ownerId: adminId,
@@ -210,7 +211,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
     },
     {
       type: 'task',
-      title: 'yantra4d.com/tablaco deployed',
+      title: 'Product configurator deployed',
       description: 'Production deployment live. SSL, CDN, analytics configured',
       entityType: 'opportunity',
       entityId: oppId,
@@ -236,7 +237,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
   await db.insert(notes).values([
     {
       content:
-        'Design approved by Rodrigo on call. He loved the 3D product viewer integration. Wants to add more products in Phase 2.',
+        'Design approved on the review call, including the 3D product viewer. More products planned for phase 2.',
       entityType: 'opportunity',
       entityId: oppId,
       authorId: adminId,
@@ -244,8 +245,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       createdAt: daysAgo(45),
     },
     {
-      content:
-        'GitHub repo: github.com/madfam/tablaco-web (private). Rodrigo has collaborator access.',
+      content: 'Project repository is private; the client contact has collaborator access.',
       entityType: 'opportunity',
       entityId: oppId,
       authorId: adminId,
@@ -253,15 +253,15 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       createdAt: daysAgo(55),
     },
     {
-      content: 'yantra4d.com/tablaco is live. Production deployment completed with SSL and CDN.',
+      content:
+        'The product configurator is live. Production deployment completed with SSL and CDN.',
       entityType: 'opportunity',
       entityId: oppId,
       authorId: adminId,
       createdAt: daysAgo(10),
     },
     {
-      content:
-        'Rodrigo prefers WhatsApp for quick updates, email for formal docs. Timezone: CST (UTC-6).',
+      content: 'Prefers WhatsApp for quick updates and email for formal documents.',
       entityType: 'contact',
       entityId: contactId,
       authorId: adminId,
@@ -271,7 +271,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
 
   // --- Tags ---
   const tagNames = [
-    { name: 'tablaco', color: '#f59e0b' },
+    { name: 'acme-demo', color: '#f59e0b' },
     { name: 'yantra4d', color: '#8b5cf6' },
     { name: 'phase-1', color: '#10b981' },
     { name: '3-installment', color: '#3b82f6' },
@@ -304,42 +304,42 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       entityType: 'contact',
       entityId: contactId,
       provider: 'janua',
-      externalId: 'janua-tablaco-001',
+      externalId: 'janua-demo-project-001',
       metadata: { roles: ['customer', 'project_client'] },
     },
     {
       entityType: 'contact',
       entityId: contactId,
       provider: 'dhanam',
-      externalId: 'dhanam-tablaco-001',
+      externalId: 'dhanam-demo-project-001',
       metadata: { plan: 'Project', invoiceCount: 3 },
     },
     {
       entityType: 'contact',
       entityId: contactId,
       provider: 'cotiza',
-      externalId: 'cotiza-tablaco-001',
+      externalId: 'cotiza-demo-project-001',
       metadata: { activeOrders: 1 },
     },
     {
       entityType: 'contact',
       entityId: contactId,
       provider: 'pravara',
-      externalId: 'pravara-tablaco-001',
+      externalId: 'pravara-demo-project-001',
       metadata: { fabricationOrders: 1 },
     },
     {
       entityType: 'contact',
       entityId: contactId,
       provider: 'forj',
-      externalId: 'forj-tablaco-001',
+      externalId: 'forj-demo-project-001',
       metadata: { assetCount: 2 },
     },
     {
       entityType: 'opportunity',
       entityId: oppId,
       provider: 'github',
-      externalId: 'madfam/tablaco-web',
+      externalId: 'example-org/product-configurator',
       metadata: { type: 'private_repo' },
     },
   ])
@@ -357,7 +357,7 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
       type: 'lead_to_opportunity',
       contactId,
       leadId,
-      value: '45000.00',
+      value: '14400.00',
       convertedAt: daysAgo(60),
     },
   ])
@@ -406,8 +406,8 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
     .insert(visitorSessions)
     .values([
       {
-        externalSessionId: 'sess-tablaco-001',
-        fingerprint: 'fp-tablaco-desktop',
+        externalSessionId: 'sess-demo-001',
+        fingerprint: 'fp-demo-desktop',
         contactId,
         identified: true,
         deviceType: 'desktop',
@@ -420,8 +420,8 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
         startedAt: daysAgo(20),
       },
       {
-        externalSessionId: 'sess-tablaco-002',
-        fingerprint: 'fp-tablaco-mobile',
+        externalSessionId: 'sess-demo-002',
+        fingerprint: 'fp-demo-mobile',
         contactId,
         identified: true,
         deviceType: 'mobile',
@@ -441,33 +441,33 @@ export async function seedTablaco(db: Db, ids: SeedIds) {
   await db.insert(visitorPageViews).values([
     {
       sessionId: sessionRows[0]?.id ?? '',
-      url: 'https://yantra4d.com/tablaco',
-      title: 'Tablaco — yantra4d',
+      url: 'https://yantra4d.com/acme-demo',
+      title: 'Acme Fabricación — yantra4d',
       duration: 35000,
       viewedAt: daysAgo(20),
     },
     {
       sessionId: sessionRows[0]?.id ?? '',
-      url: 'https://yantra4d.com/tablaco/gallery',
-      title: 'Tablaco Gallery — yantra4d',
+      url: 'https://yantra4d.com/acme-demo/gallery',
+      title: 'Acme Fabricación Gallery — yantra4d',
       duration: 55000,
       viewedAt: daysAgo(20),
     },
     {
       sessionId: sessionRows[0]?.id ?? '',
-      url: 'forj://asset/forj-tablaco-3d-001/view',
-      title: 'Tablaco 3D Product Viewer',
+      url: 'forj://asset/forj-demo-3d-001/view',
+      title: '3D Product Viewer',
       duration: 42000,
       viewedAt: daysAgo(20),
     },
     {
       sessionId: sessionRows[1]?.id ?? '',
-      url: 'https://yantra4d.com/tablaco',
-      title: 'Tablaco — yantra4d',
+      url: 'https://yantra4d.com/acme-demo',
+      title: 'Acme Fabricación — yantra4d',
       duration: 18000,
       viewedAt: daysAgo(8),
     },
   ])
 
-  console.log('  → Tablaco project lifecycle seeded')
+  console.log('  → Project-client lifecycle seeded')
 }

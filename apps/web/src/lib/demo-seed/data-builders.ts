@@ -71,13 +71,13 @@ export function buildContactData(prefix: string, userId: string) {
     },
     {
       id: `${prefix}-c5`,
-      name: 'Rodrigo Tablaco',
-      email: 'rodrigo@tablaco.mx',
-      company: 'Tablaco',
+      name: 'Mateo Ríos',
+      email: 'mateo@acme-fabricacion.example',
+      company: 'Acme Fabricación',
       phone: '+52-55-1234-5678',
       status: 'active' as const,
       ownerId: userId,
-      externalJanuaId: 'janua-tablaco-001',
+      externalJanuaId: 'janua-demo-project-001',
     },
   ]
 }

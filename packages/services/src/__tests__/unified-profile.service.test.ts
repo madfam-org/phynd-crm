@@ -35,14 +35,14 @@ describe('UnifiedProfileService production truth', () => {
   it('does not return mock federation data in production when providers are unavailable', async () => {
     const ctx = createTestContext()
     const contact = {
-      id: 'contact-tablaco',
-      name: 'Rodrigo Tablaco',
-      email: 'rodrigo@tablaco.mx',
-      company: 'Tablaco',
+      id: 'contact-demo-project',
+      name: 'Mateo Ríos',
+      email: 'mateo@acme-fabricacion.example',
+      company: 'Acme Fabricación',
       phone: null,
       status: 'active',
       ownerId: 'admin',
-      externalJanuaId: 'janua-tablaco-001',
+      externalJanuaId: 'janua-demo-project-001',
       deletedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -50,7 +50,7 @@ describe('UnifiedProfileService production truth', () => {
 
     ctx.mockDb._qb._result = [contact]
     const service = new UnifiedProfileServiceImpl(ctx, makeDeps())
-    const profile = await service.getProfile('contact-tablaco', 'token')
+    const profile = await service.getProfile('contact-demo-project', 'token')
 
     expect(profile.identity?.status).toBe('unavailable')
     expect(profile.federationStatus?.tezca).toBe('unavailable')
@@ -68,17 +68,17 @@ describe('UnifiedProfileService development mock fallback', () => {
     vi.unstubAllEnvs()
   })
 
-  it('returns Tablaco mock data in development when all core providers are unavailable', async () => {
+  it('returns the project-client mock data in development when all core providers are unavailable', async () => {
     const ctx = createTestContext()
     const contact = {
-      id: 'contact-tablaco',
-      name: 'Rodrigo Tablaco',
-      email: 'rodrigo@tablaco.mx',
-      company: 'Tablaco',
+      id: 'contact-demo-project',
+      name: 'Mateo Ríos',
+      email: 'mateo@acme-fabricacion.example',
+      company: 'Acme Fabricación',
       phone: null,
       status: 'active',
       ownerId: 'admin',
-      externalJanuaId: 'janua-tablaco-001',
+      externalJanuaId: 'janua-demo-project-001',
       deletedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -86,7 +86,7 @@ describe('UnifiedProfileService development mock fallback', () => {
 
     ctx.mockDb._qb._result = [contact]
     const service = new UnifiedProfileServiceImpl(ctx, makeDeps())
-    const profile = await service.getProfile('contact-tablaco', 'token')
+    const profile = await service.getProfile('contact-demo-project', 'token')
 
     expect(profile.identity?.data).toBeTruthy()
     expect(profile.federationStatus?.janua).toBe('ok')

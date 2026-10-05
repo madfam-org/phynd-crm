@@ -35,6 +35,11 @@ spec:
           env:
             - name: PHYND_CRM_PUBLIC_URL
               value: "https://crm.madfam.io"
+            # First-admin bootstrap (2026-10-05): this one Janua subject is
+            # provisioned as a linked CRM admin on its next sign-in (the CRM has
+            # no users yet). Inert until the bootstrap code ships; remove once linked.
+            - name: PHYND_BOOTSTRAP_ADMIN_SUBS
+              value: "1cf3ecc0-b6f3-47d7-9575-5c88beab22c0"
             # Sender identity for outbound mail. Overrides the code default
             # (email.service.ts: 'Tezca <noreply@janua.dev>') which sent from
             # the wrong product's domain. madfam.io is a verified Resend

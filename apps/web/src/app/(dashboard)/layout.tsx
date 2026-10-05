@@ -1,9 +1,11 @@
+import { NoCrmAccess } from '@/components/auth/no-crm-access'
 import { DemoBanner } from '@/components/demo/demo-banner'
 import { Header } from '@/components/layout/header'
 import { Sidebar } from '@/components/layout/sidebar'
 import { auth } from '@/lib/auth'
 import { createDemoUser, isDemoSession } from '@/lib/demo'
-import { cookies } from 'next/headers'
+import { resolveAuthContext } from '@/lib/trpc/request-context'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 const DEV_BYPASS = process.env.NODE_ENV === 'development' && process.env.AUTH_BYPASS === 'true'
@@ -18,6 +20,12 @@ export default async function DashboardLayout({
   const demoSessionId = isDemoSession(cookieStore)
 
   if (!session && !DEV_BYPASS && !demoSessionId) redirect('/login')
+
+  // Signed in at Janua but not linked to a CRM user: no CRM pages (see the
+  // staff gate in lib/trpc/request-context.ts).
+  if (session && !DEV_BYPASS && !(await resolveAuthContext(await headers())).userId) {
+    return <NoCrmAccess email={session.user?.email ?? null} />
+  }
 
   const isDemo = !!demoSessionId && !session
   const user =

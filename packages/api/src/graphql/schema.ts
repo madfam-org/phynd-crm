@@ -1,5 +1,5 @@
 import type { ServiceContext } from '@phynd/services'
-import { createSchema } from 'graphql-yoga'
+import { createGraphQLError, createSchema } from 'graphql-yoga'
 
 const typeDefs = /* GraphQL */ `
   type Query {
@@ -65,6 +65,12 @@ const resolvers = {
   Query: {
     health: () => ({ status: 'ok', version: '0.1.0' }),
     clientProfile: async (_: unknown, { id }: { id: string }, context: ServiceContext) => {
+      // Profiles are staff data: only an authenticated principal may read one.
+      if (!context.auth?.userId) {
+        throw createGraphQLError('Authentication required', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        })
+      }
       // Base CRM Profile
       const user = await context.db.query.users.findFirst({
         where: (users, { eq }) => eq(users.id, id),

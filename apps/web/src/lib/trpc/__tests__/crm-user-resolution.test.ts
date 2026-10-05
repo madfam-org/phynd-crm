@@ -164,10 +164,50 @@ describe('linked Janua user', () => {
   })
 })
 
-describe('unlinked Janua user', () => {
-  it('has crmUserId = null and keeps the Janua subject as userId', async () => {
+describe('unlinked Janua user (staff gate)', () => {
+  it('is treated as signed out: no user id, no Janua subject', async () => {
     const auth = await resolveAuthContext(new Headers())
 
+    expect(auth.userId).toBe('')
+    expect(auth.januaSub).toBeUndefined()
+    expect(auth.crmUserId).toBeUndefined()
+  })
+
+  it('cannot list or write, and nothing is written', async () => {
+    const caller = createCaller(createAppContext(await resolveAuthContext(new Headers())))
+
+    await expect(caller.contacts.list()).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    await expect(caller.activities.create(activity)).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
+    expect(fakeDb.inserted).toHaveLength(0)
+  })
+
+  it('is let in right after an admin links the account in this process', async () => {
+    const before = await resolveAuthContext(new Headers())
+    expect(before.userId).toBe('')
+
+    fakeDb.links.set(alice.sub, ALICE_CRM_ID)
+    crmUserResolver.invalidate('madfam', alice.sub) // what users.linkJanua does
+
+    const after = await resolveAuthContext(new Headers())
+    expect(after.userId).toBe(alice.sub)
+    expect(after.crmUserId).toBe(ALICE_CRM_ID)
+  })
+})
+
+describe('unlinked Janua user with PHYND_ALLOW_UNLINKED_SIGNIN=true (break-glass)', () => {
+  beforeEach(() => {
+    vi.stubEnv('PHYND_ALLOW_UNLINKED_SIGNIN', 'true')
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('keeps the Janua subject as userId with crmUserId = null', async () => {
+    const auth = await resolveAuthContext(new Headers())
+
+    expect(auth.userId).toBe(alice.sub)
     expect(auth.januaSub).toBe(alice.sub)
     expect(auth.crmUserId).toBeNull()
   })
@@ -179,17 +219,6 @@ describe('unlinked Janua user', () => {
       createCaller(createAppContext(auth)).activities.create(activity),
     ).rejects.toMatchObject({ code: 'PRECONDITION_FAILED', message: CRM_USER_NOT_LINKED_MESSAGE })
     expect(fakeDb.inserted).toHaveLength(0)
-  })
-
-  it('is picked up right after an admin links the account in this process', async () => {
-    const before = await resolveAuthContext(new Headers())
-    expect(before.crmUserId).toBeNull()
-
-    fakeDb.links.set(alice.sub, ALICE_CRM_ID)
-    crmUserResolver.invalidate('madfam', alice.sub) // what users.linkJanua does
-
-    const after = await resolveAuthContext(new Headers())
-    expect(after.crmUserId).toBe(ALICE_CRM_ID)
   })
 })
 

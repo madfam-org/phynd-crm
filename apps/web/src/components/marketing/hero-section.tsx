@@ -4,7 +4,13 @@ import type { TenantBrand } from '@/lib/branding/tenant-brand'
 import Link from 'next/link'
 import { DashboardPreview } from './dashboard-preview'
 
-export function HeroSection({ brand }: { brand?: TenantBrand }) {
+export function HeroSection({
+  brand,
+  demoEnabled = false,
+}: {
+  brand?: TenantBrand
+  demoEnabled?: boolean
+}) {
   const badges = brand?.badges ?? ['Open Source', 'Self-Hostable', 'AGPL-3.0 Licensed']
   const heroPrefix = brand?.heroPrefix ?? 'The CRM Built for'
   const heroHighlight = brand?.heroHighlight ?? 'Physical + Digital'
@@ -43,9 +49,11 @@ export function HeroSection({ brand }: { brand?: TenantBrand }) {
               <Button size="lg" asChild>
                 <Link href="/login">{primaryCta}</Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/demo">{secondaryCta}</Link>
-              </Button>
+              {demoEnabled && (
+                <Button size="lg" variant="outline" asChild>
+                  <Link href="/demo">{secondaryCta}</Link>
+                </Button>
+              )}
               <Button size="lg" variant="ghost" asChild>
                 <a
                   href="https://github.com/madfam-org/phynd-crm"

@@ -41,7 +41,13 @@ const columns = [
   },
 ]
 
-export function Footer({ brand }: { brand?: TenantBrand }) {
+export function Footer({
+  brand,
+  demoEnabled = false,
+}: {
+  brand?: TenantBrand
+  demoEnabled?: boolean
+}) {
   const copyrightName = brand?.tenantId === 'madfam' ? 'MADFAM' : 'Phynd'
 
   return (
@@ -52,16 +58,18 @@ export function Footer({ brand }: { brand?: TenantBrand }) {
             <div key={col.title}>
               <h3 className="text-sm font-semibold">{col.title}</h3>
               <ul className="mt-4 space-y-2">
-                {col.links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {col.links
+                  .filter((link) => demoEnabled || link.href !== '/demo')
+                  .map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
               </ul>
             </div>
           ))}

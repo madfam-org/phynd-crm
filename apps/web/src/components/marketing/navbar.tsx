@@ -15,9 +15,16 @@ const navLinks = [
   { label: 'Demo', href: '/demo' },
 ]
 
-export function Navbar({ brand }: { brand?: TenantBrand }) {
+export function Navbar({
+  brand,
+  demoEnabled = false,
+}: {
+  brand?: TenantBrand
+  demoEnabled?: boolean
+}) {
   const [scrolled, setScrolled] = useState(false)
   const navName = brand?.navName ?? 'Phynd'
+  const links = navLinks.filter((link) => demoEnabled || link.href !== '/demo')
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -38,7 +45,7 @@ export function Navbar({ brand }: { brand?: TenantBrand }) {
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
@@ -53,12 +60,14 @@ export function Navbar({ brand }: { brand?: TenantBrand }) {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/login">Sign In</Link>
           </Button>
-          <Button size="sm" asChild>
-            <Link href="/demo">Try Demo</Link>
-          </Button>
+          {demoEnabled && (
+            <Button size="sm" asChild>
+              <Link href="/demo">Try Demo</Link>
+            </Button>
+          )}
         </div>
 
-        <MobileNav links={navLinks} />
+        <MobileNav links={links} demoEnabled={demoEnabled} />
       </nav>
     </header>
   )

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
-export function CtaSection() {
+export function CtaSection({ demoEnabled = false }: { demoEnabled?: boolean }) {
   return (
     <section className="bg-foreground text-background">
       <div className="mx-auto max-w-7xl px-6 py-24 text-center lg:px-8">
@@ -19,14 +19,16 @@ export function CtaSection() {
           >
             <Link href="/login">Get Started</Link>
           </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="border-background/30 text-background hover:bg-background/10"
-            asChild
-          >
-            <Link href="/demo">Try Live Demo</Link>
-          </Button>
+          {demoEnabled && (
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-background/30 text-background hover:bg-background/10"
+              asChild
+            >
+              <Link href="/demo">Try Live Demo</Link>
+            </Button>
+          )}
         </div>
       </div>
     </section>

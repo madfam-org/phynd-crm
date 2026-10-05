@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Spies + mocks — declared before the vi.mock factories that close over them
 // ---------------------------------------------------------------------------
 const mockPostRedditComment = vi.fn()
+const mockResolveAuthContext = vi.fn()
 const mockResolveRedisUrl = vi.fn(() => 'redis://localhost:6379')
 const redisCtor = vi.fn()
 const redisExists = vi.fn()
@@ -23,6 +24,9 @@ const mockDb = {
   update: vi.fn(() => mockQb),
 }
 
+vi.mock('@/lib/trpc/request-context', () => ({
+  resolveAuthContext: (...args: unknown[]) => mockResolveAuthContext(...args),
+}))
 vi.mock('@phynd/db', () => ({ getDb: () => mockDb }))
 vi.mock('@phynd/db/schema', () => ({
   campaigns: { id: 'campaigns.id', status: 'campaigns.status', tulanaMetadata: 'campaigns.tulana' },
@@ -61,6 +65,14 @@ function makeCampaign(overrides: Record<string, unknown> = {}) {
   }
 }
 
+const STAFF_AUTH = {
+  userId: 'janua-sub-staff',
+  tenantId: 'default',
+  roles: [],
+  scopes: [],
+  accessToken: '',
+}
+
 function draftActionReq(body: unknown) {
   return new Request('http://localhost/api/campaigns/drafts/action', {
     method: 'POST',
@@ -71,6 +83,7 @@ function draftActionReq(body: unknown) {
 describe('POST /api/campaigns/drafts/action', () => {
   beforeEach(() => {
     mockQb._result = [makeCampaign()]
+    mockResolveAuthContext.mockResolvedValue(STAFF_AUTH)
     mockPostRedditComment.mockResolvedValue({ success: true, commentUrl: 'https://reddit.com/c/1' })
     redisQuit.mockResolvedValue('OK')
     mockResolveRedisUrl.mockImplementation(() => 'redis://localhost:6379')
@@ -214,5 +227,27 @@ describe('POST /api/campaigns/drafts/action', () => {
     const res = await POST(draftActionReq({ action: 'approved' }))
 
     expect(res.status).toBe(400)
+  })
+
+  it('returns 401 without a signed-in staff account and touches nothing', async () => {
+    mockResolveAuthContext.mockResolvedValue({ ...STAFF_AUTH, userId: '' })
+    const { POST } = await import('@/app/api/campaigns/drafts/action/route')
+
+    const res = await POST(draftActionReq({ id: 'campaign-x', action: 'approved' }))
+
+    expect(res.status).toBe(401)
+    expect(mockDb.select).not.toHaveBeenCalled()
+    expect(mockDb.update).not.toHaveBeenCalled()
+    expect(mockPostRedditComment).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 for an action other than approved or rejected and writes nothing', async () => {
+    const { POST } = await import('@/app/api/campaigns/drafts/action/route')
+
+    const res = await POST(draftActionReq({ id: 'campaign-x', action: 'posted' }))
+
+    expect(res.status).toBe(400)
+    expect(mockDb.update).not.toHaveBeenCalled()
+    expect(mockPostRedditComment).not.toHaveBeenCalled()
   })
 })

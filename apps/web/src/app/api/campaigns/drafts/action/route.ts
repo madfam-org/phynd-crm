@@ -1,3 +1,4 @@
+import { resolveAuthContext } from '@/lib/trpc/request-context'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { getDb } from '@phynd/db'
 import { campaigns } from '@phynd/db/schema'
@@ -12,6 +13,8 @@ type DraftActionBody = {
   id?: string
   action?: DraftAction
 }
+
+const DRAFT_ACTIONS: ReadonlySet<string> = new Set<DraftAction>(['approved', 'rejected'])
 
 // Durable poster guards live in Redis, NOT a posts table — a Drizzle migration
 // would collide with 0014. Keys are namespaced + TTL'd so the store stays
@@ -137,11 +140,22 @@ async function rejectDraftCampaign(db: Db, id: string, action: DraftAction) {
 }
 
 export async function POST(req: Request) {
+  // A draft action is a staff decision: it can post publicly, so it needs a signed-in
+  // staff account (a Janua account linked to a CRM user), like every protected procedure.
+  const authCtx = await resolveAuthContext(req.headers)
+  if (!authCtx.userId) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
   try {
     const { id, action } = (await req.json()) as DraftActionBody
 
     if (!id || !action) {
       return NextResponse.json({ error: 'Missing id or action' }, { status: 400 })
+    }
+
+    if (!DRAFT_ACTIONS.has(action)) {
+      return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
     }
 
     const db = getDb()

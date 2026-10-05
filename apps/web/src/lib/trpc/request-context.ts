@@ -9,6 +9,7 @@ import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { resolveFederationServiceUserId } from '@phynd/config/service-auth'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
+import { UsersService } from '@phynd/services'
 import { createServiceContext } from '@phynd/services/context'
 import { crmUserResolver } from '@phynd/services/identity'
 import type { AuthContext } from '@phynd/types/auth'
@@ -69,6 +70,59 @@ export function allowUnlinkedSignIn(): boolean {
   return process.env.PHYND_ALLOW_UNLINKED_SIGNIN === 'true'
 }
 
+/**
+ * First-admin bootstrap. PHYND_BOOTSTRAP_ADMIN_SUBS lists Janua subjects
+ * (comma-separated, exact) that are provisioned as CRM admins on sign-in when
+ * they have no CRM user yet, so the first administrator can get in once the
+ * staff gate is on. Every other unlinked account still has no access. Take the
+ * subject off the list once its account is linked.
+ */
+export function bootstrapAdminSubjects(): Set<string> {
+  return new Set(
+    (process.env.PHYND_BOOTSTRAP_ADMIN_SUBS ?? '')
+      .split(',')
+      .map((subject) => subject.trim())
+      .filter(Boolean),
+  )
+}
+
+async function provisionBootstrapAdmin(
+  tenantId: string,
+  januaSub: string,
+  user: { email?: string | null; name?: string | null },
+): Promise<string | null> {
+  if (!user.email) return null
+  const service = new UsersService(
+    createServiceContext(
+      getDb(tenantId),
+      getCacheManager(),
+      { ...EMPTY_AUTH, userId: 'system:bootstrap', tenantId },
+      tenantId,
+    ),
+  )
+  try {
+    const created = await service.create({
+      email: user.email,
+      name: user.name ?? undefined,
+      role: 'admin',
+      externalJanuaId: januaSub,
+    })
+    staffGateLogger.warn(
+      { tenantId, januaSub, crmUserId: created.id },
+      'bootstrap: provisioned a CRM admin for a listed Janua subject',
+    )
+    return created.id
+  } catch (err) {
+    // Lost a race, or the subject or email is already taken: resolve again.
+    staffGateLogger.warn(
+      { tenantId, januaSub, err },
+      'bootstrap: could not provision; resolving again',
+    )
+    crmUserResolver.invalidate(tenantId, januaSub)
+    return resolveCrmUserId(tenantId, januaSub)
+  }
+}
+
 export const EMPTY_AUTH: AuthContext = {
   userId: '',
   tenantId: DEFAULT_TENANT_ID,
@@ -87,6 +141,18 @@ async function resolveCrmUserId(tenantId: string, januaSub: string): Promise<str
   return crmUserResolver.resolve(getDb(tenantId), tenantId, januaSub)
 }
 
+/** The CRM user linked to a Janua subject, provisioning a listed bootstrap admin. */
+async function linkedCrmUserId(
+  tenantId: string,
+  januaSub: string,
+  user: { email?: string | null; name?: string | null },
+): Promise<string | null> {
+  if (!januaSub) return null
+  const crmUserId = await resolveCrmUserId(tenantId, januaSub)
+  if (crmUserId || !bootstrapAdminSubjects().has(januaSub)) return crmUserId
+  return provisionBootstrapAdmin(tenantId, januaSub, user)
+}
+
 export async function resolveAuthContext(
   headers: Headers,
   options?: { demoSessionId?: string | null },
@@ -97,7 +163,7 @@ export async function resolveAuthContext(
   const session = await auth()
   if (session?.user) {
     const januaSub = session.user.id ?? ''
-    const crmUserId = januaSub ? await resolveCrmUserId(tenantId, januaSub) : null
+    const crmUserId = await linkedCrmUserId(tenantId, januaSub, session.user)
     if (!crmUserId && !allowUnlinkedSignIn()) {
       staffGateLogger.warn(
         { tenantId, januaSub },

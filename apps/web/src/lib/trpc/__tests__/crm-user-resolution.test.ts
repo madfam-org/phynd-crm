@@ -222,6 +222,44 @@ describe('unlinked Janua user with PHYND_ALLOW_UNLINKED_SIGNIN=true (break-glass
   })
 })
 
+describe('first-admin bootstrap (PHYND_BOOTSTRAP_ADMIN_SUBS)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('provisions a linked CRM admin for a listed, unlinked subject', async () => {
+    vi.stubEnv('PHYND_BOOTSTRAP_ADMIN_SUBS', `someone-else, ${alice.sub}`)
+
+    const auth = await resolveAuthContext(new Headers())
+
+    expect(auth.userId).toBe(alice.sub)
+    // The inserted row's id, as the fake database returns it.
+    expect(auth.crmUserId).toMatch(/^row-\d+$/)
+    expect(fakeDb.inserted).toEqual([
+      expect.objectContaining({ email: alice.email, role: 'admin', externalJanuaId: alice.sub }),
+    ])
+  })
+
+  it('leaves an unlisted, unlinked subject signed out and writes nothing', async () => {
+    vi.stubEnv('PHYND_BOOTSTRAP_ADMIN_SUBS', 'someone-else')
+
+    const auth = await resolveAuthContext(new Headers())
+
+    expect(auth.userId).toBe('')
+    expect(fakeDb.inserted).toHaveLength(0)
+  })
+
+  it('does nothing for a listed subject that is already linked', async () => {
+    vi.stubEnv('PHYND_BOOTSTRAP_ADMIN_SUBS', alice.sub)
+    fakeDb.links.set(alice.sub, ALICE_CRM_ID)
+
+    const auth = await resolveAuthContext(new Headers())
+
+    expect(auth.crmUserId).toBe(ALICE_CRM_ID)
+    expect(fakeDb.inserted).toHaveLength(0)
+  })
+})
+
 describe('non-Janua principals', () => {
   it('a federation service token keeps service:selva and never looks up a CRM user', async () => {
     vi.stubEnv('FEDERATION_API_TOKEN', 'svc-token')

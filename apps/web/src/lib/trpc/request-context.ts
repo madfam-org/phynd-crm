@@ -14,6 +14,7 @@ import { crmUserResolver } from '@phynd/services/identity'
 import type { AuthContext } from '@phynd/types/auth'
 
 const serviceAuthLogger = createLogger('web:trpc:service-auth')
+const staffGateLogger = createLogger('web:trpc:staff-gate')
 const FEDERATION_TOKEN = process.env.FEDERATION_API_TOKEN ?? ''
 
 export const createCaller = createCallerFactory(appRouter)
@@ -58,6 +59,16 @@ export function createServiceAuth(tenantId: string): AuthContext {
   }
 }
 
+/**
+ * Staff gate. A signed-in Janua account reaches the CRM only when it is linked
+ * to a CRM user (`users.external_janua_id`); any other account is treated as
+ * signed out. PHYND_ALLOW_UNLINKED_SIGNIN="true" lifts the gate for one
+ * deployment, as a break-glass while a staff account is being linked.
+ */
+export function allowUnlinkedSignIn(): boolean {
+  return process.env.PHYND_ALLOW_UNLINKED_SIGNIN === 'true'
+}
+
 export const EMPTY_AUTH: AuthContext = {
   userId: '',
   tenantId: DEFAULT_TENANT_ID,
@@ -86,13 +97,21 @@ export async function resolveAuthContext(
   const session = await auth()
   if (session?.user) {
     const januaSub = session.user.id ?? ''
+    const crmUserId = januaSub ? await resolveCrmUserId(tenantId, januaSub) : null
+    if (!crmUserId && !allowUnlinkedSignIn()) {
+      staffGateLogger.warn(
+        { tenantId, januaSub },
+        'signed-in Janua account is not linked to a CRM user; treating the request as signed out',
+      )
+      return { ...EMPTY_AUTH, tenantId }
+    }
     return {
       userId: januaSub,
       tenantId,
       roles: session.user.roles ?? [],
       scopes: session.user.scopes ?? [],
       accessToken: session.accessToken ?? '',
-      ...(januaSub ? { januaSub, crmUserId: await resolveCrmUserId(tenantId, januaSub) } : {}),
+      ...(januaSub ? { januaSub, crmUserId } : {}),
     }
   }
   if (DEV_BYPASS) {

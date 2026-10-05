@@ -7,9 +7,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 interface MobileNavProps {
   links: { label: string; href: string }[]
+  demoEnabled?: boolean
 }
 
-export function MobileNav({ links }: MobileNavProps) {
+export function MobileNav({ links, demoEnabled = false }: MobileNavProps) {
   const [open, setOpen] = useState(false)
 
   const close = useCallback(() => setOpen(false), [])
@@ -72,34 +73,45 @@ export function MobileNav({ links }: MobileNavProps) {
         </svg>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur-sm">
-          <nav className="flex h-full flex-col items-center justify-center gap-8">
-            {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={close}
-                className="text-lg font-medium text-foreground transition-colors hover:text-muted-foreground"
-              >
-                {link.label}
-              </a>
-            ))}
-            <div className="flex flex-col gap-3 pt-4">
-              <Button asChild>
-                <Link href="/demo" onClick={close}>
-                  Try Demo
-                </Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/login" onClick={close}>
-                  Sign In
-                </Link>
-              </Button>
-            </div>
-          </nav>
+      {open && <MobileNavMenu links={links} demoEnabled={demoEnabled} onNavigate={close} />}
+    </div>
+  )
+}
+
+interface MobileNavMenuProps extends MobileNavProps {
+  onNavigate: () => void
+}
+
+/** The full-screen menu the toggle opens. */
+export function MobileNavMenu({ links, demoEnabled = false, onNavigate }: MobileNavMenuProps) {
+  return (
+    <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur-sm">
+      <nav className="flex h-full flex-col items-center justify-center gap-8">
+        {links.map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            onClick={onNavigate}
+            className="text-lg font-medium text-foreground transition-colors hover:text-muted-foreground"
+          >
+            {link.label}
+          </a>
+        ))}
+        <div className="flex flex-col gap-3 pt-4">
+          {demoEnabled && (
+            <Button asChild>
+              <Link href="/demo" onClick={onNavigate}>
+                Try Demo
+              </Link>
+            </Button>
+          )}
+          <Button variant="outline" asChild>
+            <Link href="/login" onClick={onNavigate}>
+              Sign In
+            </Link>
+          </Button>
         </div>
-      )}
+      </nav>
     </div>
   )
 }

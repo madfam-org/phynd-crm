@@ -10,6 +10,7 @@ import { PainPointsSection } from '@/components/marketing/pain-points-section'
 import { PricingSection } from '@/components/marketing/pricing-section'
 import { SocialProofSection } from '@/components/marketing/social-proof-section'
 import { getBrandForHost } from '@/lib/branding/tenant-brand'
+import { isDemoEnabled } from '@/lib/demo'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 
@@ -44,11 +45,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function MarketingPage() {
   const brand = await getRequestBrand()
+  // The demo is opt-in per deployment, so link to it only where it runs.
+  const demoEnabled = isDemoEnabled()
 
   return (
     <div className="min-h-screen">
-      <Navbar brand={brand} />
-      <HeroSection brand={brand} />
+      <Navbar brand={brand} demoEnabled={demoEnabled} />
+      <HeroSection brand={brand} demoEnabled={demoEnabled} />
       <PainPointsSection />
       <FeaturesSection />
       <EcosystemDiagram />
@@ -56,8 +59,8 @@ export default async function MarketingPage() {
       <SocialProofSection />
       <ComparisonTable />
       <PricingSection />
-      <CtaSection />
-      <Footer brand={brand} />
+      <CtaSection demoEnabled={demoEnabled} />
+      <Footer brand={brand} demoEnabled={demoEnabled} />
     </div>
   )
 }

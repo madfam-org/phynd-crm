@@ -2,6 +2,9 @@ import path from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // Next compiles JSX with the automatic runtime (tsconfig keeps `jsx: preserve`
+  // for Next), so components never import React; render tests need the same.
+  esbuild: { jsx: 'automatic' },
   test: {
     globals: true,
     environment: 'node',

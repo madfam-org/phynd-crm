@@ -35,6 +35,11 @@ spec:
           env:
             - name: PHYND_CRM_PUBLIC_URL
               value: "https://crm.madfam.io"
+            # TEMPORARY (2026-10-05): lets a signed-in Janua account without a
+            # CRM user through the staff gate (lib/trpc/request-context.ts)
+            # while the first CRM admin is created and linked. Remove right after.
+            - name: PHYND_ALLOW_UNLINKED_SIGNIN
+              value: "true"
             # Sender identity for outbound mail. Overrides the code default
             # (email.service.ts: 'Tezca <noreply@janua.dev>') which sent from
             # the wrong product's domain. madfam.io is a verified Resend

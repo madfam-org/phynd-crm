@@ -1,10 +1,16 @@
-import { DEMO_COOKIE_MAX_AGE, DEMO_COOKIE_NAME } from '@/lib/demo'
+import { DEMO_COOKIE_MAX_AGE, DEMO_COOKIE_NAME, isDemoEnabled } from '@/lib/demo'
 import { seedDemoTenant } from '@/lib/demo-seed'
 import { externalUrl } from '@/lib/http/origin'
 import { cookies } from 'next/headers'
 import { type NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
+  // Opt-in per deployment (lib/demo.ts): where the demo is off, send the
+  // visitor back to the home page without starting or seeding a session.
+  if (!isDemoEnabled()) {
+    return NextResponse.redirect(externalUrl('/', request))
+  }
+
   const sessionId = crypto.randomUUID()
   const cookieStore = await cookies()
 

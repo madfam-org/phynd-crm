@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { normalizeHost } from '@/lib/branding/tenant-brand'
-import { DEMO_COOKIE_NAME } from '@/lib/demo'
+import { isDemoSession } from '@/lib/demo'
 import {
   CANONICAL_PHYND_APP_HOST,
   MARKETING_AUTH_REDIRECT_HOSTS,
@@ -44,7 +44,7 @@ const authMiddleware = auth((req) => {
     // resulting cookie themselves.
     pathname.startsWith('/portal')
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/callback')
-  const hasDemoCookie = !!req.cookies.get(DEMO_COOKIE_NAME)?.value
+  const hasDemoSession = isDemoSession(req.cookies) !== null
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
   const normalizedHost = normalizeHost(host)
   const canonicalLoginHost = getCanonicalLoginHost(host, pathname)
@@ -73,8 +73,8 @@ const authMiddleware = auth((req) => {
     return NextResponse.redirect(externalUrl(appRootRedirect, req))
   }
 
-  // Demo users can access dashboard pages without auth
-  if (!isPublic && !isLoggedIn && hasDemoCookie) {
+  // Demo users can access dashboard pages without auth (only where the demo is enabled)
+  if (!isPublic && !isLoggedIn && hasDemoSession) {
     return nextWithFrameHeaders(pathname, req.headers)
   }
 

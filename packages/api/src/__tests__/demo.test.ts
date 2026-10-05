@@ -13,12 +13,9 @@ import { describe, expect, it } from 'vitest'
 const DEMO_COOKIE_NAME = 'phynd-demo'
 const DEMO_COOKIE_MAX_AGE = 14400 // 4 hours
 
-function isDemoSession(cookies: {
-  get: (name: string) => { value: string } | undefined
-}): string | null {
-  const cookie = cookies.get(DEMO_COOKIE_NAME)
-  return cookie?.value ?? null
-}
+// isDemoSession is not mirrored: whether a cookie counts as a demo session
+// (opt-in switch, session-id format) is tested against the real module in
+// apps/web/src/lib/__tests__/demo.test.ts.
 
 function createDemoAuth(sessionId: string): AuthContext {
   return {
@@ -47,25 +44,6 @@ describe('demo constants', () => {
 
   it('cookie max age is 4 hours (14400 seconds)', () => {
     expect(DEMO_COOKIE_MAX_AGE).toBe(4 * 60 * 60)
-  })
-})
-
-describe('isDemoSession', () => {
-  it('returns sessionId when cookie is present', () => {
-    const cookies = {
-      get: (name: string) => (name === DEMO_COOKIE_NAME ? { value: 'sess-123' } : undefined),
-    }
-    expect(isDemoSession(cookies)).toBe('sess-123')
-  })
-
-  it('returns null when cookie is absent', () => {
-    const cookies = { get: () => undefined }
-    expect(isDemoSession(cookies)).toBeNull()
-  })
-
-  it('returns null for wrong cookie name', () => {
-    const cookies = { get: (name: string) => (name === 'other' ? { value: 'val' } : undefined) }
-    expect(isDemoSession(cookies)).toBeNull()
   })
 })
 

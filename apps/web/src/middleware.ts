@@ -8,6 +8,7 @@ import {
   getCanonicalLoginHost,
   getDormantClientHostRedirect,
 } from '@/lib/http/app-host'
+import { isCrawlFilePath } from '@/lib/http/crawl-files'
 import { sanitizeForwardedHeaders } from '@/lib/http/forwarded-headers'
 import { applyFrameEmbeddingHeaders } from '@/lib/http/frame-embed'
 import { externalUrl } from '@/lib/http/origin'
@@ -36,6 +37,7 @@ const authMiddleware = auth((req) => {
   const { pathname } = req.nextUrl
   const isPublic =
     publicPaths.includes(pathname) ||
+    isCrawlFilePath(pathname) ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
     // External-client portal: gated by its own signed cookie, not the

@@ -2,7 +2,12 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 
-import { DEFAULT_ECOSYSTEM_PLATFORMS, type EcosystemPlatform } from './platforms'
+import { ecosystemLink } from './links'
+import {
+  DEFAULT_ECOSYSTEM_PLATFORMS,
+  type EcosystemPlatform,
+  MADFAM_OWNED_DOMAINS,
+} from './platforms'
 
 /**
  * Schema-versioned dismissal record. Bump `BANNER_VERSION` when the platform
@@ -309,6 +314,12 @@ export function EcosystemBanner({
             {track.map((platform, index) => {
               const fullPair = `${platform.keyword}: ${platform.name}`
               const isDuplicate = index >= list.length
+              const link = ecosystemLink(platform.url, {
+                surface: 'banner',
+                // Rendered only after mount (see `mounted`), so `window` is defined here.
+                originHost: typeof window === 'undefined' ? undefined : window.location.hostname,
+                ownedDomains: MADFAM_OWNED_DOMAINS,
+              })
               const itemContent = (
                 <>
                   <span className="madfam-eco-banner__keyword">{platform.keyword}:</span>
@@ -334,9 +345,9 @@ export function EcosystemBanner({
               return (
                 <a
                   key={`${platform.name}-${index}`}
-                  href={platform.url}
+                  href={link.href}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={link.rel}
                   title={fullPair}
                   className="madfam-eco-banner__item"
                 >

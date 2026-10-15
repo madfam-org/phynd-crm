@@ -7,6 +7,7 @@ import { EngagementContactsPanel } from './engagement-contacts-panel'
 import { EngagementInfoForm } from './engagement-info-form'
 import { EngagementItemsPanel } from './engagement-items-panel'
 import { EngagementTimeline } from './engagement-timeline'
+import { EngagementPaymentsPanel } from './payments/engagement-payments-panel'
 
 interface EngagementDetailTabsProps {
   engagement: {
@@ -25,6 +26,7 @@ export function EngagementDetailTabs({ engagement }: EngagementDetailTabsProps) 
       <TabsList>
         <TabsTrigger value="timeline">Timeline</TabsTrigger>
         <TabsTrigger value="items">Items</TabsTrigger>
+        <TabsTrigger value="payments">Pagos</TabsTrigger>
         <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
         <TabsTrigger value="contacts">Contacts</TabsTrigger>
         <TabsTrigger value="info">Info</TabsTrigger>
@@ -38,6 +40,11 @@ export function EngagementDetailTabs({ engagement }: EngagementDetailTabsProps) 
       <TabsContent value="items" className="mt-4">
         <div className="rounded-lg border bg-card p-6">
           <EngagementItemsPanel engagementId={engagement.id} />
+        </div>
+      </TabsContent>
+      <TabsContent value="payments" className="mt-4">
+        <div className="rounded-lg border bg-card p-6">
+          <EngagementPaymentsPanel contactId={engagement.contactId} engagementId={engagement.id} />
         </div>
       </TabsContent>
       <TabsContent value="contacts" className="mt-4">

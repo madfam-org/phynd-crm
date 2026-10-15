@@ -17,6 +17,7 @@ import { notificationsRouter } from './routers/notifications'
 import { offersRouter } from './routers/offers'
 import { opportunitiesRouter } from './routers/opportunities'
 import { ordersRouter } from './routers/orders'
+import { paymentEvidenceRouter } from './routers/payment-evidence'
 import { pipelinesRouter } from './routers/pipelines'
 import { preferencesRouter } from './routers/preferences'
 import { quotesRouter } from './routers/quotes'
@@ -50,6 +51,7 @@ export const appRouter = router({
   offers: offersRouter,
   opportunities: opportunitiesRouter,
   orders: ordersRouter,
+  paymentEvidence: paymentEvidenceRouter,
   pipelines: pipelinesRouter,
   preferences: preferencesRouter,
   quotes: quotesRouter,

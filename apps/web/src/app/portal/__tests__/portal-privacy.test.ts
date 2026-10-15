@@ -81,6 +81,23 @@ describe('client portal privacy', () => {
     expect(page?.source).toMatch(/\.listForClient\s*\(/)
   })
 
+  it('lists payments only through listForClient (client-visible, not voided, no folio)', () => {
+    const page = sources.find((s) => s.file === path.join('[engagementId]', 'page.tsx'))
+    expect(page?.source).toMatch(/PaymentEvidenceService\([^)]*\)\s*\.listForClient\s*\(/)
+    const offenders = sources
+      .filter((s) => /PaymentEvidenceService\([^)]*\)\s*\.(list|getById)\s*\(/.test(s.source))
+      .map((s) => s.file)
+    expect(offenders).toEqual([])
+  })
+
+  it('checks evidence access on the receipt route', () => {
+    const route = sources.find(
+      (s) => s.file === path.join('[engagementId]', 'payments', '[evidenceId]', 'file', 'route.ts'),
+    )
+    expect(route?.source).toMatch(/resolvePortalAccess\s*\(/)
+    expect(route?.source).toMatch(/canViewEvidence\s*\(/)
+  })
+
   it('never lists all engagement items', () => {
     const offenders = sources
       .filter((s) => /EngagementItemsService\([^)]*\)\s*\.list\s*\(/.test(s.source))

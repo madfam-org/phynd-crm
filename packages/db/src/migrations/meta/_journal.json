@@ -120,6 +120,13 @@
       "when": 1792034840843,
       "tag": "0016_striped_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792039868865,
+      "tag": "0017_easy_vindicator",
+      "breakpoints": true
     }
   ]
 }

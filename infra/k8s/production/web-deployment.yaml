@@ -73,6 +73,14 @@ spec:
             - secretRef:
                 name: phynd-acca-secrets
                 optional: true
+            # R2_BUCKET_NAME / R2_ENDPOINT_URL / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+            # for private payment evidence, written by
+            # `enclii buckets create phynd-crm-payment-evidence --project phynd-crm`
+            # (docs/runbooks/payment-evidence-storage.md). Optional: without it,
+            # receipt upload answers 503 and payments are recorded without a file.
+            - secretRef:
+                name: phynd-crm-credentials
+                optional: true
           resources:
             requests:
               cpu: 50m

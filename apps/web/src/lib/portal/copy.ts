@@ -25,6 +25,8 @@ interface AddressedCopy {
   clientSide: string
   decisionsTitle: string
   awaitingClient: string
+  paymentsEmpty: string
+  viewReceipt: string
   checkoutErrors: Record<string, string>
   checkoutNotices: Record<string, string>
   payment: {
@@ -45,6 +47,8 @@ const TU: AddressedCopy = {
   activityEmpty: 'Aún no hay novedades. Aquí verás los avances del proyecto.',
   clientSide: 'Tú',
   decisionsTitle: 'Decisiones que esperan tu respuesta',
+  paymentsEmpty: 'Aún no registramos pagos tuyos en este proyecto.',
+  viewReceipt: 'Ver tu comprobante',
   awaitingClient: 'Espera tu respuesta',
   checkoutErrors: {
     checkout_failed: 'No pudimos iniciar el pago. Intenta de nuevo en un momento.',
@@ -76,6 +80,8 @@ const USTED: AddressedCopy = {
   activityEmpty: 'Aún no hay novedades. Aquí verá los avances del proyecto.',
   clientSide: 'Usted',
   decisionsTitle: 'Decisiones que esperan su respuesta',
+  paymentsEmpty: 'Aún no registramos pagos suyos en este proyecto.',
+  viewReceipt: 'Ver su comprobante',
   awaitingClient: 'Espera su respuesta',
   checkoutErrors: {
     checkout_failed: 'No pudimos iniciar el pago. Intente de nuevo en un momento.',
@@ -106,9 +112,23 @@ const SHARED = {
     decisionsMadfam: 'Decisiones que estamos preparando',
     decisionsDone: 'Decisiones tomadas',
     quotes: 'Cotización y pago',
+    payments: 'Pagos',
     files: 'Archivos del proyecto',
     activity: 'Actividad',
   },
+  paymentMethod: {
+    spei_transfer: 'Transferencia SPEI',
+    card: 'Tarjeta',
+    cash: 'Efectivo',
+    other: 'Otro medio',
+  } as Record<string, string>,
+  paymentEvidenceStatus: {
+    recorded: 'Recibido',
+    verified: 'Verificado',
+  } as Record<string, string>,
+  // Only ever the last four digits.
+  fromAccount: (last4: string) => `Desde la cuenta •${last4}`,
+  receiptAlt: 'Comprobante de pago',
   progressEmpty: 'Aún no hay hitos ni entregables publicados.',
   nothingPending: 'Nada pendiente.',
   filesEmpty: 'Aún no hay archivos. Aquí aparecerán propuestas, facturas y entregables.',

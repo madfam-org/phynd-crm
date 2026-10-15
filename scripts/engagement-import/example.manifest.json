@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "clients": [
+    {
+      "key": "acme-ejemplo",
+      "contacts": [
+        {
+          "key": "acme-ejemplo/contacto-direccion",
+          "name": "Persona Ejemplo",
+          "email": "persona@example.invalid",
+          "company": "Acme Ejemplo S.A."
+        },
+        {
+          "key": "acme-ejemplo/contacto-facturacion",
+          "name": "Facturación Acme Ejemplo",
+          "email": "facturacion@example.invalid",
+          "company": "Acme Ejemplo S.A."
+        }
+      ],
+      "opportunity": {
+        "key": "acme-ejemplo/oportunidad-2026",
+        "name": "Acme Ejemplo: plataforma 2026",
+        "pipeline": "Project Delivery",
+        "stage": "Development",
+        "value": "30000.00",
+        "status": "won",
+        "probability": 100,
+        "expected_close_date": "2026-08-15"
+      },
+      "engagements": [
+        {
+          "key": "acme-ejemplo/plataforma",
+          "project_name": "Plataforma de ejemplo",
+          "description": "Engagement sintético para probar la importación.",
+          "status": "active",
+          "quotes": [
+            {
+              "key": "acme-ejemplo/cotizacion-ciclo-1",
+              "quote_number": "EJ-2026-001",
+              "status": "accepted",
+              "currency": "MXN",
+              "subtotal": "10000.00",
+              "tax_amount": "1600.00",
+              "total_amount": "11600.00",
+              "valid_until": "2026-09-30",
+              "notes": "Ciclo 1 (sintético).",
+              "line_items": [
+                {
+                  "description": "Horas de desarrollo (sintético)",
+                  "quantity": 10,
+                  "unit": "hora",
+                  "unit_price": "800.00"
+                },
+                {
+                  "description": "Soporte mensual (sintético)",
+                  "quantity": 1,
+                  "unit": "mes",
+                  "unit_price": "2000.00"
+                }
+              ]
+            }
+          ],
+          "artifacts": [
+            {
+              "key": "acme-ejemplo/artefacto-propuesta",
+              "type": "signed_proposal",
+              "title": "Propuesta firmada (ejemplo)",
+              "url": "https://example.invalid/propuesta.pdf"
+            },
+            {
+              "key": "acme-ejemplo/artefacto-entregable-1",
+              "type": "deliverable",
+              "title": "Entregable 1 (ejemplo)",
+              "url": "https://example.invalid/entregable-1"
+            }
+          ],
+          "events": [
+            {
+              "key": "acme-ejemplo/evento-arranque",
+              "source": "system",
+              "event_type": "system:kickoff_held",
+              "status": "completed",
+              "message": "Arrancamos el proyecto.",
+              "occurred_at": "2026-08-20T10:00:00-06:00",
+              "visibility": "client"
+            },
+            {
+              "key": "acme-ejemplo/evento-nota-interna",
+              "source": "system",
+              "event_type": "system:internal_note",
+              "message": "Nota interna sintética: nunca llega al portal.",
+              "occurred_at": "2026-08-21T09:30:00-06:00",
+              "visibility": "internal"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -207,6 +207,7 @@ per-tenant database and `--json` for machine-readable output.
 | --- | --- | --- |
 | `scripts/audit-session-user-ids.mjs` | Per actor column, counts values that match no known Janua subject, CRM user, service principal or demo id (the per-login random ids written before 2026-09-30), with distinct counts and date ranges | Never: one `BEGIN READ ONLY` transaction, rolled back |
 | `scripts/link-janua-users.mjs` | Lists CRM users with no `external_janua_id`; validates a `{ "<users.id>": "<janua sub>" }` mapping | Only with `--apply`, all-or-nothing |
+| `scripts/import-engagements.mjs` | Idempotent client import from a JSON manifest (contacts → opportunity → engagements → quotes → artifacts → events), every record keyed by `external_references` (provider `madfam-ops`); prints per-record create / link / update / unchanged | Only with `--apply`, all-or-nothing |
 
 ```bash
 # 1. Read-only damage assessment
@@ -230,6 +231,31 @@ invalid (nothing is written), `2` when the database URL is missing, and `1` on
 any other error. Interpreting the audit output and the repair options (an owner
 decision; no data fix ships with the code) are covered in
 [`docs/IDENTITY.md`](docs/IDENTITY.md#damage-assessment-for-the-per-login-ids).
+
+**Client import.** The manifest format is the JSON Schema
+[`scripts/engagement-import/manifest.schema.json`](scripts/engagement-import/manifest.schema.json);
+[`example.manifest.json`](scripts/engagement-import/example.manifest.json) is synthetic.
+Real client manifests stay in the private operations repo. The manifest arrives on
+stdin, so in-cluster runs copy the script into the pod first:
+
+```bash
+# Local / port-forward: dry-run, read it, then apply. A second --apply reports every record unchanged.
+DATABASE_URL=postgresql://... node scripts/import-engagements.mjs --owner-email <crm user email> < manifest.json
+DATABASE_URL=postgresql://... node scripts/import-engagements.mjs --owner-email <crm user email> --apply < manifest.json
+
+# In-cluster (break-glass rules in AGENTS.md)
+kubectl -n phynd-crm exec -i deploy/phynd-crm-worker -- \
+  sh -c 'cat > /tmp/import-engagements.mjs' < scripts/import-engagements.mjs
+kubectl -n phynd-crm exec -i deploy/phynd-crm-worker -- \
+  node /tmp/import-engagements.mjs --owner-email <crm user email> [--apply] < manifest.json
+```
+
+It refuses (exit `3`, nothing written) on any blocker: unknown or ambiguous owner,
+a missing pipeline stage, a new contact whose email another contact already has
+(set `crm_id` to adopt that contact), a reference to a deleted row, or events
+while `engagement_events.visibility` (migration `0015`) is missing. Every event
+must state `visibility`. Imported quotes and artifacts appear in the client
+portal; see the schema descriptions. Exit `4` means the manifest is invalid.
 
 ## Federation Layer
 

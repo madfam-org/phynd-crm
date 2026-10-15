@@ -121,6 +121,8 @@ DATABASE_URL=... node scripts/link-janua-users.mjs --links links.json      # dry
 DATABASE_URL=... node scripts/link-janua-users.mjs --links links.json --apply  # all-or-nothing write
 ```
 
+Client import (owner-run, dry-run default, `--apply` all-or-nothing, idempotent through `external_references` provider `madfam-ops`): `scripts/import-engagements.mjs --owner-email <email> < manifest.json`. Manifest schema + synthetic example in `scripts/engagement-import/`; real client manifests never enter this public repo. See README § Operator scripts.
+
 `--database-env DATABASE_URL_<TENANT>` targets a per-tenant DB. In-cluster runs pipe the
 script into `deploy/phynd-crm-worker` (`node --input-type=module - … < scripts/<name>.mjs`)
 under the break-glass rules above; see README § Operator scripts and `docs/IDENTITY.md`.

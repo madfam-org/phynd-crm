@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/madfam-org/phynd-crm/scripts/engagement-import/manifest.schema.json",
+  "title": "PhyndCRM engagement import manifest",
+  "description": "Input of scripts/import-engagements.mjs. Every `key` is a stable external id stored in external_references (provider `madfam-ops`); re-running the same manifest updates instead of duplicating. Real client manifests never live in this public repo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "clients"],
+  "properties": {
+    "version": { "const": 1 },
+    "clients": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/client" }
+    }
+  },
+  "$defs": {
+    "key": {
+      "description": "Stable external id, unique per record kind across the manifest. Never reuse a key for a different record.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._/-]{0,199}$"
+    },
+    "crmId": {
+      "description": "Adopt this existing CRM row (its id) instead of creating one; only used while the record has no madfam-ops reference yet.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "amount": {
+      "description": "Decimal string, up to 2 decimals (numeric(12,2)).",
+      "type": "string",
+      "pattern": "^\\d{1,10}(\\.\\d{1,2})?$"
+    },
+    "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "text": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "longText": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "contacts"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "contacts": {
+          "description": "The first contact is the default for the opportunity and every engagement.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/contact" }
+        },
+        "opportunity": { "$ref": "#/$defs/opportunity" },
+        "engagements": { "type": "array", "items": { "$ref": "#/$defs/engagement" } }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "name": { "$ref": "#/$defs/text" },
+        "email": {
+          "description": "Stored lowercased. Must be unique in the manifest; creating a contact whose email another contact already has is refused (set crm_id to adopt it).",
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        },
+        "phone": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "company": { "$ref": "#/$defs/text" },
+        "crm_id": { "$ref": "#/$defs/crmId" }
+      }
+    },
+    "opportunity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "pipeline", "stage"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "name": { "$ref": "#/$defs/text" },
+        "pipeline": { "description": "Existing pipeline name.", "$ref": "#/$defs/text" },
+        "stage": { "description": "Existing stage name in that pipeline.", "$ref": "#/$defs/text" },
+        "contact": { "description": "Contact key of this client.", "$ref": "#/$defs/key" },
+        "value": { "description": "MXN (opportunities have no currency column).", "$ref": "#/$defs/amount" },
+        "status": { "enum": ["open", "won", "lost"], "default": "open" },
+        "probability": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "expected_close_date": { "$ref": "#/$defs/date" },
+        "crm_id": { "$ref": "#/$defs/crmId" }
+      }
+    },
+    "engagement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "project_name"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "project_name": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/longText" },
+        "status": { "enum": ["active", "completed", "paused", "cancelled"], "default": "active" },
+        "contact": { "description": "Contact key of this client.", "$ref": "#/$defs/key" },
+        "crm_id": { "$ref": "#/$defs/crmId" },
+        "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/event" } }
+      }
+    },
+    "quote": {
+      "description": "Shown in the client portal's quote card when draft, sent or accepted; sent and accepted offer online payment there.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "quote_number", "status", "total_amount"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "quote_number": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "status": { "enum": ["draft", "sent", "accepted", "declined", "expired"] },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "default": "MXN" },
+        "total_amount": { "$ref": "#/$defs/amount" },
+        "subtotal": { "$ref": "#/$defs/amount" },
+        "tax_amount": { "$ref": "#/$defs/amount" },
+        "valid_until": { "$ref": "#/$defs/date" },
+        "notes": { "$ref": "#/$defs/longText" },
+        "line_items": {
+          "description": "Kept in the quote's madfam-ops reference metadata (quotes have no line-item table yet).",
+          "type": "array",
+          "items": { "$ref": "#/$defs/lineItem" }
+        },
+        "crm_id": { "$ref": "#/$defs/crmId" }
+      }
+    },
+    "lineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "quantity", "unit_price"],
+      "properties": {
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "quantity": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "unit_price": { "$ref": "#/$defs/amount" },
+        "amount": { "description": "Defaults to quantity × unit_price.", "$ref": "#/$defs/amount" }
+      }
+    },
+    "artifact": {
+      "description": "Every artifact of an engagement is listed in the client portal.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "type", "title"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "type": {
+          "description": "e.g. quote, signed_proposal, statement_of_work, invoice, deliverable.",
+          "type": "string",
+          "pattern": "^[a-z][a-z_]{0,29}$"
+        },
+        "title": { "$ref": "#/$defs/text" },
+        "url": { "type": "string", "maxLength": 2000, "pattern": "^https://[^\\s]+$" },
+        "description": { "$ref": "#/$defs/longText" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "source", "event_type", "occurred_at", "visibility"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "source": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,19}$" },
+        "event_type": {
+          "description": "<source>:<event_name>, see docs/ENGAGEMENT_EVENT_TAXONOMY.md.",
+          "type": "string",
+          "maxLength": 100,
+          "pattern": "^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.-]*$"
+        },
+        "message": { "$ref": "#/$defs/longText" },
+        "status": { "enum": ["pending", "in_progress", "milestone", "completed", "failed", "blocked"] },
+        "occurred_at": {
+          "description": "ISO 8601 with offset, e.g. 2026-09-01T10:00:00-06:00. Stored as the event's created_at.",
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "visibility": {
+          "description": "Required on purpose: 'client' events appear in the client portal.",
+          "enum": ["internal", "client"]
+        }
+      }
+    }
+  }
+}

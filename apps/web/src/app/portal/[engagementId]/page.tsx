@@ -1,12 +1,18 @@
 import { PortalActivity, PortalFiles, PortalQuotes } from '@/components/portal/portal-commerce'
 import { PortalItems } from '@/components/portal/portal-items'
+import { PortalPayments } from '@/components/portal/portal-payments'
 import { labelFor, portalCopy, portalRegister } from '@/lib/portal/copy'
 import { groupPortalItems } from '@/lib/portal/items'
 import { buildQuoteCards, findPortalQuotes, loadAcceptedDeliverableIds } from '@/lib/portal/quotes'
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
 import { NoopCacheManager } from '@phynd/federation'
-import { EngagementItemsService, EngagementsService, resolvePortalAccess } from '@phynd/services'
+import {
+  EngagementItemsService,
+  EngagementsService,
+  PaymentEvidenceService,
+  resolvePortalAccess,
+} from '@phynd/services'
 import { notFound, redirect } from 'next/navigation'
 
 // Server-rendered portal page. Gates on the phynd-portal-session cookie
@@ -21,7 +27,8 @@ import { notFound, redirect } from 'next/navigation'
 //
 // PRIVACY: the activity feed comes from getClientTimeline() — engagement
 // events explicitly marked visibility='client', nothing else — and items from
-// EngagementItemsService.listForClient() (client_visible only). Never call
+// EngagementItemsService.listForClient() (client_visible only), payments from
+// PaymentEvidenceService.listForClient() (client-visible, not voided). Never call
 // getTimeline() here: it merges internal events, the contact's activities and
 // stage transitions for staff. A guard test (__tests__/portal-privacy.test.ts)
 // fails if this directory reads the staff timeline, activities or notes.
@@ -74,13 +81,15 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
   }
   const service = new EngagementsService(ctx)
 
-  const [timeline, artifacts, items, portalQuotes, acceptedDeliverableIds] = await Promise.all([
-    service.getClientTimeline(engagementId, 50),
-    service.listArtifacts(engagementId),
-    new EngagementItemsService(ctx).listForClient(engagementId),
-    findPortalQuotes(db, engagement),
-    loadAcceptedDeliverableIds(db, engagementId),
-  ])
+  const [timeline, artifacts, items, portalQuotes, acceptedDeliverableIds, payments] =
+    await Promise.all([
+      service.getClientTimeline(engagementId, 50),
+      service.listArtifacts(engagementId),
+      new EngagementItemsService(ctx).listForClient(engagementId),
+      findPortalQuotes(db, engagement),
+      loadAcceptedDeliverableIds(db, engagementId),
+      new PaymentEvidenceService(ctx).listForClient(engagementId),
+    ])
   const quoteCards = await buildQuoteCards(db, portalQuotes)
 
   return (
@@ -123,6 +132,8 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
           copy={copy}
           engagementId={engagementId}
         />
+
+        <PortalPayments copy={copy} engagementId={engagementId} payments={payments} />
 
         <PortalFiles
           acceptedIds={acceptedDeliverableIds}

@@ -8,7 +8,9 @@
           "key": "acme-ejemplo/contacto-direccion",
           "name": "Persona Ejemplo",
           "email": "persona@example.invalid",
-          "company": "Acme Ejemplo S.A."
+          "company": "Acme Ejemplo S.A.",
+          "preferred_name": "Per",
+          "spanish_formality": "tu"
         },
         {
           "key": "acme-ejemplo/contacto-facturacion",
@@ -91,6 +93,63 @@
               "message": "Nota interna sintética: nunca llega al portal.",
               "occurred_at": "2026-08-21T09:30:00-06:00",
               "visibility": "internal"
+            }
+          ],
+          "contacts": [
+            {
+              "contact": "acme-ejemplo/contacto-facturacion",
+              "role": "facturacion",
+              "portal_access": true
+            }
+          ],
+          "items": [
+            {
+              "key": "acme-ejemplo/hito-arranque",
+              "kind": "milestone",
+              "title": "Arranque del proyecto",
+              "status": "done",
+              "completed_at": "2026-08-20",
+              "client_visible": true
+            },
+            {
+              "key": "acme-ejemplo/pendiente-logotipo",
+              "kind": "actionable",
+              "title": "Enviar logotipo en alta resolución",
+              "side": "client",
+              "status": "awaiting_client",
+              "due_at": "2026-11-01",
+              "client_visible": true
+            },
+            {
+              "key": "acme-ejemplo/decision-paleta",
+              "kind": "decision",
+              "title": "Elegir paleta de color",
+              "side": "client",
+              "status": "awaiting_client",
+              "client_visible": true
+            },
+            {
+              "key": "acme-ejemplo/nota-interna",
+              "kind": "actionable",
+              "title": "Revisar márgenes (interno)"
+            }
+          ],
+          "payments": [
+            {
+              "key": "acme-ejemplo/pago-anticipo",
+              "method": "spei_transfer",
+              "paid_at": "2026-10-15T10:30:15-06:00",
+              "amount": "11603.56",
+              "bank_name": "BANCO EJEMPLO",
+              "operation_type": "Transferencias SPEI",
+              "folio": "0012345678",
+              "tracking_key": "MBAN01002610150012345678",
+              "reference": "Pago anticipo proyecto ejemplo",
+              "origin_account_last4": "1234",
+              "destination_account_last4": "5678",
+              "beneficiary_name": "ACME EJEMPLO SA DE CV",
+              "status": "verified",
+              "quote": "acme-ejemplo/cotizacion-ciclo-1"
             }
           ]
         }

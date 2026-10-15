@@ -137,6 +137,21 @@ export {
   type PortalViewer,
   resolvePortalAccess,
 } from './engagement-portal/portal-access'
+export {
+  type ClientPaymentEvidence,
+  canViewEvidence,
+  type EvidenceViewer,
+  type PaymentEvidenceInput,
+  type PaymentEvidencePatch,
+  PaymentEvidenceService,
+  paymentReceivedMessage,
+  validateRecord as validatePaymentEvidenceRecord,
+} from './payment-evidence/payment-evidence.service'
+export {
+  describeBalance,
+  type Reconciliation,
+  reconcile,
+} from './payment-evidence/reconciliation'
 export { EngagementPortalMagicLinkService } from './engagement-portal/magic-link.service'
 export { EngagementPortalSignoffService } from './engagement-portal/signoff.service'
 export { createServiceContext, type ServiceContext } from './context'

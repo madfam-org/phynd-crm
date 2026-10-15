@@ -1,0 +1,56 @@
+%PDF-1.5
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<<  /Length 1351 >>
+stream
+BT /F1 12 Tf 1 0 0 1 50 760 Tm (BBVA) Tj ET
+BT /F1 12 Tf 1 0 0 1 50 736 Tm (Comprobante de la operaci\363n) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 712 Tm (Tipo de operaci\363n) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 712 Tm (Transferencias SPEI) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 694 Tm (Folio de la operaci\363n) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 694 Tm (0012345678) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 676 Tm (Fecha de operaci\363n) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 676 Tm (15/10/2026) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 658 Tm (Hora) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 658 Tm (10:30:15 h) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 640 Tm (Concepto) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 640 Tm (Pago anticipo proyecto ejemplo) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 622 Tm (Importe transferido) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 622 Tm ($11,603.56) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 604 Tm (Cuenta de origen) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 604 Tm (\2251234) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 586 Tm (Nombre del beneficiario) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 586 Tm (ACME EJEMPLO SA DE CV) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 568 Tm (Nombre del banco) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 568 Tm (BANCO EJEMPLO) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 550 Tm (Cuenta de destino) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 550 Tm (\2255678) Tj ET
+BT /F1 10 Tf 1 0 0 1 50 532 Tm (Clave de rastreo) Tj ET
+BT /F1 10 Tf 1 0 0 1 300 532 Tm (MBAN01002610150012345678) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000344 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1748
+%%EOF

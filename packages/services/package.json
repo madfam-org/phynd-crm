@@ -14,6 +14,10 @@
     "./email/templates/*": "./src/email/templates/*.ts",
     "./engagements/event-visibility": "./src/engagements/event-visibility.ts",
     "./engagement-portal/portal-access": "./src/engagement-portal/portal-access.ts",
+    "./payment-evidence/storage": "./src/payment-evidence/storage.ts",
+    "./payment-evidence/evidence-file": "./src/payment-evidence/evidence-file.ts",
+    "./payment-evidence/extractors": "./src/payment-evidence/extractors.ts",
+    "./payment-evidence/access": "./src/payment-evidence/access.ts",
     "./payments/dhanam-checkout": "./src/payments/dhanam-checkout.service.ts",
     "./payments/payment-reconciliation": "./src/payments/payment-reconciliation.service.ts"
   },

@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 /**
  * Idempotent client import for operators (owner-run): contacts → opportunity →
- * engagements → quotes → artifacts → events, from a JSON manifest.
+ * engagements → quotes → artifacts → events → items → engagement contacts →
+ * payments, from a JSON manifest.
  *
- * Every record carries a stable `key`. The script keeps one
- * `external_references` row per record (provider `madfam-ops`, `external_id` =
- * the key), so a re-run finds what it created and UPDATES it instead of adding
- * a duplicate. A second run of the same manifest reports every record
- * `unchanged`. Artifacts and events are deduplicated the same way.
+ * Every record carries a stable `key`. Contacts, opportunities, engagements,
+ * quotes, artifacts and events keep one `external_references` row each
+ * (provider `madfam-ops`, `external_id` = the key). Items and payments are keyed
+ * by their own `external_key` column (unique per engagement), and engagement
+ * contacts by (engagement, contact). A re-run finds what it wrote and UPDATES
+ * it instead of adding a duplicate; a second run of the same manifest reports
+ * every record `unchanged`.
+ *
+ * DATA-LOSS GUARD: a field the manifest omits is never written to an existing
+ * row, adopted (`crm_id`) or not; defaults apply only to rows being created.
+ * The manifest can set values but never clear them (clear them in the CRM).
+ * Contact `preferred_name`/`spanish_formality` therefore change only when set.
  *
  * Manifest: JSON Schema `scripts/engagement-import/manifest.schema.json`,
  * synthetic example `scripts/engagement-import/example.manifest.json`. Real
@@ -30,7 +38,14 @@
  *     0015): without it the portal shows every event to the client. Each event
  *     states its visibility; nothing defaults to client-visible;
  *   - imported quotes appear in the client portal's quote card (draft, sent,
- *     accepted); `sent`/`accepted` offer online payment there.
+ *     accepted); `sent`/`accepted` offer online payment there;
+ *   - quote status moves follow QUOTE_TRANSITIONS (e.g. never accepted -> draft)
+ *     and payment status moves follow PAYMENT_TRANSITIONS (recorded -> verified
+ *     -> voided); anything else is a blocker;
+ *   - payments refuse account, CLABE or card numbers (last 4 digits at most);
+ *     importing a payment writes the record only: no order paid_amount update
+ *     and no client event (add an `events[]` entry for the timeline);
+ *   - items, engagement contacts and payments need migrations 0016/0017.
  *
  * Output: record kinds, keys, actions and changed field NAMES; never values.
  *
@@ -78,6 +93,28 @@ export const ENUMS = {
   quoteStatus: ['draft', 'sent', 'accepted', 'declined', 'expired'],
   eventStatus: ['pending', 'in_progress', 'milestone', 'completed', 'failed', 'blocked'],
   visibility: ['internal', 'client'],
+  spanishFormality: ['tu', 'usted'],
+  itemKind: ['milestone', 'deliverable', 'actionable', 'decision'],
+  itemStatus: ['planned', 'in_progress', 'done', 'blocked', 'awaiting_client'],
+  itemSide: ['madfam', 'client'],
+  paymentMethod: ['spei_transfer', 'card', 'cash', 'other'],
+  paymentStatus: ['recorded', 'verified', 'voided'],
+}
+
+/** Allowed quote status moves on re-import; anything else is a blocker. */
+export const QUOTE_TRANSITIONS = {
+  draft: ['sent', 'accepted', 'declined', 'expired'],
+  sent: ['accepted', 'declined', 'expired'],
+  expired: ['sent'],
+  accepted: [],
+  declined: [],
+}
+
+/** Allowed payment status moves (payments are voided, never deleted or reopened). */
+export const PAYMENT_TRANSITIONS = {
+  recorded: ['verified', 'voided'],
+  verified: ['voided'],
+  voided: [],
 }
 
 export const PATTERNS = {
@@ -91,21 +128,115 @@ export const PATTERNS = {
   source: /^[a-z][a-z0-9_-]{0,19}$/,
   eventType: /^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.-]*$/,
   httpsUrl: /^https:\/\/[^\s]+$/,
+  dateOrDateTime: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2}))?$/,
+  last4: /^\d{4}$/,
 }
+
+// ─── Account guard (copy of packages/services/src/payment-evidence/account-guard.ts) ───
+// Payments keep account numbers to their last four digits. Free text refuses
+// 10+ digit runs (spaces/hyphens allowed); folio and clave de rastreo refuse a
+// value that is a CLABE (check digit) or a card number (Luhn).
+
+const LONG_DIGIT_RUN = /\d(?:[ -]?\d){9,}/
+
+export function hasLongDigitRun(text) {
+  return typeof text === 'string' && LONG_DIGIT_RUN.test(text)
+}
+
+function isLuhnValid(digits) {
+  let sum = 0
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i])
+    if (i % 2 === 1) {
+      d *= 2
+      if (d > 9) d -= 9
+    }
+    sum += d
+  }
+  return digits.length > 0 && sum % 10 === 0
+}
+
+function isClabe(digits) {
+  if (!/^\d{18}$/.test(digits)) return false
+  const weights = [3, 7, 1]
+  let sum = 0
+  for (let i = 0; i < 17; i++) sum += (Number(digits[i]) * weights[i % 3]) % 10
+  return (10 - (sum % 10)) % 10 === Number(digits[17])
+}
+
+export function looksLikeCardOrClabe(value) {
+  if (typeof value !== 'string') return false
+  const digits = value.replace(/[ -]/g, '')
+  if (!/^\d+$/.test(digits)) return false
+  if (digits.length === 18) return isClabe(digits)
+  return digits.length >= 13 && digits.length <= 19 && isLuhnValid(digits)
+}
+
+const PAYMENT_FREE_TEXT = ['reference', 'notes', 'beneficiary_name', 'bank_name', 'operation_type', 'void_reason']
+const PAYMENT_IDENTIFIERS = ['folio', 'tracking_key']
 
 // ─── Validation (mirrors manifest.schema.json; no dependencies) ─────────────
 
 export const FIELDS = {
   manifest: { required: ['version', 'clients'], optional: [] },
   client: { required: ['key', 'contacts'], optional: ['opportunity', 'engagements'] },
-  contact: { required: ['key', 'name'], optional: ['email', 'phone', 'company', 'crm_id'] },
+  contact: {
+    required: ['key', 'name'],
+    optional: ['email', 'phone', 'company', 'crm_id', 'preferred_name', 'spanish_formality'],
+  },
   opportunity: {
     required: ['key', 'name', 'pipeline', 'stage'],
     optional: ['contact', 'value', 'status', 'probability', 'expected_close_date', 'crm_id'],
   },
   engagement: {
     required: ['key', 'project_name'],
-    optional: ['description', 'status', 'contact', 'crm_id', 'quotes', 'artifacts', 'events'],
+    optional: [
+      'description',
+      'status',
+      'contact',
+      'crm_id',
+      'contacts',
+      'quotes',
+      'artifacts',
+      'events',
+      'items',
+      'payments',
+    ],
+  },
+  engagementContact: { required: ['contact'], optional: ['role', 'portal_access'] },
+  item: {
+    required: ['key', 'kind', 'title'],
+    optional: [
+      'description',
+      'status',
+      'side',
+      'due_at',
+      'completed_at',
+      'client_visible',
+      'sort_order',
+    ],
+  },
+  payment: {
+    required: ['key', 'method', 'paid_at', 'amount'],
+    optional: [
+      'currency',
+      'bank_name',
+      'operation_type',
+      'folio',
+      'tracking_key',
+      'reference',
+      'origin_account_last4',
+      'destination_account_last4',
+      'beneficiary_name',
+      'notes',
+      'status',
+      'verified_at',
+      'voided_at',
+      'void_reason',
+      'quote',
+      'contact',
+      'client_visible',
+    ],
   },
   quote: {
     required: ['key', 'quote_number', 'status', 'total_amount'],
@@ -205,6 +336,10 @@ export function validateManifest(manifest) {
       }
       checkString(c.phone, `${cat}.phone`, errors, { max: 50 })
       checkString(c.company, `${cat}.company`, errors)
+      checkString(c.preferred_name, `${cat}.preferred_name`, errors)
+      checkString(c.spanish_formality, `${cat}.spanish_formality`, errors, {
+        enumValues: ENUMS.spanishFormality,
+      })
     })
     const contactRef = (value, refAt) => {
       if (value === undefined) return
@@ -265,9 +400,83 @@ export function validateManifest(manifest) {
         checkString(ev.occurred_at, `${vat}.occurred_at`, errors, { pattern: PATTERNS.dateTime })
         checkString(ev.visibility, `${vat}.visibility`, errors, { enumValues: ENUMS.visibility })
       })
+      validateEngagementContacts(e.contacts, `${eat}.contacts`, errors, contactRef)
+      validateItems(e.items, `${eat}.items`, errors, unique)
+      const quoteKeys = new Set((Array.isArray(e.quotes) ? e.quotes : []).map((q) => q?.key))
+      validatePayments(e.payments, `${eat}.payments`, errors, { unique, contactRef, quoteKeys })
     })
   })
   return errors
+}
+
+const checkBoolean = (value, at, errors) => {
+  if (value !== undefined && typeof value !== 'boolean') errors.push(`${at}: must be true or false`)
+}
+
+function validateEngagementContacts(list, at, errors, contactRef) {
+  const seen = new Set()
+  checkArray(list, at, errors).forEach((ec, i) => {
+    const cat = `${at}[${i}]`
+    if (!checkObject(ec, 'engagementContact', cat, errors)) return
+    contactRef(ec.contact, `${cat}.contact`)
+    if (seen.has(ec.contact)) errors.push(`${cat}.contact: listed twice`)
+    seen.add(ec.contact)
+    checkString(ec.role, `${cat}.role`, errors, { max: 50 })
+    checkBoolean(ec.portal_access, `${cat}.portal_access`, errors)
+  })
+}
+
+function validateItems(list, at, errors, unique) {
+  checkArray(list, at, errors).forEach((it, i) => {
+    const iat = `${at}[${i}]`
+    if (!checkObject(it, 'item', iat, errors)) return
+    checkString(it.key, `${iat}.key`, errors, { pattern: PATTERNS.key, max: 200 })
+    if (typeof it.key === 'string') unique('item', it.key, iat)
+    checkString(it.kind, `${iat}.kind`, errors, { enumValues: ENUMS.itemKind })
+    checkString(it.title, `${iat}.title`, errors)
+    checkString(it.description, `${iat}.description`, errors, { max: 4000 })
+    checkString(it.status, `${iat}.status`, errors, { enumValues: ENUMS.itemStatus })
+    checkString(it.side, `${iat}.side`, errors, { enumValues: ENUMS.itemSide })
+    for (const f of ['due_at', 'completed_at'])
+      checkString(it[f], `${iat}.${f}`, errors, { pattern: PATTERNS.dateOrDateTime })
+    checkBoolean(it.client_visible, `${iat}.client_visible`, errors)
+    if (it.sort_order !== undefined && !(Number.isInteger(it.sort_order) && it.sort_order >= 0))
+      errors.push(`${iat}.sort_order: must be an integer >= 0`)
+  })
+}
+
+function validatePayments(list, at, errors, { unique, contactRef, quoteKeys }) {
+  checkArray(list, at, errors).forEach((p, i) => {
+    const pat = `${at}[${i}]`
+    if (!checkObject(p, 'payment', pat, errors)) return
+    checkString(p.key, `${pat}.key`, errors, { pattern: PATTERNS.key, max: 200 })
+    if (typeof p.key === 'string') unique('payment', p.key, pat)
+    checkString(p.method, `${pat}.method`, errors, { enumValues: ENUMS.paymentMethod })
+    checkString(p.paid_at, `${pat}.paid_at`, errors, { pattern: PATTERNS.dateTime })
+    checkString(p.amount, `${pat}.amount`, errors, { pattern: PATTERNS.amount })
+    if (typeof p.amount === 'string' && Number(p.amount) <= 0) errors.push(`${pat}.amount: must be > 0`)
+    checkString(p.currency, `${pat}.currency`, errors, { pattern: PATTERNS.currency })
+    for (const f of ['bank_name', 'operation_type']) checkString(p[f], `${pat}.${f}`, errors, { max: 100 })
+    for (const f of ['folio', 'tracking_key']) checkString(p[f], `${pat}.${f}`, errors, { max: 64 })
+    for (const f of ['reference', 'beneficiary_name']) checkString(p[f], `${pat}.${f}`, errors)
+    for (const f of ['notes', 'void_reason']) checkString(p[f], `${pat}.${f}`, errors, { max: 4000 })
+    for (const f of ['origin_account_last4', 'destination_account_last4'])
+      if (p[f] !== undefined && !(typeof p[f] === 'string' && PATTERNS.last4.test(p[f])))
+        errors.push(`${pat}.${f}: only the last 4 digits of an account`)
+    for (const f of PAYMENT_FREE_TEXT)
+      if (hasLongDigitRun(p[f])) errors.push(`${pat}.${f}: remove the account, CLABE or card number (keep at most the last 4 digits)`)
+    for (const f of PAYMENT_IDENTIFIERS)
+      if (looksLikeCardOrClabe(p[f])) errors.push(`${pat}.${f}: is a CLABE or card number, not an identifier`)
+    checkString(p.status, `${pat}.status`, errors, { enumValues: ENUMS.paymentStatus })
+    for (const f of ['verified_at', 'voided_at'])
+      checkString(p[f], `${pat}.${f}`, errors, { pattern: PATTERNS.dateTime })
+    if (p.status === 'voided' && (!p.voided_at || !p.void_reason))
+      errors.push(`${pat}: a voided payment needs voided_at and void_reason`)
+    contactRef(p.contact, `${pat}.contact`)
+    if (p.quote !== undefined && !quoteKeys.has(p.quote))
+      errors.push(`${pat}.quote: not a quote key of this engagement`)
+    checkBoolean(p.client_visible, `${pat}.client_visible`, errors)
+  })
 }
 
 function validateQuotes(quotes, at, errors, keyed) {
@@ -337,91 +546,192 @@ function diff(row, desired, kinds) {
 const snake = (s) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
 // ─── Planning ───────────────────────────────────────────────────────────────
+//
+// DATA-LOSS GUARD: a field the manifest omits is never written to an existing
+// row (adopted with crm_id, or created by an earlier run). Each SHAPE returns
+// `values` (only what the manifest states, or derives from what it states)
+// and `defaults` (used ONLY when the row is created). The manifest therefore
+// cannot clear a value; clearing is done in the CRM.
+
+/** Drops undefined entries: "not in the manifest" means "leave as is". */
+const stated = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined))
+const opt = (v, fn = (x) => x) => (v === undefined ? undefined : fn(v))
+const dateOrInstant = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? dateOnly(v) : new Date(v))
 
 /** Desired column values per record kind (camelCase), plus comparison kinds. */
 const SHAPES = {
   contact: (c) => ({
-    values: {
+    values: stated({
       name: c.name,
-      email: c.email ? c.email.trim().toLowerCase() : null,
-      phone: c.phone ?? null,
-      company: c.company ?? null,
-    },
+      email: opt(c.email, (v) => v.trim().toLowerCase()),
+      phone: c.phone,
+      company: c.company,
+      // Answers are only ever set, never cleared, by the manifest.
+      preferredName: c.preferred_name,
+      spanishFormality: c.spanish_formality,
+    }),
+    defaults: {},
     owned: true,
   }),
-  opportunity: (o, { contactId, stage }) => ({
-    values: {
+  opportunity: (o, { contactId, defaultContactId, stage }) => ({
+    values: stated({
       name: o.name,
       contactId,
-      pipelineId: stage?.pipelineId ?? null,
-      stageId: stage?.stageId ?? null,
-      value: amount(o.value),
-      status: o.status ?? 'open',
-      probability: o.probability ?? null,
-      expectedCloseDate: dateOnly(o.expected_close_date),
-    },
+      pipelineId: stage?.pipelineId,
+      stageId: stage?.stageId,
+      value: opt(o.value, amount),
+      status: o.status,
+      probability: o.probability,
+      expectedCloseDate: opt(o.expected_close_date, dateOnly),
+    }),
+    defaults: { status: 'open', contactId: defaultContactId },
     kinds: { value: 'amount', expectedCloseDate: 'instant' },
     owned: true,
   }),
-  engagement: (e, { contactId, opportunityId }) => ({
-    values: {
+  engagement: (e, { contactId, defaultContactId, opportunityId }) => ({
+    values: stated({
       contactId,
       opportunityId,
       projectName: e.project_name,
-      description: e.description ?? null,
-      status: e.status ?? 'active',
-    },
+      description: e.description,
+      status: e.status,
+    }),
+    defaults: { status: 'active', contactId: defaultContactId },
     owned: true,
   }),
-  quote: (q, { contactId, opportunityId }) => ({
-    values: {
+  quote: (q, { contactId, defaultContactId, opportunityId }) => ({
+    values: stated({
       quoteNumber: q.quote_number,
       opportunityId,
       contactId,
       status: q.status,
       totalAmount: amount(q.total_amount),
-      currency: q.currency ?? 'MXN',
-      validUntil: dateOnly(q.valid_until),
-    },
+      currency: q.currency,
+      validUntil: opt(q.valid_until, dateOnly),
+    }),
+    defaults: { currency: 'MXN', contactId: defaultContactId },
     kinds: { totalAmount: 'amount', validUntil: 'instant' },
     owned: true,
-    refMetadata: {
-      line_items: (q.line_items ?? []).map((li) => ({
-        description: li.description,
-        quantity: li.quantity,
-        unit: li.unit ?? null,
-        unit_price: amount(li.unit_price),
-        amount: amount(li.amount ?? Number(li.unit_price) * li.quantity),
-      })),
-      subtotal: amount(q.subtotal),
-      tax_amount: amount(q.tax_amount),
-      notes: q.notes ?? null,
-    },
+    // Merged over what the reference already holds: omitted keys are kept.
+    refMetadata: (existing) => ({
+      ...(existing ?? {}),
+      ...stated({
+        line_items: opt(q.line_items, (items) =>
+          items.map((li) => ({
+            description: li.description,
+            quantity: li.quantity,
+            unit: li.unit ?? null,
+            unit_price: amount(li.unit_price),
+            amount: amount(li.amount ?? Number(li.unit_price) * li.quantity),
+          })),
+        ),
+        subtotal: opt(q.subtotal, amount),
+        tax_amount: opt(q.tax_amount, amount),
+        notes: q.notes,
+      }),
+    }),
   }),
-  artifact: (a, { engagementId }) => ({
-    values: {
+  artifact: (a, { engagementId }, row) => ({
+    values: stated({
       engagementId,
       type: a.type,
       title: a.title,
-      url: a.url ?? null,
-      metadata: { import_key: a.key, description: a.description ?? null },
-    },
+      url: a.url,
+      metadata: {
+        ...(row?.metadata ?? {}),
+        ...stated({ import_key: a.key, description: a.description }),
+      },
+    }),
+    defaults: {},
     kinds: { metadata: 'json' },
   }),
-  event: (ev, { engagementId }) => ({
-    values: {
+  event: (ev, { engagementId }, row) => ({
+    values: stated({
       engagementId,
       source: ev.source,
       eventType: ev.event_type,
-      status: ev.status ?? null,
-      message: ev.message ?? null,
-      metadata: { import_key: ev.key },
+      status: ev.status,
+      message: ev.message,
+      metadata: { ...(row?.metadata ?? {}), import_key: ev.key },
       dedupKey: `${PROVIDER}:${ev.key}`,
       visibility: ev.visibility,
       createdAt: new Date(ev.occurred_at),
-    },
+    }),
+    defaults: {},
     kinds: { metadata: 'json', createdAt: 'instant' },
   }),
+  item: (it, { engagementId, index, now }, row) => {
+    // completed_at follows status like EngagementItemsService: a stated "done"
+    // gets a date (kept if it has one), a stated other status clears it.
+    let completedAt = opt(it.completed_at, dateOrInstant)
+    if (completedAt === undefined && it.status !== undefined) {
+      completedAt = it.status === 'done' ? (row?.completed_at ?? now) : null
+    }
+    return {
+      values: stated({
+        engagementId,
+        externalKey: it.key,
+        kind: it.kind,
+        title: it.title,
+        description: it.description,
+        status: it.status,
+        side: it.side,
+        dueAt: opt(it.due_at, dateOrInstant),
+        completedAt,
+        clientVisible: it.client_visible,
+        sortOrder: it.sort_order,
+      }),
+      defaults: { status: 'planned', side: 'madfam', clientVisible: false, sortOrder: index },
+      kinds: { dueAt: 'instant', completedAt: 'instant' },
+    }
+  },
+  engagementContact: (ec, { engagementId, contactId }) => ({
+    values: stated({ engagementId, contactId, role: ec.role, portalAccess: ec.portal_access }),
+    defaults: { portalAccess: false },
+  }),
+  payment: (p, { engagementId, contactId, defaultContactId, quoteId, ownerId }, row) => {
+    const status = p.status
+    const becomesVerified = status === 'verified' && row?.status !== 'verified'
+    const becomesVoided = status === 'voided' && row?.status !== 'voided'
+    return {
+      values: stated({
+        engagementId,
+        externalKey: p.key,
+        method: p.method,
+        paidAt: new Date(p.paid_at),
+        amount: amount(p.amount),
+        currency: p.currency,
+        bankName: p.bank_name,
+        operationType: p.operation_type,
+        folio: p.folio,
+        trackingKey: p.tracking_key,
+        reference: p.reference,
+        originAccountLast4: p.origin_account_last4,
+        destinationAccountLast4: p.destination_account_last4,
+        beneficiaryName: p.beneficiary_name,
+        notes: p.notes,
+        status,
+        clientVisible: p.client_visible,
+        quoteId,
+        contactId,
+        verifiedAt:
+          opt(p.verified_at, (v) => new Date(v)) ?? (becomesVerified ? new Date(p.paid_at) : undefined),
+        verifiedByUserId: becomesVerified ? ownerId : undefined,
+        voidedAt: opt(p.voided_at, (v) => new Date(v)),
+        voidReason: p.void_reason,
+        voidedByUserId: becomesVoided ? ownerId : undefined,
+      }),
+      defaults: {
+        currency: 'MXN',
+        status: 'recorded',
+        clientVisible: true,
+        source: 'manual',
+        contactId: defaultContactId,
+        createdBy: ownerId,
+      },
+      kinds: { paidAt: 'instant', amount: 'amount', verifiedAt: 'instant', voidedAt: 'instant' },
+    }
+  },
 }
 
 const TABLE_OF = {
@@ -431,8 +741,21 @@ const TABLE_OF = {
   quote: 'quotes',
   artifact: 'engagement_artifacts',
   event: 'engagement_events',
+  item: 'engagement_items',
+  engagementContact: 'engagement_contacts',
+  payment: 'payment_evidence',
 }
 const SOFT_DELETED = new Set(['contact', 'opportunity', 'engagement', 'quote'])
+/** Kinds keyed by their own table (external_key or engagement+contact), not external_references. */
+const SELF_KEYED = new Set(['item', 'engagementContact', 'payment'])
+const NO_UPDATED_AT = new Set(['artifact', 'event'])
+
+/** Tables the newer kinds need, with the migration that adds them. */
+const REQUIRED_TABLES = {
+  item: ['engagement_items', 'external_key', '0016'],
+  engagementContact: ['engagement_contacts', 'portal_access', '0016'],
+  payment: ['payment_evidence', 'external_key', '0017'],
+}
 
 class ImportPlanner {
   constructor(store, refs, ownerId, plan) {
@@ -441,6 +764,7 @@ class ImportPlanner {
     this.ownerId = ownerId
     this.plan = plan
     this.claimed = new Map()
+    this.now = new Date()
   }
 
   block(reason, detail = {}) {
@@ -473,64 +797,149 @@ class ImportPlanner {
     return { ref, row, action, id }
   }
 
-  /** Resolves and records one item; returns the id it has or will have. */
-  async add(kind, item, context = {}) {
-    const resolved = await this.resolve(kind, item)
-    const shape = SHAPES[kind](item, context)
-    const { ref, row, id } = resolved
-    const values = { ...shape.values }
+  /** Records one planned write; returns the id the row has or will have. */
+  record(kind, key, { ref = null, row, action, id }, shape) {
+    const isNew = action === 'create' || action === 'recreate'
+    const values = isNew ? stated({ ...shape.defaults, ...shape.values }) : { ...shape.values }
     // Owner: set on create; fill on adopted/updated rows that have none; never replace.
     if (shape.owned && this.ownerId && !row?.owner_id) values.ownerId = this.ownerId
-    let action = resolved.action
+    const refMetadata = shape.refMetadata ? shape.refMetadata(ref?.metadata) : null
+    let finalAction = action
     let changed = Object.keys(values)
     if (row) {
       changed = diff(row, values, shape.kinds ?? {})
-      if (ref && !COMPARE.json(ref.metadata, shape.refMetadata ?? null))
-        changed.push('reference.metadata')
-      if (action === 'update' && changed.length === 0) action = 'unchanged'
+      if (ref && !COMPARE.json(ref.metadata, refMetadata)) changed.push('reference.metadata')
+      if (action === 'update' && changed.length === 0) finalAction = 'unchanged'
     }
     this.plan.records.push({
       kind,
       table: TABLE_OF[kind],
-      key: item.key,
+      key,
       id,
-      action,
+      action: finalAction,
       changed,
       values,
       refId: ref?.id ?? null,
-      refMetadata: shape.refMetadata ?? null,
-      hasUpdatedAt: SOFT_DELETED.has(kind),
+      refMetadata,
+      selfKeyed: SELF_KEYED.has(kind),
+      hasUpdatedAt: !NO_UPDATED_AT.has(kind),
+      // For transition and portal-email checks only; never printed.
+      previousStatus: row?.status ?? null,
+      existingEmail: row?.email ?? null,
     })
-    return { id, action }
+    return { id, action: finalAction }
+  }
+
+  async add(kind, item, context = {}) {
+    const resolved = await this.resolve(kind, item)
+    return this.record(kind, item.key, resolved, SHAPES[kind](item, context, resolved.row))
+  }
+
+  /** Items, engagement contacts and payments: found by their own keys inside the engagement. */
+  async addSelfKeyed(kind, key, item, context, lookup) {
+    const row = context.engagementIsNew ? null : await lookup()
+    const resolved = { row, action: row ? 'update' : 'create', id: row?.id ?? crypto.randomUUID() }
+    return this.record(kind, key, resolved, SHAPES[kind](item, context, row))
   }
 
   async addClient(client) {
     const contactIds = new Map()
+    const contactEmails = new Map()
     for (const c of client.contacts ?? []) {
       const { id, action } = await this.add('contact', c)
       contactIds.set(c.key, id)
+      const existing = this.plan.records.at(-1)
+      contactEmails.set(c.key, c.email ?? (action === 'create' ? null : existing?.existingEmail))
       if (action === 'create' && c.email) await this.checkEmailFree(c)
     }
-    const contactFor = (key) => (key ? contactIds.get(key) : contactIds.get(client.contacts[0].key))
+    const defaultContactId = contactIds.get(client.contacts[0].key)
+    const contactFor = (key) => (key ? contactIds.get(key) : undefined)
 
-    let opportunityId = null
+    let opportunityId
     const o = client.opportunity
     if (o) {
       const stage = await this.store.findPipelineStage(o.pipeline, o.stage)
       if (!stage) this.block('pipeline_stage_not_found', { kind: 'opportunity', key: o.key })
       else if (stage.ambiguous)
         this.block('pipeline_stage_ambiguous', { kind: 'opportunity', key: o.key })
-      opportunityId = (
-        await this.add('opportunity', o, { contactId: contactFor(o.contact), stage })
-      ).id
+      const ctx = { contactId: contactFor(o.contact), defaultContactId, stage }
+      opportunityId = (await this.add('opportunity', o, ctx)).id
     }
 
     for (const e of client.engagements ?? []) {
-      const contactId = contactFor(e.contact)
-      const { id: engagementId } = await this.add('engagement', e, { contactId, opportunityId })
-      for (const q of e.quotes ?? []) await this.add('quote', q, { contactId, opportunityId })
-      for (const a of e.artifacts ?? []) await this.add('artifact', a, { engagementId })
-      for (const ev of e.events ?? []) await this.add('event', ev, { engagementId })
+      await this.addEngagement(e, { contactIds, contactEmails, contactFor, defaultContactId, opportunityId })
+    }
+  }
+
+  async addEngagement(e, { contactIds, contactEmails, contactFor, defaultContactId, opportunityId }) {
+    const contactId = contactFor(e.contact)
+    const engagementDefault = contactId ?? defaultContactId
+    const { id: engagementId, action } = await this.add('engagement', e, {
+      contactId,
+      defaultContactId,
+      opportunityId,
+    })
+    const engagementIsNew = action === 'create' || action === 'recreate'
+    const quoteIds = new Map()
+    for (const q of e.quotes ?? []) {
+      const before = this.plan.records.length
+      const { id } = await this.add('quote', q, {
+        contactId,
+        defaultContactId: engagementDefault,
+        opportunityId,
+      })
+      quoteIds.set(q.key, id)
+      this.checkQuoteTransition(q, this.plan.records[before])
+    }
+    for (const a of e.artifacts ?? []) await this.add('artifact', a, { engagementId })
+    for (const ev of e.events ?? []) await this.add('event', ev, { engagementId })
+
+    const base = { engagementId, engagementIsNew }
+    for (const [index, it] of (e.items ?? []).entries()) {
+      await this.addSelfKeyed('item', it.key, it, { ...base, index, now: this.now }, () =>
+        this.store.findItem(engagementId, it.key),
+      )
+    }
+    for (const ec of e.contacts ?? []) {
+      const ecContactId = contactIds.get(ec.contact)
+      if (ec.portal_access === true && !contactEmails.get(ec.contact)) {
+        this.block('portal_contact_without_email', { kind: 'engagementContact', key: ec.contact })
+      }
+      await this.addSelfKeyed(
+        'engagementContact',
+        `${e.key}#${ec.contact}`,
+        ec,
+        { ...base, contactId: ecContactId },
+        () => this.store.findEngagementContact(engagementId, ecContactId),
+      )
+    }
+    for (const p of e.payments ?? []) {
+      const ctx = {
+        ...base,
+        contactId: contactFor(p.contact),
+        defaultContactId: engagementDefault,
+        quoteId: p.quote === undefined ? undefined : quoteIds.get(p.quote),
+        ownerId: this.ownerId,
+      }
+      const before = this.plan.records.length
+      await this.addSelfKeyed('payment', p.key, p, ctx, () =>
+        this.store.findPayment(engagementId, p.key),
+      )
+      this.checkPaymentTransition(p, this.plan.records[before])
+    }
+  }
+
+  checkQuoteTransition(q, record) {
+    const from = record?.action === 'create' ? null : record?.previousStatus
+    if (from && from !== q.status && !(QUOTE_TRANSITIONS[from] ?? []).includes(q.status)) {
+      this.block('quote_status_transition', { kind: 'quote', key: q.key, from, to: q.status })
+    }
+  }
+
+  checkPaymentTransition(p, record) {
+    const from = record?.action === 'create' ? null : record?.previousStatus
+    if (from && p.status && from !== p.status && !(PAYMENT_TRANSITIONS[from] ?? []).includes(p.status)) {
+      this.block('payment_status_transition', { kind: 'payment', key: p.key, from, to: p.status })
     }
   }
 
@@ -565,6 +974,17 @@ export async function planImport(store, manifest, { ownerEmail }) {
       reason: 'visibility_column_missing',
       hint: 'apply migration 0015 first; without it the portal shows every event',
     })
+  }
+  const engagements = (manifest.clients ?? []).flatMap((c) => c.engagements ?? [])
+  const used = {
+    item: engagements.some((e) => e.items?.length),
+    engagementContact: engagements.some((e) => e.contacts?.length),
+    payment: engagements.some((e) => e.payments?.length),
+  }
+  for (const [kind, [table, column, migration]] of Object.entries(REQUIRED_TABLES)) {
+    if (used[kind] && !(await store.hasColumn(table, column))) {
+      plan.blockers.push({ reason: 'table_missing', hint: `apply migration ${migration} (${table}) first` })
+    }
   }
 
   const planner = new ImportPlanner(store, await store.findRefs(keys), plan.owner?.id, plan)
@@ -608,7 +1028,9 @@ export async function applyPlan(store, plan) {
         await store.update(r.table, r.id, patch)
       }
     }
-    if (r.refId) {
+    if (r.selfKeyed) {
+      // Keyed by its own table (external_key, or engagement + contact).
+    } else if (r.refId) {
       await store.updateRef(r.refId, { entityId: r.id, metadata: r.refMetadata, updatedAt: now })
     } else {
       await store.insertRef({
@@ -635,6 +1057,9 @@ const TABLES = new Set([
   'quotes',
   'engagement_artifacts',
   'engagement_events',
+  'engagement_items',
+  'engagement_contacts',
+  'payment_evidence',
 ])
 
 const toColumns = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [snake(k), v]))
@@ -680,6 +1105,21 @@ export function createPgStore(tx) {
       if (rows.length === 0) return null
       if (rows.length > 1) return { ambiguous: true }
       return { pipelineId: rows[0].pipeline_id, stageId: rows[0].stage_id }
+    },
+    async findItem(engagementId, externalKey) {
+      const [row] = await tx`select * from engagement_items
+        where engagement_id = ${engagementId} and external_key = ${externalKey}`
+      return row ?? null
+    },
+    async findPayment(engagementId, externalKey) {
+      const [row] = await tx`select * from payment_evidence
+        where engagement_id = ${engagementId} and external_key = ${externalKey}`
+      return row ?? null
+    },
+    async findEngagementContact(engagementId, contactId) {
+      const [row] = await tx`select * from engagement_contacts
+        where engagement_id = ${engagementId} and contact_id = ${contactId}`
+      return row ?? null
     },
     insert: (t, row) => tx`insert into ${table(t)} ${tx(toColumns(row))}`,
     update: (t, id, patch) => tx`update ${table(t)} set ${tx(toColumns(patch))} where id = ${id}`,

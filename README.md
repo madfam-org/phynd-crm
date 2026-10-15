@@ -251,12 +251,33 @@ kubectl -n phynd-crm exec -i deploy/phynd-crm-worker -- \
   node /tmp/import-engagements.mjs --owner-email <crm user email> [--apply] < manifest.json
 ```
 
-It refuses (exit `3`, nothing written) on any blocker: unknown or ambiguous owner,
-a missing pipeline stage, a new contact whose email another contact already has
-(set `crm_id` to adopt that contact), a reference to a deleted row, or events
-while `engagement_events.visibility` (migration `0015`) is missing. Every event
-must state `visibility`. Imported quotes and artifacts appear in the client
-portal; see the schema descriptions. Exit `4` means the manifest is invalid.
+Per engagement the manifest can also carry `contacts[]` (extra contacts and their
+portal access), `items[]` (milestones, deliverables, actionables, decisions) and
+`payments[]` (payment records without the evidence file). Contacts take
+`preferred_name` and `spanish_formality` (`tu`/`usted`).
+
+**A field the manifest omits is never written to an existing row**, whether it
+was adopted with `crm_id` or created by an earlier run. Defaults apply only to
+rows being created. The manifest can set values but never clear them: clear
+them in the CRM.
+
+It refuses (exit `3`, nothing written) on any blocker:
+
+- an unknown or ambiguous owner;
+- a missing pipeline stage;
+- a new contact whose email another contact already has (set `crm_id` to adopt that contact);
+- a reference to a deleted row;
+- a quote status moving backwards (e.g. accepted to draft);
+- a payment status moving backwards (recorded, then verified, then voided only);
+- portal access for a contact without email;
+- events while `engagement_events.visibility` (migration `0015`) is missing;
+- items, engagement contacts or payments before migrations `0016`/`0017`.
+
+Every event must state `visibility`. Payments refuse account, CLABE or card
+numbers: at most the last 4 digits. Importing a payment does not touch the order
+and writes no client event. Imported quotes, artifacts, client-visible items and
+payments appear in the client portal; see the schema descriptions. Exit `4`
+means the manifest is invalid.
 
 ## Federation Layer
 

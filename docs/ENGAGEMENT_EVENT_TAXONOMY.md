@@ -18,7 +18,7 @@ These appear in portal timelines with prominent visual treatment and can be quer
 | Canonical event_name | Semantic meaning | Who emits | Portal status |
 |---|---|---|---|
 | `quote_approved` | Client accepted a proposal | Cotiza / PhyndCRM CRM action | `milestone` |
-| `payment_received` | Payment settled at Dhanam | Dhanam | `milestone` |
+| `payment_received` | Payment settled at Dhanam, or a payment receipt verified by staff (`system:payment_received`) | Dhanam / PhyndCRM | `milestone` |
 | `payment_reconciled` | Payment matched to a CRM order | PhyndCRM CRM action | `milestone` |
 | `cfdi_stamped` | Karafiel stamped a CFDI 4.0 for an invoice | Karafiel | `milestone` |
 | `fabrication_started` | Physical build started on the fab floor | Pravara | `milestone` |
@@ -52,6 +52,8 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:production_dispatch_blocked` — PhyndCRM could not infer delivery tracks for a paid order and needs operator routing
 - `system:production_dispatch_sent` — PhyndCRM sent the live Pravara/Selva production dispatch HTTP request
 - `system:production_dispatch_failed` — PhyndCRM attempted live provider dispatch and left the intent retryable
+- `system:payment_recorded` — staff recorded a payment receipt (payment_evidence, status recorded); internal
+- `system:payment_voided` — staff voided a payment receipt; internal (the matching `system:payment_received`, if any, is set back to internal)
 
 ## Visibility (client portal privacy)
 
@@ -68,6 +70,7 @@ How a row becomes `client`:
    | `system:quote_sent` | Publish quote to portal | The quote is ready for them |
    | `system:quote_approved`, `cotiza:quote_approved` | `QuotesService.accept()` | The quote was accepted |
    | `pravara:prototype_shipped`, `pravara:deliverable_received` | Pravara webhook (canonical aliases) | Physical delivery milestones |
+   | `system:payment_received` | `PaymentEvidenceService.verify()` (staff verified a payment receipt) | Their payment was received; fixed Spanish copy with date, amount and method, no account digits. Set back to `internal` if the payment is voided |
 
 2. **Explicitly, by the writer** (`recordEvent({ visibility })`), for example the operator import.
 3. **By staff**, one event at a time, from the engagement timeline (`engagements.setEventVisibility`).

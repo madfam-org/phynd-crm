@@ -39,6 +39,9 @@ export const CLIENT_VISIBLE_EVENT_TYPES: ReadonlySet<string> = new Set([
   // Physical delivery milestones (canonical aliases, fixed copy).
   'pravara:prototype_shipped',
   'pravara:deliverable_received',
+  // Staff verified a payment receipt (PaymentEvidenceService.verify); fixed
+  // Spanish copy with date, amount and method, never account digits.
+  'system:payment_received',
 ])
 
 export const ENGAGEMENT_EVENT_VISIBILITY_VALUES: readonly EngagementEventVisibility[] = [

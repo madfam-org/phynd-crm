@@ -203,6 +203,24 @@ describe('POST /api/v1/engagements/events', () => {
     expect((arg.metadata as Record<string, unknown>).cotiza_quote_id).toBe('q_1')
   })
 
+  it('writes producer events as internal, even when the event type is client-allowlisted', async () => {
+    // The message is producer-authored, so it never reaches the client portal
+    // on write; staff can promote a single event from the timeline.
+    const payload = {
+      engagement_id: 'eng_1',
+      source: 'system',
+      event_type: 'system:quote_sent',
+      message: 'free-form producer text',
+      dedup_key: 'system:quote_sent:producer',
+    }
+    const res = await POST(createSignedRequest(payload))
+    expect(res.status).toBe(200)
+    expect(getRecordedEventArg()).toMatchObject({
+      eventType: 'system:quote_sent',
+      visibility: 'internal',
+    })
+  })
+
   it('derives dedup_key when caller omits it (format: source:eventType:timestamp)', async () => {
     const payload = {
       engagement_id: 'eng_1',

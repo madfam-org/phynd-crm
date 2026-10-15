@@ -142,6 +142,9 @@ export class CotizaQuoteLifecycleService {
       message: input.message ?? defaultMessage(input, ensured?.quote ?? null),
       metadata: buildEventMetadata(input, engagement, ensured, autoMaterialized),
       dedupKey: input.dedupKey,
+      // Producer-authored copy: staff-only. The client sees the approval via
+      // the PhyndCRM-authored quote_approved row QuotesService.accept() writes.
+      visibility: 'internal',
     })
 
     // Reflection runs on replays too — every branch is idempotent, so a

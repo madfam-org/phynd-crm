@@ -1,6 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   type TimelineVisualTone,
   timelineEventLabel,
@@ -9,7 +10,8 @@ import {
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
-import { Activity, ArrowRight, Zap } from 'lucide-react'
+import { Activity, ArrowRight, Eye, EyeOff, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface EngagementTimelineProps {
   engagementId: string
@@ -41,7 +43,69 @@ function eventStatusVariant(tone: TimelineVisualTone) {
   return 'outline' as const
 }
 
-function TimelineEventItem({ entry }: { entry: Extract<TimelineEntry, { kind: 'event' }> }) {
+type TimelineEventEntry = Extract<TimelineEntry, { kind: 'event' }>
+
+// Staff-only control: the client portal renders an event only when it is
+// 'client'. Activities and stage moves never reach the portal at all.
+function EventVisibilityControl({
+  engagementId,
+  entry,
+}: {
+  engagementId: string
+  entry: TimelineEventEntry
+}) {
+  const utils = trpc.useUtils()
+  const engagementsRouter = trpc.engagements as NonNullable<typeof trpc.engagements>
+  const setEventVisibility = engagementsRouter.setEventVisibility as NonNullable<
+    typeof engagementsRouter.setEventVisibility
+  >
+  const mutation = setEventVisibility.useMutation({
+    onSuccess: async (_row, input) => {
+      toast.success(
+        input?.visibility === 'client' ? 'Shown to the client' : 'Hidden from the client',
+      )
+      await utils.engagements.getTimeline.invalidate({ engagementId })
+    },
+    onError: (err) => toast.error('Visibility change failed', { description: err.message }),
+  })
+  const isClient = entry.visibility === 'client'
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <Badge variant={isClient ? 'success' : 'outline'} className="text-[10px]">
+        {isClient ? 'client-visible' : 'internal'}
+      </Badge>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-xs"
+        disabled={mutation.isPending}
+        onClick={() =>
+          mutation.mutate({
+            engagementId,
+            eventId: entry.id,
+            visibility: isClient ? 'internal' : 'client',
+          })
+        }
+      >
+        {isClient ? (
+          <EyeOff className="mr-1 h-3 w-3" aria-hidden="true" />
+        ) : (
+          <Eye className="mr-1 h-3 w-3" aria-hidden="true" />
+        )}
+        {isClient ? 'Hide from client' : 'Show to client'}
+      </Button>
+    </div>
+  )
+}
+
+function TimelineEventItem({
+  engagementId,
+  entry,
+}: {
+  engagementId: string
+  entry: TimelineEventEntry
+}) {
   const tone = timelineEventTone(entry.status, entry.eventType)
   return (
     <li className="relative pl-10">
@@ -64,6 +128,7 @@ function TimelineEventItem({ entry }: { entry: Extract<TimelineEntry, { kind: 'e
         </div>
         {entry.message && <p className="mt-1 text-sm text-muted-foreground">{entry.message}</p>}
         <p className="mt-1 text-xs text-muted-foreground">{formatDate(entry.createdAt)}</p>
+        <EventVisibilityControl engagementId={engagementId} entry={entry} />
       </div>
     </li>
   )
@@ -121,8 +186,11 @@ function TimelineStageItem({
   )
 }
 
-function TimelineEntryItem({ entry }: { entry: TimelineEntry }) {
-  if (entry.kind === 'event') return <TimelineEventItem entry={entry} />
+function TimelineEntryItem({
+  engagementId,
+  entry,
+}: { engagementId: string; entry: TimelineEntry }) {
+  if (entry.kind === 'event') return <TimelineEventItem engagementId={engagementId} entry={entry} />
   if (entry.kind === 'activity') return <TimelineActivityItem entry={entry} />
   return <TimelineStageItem entry={entry} />
 }
@@ -155,7 +223,11 @@ export function EngagementTimeline({ engagementId }: EngagementTimelineProps) {
       <div className="absolute left-4 top-0 bottom-0 w-px bg-border" aria-hidden="true" />
       <ul className="space-y-4" aria-label="Engagement timeline">
         {timeline.map((entry: TimelineEntry) => (
-          <TimelineEntryItem entry={entry} key={`${entry.kind}-${entry.id}`} />
+          <TimelineEntryItem
+            engagementId={engagementId}
+            entry={entry}
+            key={`${entry.kind}-${entry.id}`}
+          />
         ))}
       </ul>
     </div>

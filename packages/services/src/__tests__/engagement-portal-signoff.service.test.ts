@@ -66,6 +66,41 @@ describe('EngagementPortalSignoffService', () => {
     expect(ctx.db.insert).toHaveBeenCalledTimes(2)
   })
 
+  it("writes the client's own acceptance as client-visible and the alias as internal", async () => {
+    const artifact = {
+      id: 'art-001',
+      engagementId: 'eng-001',
+      type: 'deliverable',
+      title: 'Prototype package',
+    }
+    let selectCount = 0
+    ctx.db.select = vi.fn(() => {
+      selectCount += 1
+      if (selectCount === 1) return createMockQueryBuilder([{ id: 'eng-001' }])
+      if (selectCount === 2) return createMockQueryBuilder([artifact])
+      return createMockQueryBuilder([])
+    }) as unknown as typeof ctx.db.select
+    const builders: Array<ReturnType<typeof createMockQueryBuilder>> = []
+    ctx.db.insert = vi.fn(() => {
+      const qb = createMockQueryBuilder([{ id: `evt-${builders.length + 1}` }])
+      builders.push(qb)
+      return qb
+    }) as unknown as typeof ctx.db.insert
+
+    await new EngagementPortalSignoffService(ctx).acceptDeliverable({
+      engagementId: 'eng-001',
+      artifactId: 'art-001',
+      acceptedByEmail: 'persona@example.invalid',
+      acceptedByJanuaUserId: 'janua-001',
+    })
+
+    const written = builders.map((qb) => qb.values.mock.calls[0]?.[0] as Record<string, unknown>)
+    expect(written.map((v) => [v.eventType, v.visibility])).toEqual([
+      ['portal:deliverable_accepted', 'client'],
+      ['system:deliverable_accepted', 'internal'],
+    ])
+  })
+
   it('rejects non-deliverable artifacts', async () => {
     ctx.db.select = vi
       .fn()

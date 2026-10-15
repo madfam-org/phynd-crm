@@ -159,6 +159,9 @@ async function handleGenericEngagementEvent(
       message: payload.message as string | undefined,
       metadata: (payload.metadata as Record<string, unknown> | undefined) ?? {},
       dedupKey,
+      // Producer-authored (free-form message): never client-visible on write.
+      // Staff can promote a single event from the engagement timeline.
+      visibility: 'internal',
     })
     logger.info(
       { engagementId, source, eventType, deduplicated: result.deduplicated },

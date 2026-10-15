@@ -549,6 +549,15 @@ describe('CotizaQuoteLifecycleService', () => {
     // internal quote_approved milestone (separate dedup keys).
     const dedupKeys = state.events.map((e) => e.dedupKey).sort()
     expect(dedupKeys).toEqual(['cotiza:CQ-1:quote_approved', 'quote:quote_1:accepted'])
+    // Portal privacy: the producer-authored row stays internal; only the
+    // PhyndCRM-authored acceptance (fixed copy) reaches the client portal.
+    const visibilityByKey = Object.fromEntries(
+      (state.inserts.engagement_events ?? []).map((e) => [e.dedupKey, e.visibility]),
+    )
+    expect(visibilityByKey).toEqual({
+      'cotiza:CQ-1:quote_approved': 'internal',
+      'quote:quote_1:accepted': 'client',
+    })
   })
 
   it('quote_approved replay on an already-accepted quote stays idempotent', async () => {

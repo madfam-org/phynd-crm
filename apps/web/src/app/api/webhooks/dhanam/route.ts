@@ -15,6 +15,7 @@ import {
 } from '@phynd/db/schema'
 import { CacheInvalidator, validateWebhookSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
+import { defaultEventVisibility } from '@phynd/services/engagements/event-visibility'
 import { reconcileDhanamPaymentLifecycle } from '@phynd/services/payments/payment-reconciliation'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -733,6 +734,9 @@ async function maybeRecordEngagementEvent(
     engagementId: eng.id,
     source: 'dhanam',
     eventType: portalEventType,
+    // Only "payment received" is client-visible (allowlist); failures,
+    // refunds and disputes stay internal.
+    visibility: defaultEventVisibility(portalEventType),
     status: engagementEventStatus(event.eventType),
     message: buildEngagementMessage(event),
     metadata: {

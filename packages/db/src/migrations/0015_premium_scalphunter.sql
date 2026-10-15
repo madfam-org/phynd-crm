@@ -1,0 +1,3 @@
+ALTER TABLE "engagement_events" ADD COLUMN "visibility" varchar(16) DEFAULT 'internal' NOT NULL;--> statement-breakpoint
+CREATE INDEX "engagement_events_visibility_idx" ON "engagement_events" USING btree ("engagement_id","visibility");--> statement-breakpoint
+ALTER TABLE "engagement_events" ADD CONSTRAINT "engagement_events_visibility_check" CHECK ("engagement_events"."visibility" in ('internal', 'client'));

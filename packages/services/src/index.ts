@@ -96,10 +96,17 @@ export {
   selvaPortalStatus,
 } from './engagements/engagement-milestone.helpers'
 export {
+  type ClientTimelineEntry,
   type CotizaEngagementEmitter,
   EngagementsService,
   type EngagementTimelineEntry,
 } from './engagements/engagements.service'
+export {
+  CLIENT_VISIBLE_EVENT_TYPES,
+  defaultEventVisibility,
+  ENGAGEMENT_EVENT_VISIBILITY_VALUES,
+  isEngagementEventVisibility,
+} from './engagements/event-visibility'
 export {
   PublishQuoteToPortalService,
   type PublishQuoteToPortalInput,

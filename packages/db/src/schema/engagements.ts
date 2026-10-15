@@ -1,4 +1,5 @@
-import { index, jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { check, index, jsonb, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import { contacts } from './contacts'
 import { opportunities } from './opportunities'
 import { users } from './users'
@@ -63,11 +64,19 @@ export const engagementArtifacts = pgTable(
   ],
 )
 
+// Who may see an engagement event. 'internal' rows are staff-only;
+// 'client' rows are the only ones the client portal reads. New rows are
+// internal unless the writer opts in (see
+// packages/services/src/engagements/event-visibility.ts for the allowlist).
+export const ENGAGEMENT_EVENT_VISIBILITIES = ['internal', 'client'] as const
+export type EngagementEventVisibility = (typeof ENGAGEMENT_EVENT_VISIBILITIES)[number]
+
 // Unified project status events. Written by Pravara (fab), Selva
 // (digital), Cotiza (quote/proposal lifecycle), Karafiel (compliance
 // stamping), Dhanam (billing), or 'system' (PhyndCRM-originated).
-// Timeline is built by ORDER BY created_at, merged with activities +
-// stage_transitions for the client portal view.
+// The staff timeline merges them with activities + stage_transitions;
+// the client portal reads only `visibility = 'client'` rows and nothing
+// else (EngagementsService.getClientTimeline).
 export const engagementEvents = pgTable(
   'engagement_events',
   {
@@ -89,6 +98,12 @@ export const engagementEvents = pgTable(
     // Deduplication key (source:external_id:event_type:timestamp). The
     // webhook handler sets this to skip reprocessing.
     dedupKey: varchar('dedup_key', { length: 255 }),
+    // 'internal' (default) | 'client'. Privacy-first: a row reaches the
+    // client portal only when it is explicitly 'client'.
+    visibility: varchar('visibility', { length: 16 })
+      .$type<EngagementEventVisibility>()
+      .notNull()
+      .default('internal'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -97,6 +112,9 @@ export const engagementEvents = pgTable(
     index('engagement_events_created_at_idx').on(table.createdAt),
     // Dedup-lookup index; scoped to engagement to keep it bounded.
     index('engagement_events_dedup_idx').on(table.engagementId, table.dedupKey),
+    // Portal feed lookup: client-visible events of one engagement.
+    index('engagement_events_visibility_idx').on(table.engagementId, table.visibility),
+    check('engagement_events_visibility_check', sql`${table.visibility} in ('internal', 'client')`),
   ],
 )
 

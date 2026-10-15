@@ -170,6 +170,22 @@ export const engagementsRouter = router({
       return service.getTimeline(input.engagementId, input.limit)
     }),
 
+  // Staff-only (service tokens are read-scoped and cannot reach mutations).
+  // Marks one event client-visible ('client') or staff-only ('internal'); the
+  // client portal renders 'client' events only.
+  setEventVisibility: protectedProcedure
+    .input(
+      z.object({
+        engagementId: z.string().min(1),
+        eventId: z.string().min(1),
+        visibility: z.enum(['internal', 'client']),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const service = new EngagementsService(ctx)
+      return service.setEventVisibility(input)
+    }),
+
   // Staff-initiated. Fires Janua's magic-link email to the engagement's
   // contact with a redirect_url pointing back at PhyndCRM's /portal/verify.
   // Rate-limiting is handled by Janua (5/hour per email).

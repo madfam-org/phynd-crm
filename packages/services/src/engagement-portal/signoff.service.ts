@@ -1,6 +1,7 @@
 import { engagementArtifacts, engagementEvents, engagements } from '@phynd/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { defaultEventVisibility } from '../engagements/event-visibility'
 import { ConflictError, NotFoundError, ValidationError } from '../errors'
 
 export interface AcceptDeliverableInput {
@@ -65,6 +66,8 @@ export class EngagementPortalSignoffService {
         engagementId: input.engagementId,
         source: 'portal',
         eventType: 'portal:deliverable_accepted',
+        // The client's own action: client-visible by the allowlist.
+        visibility: defaultEventVisibility('portal:deliverable_accepted'),
         status: 'completed',
         message: `Deliverable accepted: ${artifact.title ?? artifact.type}`,
         metadata: {
@@ -98,6 +101,9 @@ export class EngagementPortalSignoffService {
         engagementId: input.engagementId,
         source: 'system',
         eventType: 'system:deliverable_accepted',
+        // Cross-source milestone alias for staff filters; the client already
+        // sees the portal row above, so this one stays internal.
+        visibility: 'internal',
         status: 'completed',
         message: `Client accepted deliverable ${artifact.title ?? artifact.id}`,
         metadata: {

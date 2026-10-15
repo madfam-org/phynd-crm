@@ -9,6 +9,7 @@ import {
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { defaultEventVisibility } from '../engagements/event-visibility'
 import { actorIdOf } from '../identity/actor'
 import { NotificationsService } from '../notifications/notifications.service'
 
@@ -275,10 +276,12 @@ async function recordQuoteApprovedMilestone(
   acceptedBy: string | undefined,
 ) {
   const source = input.source === 'cotiza' ? 'cotiza' : 'system'
+  const eventType = `${source}:quote_approved`
   await tx.insert(engagementEvents).values({
     engagementId,
     source,
-    eventType: `${source}:quote_approved`,
+    eventType,
+    visibility: defaultEventVisibility(eventType),
     status: 'milestone',
     message: `Quote ${quote.quoteNumber} accepted`,
     metadata: {

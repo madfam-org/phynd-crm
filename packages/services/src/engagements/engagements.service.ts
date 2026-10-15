@@ -1,4 +1,5 @@
 import {
+  type EngagementEventVisibility,
   activities,
   engagementArtifacts,
   engagementEvents,
@@ -14,6 +15,7 @@ import {
   dispatchCotizaEngagementEvent,
 } from './cotiza-engagement-emitter.service'
 import { canonicalKarafielMilestone, canonicalSelvaMilestone } from './engagement-milestone.helpers'
+import { defaultEventVisibility } from './event-visibility'
 
 /**
  * Optional DI seam for the Cotiza emitter so tests can spy without
@@ -32,6 +34,7 @@ export type EngagementTimelineEntry =
       status: string | null
       message: string | null
       metadata: Record<string, unknown>
+      visibility: EngagementEventVisibility
     }
   | {
       kind: 'activity'
@@ -51,6 +54,19 @@ export type EngagementTimelineEntry =
       entityType: string
       entityId: string
     }
+
+/**
+ * What the client portal may render. Only `visibility = 'client'` engagement
+ * events, and only the fields the portal shows: never `metadata` (it carries
+ * internal ids, emails and amounts), never activities or stage transitions.
+ */
+export interface ClientTimelineEntry {
+  id: string
+  createdAt: Date
+  eventType: string
+  status: string | null
+  message: string | null
+}
 
 export class EngagementsService {
   private readonly emitCotiza: CotizaEngagementEmitter
@@ -239,6 +255,8 @@ export class EngagementsService {
     message?: string
     metadata?: Record<string, unknown>
     dedupKey?: string
+    /** Defaults to the write-time allowlist (event-visibility.ts): internal unless listed. */
+    visibility?: EngagementEventVisibility
   }) {
     const engagement = await this.getById(data.engagementId)
     if (!engagement) {
@@ -273,6 +291,7 @@ export class EngagementsService {
         message: data.message,
         metadata: data.metadata ?? {},
         dedupKey: data.dedupKey,
+        visibility: data.visibility ?? defaultEventVisibility(data.eventType),
       })
       .returning()
     if (!row) {
@@ -338,10 +357,37 @@ export class EngagementsService {
     return { primary, alias }
   }
 
+  /**
+   * Staff-only: marks one event of an engagement client-visible or internal.
+   * The engagement id is required so a caller can never flip an event of a
+   * different engagement by id alone.
+   */
+  async setEventVisibility(data: {
+    engagementId: string
+    eventId: string
+    visibility: EngagementEventVisibility
+  }) {
+    const [row] = await this.ctx.db
+      .update(engagementEvents)
+      .set({ visibility: data.visibility })
+      .where(
+        and(
+          eq(engagementEvents.id, data.eventId),
+          eq(engagementEvents.engagementId, data.engagementId),
+        ),
+      )
+      .returning()
+    if (!row) {
+      throw new NotFoundError('Engagement event', data.eventId)
+    }
+    return row
+  }
+
   // ─── Timeline ───────────────────────────────────────────────────────
-  // Merges engagement_events with activities and stage_transitions for
-  // the linked opportunity/contact into a single chronological feed the
-  // client portal can render. Newest-first.
+  // STAFF ONLY. Merges every engagement_event (internal ones included) with
+  // the contact's activities and the opportunity's stage_transitions into a
+  // single chronological feed. Newest-first. Never render this in the client
+  // portal: use getClientTimeline().
   async getTimeline(engagementId: string, limit = 100): Promise<EngagementTimelineEntry[]> {
     const engagement = await this.getById(engagementId)
     if (!engagement) {
@@ -389,6 +435,7 @@ export class EngagementsService {
           status: e.status,
           message: e.message,
           metadata: e.metadata ?? {},
+          visibility: e.visibility,
         }),
       ),
       ...activityRows.map(
@@ -417,5 +464,31 @@ export class EngagementsService {
 
     merged.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     return merged.slice(0, limit)
+  }
+
+  /**
+   * The client portal's feed: only this engagement's `visibility = 'client'`
+   * events, newest first. Activities, notes, stage transitions and internal
+   * events are never read here, and metadata is never returned.
+   */
+  async getClientTimeline(engagementId: string, limit = 50): Promise<ClientTimelineEntry[]> {
+    const rows = await this.ctx.db
+      .select({
+        id: engagementEvents.id,
+        createdAt: engagementEvents.createdAt,
+        eventType: engagementEvents.eventType,
+        status: engagementEvents.status,
+        message: engagementEvents.message,
+      })
+      .from(engagementEvents)
+      .where(
+        and(
+          eq(engagementEvents.engagementId, engagementId),
+          eq(engagementEvents.visibility, 'client'),
+        ),
+      )
+      .orderBy(desc(engagementEvents.createdAt))
+      .limit(limit)
+    return rows
   }
 }

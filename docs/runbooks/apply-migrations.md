@@ -79,7 +79,7 @@ kubectl -n phynd-crm logs job/phynd-crm-db-migrate
 
 ## Staging
 
-Same commands, with `-n phynd-crm-staging`.
+Same commands, with `-n phynd-crm-staging`. The staging overlay runs the same PreSync hook (`infra/k8s/overlays/staging/db-migrate-job.yaml`, secret `phynd-crm-staging-secrets`). Staging gets each new worker digest on push to `main`, so pending migrations run there before a production promotion.
 
 ## Local / CI
 

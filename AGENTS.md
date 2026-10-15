@@ -373,7 +373,7 @@ Canonical roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md). Full remediation plan:
 - `infra/k8s/production/kustomization.yaml` — Kustomize base; deploy pipelines update image digests via `kustomize edit set image`
 - `infra/k8s/production/web-deployment.yaml` — Next.js web (port 3000, replicas 1, health probes on `/api/health`)
 - `infra/k8s/production/worker-deployment.yaml` — BullMQ worker (health port 3001, replicas 1)
-- `infra/k8s/production/db-migrate-job.yaml` — Argo CD **PreSync hook**: runs `scripts/db-migrate.mjs --apply` from the pinned worker image before every sync (pending migrations only, one transaction, advisory lock, refuses on schema drift; images without the script skip). Manual check/apply: `docs/runbooks/apply-migrations.md`
+- `infra/k8s/production/db-migrate-job.yaml` — Argo CD **PreSync hook**: runs `scripts/db-migrate.mjs --apply` from the pinned worker image before every sync (pending migrations only, one transaction, advisory lock, refuses on schema drift; images without the script skip). Staging has the same hook (`infra/k8s/overlays/staging/db-migrate-job.yaml`), so migrations run on staging first. Manual check/apply: `docs/runbooks/apply-migrations.md`
 - `infra/k8s/production/web-service.yaml` — ClusterIP service (port 80 → 3000)
 - `infra/k8s/production/network-policies.yaml` — Default-deny + allow cloudflared ingress, data namespace egress, HTTPS egress, internal MADFAM service egress
 - `infra/k8s/production/resource-quota.yaml` — Namespace limits (1 CPU/2Gi requests, 3 CPU/4Gi limits, 10 pods)

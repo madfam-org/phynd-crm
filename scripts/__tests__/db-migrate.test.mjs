@@ -221,3 +221,13 @@ test('production runs the script as an Argo CD PreSync hook from the worker imag
   const dockerfile = readFileSync('docker/Dockerfile.worker', 'utf8')
   assert.match(dockerfile, /cp scripts\/db-migrate\.mjs \/deploy\/scripts\/db-migrate\.mjs/)
 })
+
+test('staging runs the same hook against the staging secret', () => {
+  const job = readFileSync('infra/k8s/overlays/staging/db-migrate-job.yaml', 'utf8')
+  const kustomization = readFileSync('infra/k8s/overlays/staging/kustomization.yaml', 'utf8')
+  assert.match(kustomization, /^- db-migrate-job\.yaml$/m)
+  assert.match(job, /argocd\.argoproj\.io\/hook: PreSync/)
+  assert.match(job, /namespace: phynd-crm-staging$/m)
+  assert.match(job, /name: phynd-crm-staging-secrets$/m)
+  assert.doesNotMatch(job, /name: phynd-crm-secrets$/m)
+})

@@ -27,7 +27,10 @@ metadata:
     # Keep the last run (and its logs) until the next sync replaces it.
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
-  backoffLimit: 0
+  # One retry for a pod that could not reach the database at all; the script
+  # itself already waits out transient connect errors, and an apply is
+  # idempotent and runs under an advisory lock, so a retry cannot double-apply.
+  backoffLimit: 1
   activeDeadlineSeconds: 900
   template:
     metadata:

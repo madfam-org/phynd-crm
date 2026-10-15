@@ -10,6 +10,10 @@ export interface Contact {
   email: string | null
   phone: string | null
   company: string | null
+  /** Name the person wants to be called by. */
+  preferredName?: string | null
+  /** Spanish register: 'tu' | 'usted'; null = not asked yet (readers use usted). */
+  spanishFormality?: 'tu' | 'usted' | null
   status: ContactStatus
   ownerId: string | null
   createdAt: Date

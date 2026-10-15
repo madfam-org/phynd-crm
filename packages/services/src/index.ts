@@ -122,6 +122,21 @@ export {
   dispatchCotizaEngagementEvent,
   emitCotizaEngagementEvent,
 } from './engagements/cotiza-engagement-emitter.service'
+export {
+  type ClientEngagementItem,
+  completedAtFor,
+  type EngagementItemInput,
+  type EngagementItemPatch,
+  EngagementItemsService,
+} from './engagement-items/engagement-items.service'
+export { EngagementContactsService } from './engagement-items/engagement-contacts.service'
+export {
+  normalizeEmail,
+  type PortalAccess,
+  type PortalEngagement,
+  type PortalViewer,
+  resolvePortalAccess,
+} from './engagement-portal/portal-access'
 export { EngagementPortalMagicLinkService } from './engagement-portal/magic-link.service'
 export { EngagementPortalSignoffService } from './engagement-portal/signoff.service'
 export { createServiceContext, type ServiceContext } from './context'

@@ -1,7 +1,8 @@
-import { contacts, engagements } from '@phynd/db/schema'
+import { contacts, engagementContacts, engagements } from '@phynd/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ServiceError, ValidationError } from '../errors'
+import { resolvePortalAccess } from './portal-access'
 
 // Minimum shape Janua's /api/v1/auth/magic-link/verify returns. We
 // accept both nested `tokens` and legacy flat shape — the Janua TS SDK
@@ -39,7 +40,9 @@ interface PortalSession {
 //      which exchanges the token with Janua, receives an RS256 JWT,
 //      and seals it into a httpOnly cookie scoped to the portal.
 //   4. Portal page reads the cookie, validates via JWKS, confirms the
-//      session email matches engagement.contact.email, renders.
+//      session email belongs to a portal-enabled contact of the engagement
+//      (its primary contact or an engagement_contacts row with
+//      portal_access = true; see portal-access.ts), renders.
 //
 // This keeps the portal's external-client auth isolated from the
 // dashboard Auth.js v5 OIDC staff flow — two distinct audiences, two
@@ -121,10 +124,16 @@ export class EngagementPortalMagicLinkService {
   // Resolves the target email + redirect URL for the engagement, then
   // asks Janua to send the magic-link email to the client. Returns a
   // neutral "sent" ack — never leaks the email back to the caller.
-  async sendPortalLink(engagementId: string): Promise<{ sent: true; emailRedacted: string }> {
+  // `contactId` picks another portal-enabled contact of the engagement;
+  // the default is the engagement's primary contact.
+  async sendPortalLink(
+    engagementId: string,
+    contactId?: string,
+  ): Promise<{ sent: true; emailRedacted: string }> {
     const [row] = await this.ctx.db
       .select({
         engagementId: engagements.id,
+        primaryContactId: engagements.contactId,
         contactEmail: contacts.email,
       })
       .from(engagements)
@@ -135,7 +144,11 @@ export class EngagementPortalMagicLinkService {
     if (!row) {
       throw new NotFoundError('Engagement', engagementId)
     }
-    if (!row.contactEmail) {
+    const recipientEmail =
+      contactId && contactId !== row.primaryContactId
+        ? await this.portalContactEmail(engagementId, contactId)
+        : row.contactEmail
+    if (!recipientEmail) {
       throw new ValidationError('Engagement contact has no email on file')
     }
 
@@ -145,7 +158,7 @@ export class EngagementPortalMagicLinkService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: row.contactEmail,
+        email: recipientEmail,
         redirect_url: redirectUrl,
       }),
     })
@@ -159,12 +172,32 @@ export class EngagementPortalMagicLinkService {
       )
     }
 
-    return { sent: true, emailRedacted: redactEmail(row.contactEmail) }
+    return { sent: true, emailRedacted: redactEmail(recipientEmail) }
+  }
+
+  private async portalContactEmail(engagementId: string, contactId: string) {
+    const [row] = await this.ctx.db
+      .select({ contactEmail: contacts.email })
+      .from(engagementContacts)
+      .innerJoin(contacts, eq(engagementContacts.contactId, contacts.id))
+      .where(
+        and(
+          eq(engagementContacts.engagementId, engagementId),
+          eq(engagementContacts.contactId, contactId),
+          eq(engagementContacts.portalAccess, true),
+          isNull(contacts.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!row) {
+      throw new ValidationError('That contact has no portal access to this engagement')
+    }
+    return row.contactEmail
   }
 
   // Exchange the Janua magic-link token for an access/refresh pair
-  // scoped to the tablaco-grade external-client session. Validates the
-  // session email matches the engagement's contact email before
+  // scoped to the external-client session. Validates the session email
+  // belongs to a portal-enabled contact of the engagement before
   // returning the session to the caller.
   async verifyPortalLink(params: {
     token: string
@@ -208,10 +241,12 @@ export class EngagementPortalMagicLinkService {
     const data = (await resp.json()) as JanuaMagicLinkVerifyResponse
 
     const verifiedEmail = data.user?.email?.toLowerCase().trim()
-    const expectedEmail = row.contactEmail?.toLowerCase().trim()
-    if (!verifiedEmail || !expectedEmail || verifiedEmail !== expectedEmail) {
+    const access = verifiedEmail
+      ? await resolvePortalAccess(this.ctx.db, params.engagementId, verifiedEmail)
+      : null
+    if (!verifiedEmail || access?.status !== 'granted') {
       throw new ServiceError(
-        'Portal token email does not match engagement contact',
+        'Portal token email does not match a portal contact of the engagement',
         'AUTHZ_MISMATCH',
         403,
       )

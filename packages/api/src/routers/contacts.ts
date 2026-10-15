@@ -2,6 +2,9 @@ import { ContactsService, requireCrmUserId } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
+// How the person wants to be addressed in Spanish; null = not asked yet.
+const spanishFormality = z.enum(['tu', 'usted'])
+
 const paginationInput = z
   .object({
     cursor: z.string().optional(),
@@ -44,6 +47,8 @@ export const contactsRouter = router({
         phone: z.string().max(50).optional(),
         company: z.string().max(255).optional(),
         externalJanuaId: z.string().optional(),
+        preferredName: z.string().min(1).max(255).optional(),
+        spanishFormality: spanishFormality.optional(),
       }),
     )
     .mutation(({ ctx, input }) => {
@@ -80,6 +85,8 @@ export const contactsRouter = router({
         phone: z.string().max(50).nullable().optional(),
         company: z.string().max(255).nullable().optional(),
         status: z.enum(['active', 'inactive', 'archived']).optional(),
+        preferredName: z.string().min(1).max(255).nullable().optional(),
+        spanishFormality: spanishFormality.nullable().optional(),
       }),
     )
     .mutation(({ ctx, input }) => {

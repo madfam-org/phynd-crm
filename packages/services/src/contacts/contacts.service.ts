@@ -73,6 +73,8 @@ export class ContactsService {
     phone?: string
     company?: string
     externalJanuaId?: string
+    preferredName?: string
+    spanishFormality?: 'tu' | 'usted'
   }) {
     const [contact] = await this.ctx.db.insert(contacts).values(data).returning()
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
@@ -88,6 +90,9 @@ export class ContactsService {
       company: string | null
       status: string
       externalJanuaId: string | null
+      preferredName: string | null
+      // null = not asked yet (readers default to usted).
+      spanishFormality: 'tu' | 'usted' | null
     }>,
   ) {
     const [contact] = await this.ctx.db

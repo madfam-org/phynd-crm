@@ -189,11 +189,13 @@ export const engagementsRouter = router({
   // Staff-initiated. Fires Janua's magic-link email to the engagement's
   // contact with a redirect_url pointing back at PhyndCRM's /portal/verify.
   // Rate-limiting is handled by Janua (5/hour per email).
+  // `contactId` sends the link to another portal-enabled contact of the
+  // engagement (engagementContacts.upsert with portalAccess); default primary.
   sendPortalLink: protectedProcedure
-    .input(z.object({ engagementId: z.string() }))
+    .input(z.object({ engagementId: z.string(), contactId: z.string().min(1).optional() }))
     .mutation(({ ctx, input }) => {
       const service = new EngagementPortalMagicLinkService(ctx)
-      return service.sendPortalLink(input.engagementId)
+      return service.sendPortalLink(input.engagementId, input.contactId)
     }),
 
   publishQuoteToPortal: protectedProcedure

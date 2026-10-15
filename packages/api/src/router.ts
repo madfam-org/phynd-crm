@@ -6,6 +6,7 @@ import { campaignsRouter } from './routers/campaigns'
 import { consentRouter } from './routers/consent'
 import { contactsRouter } from './routers/contacts'
 import { conversionsRouter } from './routers/conversions'
+import { engagementContactsRouter, engagementItemsRouter } from './routers/engagement-items'
 import { engagementsRouter } from './routers/engagements'
 import { federationHealthRouter } from './routers/federation-health'
 import { grantsRouter } from './routers/grants'
@@ -37,6 +38,8 @@ export const appRouter = router({
   consent: consentRouter,
   contacts: contactsRouter,
   conversions: conversionsRouter,
+  engagementContacts: engagementContactsRouter,
+  engagementItems: engagementItemsRouter,
   engagements: engagementsRouter,
   federationHealth: federationHealthRouter,
   grants: grantsRouter,

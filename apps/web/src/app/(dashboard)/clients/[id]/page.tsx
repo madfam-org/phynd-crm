@@ -127,6 +127,17 @@ function buildFederationPanels(profile: UnifiedProfile | null): FederationPanelC
   })
 }
 
+// For hand-written comms: the name the person goes by and their Spanish register.
+function addressLine(contact: { preferredName?: string | null; spanishFormality?: string | null }) {
+  const register =
+    contact.spanishFormality === 'tu'
+      ? 'Address as tú'
+      : contact.spanishFormality === 'usted'
+        ? 'Address as usted'
+        : 'tú/usted not asked yet (use usted)'
+  return contact.preferredName ? `Goes by ${contact.preferredName} · ${register}` : register
+}
+
 export default async function ClientProfilePage({ params }: ClientProfilePageProps) {
   const { id } = await params
   const caller = await getServerCaller()
@@ -158,6 +169,7 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
               <p className="text-sm text-muted-foreground">
                 {contact.email} {contact.company && `| ${contact.company}`}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">{addressLine(contact)}</p>
             </div>
             <Badge variant={contact.status === 'active' ? 'success' : 'secondary'}>
               {contact.status}

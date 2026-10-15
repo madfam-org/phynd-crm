@@ -113,6 +113,13 @@
       "when": 1792032625364,
       "tag": "0015_premium_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792034840843,
+      "tag": "0016_striped_ogun",
+      "breakpoints": true
     }
   ]
 }

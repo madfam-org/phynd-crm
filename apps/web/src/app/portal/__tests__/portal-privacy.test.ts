@@ -11,7 +11,22 @@ import { describe, expect, it } from 'vitest'
 // the portal page and docs/ENGAGEMENT_EVENT_TAXONOMY.md § Visibility together.
 
 const portalRoot = fileURLToPath(new URL('..', import.meta.url))
-const STAFF_ONLY_TABLES = ['activities', 'notes', 'stageTransitions', 'taggables', 'tags']
+const srcRoot = fileURLToPath(new URL('../../..', import.meta.url))
+// Everything the portal renders from: the route tree plus its components and helpers.
+const PORTAL_DIRS = [
+  portalRoot,
+  path.join(srcRoot, 'components/portal'),
+  path.join(srcRoot, 'lib/portal'),
+]
+const STAFF_ONLY_TABLES = [
+  'activities',
+  'notes',
+  'stageTransitions',
+  'taggables',
+  'tags',
+  // Items reach the portal only through EngagementItemsService.listForClient().
+  'engagementItems',
+]
 
 function portalSources(dir: string): Array<{ file: string; source: string }> {
   const out: Array<{ file: string; source: string }> = []
@@ -40,7 +55,7 @@ function schemaImports(source: string): string[] {
 }
 
 describe('client portal privacy', () => {
-  const sources = portalSources(portalRoot)
+  const sources = PORTAL_DIRS.flatMap((dir) => portalSources(dir))
 
   it('finds the portal sources', () => {
     expect(sources.map((s) => s.file)).toContain(path.join('[engagementId]', 'page.tsx'))
@@ -60,8 +75,27 @@ describe('client portal privacy', () => {
     expect(offenders, 'portal code imports a staff-only table').toEqual([])
   })
 
-  it('renders the feed from the client-only timeline', () => {
+  it('renders the feed from the client-only timeline and client-visible items', () => {
     const page = sources.find((s) => s.file === path.join('[engagementId]', 'page.tsx'))
     expect(page?.source).toMatch(/\.getClientTimeline\s*\(/)
+    expect(page?.source).toMatch(/\.listForClient\s*\(/)
+  })
+
+  it('never lists all engagement items', () => {
+    const offenders = sources
+      .filter((s) => /EngagementItemsService\([^)]*\)\s*\.list\s*\(/.test(s.source))
+      .map((s) => s.file)
+    expect(offenders).toEqual([])
+  })
+
+  it('gates every portal route on resolvePortalAccess', () => {
+    for (const file of [
+      path.join('[engagementId]', 'page.tsx'),
+      path.join('[engagementId]', 'checkout', 'route.ts'),
+      path.join('[engagementId]', 'signoff', 'route.ts'),
+    ]) {
+      const source = sources.find((s) => s.file === file)?.source ?? ''
+      expect(source, file).toMatch(/resolvePortalAccess\s*\(/)
+    }
   })
 })

@@ -3,6 +3,7 @@ import { getDb } from '@phynd/db'
 import { engagementArtifacts } from '@phynd/db/schema'
 import { NoopCacheManager } from '@phynd/federation'
 import { EngagementPortalSignoffService } from '@phynd/services'
+import { resolvePortalAccess } from '@phynd/services/engagement-portal/portal-access'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -18,6 +19,14 @@ export async function POST(req: Request, context: RouteContext) {
     return NextResponse.redirect(new URL('/portal/expired?reason=no-session', req.url), 303)
   }
 
+  const db = getDb()
+  // Same gate as the portal page: only a portal-enabled contact of this
+  // engagement can accept its deliverables.
+  const access = await resolvePortalAccess(db, engagementId, session.email)
+  if (access.status !== 'granted') {
+    return NextResponse.redirect(new URL('/portal/expired?reason=email-mismatch', req.url), 303)
+  }
+
   const form = await req.formData()
   const artifactId = form.get('artifactId')
   if (typeof artifactId !== 'string' || !artifactId) {
@@ -30,7 +39,6 @@ export async function POST(req: Request, context: RouteContext) {
     )
   }
 
-  const db = getDb()
   const [artifact] = await db
     .select({ id: engagementArtifacts.id })
     .from(engagementArtifacts)

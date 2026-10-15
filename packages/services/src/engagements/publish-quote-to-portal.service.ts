@@ -4,6 +4,7 @@ import type { ServiceContext } from '../context'
 import { EngagementPortalMagicLinkService } from '../engagement-portal/magic-link.service'
 import { NotFoundError, ValidationError } from '../errors'
 import { actorIdOf } from '../identity/actor'
+import { defaultEventVisibility } from './event-visibility'
 
 type PublishTx = Parameters<Parameters<ServiceContext['db']['transaction']>[0]>[0]
 
@@ -54,6 +55,7 @@ export class PublishQuoteToPortalService {
           engagementId: engagement.id,
           source: 'system',
           eventType: 'system:quote_sent',
+          visibility: defaultEventVisibility('system:quote_sent'),
           status: 'milestone',
           message: `Quote ${published.quoteNumber} sent to client portal`,
           metadata: {

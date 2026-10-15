@@ -155,4 +155,64 @@ describe('engagements router', () => {
 
     expect(ctx.db._insertCalls).toHaveLength(0)
   })
+
+  describe('setEventVisibility', () => {
+    function withUpdate(ctx: ReturnType<typeof createMockCtx>) {
+      const sets: unknown[] = []
+      ctx.db.update = vi.fn(() => ({
+        set: vi.fn((value: unknown) => {
+          sets.push(value)
+          return {
+            where: vi.fn(() => ({
+              returning: vi.fn(async () => [{ id: 'evt-1', visibility: 'client' }]),
+            })),
+          }
+        }),
+      })) as unknown as typeof ctx.db.update
+      return sets
+    }
+
+    it('lets staff mark an event client-visible', async () => {
+      const ctx = createMockCtx()
+      const sets = withUpdate(ctx)
+      const result = await createCaller(ctx).engagements.setEventVisibility({
+        engagementId: 'eng-001',
+        eventId: 'evt-1',
+        visibility: 'client',
+      })
+      expect(result.visibility).toBe('client')
+      expect(sets).toEqual([{ visibility: 'client' }])
+    })
+
+    it('rejects values other than internal/client before writing', async () => {
+      const ctx = createMockCtx()
+      const sets = withUpdate(ctx)
+      await expect(
+        createCaller(ctx).engagements.setEventVisibility({
+          engagementId: 'eng-001',
+          eventId: 'evt-1',
+          visibility: 'public' as 'client',
+        }),
+      ).rejects.toThrow()
+      expect(sets).toHaveLength(0)
+    })
+
+    it('is not reachable with a read-scoped service token', async () => {
+      const ctx = createMockCtx()
+      ctx.auth = createMockAuth({
+        roles: ['service'],
+        scopes: ['engagements:read'],
+        userId: 'service:selva',
+      })
+      const sets = withUpdate(ctx)
+      await expect(
+        createCaller(ctx).engagements.setEventVisibility({
+          engagementId: 'eng-001',
+          eventId: 'evt-1',
+          visibility: 'client',
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+      expect(sets).toHaveLength(0)
+    })
+  })
 })

@@ -53,6 +53,29 @@ Everything else stays source-scoped and doesn't need a canonical alias. Examples
 - `system:production_dispatch_sent` — PhyndCRM sent the live Pravara/Selva production dispatch HTTP request
 - `system:production_dispatch_failed` — PhyndCRM attempted live provider dispatch and left the intent retryable
 
+## Visibility (client portal privacy)
+
+Every `engagement_events` row has a `visibility`: `internal` (the default) or `client` (migration `0015`, `CHECK` constrained). The client portal (`/portal/[engagementId]`) reads **only** `client` rows, through `EngagementsService.getClientTimeline()`. It never reads activities, notes, stage transitions or `internal` events, and it never receives `metadata`. Staff views (`engagements.getTimeline`) keep the full feed and show each event's visibility.
+
+How a row becomes `client`:
+
+1. **At write time, by allowlist.** `CLIENT_VISIBLE_EVENT_TYPES` in `packages/services/src/engagements/event-visibility.ts` lists the exact event types PhyndCRM writes with fixed, client-safe copy. Exact matches only; everything else is `internal`.
+
+   | event_type | Written by | Why the client sees it |
+   |---|---|---|
+   | `portal:deliverable_accepted` | Portal sign-off | The client's own action |
+   | `dhanam:payment_succeeded` | Dhanam webhook (paid events) | "Payment received" for the client's own payment |
+   | `system:quote_sent` | Publish quote to portal | The quote is ready for them |
+   | `system:quote_approved`, `cotiza:quote_approved` | `QuotesService.accept()` | The quote was accepted |
+   | `pravara:prototype_shipped`, `pravara:deliverable_received` | Pravara webhook (canonical aliases) | Physical delivery milestones |
+
+2. **Explicitly, by the writer** (`recordEvent({ visibility })`), for example the operator import.
+3. **By staff**, one event at a time, from the engagement timeline (`engagements.setEventVisibility`).
+
+Always `internal` on write, whatever the event type: everything posted to `POST /api/v1/engagements/events` and Cotiza lifecycle rows (their message is producer-authored), plus the `system:deliverable_accepted` alias, the raw `pravara:<status>` rows, payment reconciliation, recovery and dispatch rows, and Selva/Karafiel milestones. Rows that existed before `0015` are `internal`; staff promote the ones a client should see.
+
+Adding a type to the allowlist is a privacy decision: the copy must be PhyndCRM-authored and safe for the client to read. Update the allowlist, its tests and this table together.
+
 ## `status` field semantics
 
 The `status` column in `engagement_events` drives UI badges:
@@ -61,7 +84,7 @@ The `status` column in `engagement_events` drives UI badges:
 |---|---|
 | `pending` | Queued / scheduled / awaiting something upstream |
 | `in_progress` | Actively happening |
-| `milestone` | **Client-visible milestone — render prominently** |
+| `milestone` | **Milestone — render prominently** (visibility is separate: see § Visibility) |
 | `completed` | Final terminal state for this event |
 | `failed` | Something went wrong; portal shows error treatment |
 | `blocked` | Paused on external input |
@@ -112,5 +135,6 @@ Portal queries can now filter on `event_type LIKE '%:prototype_shipped'` across 
 
 1. Open a PR editing this doc to add the row.
 2. Pick producers who should emit the alias and update their webhook/writer code (emit both native + canonical).
-3. If the portal needs a bespoke visual treatment (badge colour, icon), update `/portal/[engagementId]` UI accordingly.
-4. Keep names snake_case + lowercase. No version suffixes — bump semantics inline when they change.
+3. If the client should see it, decide its visibility (§ Visibility): allowlist it only when PhyndCRM writes it with fixed, client-safe copy.
+4. If the portal needs a bespoke visual treatment (badge colour, icon), update `/portal/[engagementId]` UI accordingly.
+5. Keep names snake_case + lowercase. No version suffixes — bump semantics inline when they change.

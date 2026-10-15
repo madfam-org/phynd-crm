@@ -7,7 +7,7 @@ import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
 import { contacts, engagementEvents, engagements, orders, quotes } from '@phynd/db/schema'
 import { NoopCacheManager } from '@phynd/federation'
-import { EngagementsService } from '@phynd/services'
+import { type ClientTimelineEntry, EngagementsService } from '@phynd/services'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 import { paymentStateMessage, portalPaymentAction } from './payment-state'
@@ -19,13 +19,17 @@ import { paymentStateMessage, portalPaymentAction } from './payment-state'
 //
 // No tRPC here — we read from @phynd/db directly because the client has
 // no Janua staff session and can't mint a protectedProcedure context.
+//
+// PRIVACY: the activity feed comes from getClientTimeline() — engagement
+// events explicitly marked visibility='client', nothing else. Never call
+// getTimeline() here: it merges internal events, the contact's activities and
+// stage transitions for staff. A guard test (__tests__/portal-privacy.test.ts)
+// fails if this directory reads the staff timeline, activities or notes.
 
 type PageProps = {
   params: Promise<{ engagementId: string }>
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
-
-type PortalTimelineEntry = Awaited<ReturnType<EngagementsService['getTimeline']>>[number]
 
 export default async function EngagementPortalPage({ params, searchParams }: PageProps) {
   const { engagementId } = await params
@@ -75,7 +79,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
   })
 
   const [timeline, artifacts, portalQuotes, acceptedDeliverableIds] = await Promise.all([
-    service.getTimeline(engagementId, 50),
+    service.getClientTimeline(engagementId, 50),
     service.listArtifacts(engagementId),
     findPortalQuotes(db, row.engagement),
     loadAcceptedDeliverableIds(db, engagementId),
@@ -232,7 +236,7 @@ export default async function EngagementPortalPage({ params, searchParams }: Pag
             </p>
           ) : (
             <ol className="space-y-3">
-              {timeline.map((entry: PortalTimelineEntry) => (
+              {timeline.map((entry: ClientTimelineEntry) => (
                 <PortalActivityItem entry={entry} key={entry.id} />
               ))}
             </ol>
@@ -264,15 +268,17 @@ function portalActivityStyles(tone: TimelineVisualTone) {
   }
 }
 
-function PortalActivityItem({ entry }: { entry: PortalTimelineEntry }) {
-  const tone = entry.kind === 'event' ? timelineEventTone(entry.status, entry.eventType) : 'default'
+function PortalActivityItem({ entry }: { entry: ClientTimelineEntry }) {
+  const tone = timelineEventTone(entry.status, entry.eventType)
   const { dotClass, cardClass } = portalActivityStyles(tone)
 
   return (
     <li className={`flex gap-3 rounded-md border p-3 ${cardClass}`}>
       <span className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-slate-900 dark:text-slate-100">{timelineMessage(entry)}</p>
+        <p className="text-sm text-slate-900 dark:text-slate-100">
+          {entry.message ?? timelineEventLabel(entry.eventType)}
+        </p>
         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
           {entry.createdAt.toLocaleString()}
         </p>
@@ -464,18 +470,4 @@ function formatArtifactType(type: string): string {
 function firstQueryValue(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? null
   return value ?? null
-}
-
-// biome-ignore lint/suspicious/noExplicitAny: discriminated union on entry.kind, cast for readability
-function timelineMessage(entry: any): string {
-  if (entry.kind === 'event') {
-    return entry.message ?? timelineEventLabel(entry.eventType)
-  }
-  if (entry.kind === 'activity') {
-    return entry.title
-  }
-  if (entry.kind === 'stage_transition') {
-    return 'Status changed'
-  }
-  return 'Update'
 }

@@ -263,6 +263,31 @@ export function summarize(plan, { mode, appliedNow = [] }) {
   }
 }
 
+/** Network errors worth waiting out: the database or its pooler is not reachable yet. */
+const TRANSIENT_CONNECT_CODES = new Set(['ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND', 'EAI_AGAIN', 'CONNECT_TIMEOUT'])
+
+/**
+ * Wait until the database answers `select 1`, retrying only transient network
+ * errors. A deploy-time hook pod connects within milliseconds of starting; on
+ * some clusters the pod's NetworkPolicy allow-rules are programmed a moment
+ * after the default-deny, so the very first connection can be refused
+ * (seen on staging 2026-10-15). Any other error (auth, missing database) fails
+ * at once.
+ */
+export async function waitForDatabase(sql, { attempts = 12, delayMs = 5_000, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), log = (m) => process.stderr.write(`${m}\n`) } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await sql`select 1`
+      return attempt
+    } catch (err) {
+      const code = err && typeof err === 'object' ? err.code : undefined
+      if (!TRANSIENT_CONNECT_CODES.has(code) || attempt >= attempts) throw err
+      log(`db-migrate: database not reachable yet (${code}); retry ${attempt}/${attempts - 1} in ${delayMs} ms`)
+      await sleep(delayMs)
+    }
+  }
+}
+
 export async function runDbMigrate(sql, { migrations, apply, lockTimeout = '10s' }) {
   const mode = apply ? 'apply' : 'dry-run'
   if (!apply) {
@@ -348,6 +373,7 @@ async function main() {
   const postgres = createRequire(resolved)(resolved)
   const sql = postgres(url, { max: 1, connect_timeout: 10, idle_timeout: 5, onnotice: () => {} })
   try {
+    await waitForDatabase(sql)
     const report = await runDbMigrate(sql, {
       migrations,
       apply: args.apply,

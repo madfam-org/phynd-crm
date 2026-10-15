@@ -217,7 +217,7 @@ test('production runs the script as an Argo CD PreSync hook from the worker imag
   assert.match(job, /argocd\.argoproj\.io\/hook: PreSync/)
   assert.match(job, /image: ghcr\.io\/madfam-org\/phynd-crm\/worker/)
   assert.match(job, /node scripts\/db-migrate\.mjs --apply/)
-  assert.match(job, /backoffLimit: 0/)
+  assert.match(job, /backoffLimit: 1/)
   const dockerfile = readFileSync('docker/Dockerfile.worker', 'utf8')
   assert.match(dockerfile, /cp scripts\/db-migrate\.mjs \/deploy\/scripts\/db-migrate\.mjs/)
 })
@@ -230,4 +230,47 @@ test('staging runs the same hook against the staging secret', () => {
   assert.match(job, /namespace: phynd-crm-staging$/m)
   assert.match(job, /name: phynd-crm-staging-secrets$/m)
   assert.doesNotMatch(job, /name: phynd-crm-secrets$/m)
+})
+
+test('waitForDatabase retries transient connect errors, then succeeds', async () => {
+  const { waitForDatabase } = await import('../db-migrate.mjs')
+  let calls = 0
+  const sql = async () => {
+    calls += 1
+    if (calls < 3) {
+      const err = new Error('connect ECONNREFUSED')
+      err.code = 'ECONNREFUSED'
+      throw err
+    }
+    return [{ '?column?': 1 }]
+  }
+  const attempt = await waitForDatabase(sql, { attempts: 5, delayMs: 0, sleep: async () => {}, log: () => {} })
+  assert.equal(attempt, 3)
+  assert.equal(calls, 3)
+})
+
+test('waitForDatabase fails at once on a non-network error', async () => {
+  const { waitForDatabase } = await import('../db-migrate.mjs')
+  let calls = 0
+  const sql = async () => {
+    calls += 1
+    const err = new Error('password authentication failed')
+    err.code = '28P01'
+    throw err
+  }
+  await assert.rejects(waitForDatabase(sql, { attempts: 5, delayMs: 0, sleep: async () => {}, log: () => {} }), /password authentication failed/)
+  assert.equal(calls, 1)
+})
+
+test('waitForDatabase gives up after the last attempt', async () => {
+  const { waitForDatabase } = await import('../db-migrate.mjs')
+  let calls = 0
+  const sql = async () => {
+    calls += 1
+    const err = new Error('connect ECONNREFUSED')
+    err.code = 'ECONNREFUSED'
+    throw err
+  }
+  await assert.rejects(waitForDatabase(sql, { attempts: 3, delayMs: 0, sleep: async () => {}, log: () => {} }), /ECONNREFUSED/)
+  assert.equal(calls, 3)
 })

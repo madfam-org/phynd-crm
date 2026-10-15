@@ -8,6 +8,9 @@ on:
       - "apps/worker/**"
       - "packages/**"
       - "pnpm-lock.yaml"
+      # The worker image also carries the deploy-time migration runner.
+      - "docker/Dockerfile.worker"
+      - "scripts/db-migrate.mjs"
       - "!infra/k8s/overlays/staging/kustomization.yaml"
 
 env:

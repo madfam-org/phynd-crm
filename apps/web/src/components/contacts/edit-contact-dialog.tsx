@@ -11,6 +11,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { trpc } from '@/lib/trpc/client'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -22,6 +29,8 @@ interface EditContactDialogProps {
     email: string | null
     phone: string | null
     company: string | null
+    preferredName?: string | null
+    spanishFormality?: string | null
   }
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -32,6 +41,13 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
   const [email, setEmail] = useState(contact.email ?? '')
   const [phone, setPhone] = useState(contact.phone ?? '')
   const [company, setCompany] = useState(contact.company ?? '')
+  const [preferredName, setPreferredName] = useState(contact.preferredName ?? '')
+  // 'unset' = not asked yet; portals and mail then use usted.
+  const [formality, setFormality] = useState<'tu' | 'usted' | 'unset'>(
+    contact.spanishFormality === 'tu' || contact.spanishFormality === 'usted'
+      ? contact.spanishFormality
+      : 'unset',
+  )
 
   const utils = trpc.useUtils()
   const contactsRouter = trpc.contacts as NonNullable<typeof trpc.contacts>
@@ -54,6 +70,8 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
       email: email || null,
       phone: phone || null,
       company: company || null,
+      preferredName: preferredName.trim() || null,
+      spanishFormality: formality === 'unset' ? null : formality,
     })
   }
 
@@ -95,6 +113,30 @@ export function EditContactDialog({ contact, open, onOpenChange }: EditContactDi
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-preferred-name">Preferred name</Label>
+              <Input
+                id="edit-preferred-name"
+                value={preferredName}
+                onChange={(e) => setPreferredName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Spanish register (tú / usted)</Label>
+              <Select
+                value={formality}
+                onValueChange={(v) => setFormality(v as 'tu' | 'usted' | 'unset')}
+              >
+                <SelectTrigger aria-label="Spanish register">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unset">Not asked yet (usted)</SelectItem>
+                  <SelectItem value="tu">Tú</SelectItem>
+                  <SelectItem value="usted">Usted</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

@@ -116,6 +116,7 @@ export default async function EngagementDetailPage({ params }: EngagementDetailP
       <EngagementDetailTabs
         engagement={{
           id: engagement.id,
+          contactId: engagement.contactId,
           projectName: engagement.projectName,
           description: engagement.description,
           status: engagement.status,

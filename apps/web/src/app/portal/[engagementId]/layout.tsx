@@ -10,6 +10,6 @@ export default async function PortalLayout({ children }: { children: ReactNode }
 }
 
 export const metadata = {
-  title: 'Your MADFAM project',
-  description: 'Live status for your engagement with MADFAM.',
+  title: 'Proyecto con MADFAM',
+  description: 'Estado en vivo del proyecto con MADFAM.',
 }

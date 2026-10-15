@@ -1,8 +1,9 @@
 import { readAndVerifyPortalSession } from '@/lib/portal/session'
 import { getDb } from '@phynd/db'
-import { contacts, engagements, quotes } from '@phynd/db/schema'
+import { quotes } from '@phynd/db/schema'
 import { NoopCacheManager } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
+import { resolvePortalAccess } from '@phynd/services/engagement-portal/portal-access'
 import { FederationError, NotFoundError, ValidationError } from '@phynd/services/errors'
 import { DhanamCheckoutService } from '@phynd/services/payments/dhanam-checkout'
 import { and, eq, isNull } from 'drizzle-orm'
@@ -22,10 +23,13 @@ export async function POST(req: Request, context: RouteContext) {
   }
 
   const db = getDb()
-  const engagement = await verifyPortalEngagement(db, engagementId, session.email)
-  if (!engagement) {
+  // Same gate as the portal page: the session email must belong to a
+  // portal-enabled contact of this engagement, checked on every request.
+  const access = await resolvePortalAccess(db, engagementId, session.email)
+  if (access.status !== 'granted') {
     return redirectToExpired(req, 'email-mismatch')
   }
+  const { engagement } = access
 
   const form = await readCheckoutForm(req)
   if (!form.quoteId) {
@@ -77,28 +81,6 @@ async function readCheckoutForm(req: Request) {
     freshCheckout: checkoutMode === 'fresh',
     quoteId: typeof quoteId === 'string' && quoteId.trim() ? quoteId.trim() : null,
   }
-}
-
-async function verifyPortalEngagement(
-  db: ReturnType<typeof getDb>,
-  engagementId: string,
-  email: string,
-) {
-  const [row] = await db
-    .select({
-      contactEmail: contacts.email,
-      contactId: engagements.contactId,
-      id: engagements.id,
-      opportunityId: engagements.opportunityId,
-    })
-    .from(engagements)
-    .innerJoin(contacts, eq(engagements.contactId, contacts.id))
-    .where(and(eq(engagements.id, engagementId), isNull(engagements.deletedAt)))
-    .limit(1)
-
-  if (!row) return null
-  if (row.contactEmail?.toLowerCase().trim() !== email.toLowerCase().trim()) return null
-  return row
 }
 
 async function findPortalQuote(

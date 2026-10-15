@@ -1,3 +1,5 @@
+import { type PortalCopy, formatPortalMoney, portalCopy } from '@/lib/portal/copy'
+
 export type CheckoutErrorCode =
   | 'checkout_failed'
   | 'missing_quote'
@@ -37,46 +39,40 @@ export function portalPaymentAction(input: PortalPaymentStateInput): PortalPayme
   return 'awaiting_review'
 }
 
-export function paymentStateMessage(input: PortalPaymentStateInput) {
-  if (input.checkoutError) return checkoutErrorMessage(input.checkoutError)
-  if (input.checkoutNotice) return checkoutNoticeMessage(input.checkoutNotice)
+export function paymentStateMessage(
+  input: PortalPaymentStateInput,
+  copy: PortalCopy = portalCopy('usted'),
+) {
+  if (input.checkoutError) return checkoutErrorMessage(input.checkoutError, copy)
+  if (input.checkoutNotice) return checkoutNoticeMessage(input.checkoutNotice, copy)
 
   if (input.paymentStatus === 'partial' || input.paymentStatus === 'partial_refund') {
     const remaining = remainingBalance(input.totalAmount, input.paidAmount, input.currency)
-    return remaining
-      ? `Partial payment received. Remaining balance: ${remaining}.`
-      : 'Partial payment received. We are verifying the remaining balance.'
+    return remaining ? copy.partialWithBalance(remaining) : copy.partialChecking
   }
-  if (input.paymentStatus === 'failed') return 'Payment failed. You can retry checkout.'
-  if (input.paymentStatus === 'cancelled') return 'Checkout was cancelled. You can restart payment.'
-  if (input.paymentStatus === 'disputed') {
-    return 'Payment is under review. Our team will contact you with next steps.'
-  }
-  if (input.paymentStatus === 'refunded') {
-    return 'Payment was refunded. Our team will contact you with next steps.'
-  }
-  if (input.paymentStatus === 'paid')
-    return 'Payment received. Your project is ready for production.'
+  if (input.paymentStatus === 'failed') return copy.payment.failed
+  if (input.paymentStatus === 'cancelled') return copy.payment.cancelled
+  if (input.paymentStatus === 'disputed') return copy.payment.disputed
+  if (input.paymentStatus === 'refunded') return copy.payment.refunded
+  if (input.paymentStatus === 'paid') return copy.payment.paid
   return null
 }
 
-export function checkoutErrorMessage(code: string) {
-  const messages: Record<CheckoutErrorCode, string> = {
-    checkout_failed: 'Checkout could not be created. Please retry or contact the team.',
-    missing_quote: 'Choose a quote before starting checkout.',
-    provider_unavailable: 'Payment provider is temporarily unavailable. Please retry shortly.',
-    quote_not_found: 'This quote is no longer available for this portal.',
-    quote_not_payable: 'This quote is not currently payable. Please contact the team.',
-  }
-  return messages[code as CheckoutErrorCode] ?? messages.checkout_failed
+export function checkoutErrorMessage(code: string, copy: PortalCopy = portalCopy('usted')) {
+  const known: CheckoutErrorCode[] = [
+    'checkout_failed',
+    'missing_quote',
+    'provider_unavailable',
+    'quote_not_found',
+    'quote_not_payable',
+  ]
+  const key = known.includes(code as CheckoutErrorCode) ? code : 'checkout_failed'
+  return copy.checkoutErrors[key] ?? copy.checkoutErrors.checkout_failed ?? null
 }
 
-export function checkoutNoticeMessage(code: string) {
-  const messages: Record<CheckoutNoticeCode, string> = {
-    cancelled: 'Checkout was cancelled before payment was completed.',
-    success: 'Checkout completed. Payment confirmation may take a moment to appear.',
-  }
-  return messages[code as CheckoutNoticeCode] ?? null
+export function checkoutNoticeMessage(code: string, copy: PortalCopy = portalCopy('usted')) {
+  const known: CheckoutNoticeCode[] = ['cancelled', 'success']
+  return known.includes(code as CheckoutNoticeCode) ? (copy.checkoutNotices[code] ?? null) : null
 }
 
 function remainingBalance(
@@ -87,11 +83,7 @@ function remainingBalance(
   const total = parseAmount(totalAmount)
   const paid = parseAmount(paidAmount)
   if (total == null || paid == null) return null
-  const remaining = Math.max(total - paid, 0)
-  return new Intl.NumberFormat('en-US', {
-    currency: currency || 'USD',
-    style: 'currency',
-  }).format(remaining)
+  return formatPortalMoney(Math.max(total - paid, 0), currency || 'MXN')
 }
 
 function parseAmount(value?: string | null) {

@@ -16,8 +16,18 @@ vi.mock('@phynd/db', () => ({
 
 vi.mock('@phynd/db/schema', () => ({
   contacts: {
+    company: 'contacts.company',
+    deletedAt: 'contacts.deletedAt',
     email: 'contacts.email',
     id: 'contacts.id',
+    name: 'contacts.name',
+    preferredName: 'contacts.preferredName',
+    spanishFormality: 'contacts.spanishFormality',
+  },
+  engagementContacts: {
+    contactId: 'engagementContacts.contactId',
+    engagementId: 'engagementContacts.engagementId',
+    portalAccess: 'engagementContacts.portalAccess',
   },
   engagements: {
     contactId: 'engagements.contactId',
@@ -168,6 +178,72 @@ describe('POST /portal/[engagementId]/checkout', () => {
     expect(res.headers.get('location')).toBe(
       'http://localhost/portal/eng-001?checkout_error=provider_unavailable',
     )
+  })
+
+  it('lets a portal-enabled secondary contact of the engagement pay', async () => {
+    readSessionMock.mockResolvedValue({
+      accessToken: 'janua-token',
+      email: 'facturacion@example.invalid',
+      engagementId: 'eng-001',
+      expiresAt: Date.now() + 60_000,
+      januaUserId: 'janua-002',
+    })
+    installAwaitSequence(db, [
+      [
+        {
+          contactEmail: 'client@example.com',
+          contactId: 'contact-001',
+          id: 'eng-001',
+          opportunityId: 'opp-001',
+        },
+      ],
+      [
+        {
+          contactEmail: 'facturacion@example.invalid',
+          contactId: 'contact-002',
+          contactName: 'Facturación',
+        },
+      ],
+      [{ contactId: 'contact-001', id: 'quote-001', opportunityId: 'opp-001' }],
+    ])
+
+    const res = await POST(requestWithQuote('quote-001'), {
+      params: Promise.resolve({ engagementId: 'eng-001' }),
+    })
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toBe('https://pay.dhan.am/session/co_001')
+  })
+
+  it('sends an email without portal access to expired, before any checkout', async () => {
+    readSessionMock.mockResolvedValue({
+      accessToken: 'janua-token',
+      email: 'otra@example.invalid',
+      engagementId: 'eng-001',
+      expiresAt: Date.now() + 60_000,
+      januaUserId: 'janua-003',
+    })
+    installAwaitSequence(db, [
+      [
+        {
+          contactEmail: 'client@example.com',
+          contactId: 'contact-001',
+          id: 'eng-001',
+          opportunityId: 'opp-001',
+        },
+      ],
+      [],
+    ])
+
+    const res = await POST(requestWithQuote('quote-001'), {
+      params: Promise.resolve({ engagementId: 'eng-001' }),
+    })
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toBe(
+      'http://localhost/portal/expired?reason=email-mismatch',
+    )
+    expect(checkoutMock).not.toHaveBeenCalled()
   })
 
   it('redirects to expired when the portal session is missing', async () => {

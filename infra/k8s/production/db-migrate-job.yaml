@@ -1,0 +1,72 @@
+# Deploy-time database migrations (Argo CD PreSync hook).
+#
+# Runs before every sync of this app, i.e. before a promoted web/worker digest
+# rolls out. It uses the pinned worker image (the kustomization `images:` block
+# rewrites this image too), which carries the migrations and
+# scripts/db-migrate.mjs. The script is idempotent: it applies only what is
+# pending, in one transaction under an advisory lock, and refuses on schema
+# drift. A failed hook fails the sync, so new code never starts on an old schema.
+#
+# Images built before scripts/db-migrate.mjs existed do not have the file: the
+# hook then logs a skip and succeeds, so merging this manifest applies nothing
+# until a worker image that carries the script is promoted.
+#
+# Manual check/apply: docs/runbooks/apply-migrations.md
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: phynd-crm-db-migrate
+  namespace: phynd-crm
+  labels:
+    app.kubernetes.io/name: phynd-crm-db-migrate
+    app.kubernetes.io/part-of: madfam-platform
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    # Keep the last run (and its logs) until the next sync replaces it.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: phynd-crm-db-migrate
+        # Matches the namespace NetworkPolicies (default deny + DNS + data egress).
+        app.kubernetes.io/part-of: madfam-platform
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: migrate
+          image: ghcr.io/madfam-org/phynd-crm/worker:latest
+          workingDir: /app
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ -f scripts/db-migrate.mjs ]; then
+                exec node scripts/db-migrate.mjs --apply
+              fi
+              echo "db-migrate: this worker image predates scripts/db-migrate.mjs; skipping (nothing applied)"
+          envFrom:
+            - secretRef:
+                name: phynd-crm-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true

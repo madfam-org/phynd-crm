@@ -39,9 +39,9 @@ tenant id on rows.
 
 See [`docs/runbooks/PILOT_GO_LIVE.md`](./runbooks/PILOT_GO_LIVE.md) for migrate + secret steps.
 
-Apply migrations on a tier:
+Apply migrations on a tier: deployed tiers migrate through the Argo CD PreSync hook; to check or apply by hand, follow [`runbooks/apply-migrations.md`](./runbooks/apply-migrations.md). From a workstation with database access:
 
 ```bash
-pnpm db:migrate:tier -- --check-only
-DATABASE_URL=postgresql://... pnpm db:migrate:tier -- --tier staging
+DATABASE_URL=postgresql://... node scripts/db-migrate.mjs            # read-only status
+DATABASE_URL=postgresql://... node scripts/db-migrate.mjs --apply    # apply pending
 ```

@@ -9,6 +9,7 @@ resources:
 - base/web-deployment.yaml
 - base/web-service.yaml
 - base/worker-deployment.yaml
+- db-migrate-job.yaml
 - base/network-policies.yaml
 - base/resource-quota.yaml
 - base/pdb.yaml

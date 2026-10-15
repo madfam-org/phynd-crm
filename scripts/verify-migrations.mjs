@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
- * Ensures required Drizzle migrations exist before staging/prod pilot.
+ * Ensures the Drizzle migration ARTIFACTS in this checkout are complete: every
+ * journal entry (or each `--require` tag) has its SQL file.
+ *
+ * This checks the repo, not a database. Whether a deployed database has applied
+ * them is `node scripts/db-migrate.mjs` (docs/runbooks/apply-migrations.md).
  *
  * Usage:
  *   node scripts/verify-migrations.mjs
@@ -10,13 +14,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const DEFAULT_REQUIRED = [
-  '0008_orange_sandman',
-  '0009_lazy_wrecker',
-  '0010_lyrical_shooting_star',
-  '0011_steady_human_fly',
-  '0012_yellow_proemial_gods',
-]
 const JOURNAL_PATH = 'packages/db/src/migrations/meta/_journal.json'
 const MIGRATIONS_DIR = 'packages/db/src/migrations'
 
@@ -30,13 +27,16 @@ function parseArgs(argv) {
     console.error(`Unknown argument: ${argv[i]}`)
     process.exit(1)
   }
-  return required.length > 0 ? required : DEFAULT_REQUIRED
+  return required
 }
 
 function main() {
-  const requiredTags = parseArgs(process.argv)
   const journal = JSON.parse(fs.readFileSync(path.join(process.cwd(), JOURNAL_PATH), 'utf8'))
-  const tags = new Set((journal.entries ?? []).map((entry) => entry.tag))
+  const journalTags = (journal.entries ?? []).map((entry) => entry.tag)
+  const tags = new Set(journalTags)
+  // Default: every journal entry, so the check never goes stale as migrations land.
+  const explicit = parseArgs(process.argv)
+  const requiredTags = explicit.length > 0 ? explicit : journalTags
 
   let failed = 0
   for (const tag of requiredTags) {

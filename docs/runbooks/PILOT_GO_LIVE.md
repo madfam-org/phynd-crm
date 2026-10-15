@@ -31,7 +31,7 @@ FEDERATION_API_TOKEN=... CRM_BASE_URL=https://staging-phynd.app pnpm verify:post
 | Step | Action | Verify |
 | --- | --- | --- |
 | 1 | Promote or confirm web + worker digests on target tier (staging first) | ArgoCD sync healthy; `pnpm verify:post-deploy` |
-| 2 | Run migrations through **`0010_lyrical_shooting_star`** | `pnpm db:migrate:tier -- --check-only` then `DATABASE_URL=<tier> pnpm db:migrate:tier` |
+| 2 | Database at the image's latest migration (the Argo CD PreSync hook applies pending ones on every sync) | `node scripts/db-migrate.mjs` piped into the worker reports `pending: 0`; see [`apply-migrations.md`](./apply-migrations.md) |
 | 3 | Apply secrets from template (never commit values) | Staging: `node scripts/pp5-validate-staging-env.mjs <env-file>` |
 
 Tenant DB strategy: [`TENANT_DATABASE_STRATEGY.md`](../TENANT_DATABASE_STRATEGY.md)
@@ -120,7 +120,7 @@ Phynd CRM uses **manual promotion** (30m soak + staging smoke via `verify-post-d
 
 1. Confirm staging smoke passed in `promote-to-prod.yml` prerequisites (6×20s health retries).
 2. Run `.github/workflows/promote-to-prod.yml` via GitHub Actions.
-3. Run `DATABASE_URL=<prod> pnpm db:migrate:tier` against production database.
+3. The sync's PreSync hook (`phynd-crm-db-migrate`) applies pending migrations before the new digests roll out; confirm with `kubectl -n phynd-crm logs job/phynd-crm-db-migrate` or the check in [`apply-migrations.md`](./apply-migrations.md).
 4. `CRM_BASE_URL=https://crm.madfam.io pnpm verify:post-deploy -- --with-prod-auth`
 5. Spot-check a known client contact's federation tabs (live or explicit `unavailable` — never silent mocks in prod).
 
@@ -139,7 +139,7 @@ Emergency rollback: `.github/workflows/rollback-prod.yml` (production smoke via 
 
 - [ ] `CRM_BASE_URL=<tier> pnpm verify:post-deploy` passes (health `status: ok`)
 - [ ] `admin@madfam.io` SSO on `crm.madfam.io` without callback error
-- [ ] Migrations `0008`–`0010` applied on target DB
+- [ ] No pending migrations on the target DB (`scripts/db-migrate.mjs --fail-on-pending` exits 0)
 - [ ] Staging webhook probes return 2xx for Selva + Tulana lanes
 - [ ] `pnpm verify:selva-agent` passes against staging (then prod)
 - [ ] Unified profile shows live data or explicit `unavailable` per provider (no prod mocks)

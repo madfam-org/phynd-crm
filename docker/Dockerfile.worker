@@ -14,6 +14,10 @@ RUN pnpm deploy --filter=@phynd/worker /deploy
 # tsup bundles to a single CJS file; copy it into the deploy output
 RUN cp apps/worker/dist/index.js /deploy/dist/index.js 2>/dev/null || \
     mkdir -p /deploy/dist && cp apps/worker/dist/index.js /deploy/dist/index.js
+# Deploy-time migrations (Argo CD PreSync hook, docs/runbooks/apply-migrations.md):
+# the script needs only `postgres` and node_modules/@phynd/db/src/migrations,
+# both already in the deploy output.
+RUN mkdir -p /deploy/scripts && cp scripts/db-migrate.mjs /deploy/scripts/db-migrate.mjs
 
 FROM base AS runner
 ENV NODE_ENV=production

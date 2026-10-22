@@ -14,12 +14,13 @@ export async function seedUsersAndPipeline(db: Db) {
     .onConflictDoNothing()
     .returning()
 
-  // id must match DEV_AUTH.userId in apps/web/src/lib/trpc/request-context.ts (AUTH_BYPASS / E2E)
+  // id must match DEV_AUTH.userId in apps/web/src/lib/trpc/request-context.ts (AUTH_BYPASS / E2E).
+  // Email is RFC 2606 reserved: madfam.com is NOT a MADFAM domain (canonical is madfam.io).
   const [devAdmin] = await db
     .insert(users)
     .values({
       id: 'dev-user',
-      email: 'dev@madfam.com',
+      email: 'dev@example.com',
       name: 'Dev Admin',
       role: 'admin',
       externalJanuaId: 'janua-dev-001',

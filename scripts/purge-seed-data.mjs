@@ -41,7 +41,10 @@ const SEED_CONTACT_EMAILS = [
   'emma@retailplus.com',
 ]
 const TABLACO_CONTACT_EMAILS = ['rodrigo@tablaco.mx']
-const SEED_USER_EMAILS = ['system@phynd.io', 'dev@madfam.com']
+// dev@madfam.com: the dev seed address before 2026-10-22. madfam.com is a third
+// party's domain, so the seed moved to dev@example.com; the old address stays
+// listed so databases seeded before the change are still found.
+const SEED_USER_EMAILS = ['system@phynd.io', 'dev@example.com', 'dev@madfam.com']
 const SEED_QUOTE_NUMBERS = ['Q-2025-001', 'Q-2025-002', 'Q-2025-003']
 const SEED_ORDER_NUMBERS = ['ORD-2025-001', 'ORD-2025-002', 'ORD-2025-003']
 const SEED_SESSION_EXTERNAL_IDS = ['sess-001', 'sess-002', 'sess-003']

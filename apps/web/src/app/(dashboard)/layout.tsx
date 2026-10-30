@@ -30,7 +30,7 @@ export default async function DashboardLayout({
   const isDemo = !!demoSessionId && !session
   const user =
     session?.user ??
-    (DEV_BYPASS ? { name: 'Dev Admin', email: 'dev@madfam.com' } : undefined) ??
+    (DEV_BYPASS ? { name: 'Dev Admin', email: 'dev@example.com' } : undefined) ??
     (isDemo && demoSessionId ? createDemoUser(demoSessionId) : undefined)
 
   return (

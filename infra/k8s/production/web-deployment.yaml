@@ -54,6 +54,17 @@ spec:
               value: "production"
             - name: TULANA_COMMERCIAL_GA_PERIOD
               value: "2026-06"
+            # Bearer for GET /api/v1/convergence/* (converge-dash ingestion).
+            # Optional: until phynd-crm-convergence-secrets exists the pod still
+            # starts and those routes answer 401 "not configured" (fail closed).
+            # Must equal converge-dash's PHYND_CRM_API_TOKEN. See
+            # phynd-crm-convergence-secrets.yaml and docs/CONVERGENCE_API.md.
+            - name: CONVERGENCE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: phynd-crm-convergence-secrets
+                  key: CONVERGENCE_API_TOKEN
+                  optional: true
           envFrom:
             - secretRef:
                 name: phynd-crm-secrets

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./context": "./src/context.ts",
+    "./convergence/convergence-feed": "./src/convergence/convergence-feed.ts",
     "./errors": "./src/errors.ts",
     "./identity": "./src/identity/index.ts",
     "./email": "./src/email/email.service.ts",

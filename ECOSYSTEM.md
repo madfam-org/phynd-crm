@@ -63,8 +63,9 @@ Latest repository and production evidence is recorded in
 - `AUTH_JANUA_ISSUER`, `AUTH_JANUA_CLIENT_ID`, `AUTH_JANUA_CLIENT_SECRET` — Janua OIDC
 - `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `SELVA_API_URL`, `FORJ_API_URL` — upstream federation/dispatch APIs
 - `*_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` — signed inbound ecosystem events
-- `FEDERATION_API_TOKEN` — optional service-to-service tRPC + GraphQL read token (Selva agents)
+- `FEDERATION_API_TOKEN` — LEGACY static service-to-service bearer (Selva only; grants every `SERVICE_AUTH_SCOPES` scope)
 - `FEDERATION_SERVICE_USER_ID` — machine principal for service auth (default `service:selva`)
+- `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — Janua `client_credentials` machine tokens (off while the first two are unset; audience default `phynd-crm`); see `docs/MACHINE_AUTH.md`
 - `PHYND_DEPLOYMENT_TIER` — `staging` | `production`; staging blocks outbound prod MADFAM URLs
 - `WORKER_HEALTH_PORT` — worker health endpoint, default `3001`
 

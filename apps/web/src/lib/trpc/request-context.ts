@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { createDemoAuth, getDemoSessionIdFromCookieHeader } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
 import { resolveTenantIdFromHeaders } from '@/lib/http/tenant-context'
+import { bearerJwt, machineAuthConfig, verifyMachineToken } from '@/lib/trpc/machine-auth'
 import { createCallerFactory } from '@phynd/api'
 import { appRouter } from '@phynd/api/router'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
@@ -30,7 +31,11 @@ export const DEV_AUTH: AuthContext = {
   accessToken: process.env.DEV_ACCESS_TOKEN || crypto.randomUUID(),
 }
 
-/** Scopes for Selva / Selva service-to-service reads (expand in Phase 5). */
+/**
+ * Scopes of the LEGACY static bearer (`FEDERATION_API_TOKEN`, principal
+ * `service:selva`). Never granted to a Janua machine token: those get only what
+ * `MACHINE_SCOPE_GRANTS` (`machine-auth.ts`) maps their scope to.
+ */
 export const SERVICE_AUTH_SCOPES = [
   'leads:read',
   'activities:read',
@@ -218,7 +223,66 @@ function logServiceAuth(req: Request, authCtx: AuthContext, surface: 'trpc' | 'g
   )
 }
 
-/** Shared auth + tenant resolution for tRPC and GraphQL route handlers. */
+/**
+ * A Janua machine token, verified, as a least-privilege service context; or,
+ * when it is refused, a signed-out context. A refused token never falls back to
+ * the static bearer or to a session cookie.
+ */
+async function resolveMachineAuth(
+  req: Request,
+  token: string,
+  config: NonNullable<ReturnType<typeof machineAuthConfig>>,
+  surface: 'trpc' | 'graphql',
+): Promise<AuthContext> {
+  const path = new URL(req.url).pathname
+  const signedOut = { ...EMPTY_AUTH, tenantId: resolveTenantIdFromHeaders(req.headers) }
+  // GraphQL resolvers check only that a principal exists, not its scopes, so a
+  // machine token is honoured on the tRPC surface only.
+  if (surface !== 'trpc') {
+    serviceAuthLogger.warn(
+      { event: 'machine_auth_rejected', reason: 'surface_not_allowed', surface, path },
+      'Machine token refused',
+    )
+    return signedOut
+  }
+  const result = await verifyMachineToken(token, config)
+  if (!result.ok) {
+    serviceAuthLogger.warn(
+      {
+        event: 'machine_auth_rejected',
+        reason: result.reason,
+        detail: result.detail,
+        surface,
+        path,
+      },
+      'Machine token refused',
+    )
+    return signedOut
+  }
+  serviceAuthLogger.info(
+    {
+      event: 'machine_auth',
+      surface,
+      clientId: result.clientId,
+      userId: result.auth.userId,
+      tokenScopes: result.tokenScopes,
+      grantedScopes: result.auth.scopes,
+      tenantId: result.auth.tenantId,
+      path,
+    },
+    'Machine token authenticated',
+  )
+  return result.auth
+}
+
+/**
+ * Shared auth + tenant resolution for tRPC and GraphQL route handlers.
+ *
+ * Order: (1) the legacy static bearer, on an exact match only; (2) a
+ * JWT-shaped bearer goes to the Janua machine-token path when it is configured,
+ * and is never retried as anything else; (3) the session cookie / demo session.
+ * With machine tokens unconfigured, step 2 is skipped: behaviour is unchanged.
+ */
 export async function createAppContextFromRequest(
   req: Request,
   surface: 'trpc' | 'graphql',
@@ -229,6 +293,12 @@ export async function createAppContextFromRequest(
     const authCtx = createServiceAuth(tenantId)
     logServiceAuth(req, authCtx, surface)
     return createAppContext(authCtx)
+  }
+
+  const machineToken = bearerJwt(authHeader)
+  const machineConfig = machineToken ? machineAuthConfig() : null
+  if (machineToken && machineConfig) {
+    return createAppContext(await resolveMachineAuth(req, machineToken, machineConfig, surface))
   }
 
   const demoSessionId = getDemoSessionIdFromCookieHeader(req.headers.get('cookie') ?? '')

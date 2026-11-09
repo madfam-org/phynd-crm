@@ -23,6 +23,13 @@ tenant. tRPC is the reference below because it matches the shipped service-auth 
 When `FEDERATION_API_TOKEN` is unset, service auth is disabled. Rate limiting
 still applies (200 req/min per IP).
 
+> **Legacy credential.** `FEDERATION_API_TOKEN` is a static shared bearer that
+> grants every `SERVICE_AUTH_SCOPES` scope, writes included, as `service:selva`.
+> It is kept for Selva only. Any other machine caller uses a Janua
+> `client_credentials` client with its own least-privilege scope; see
+> [MACHINE_AUTH.md](./MACHINE_AUTH.md), which also lists the deprecation path
+> that moves Selva onto its own client.
+
 ### Service principal (WS6.3)
 
 Phynd CRM maps the bearer token to a **machine principal**, not a human Janua user:
@@ -207,10 +214,12 @@ Report-only CSP in `next.config.ts` includes the same `frame-ancestors` allowlis
 | WS6.5 | `piiMasking` before agent context | **Shipped** — enable `piiMasking` flag for Selva service auth |
 | WS6.6 | `aiKanban` HITL suggestions | **Shipped** — `aiKanban.createSuggestion` + `/pipeline` review panel |
 | WS6.7 | Selva office integration test | **Shipped** — `scripts/verify-selva-agent-integration.mjs` |
+| WS6.8 | Selva on its own Janua `client_credentials` client; retire `FEDERATION_API_TOKEN` | Planned — [MACHINE_AUTH.md § Deprecation path](./MACHINE_AUTH.md#deprecation-path) |
 
 ## Related docs
 
 - [MADFAM truth layer remediation](./MADFAM_TRUTH_LAYER_REMEDIATION.md) — WS6
+- [Machine access (Janua client_credentials)](./MACHINE_AUTH.md)
 - [Tulana SKU campaign inputs](./TULANA_SKU_CAMPAIGN_INPUTS_2026-05-29.md) — WS4
 - [ROADMAP](./ROADMAP.md) — Phase 5
 

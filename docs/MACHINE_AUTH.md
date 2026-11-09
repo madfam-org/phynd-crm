@@ -1,6 +1,8 @@
 # Machine access: Janua `client_credentials` tokens
 
 Status: **shipped, off by default** (machine tokens are refused until configured).
+Production turns it on in `infra/k8s/production/web-deployment.yaml` (see
+[Production](#production)).
 
 Phynd CRM accepts two kinds of machine caller on its tRPC surface:
 
@@ -84,6 +86,32 @@ a caller. Supporting several tenants means replacing the pair with an explicit
 None of these is a secret. While the tenant or the organization is unset, a
 JWT-shaped bearer is handled exactly as before this feature (the session-cookie
 path), and Janua's JWKS is never fetched.
+
+### Production
+
+Production env comes from the Argo-synced manifests in `infra/k8s/production`,
+not from `.enclii.yml`. The web Deployment (`web-deployment.yaml`) declares
+both switches as literal values: tenant `madfam` and the Janua organization the
+machine clients are bound to. `PHYND_CRM_MACHINE_AUDIENCE` is left at its
+default, `phynd-crm`, the audience Janua reserves for these clients. The issuer
+is the `AUTH_JANUA_ISSUER` staff sign-in already uses. The worker does not need
+them: machine tokens are verified only on the web tRPC route.
+
+`apps/web/src/__tests__/production-machine-auth-env.test.ts` runs the declared
+values through `machineAuthConfig()`, so a value the code would refuse fails CI
+instead of leaving machine tokens silently off.
+
+Merging a change to these values rolls the web pods at once (Argo auto-sync);
+it does not need a production image promotion. Verifying tokens needs an image
+that contains this feature, which does go through `promote-to-prod.yml`.
+Before that image is live, the two variables are inert.
+
+**Rollback:** delete the `PHYND_CRM_MACHINE_TENANT_ID` entry (either variable
+unset turns machine tokens off), merge, and the web pods roll without it.
+
+**Check (read-only):** an accepted call logs `machine_auth` with the caller's
+`clientId` and its `grantedScopes`; a refused one logs `machine_auth_rejected`
+with the reason from the table above.
 
 ## Request order
 

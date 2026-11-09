@@ -54,6 +54,17 @@ spec:
               value: "production"
             - name: TULANA_COMMERCIAL_GA_PERIOD
               value: "2026-06"
+            # Janua client_credentials machine tokens (docs/MACHINE_AUTH.md).
+            # Both set = ON: a JWT bearer is verified against AUTH_JANUA_ISSUER's
+            # JWKS, must carry org_id == the org below, and acts in the tenant
+            # below with only MACHINE_SCOPE_GRANTS scopes (read-only today).
+            # Neither value is a secret; the org UUID is the madfam-ecosystem
+            # Janua organization the machine clients are bound to. Rollback:
+            # delete PHYND_CRM_MACHINE_TENANT_ID (either one unset = off).
+            - name: PHYND_CRM_MACHINE_TENANT_ID
+              value: "madfam"
+            - name: PHYND_CRM_MACHINE_JANUA_ORG_ID
+              value: "1a6233ef-185f-43ee-9181-e2591fbb2643"
             # Bearer for GET /api/v1/convergence/* (converge-dash ingestion).
             # Optional: until phynd-crm-convergence-secrets exists the pod still
             # starts and those routes answer 401 "not configured" (fail closed).

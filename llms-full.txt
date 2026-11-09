@@ -67,6 +67,10 @@ MADFAM tenant north star (`crm.madfam.io`, `admin@madfam.io`): ~78–80% code-re
   be used as an id.
 - Service and system actors keep fixed ids: `service:selva`, `system`,
   `service:email-drip`, `dev-user` (dev only), `demo-{sessionId}`.
+- Janua machine clients act as `service:<client_id>` with only the scopes
+  `MACHINE_SCOPE_GRANTS` maps their token scope to (`docs/MACHINE_AUTH.md`);
+  the static `FEDERATION_API_TOKEN` (`service:selva`, all service scopes) is
+  legacy and Selva-only.
 - CRM `users.id` is separate; `users.external_janua_id` (unique) links it to a
   Janua subject. FK owner columns reference `users.id`.
 - Resolution (2026-10-01): each request resolves `januaSub` → `crmUserId`

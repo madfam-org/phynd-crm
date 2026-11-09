@@ -39,6 +39,7 @@ collide with a Janua `sub`:
 | Principal | `userId` | Where |
 | --- | --- | --- |
 | Selva / service token | `service:selva` (`FEDERATION_SERVICE_USER_ID`, must stay `service:*`) | `createServiceAuth()` — see [SELVA_CRM_AGENT_TOOLS.md](./SELVA_CRM_AGENT_TOOLS.md) |
+| Janua machine client | `service:<client_id>` (the Janua `client_credentials` client) | `verifyMachineToken()` — see [MACHINE_AUTH.md](./MACHINE_AUTH.md) |
 | Worker jobs | `system`, `service:email-drip` | `apps/worker/src/processors/*` |
 | Local dev bypass | `dev-user` (development only) | `DEV_AUTH` |
 | Demo visitors | `demo-{sessionId}` | `createDemoAuth()` — see [ADR 007](./adr/007-demo-mode-strategy.md) |

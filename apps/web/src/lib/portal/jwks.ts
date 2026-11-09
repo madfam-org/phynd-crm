@@ -8,7 +8,27 @@ import { type JWTPayload, createRemoteJWKSet, jwtVerify } from 'jose'
 // This verifier re-checks the signature on every portal page render
 // against Janua's published JWKS.
 
-let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null
+// One remote key set per JWKS URL, shared by every Janua verifier in this
+// app (the portal session below, and the machine-token path in
+// `lib/trpc/machine-auth.ts`), so they never hold two caches of the same keys.
+const _remoteSets = new Map<string, ReturnType<typeof createRemoteJWKSet>>()
+
+/** The cached remote JWKS for `url` (created on first use). */
+export function remoteJwksFor(url: URL): ReturnType<typeof createRemoteJWKSet> {
+  const key = url.toString()
+  let set = _remoteSets.get(key)
+  if (!set) {
+    set = createRemoteJWKSet(url, {
+      // Pull fresh keys every 15 min. Janua's RS256 keypair has a
+      // multi-day TTL, so this is conservative but cheap — the remote
+      // set caches in-process between fetches.
+      cacheMaxAge: 15 * 60 * 1000,
+      cooldownDuration: 30 * 1000,
+    })
+    _remoteSets.set(key, set)
+  }
+  return set
+}
 
 function getJwksUrl(): URL {
   const base = process.env.JANUA_API_URL
@@ -19,16 +39,7 @@ function getJwksUrl(): URL {
 }
 
 function getJwks() {
-  if (!_jwks) {
-    _jwks = createRemoteJWKSet(getJwksUrl(), {
-      // Pull fresh keys every 15 min. Janua's RS256 keypair has a
-      // multi-day TTL, so this is conservative but cheap — the remote
-      // set caches in-process between fetches.
-      cacheMaxAge: 15 * 60 * 1000,
-      cooldownDuration: 30 * 1000,
-    })
-  }
-  return _jwks
+  return remoteJwksFor(getJwksUrl())
 }
 
 export interface VerifiedJanuaClaims extends JWTPayload {
@@ -58,5 +69,5 @@ export async function verifyJanuaAccessToken(token: string): Promise<VerifiedJan
 // Test helper: clear the cached JWKS so a test can re-mock the remote.
 // Not exported from any barrel — only imported by unit tests.
 export function __resetJwksCacheForTesting(): void {
-  _jwks = null
+  _remoteSets.clear()
 }

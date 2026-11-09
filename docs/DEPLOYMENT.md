@@ -56,8 +56,11 @@ public contributor needs for local development:
 | `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for the campaign import/send/export API routes | Secret-store value |
 | `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | Secret-store value |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | Secret-store value |
-| `FEDERATION_API_TOKEN` | Optional service-to-service token for Selva agent tRPC + GraphQL reads | Secret-store value |
+| `FEDERATION_API_TOKEN` | LEGACY static service-to-service token, Selva only (grants every `SERVICE_AUTH_SCOPES` scope) | Secret-store value |
 | `FEDERATION_SERVICE_USER_ID` | Machine principal id for service token (default `service:selva`) | `service:selva` |
+| `PHYND_CRM_MACHINE_TENANT_ID` | Tenant for Janua machine tokens; unset = machine tokens off ([MACHINE_AUTH.md](./MACHINE_AUTH.md)) | `madfam` |
+| `PHYND_CRM_MACHINE_JANUA_ORG_ID` | Janua organization UUID a machine token's `org_id` must equal; unset = off | Janua org UUID |
+| `PHYND_CRM_MACHINE_AUDIENCE` | Required `aud` on machine tokens | `phynd-crm` (default) |
 | `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks outbound calls to production hosts) | `production` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
 | `SENTRY_DSN` | Optional worker Sentry DSN | `https://...` |

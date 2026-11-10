@@ -60,6 +60,16 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((column: unknown, value: unknown) => ({ column, value })),
 }))
 
+// The drip consults the cross-product suppression list before sending
+// (fail closed: an unreachable list means no send). Clear by default.
+const mockSuppressionCheck = vi.fn()
+const mockEventRecord = vi.fn()
+vi.mock('@phynd/services', () => ({
+  createServiceContext: vi.fn(() => ({})),
+  SuppressionService: vi.fn(() => ({ check: mockSuppressionCheck })),
+  CampaignEmailEventService: vi.fn(() => ({ record: mockEventRecord })),
+}))
+
 const mockEmailSend = vi.fn()
 vi.mock('@phynd/services/email', () => ({
   EmailService: vi.fn(() => ({ send: mockEmailSend })),
@@ -97,6 +107,8 @@ describe('processEmailDrip', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSuppressionCheck.mockResolvedValue({ suppressed: false })
+    mockEventRecord.mockResolvedValue(undefined)
     queryResults.lead = []
     queryResults.contact = []
     process.env.EMAIL_ALLOWLIST_DOMAINS = 'madfam.io, @staging.madfam.io'
@@ -174,6 +186,33 @@ describe('processEmailDrip', () => {
     queryResults.lead = [
       { contactId: null as unknown as string, source: 'tezca_newsletter', unsubscribed: false },
     ]
+
+    await processEmailDrip(job)
+
+    expect(mockEmailSend).not.toHaveBeenCalled()
+    expect(mockQueueAdd).not.toHaveBeenCalled()
+  })
+
+  it('skips a suppressed recipient', async () => {
+    queryResults.lead = [
+      { contactId: 'contact-9d', source: 'tezca_newsletter', unsubscribed: false },
+    ]
+    queryResults.contact = [{ email: 'lead@madfam.io' }]
+    mockSuppressionCheck.mockResolvedValue({ suppressed: true })
+
+    await processEmailDrip(job)
+
+    expect(mockSuppressionCheck).toHaveBeenCalledWith('lead@madfam.io', 'email')
+    expect(mockEmailSend).not.toHaveBeenCalled()
+    expect(mockQueueAdd).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when the suppression list cannot be consulted', async () => {
+    queryResults.lead = [
+      { contactId: 'contact-9e', source: 'tezca_newsletter', unsubscribed: false },
+    ]
+    queryResults.contact = [{ email: 'lead@madfam.io' }]
+    mockSuppressionCheck.mockRejectedValue(new Error('db down'))
 
     await processEmailDrip(job)
 

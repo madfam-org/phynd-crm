@@ -9,6 +9,10 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
+import {
+  REFERRAL_REWARD_DISPATCH_JOB_OPTIONS,
+  REFERRAL_REWARD_DISPATCH_QUEUE,
+} from '@phynd/config/queues'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
 import { ReferralService, createServiceContext } from '@phynd/services'
@@ -73,20 +77,26 @@ async function enqueueRewardDispatch(
 ) {
   const redisUrl = resolveRedisUrl()
   const connection = createRedisConnection(redisUrl)
-  const queue = new Queue('referral-reward-dispatch', { connection })
+  const queue = new Queue(REFERRAL_REWARD_DISPATCH_QUEUE, { connection })
 
   try {
-    await queue.add('dispatch', {
-      referralId: result.id,
-      referralCode: result.code?.code ?? '',
-      referrerUserId: result.referrerJanuaId,
-      referredUserId: result.referredJanuaId ?? '',
-      referredEmail: result.referredEmail ?? '',
-      sourceProduct: result.sourceProduct,
-      targetProduct: result.targetProduct,
-      planId,
-      revenueCents,
-    })
+    await queue.add(
+      'dispatch',
+      {
+        referralId: result.id,
+        referralCode: result.code?.code ?? '',
+        referrerUserId: result.referrerJanuaId,
+        referredUserId: result.referredJanuaId ?? '',
+        referredEmail: result.referredEmail ?? '',
+        sourceProduct: result.sourceProduct,
+        targetProduct: result.targetProduct,
+        planId,
+        revenueCents,
+      },
+      // Retries transient Dhanam failures and KEEPS failed jobs: a reward
+      // that could not be sent stays replayable instead of disappearing.
+      REFERRAL_REWARD_DISPATCH_JOB_OPTIONS,
+    )
   } finally {
     await queue.close()
   }

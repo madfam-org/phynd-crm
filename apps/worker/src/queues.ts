@@ -1,3 +1,7 @@
+import {
+  REFERRAL_REWARD_DISPATCH_JOB_OPTIONS,
+  REFERRAL_REWARD_DISPATCH_QUEUE,
+} from '@phynd/config/queues'
 import type { ConnectionOptions } from 'bullmq'
 import { Queue } from 'bullmq'
 
@@ -5,7 +9,7 @@ import { Queue } from 'bullmq'
 // Queue job-retention defaults (shared across queue definitions)
 // ---------------------------------------------------------------------------
 
-/** High-throughput queues: federation-sync, session-identify, grants, email, referral */
+/** High-throughput queues: federation-sync, session-identify, grants, email, production-dispatch */
 const HIGH_THROUGHPUT_RETENTION = {
   removeOnComplete: { count: 1000 },
   removeOnFail: { count: 5000 },
@@ -117,13 +121,11 @@ export function createQueues(connection: ConnectionOptions) {
     },
   })
 
-  const referralRewardDispatch = new Queue('referral-reward-dispatch', {
+  // Shared with the producer (apps/web referrals/convert): a job's options
+  // come from the add() that created it, so both sides use one definition.
+  const referralRewardDispatch = new Queue(REFERRAL_REWARD_DISPATCH_QUEUE, {
     connection,
-    defaultJobOptions: {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: BACKOFF_DELAY_SLOW },
-      ...HIGH_THROUGHPUT_RETENTION,
-    },
+    defaultJobOptions: REFERRAL_REWARD_DISPATCH_JOB_OPTIONS,
   })
 
   const productionDispatch = new Queue('production-dispatch', {

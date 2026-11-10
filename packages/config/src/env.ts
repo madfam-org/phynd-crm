@@ -42,6 +42,9 @@ const envSchemaBase = z.object({
   JANUA_WEBHOOK_SECRET: z.string().min(1).optional(),
   JANUA_TELEMETRY_WEBHOOK_SECRET: z.string().min(1).optional(),
   DHANAM_WEBHOOK_SECRET: z.string().min(1).optional(),
+  // Outbound: signs referral rewards to Dhanam (its key, Vault secret/dhanam/referral).
+  // Unset → every referral-reward-dispatch job fails visibly (never skipped).
+  DHANAM_REFERRAL_WEBHOOK_SECRET: z.string().min(1).optional(),
   COTIZA_WEBHOOK_SECRET: z.string().min(1).optional(),
   PRAVARA_WEBHOOK_SECRET: z.string().min(1).optional(),
   FORJ_WEBHOOK_SECRET: z.string().min(1).optional(),

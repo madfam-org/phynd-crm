@@ -11,7 +11,8 @@
     "./features": "./src/features.ts",
     "./outbound-guard": "./src/outbound-guard.ts",
     "./service-auth": "./src/service-auth.ts",
-    "./connections": "./src/connections.ts"
+    "./connections": "./src/connections.ts",
+    "./queues": "./src/queues.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -7,6 +7,11 @@ resources:
 - external-secret.yaml
 - phynd-crm-integration-secrets.yaml
 - phynd-crm-convergence-secrets.yaml
+# Referral rewards' signing key (DHANAM_REFERRAL_WEBHOOK_SECRET) from Vault
+# secret/dhanam/referral:referral_webhook_secret. SPEC ONLY, NOT WIRED until
+# the key is minted and Dhanam is wired (see the file header; guard:
+# scripts/__tests__/dhanam-referral-externalsecret.test.mjs).
+# - external-secret-dhanam-referral.yaml
 - namespace.yaml
 - web-deployment.yaml
 - web-service.yaml

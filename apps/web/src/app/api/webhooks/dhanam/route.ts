@@ -2,7 +2,6 @@ import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { getDb } from '@phynd/db'
 import {
-  contacts,
   conversions,
   engagementEvents,
   engagements,
@@ -19,6 +18,12 @@ import { defaultEventVisibility } from '@phynd/services/engagements/event-visibi
 import { reconcileDhanamPaymentLifecycle } from '@phynd/services/payments/payment-reconciliation'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+import {
+  type BuyerContact,
+  findOrCreateBuyerContact,
+  logOrphanEvent,
+  resolveContactId,
+} from './buyer-contact'
 import {
   STRIPE_PAID_EVENT_TYPES,
   buildEngagementMessage,
@@ -46,11 +51,17 @@ const logger = createLogger('web:webhook:dhanam')
  *        a) Stripe-native:  { id, type, data: { object: {...} } }
  *        b) Dhanam relay :  { id, type, timestamp, data: { customer_id, ... } }
  *   4. Idempotency — bail out cleanly (200) if `event_id` was already seen.
+ *      `webhook_events` has no unique index, so the check is repeated inside
+ *      the transaction under a per-event advisory lock (taken before any
+ *      buyer lock) to stop overlapping retries from both recording.
  *   5. Resolve the customer:
  *        - janua_user_id → contacts.externalJanuaId (preferred)
  *        - customer_email → contacts.email (fallback)
- *      Orphan events (no contact match) STILL record a webhook_events row
- *      so reconciliation can backfill them — never 5xx for that case.
+ *      A paid event for a buyer with no contact creates the contact from
+ *      the event's customer fields (see buyer-contact.ts) and then follows
+ *      the same steps as a known buyer. Without a usable email no contact
+ *      is created: the event is an orphan, which STILL records a
+ *      webhook_events row so reconciliation can backfill it — never 5xx.
  *   6. Inside a single tx:
  *        a) Insert webhook_events audit row.
  *        b) Insert a `conversions` row (type=`dhanam_<event-suffix>`).
@@ -102,7 +113,10 @@ interface NormalizedEvent {
   eventType: string
   // Customer identity hints (any combination may be present).
   januaUserId: string | null
+  // A Janua subject the event names explicitly (never a billing customer id).
+  januaSubject: string | null
   customerEmail: string | null
+  customerName: string | null
   stripeCustomerId: string | null
   // Money. amount_minor is in the smallest currency unit (cents/centavos).
   amountMinor: number | null
@@ -226,23 +240,30 @@ function extractIdentityHints(
   dhanamData: Record<string, unknown>,
   metadata: Record<string, unknown>,
 ) {
+  const customerDetails = (stripeObject.customer_details ?? {}) as Record<string, unknown>
   const customerEmail = pickString(
     stripeObject.customer_email,
-    stripeObject.customer_details &&
-      (stripeObject.customer_details as Record<string, unknown>).email,
+    customerDetails.email,
     dhanamData.customer_email,
     metadata.customer_email,
     metadata.email,
   )
+  const januaSubject = pickString(
+    metadata.janua_user_id,
+    dhanamData.janua_user_id,
+    metadata.januaUserId,
+  )
 
   return {
-    januaUserId: pickString(
-      metadata.janua_user_id,
-      dhanamData.janua_user_id,
-      metadata.januaUserId,
-      dhanamData.customer_id,
-    ),
+    januaUserId: januaSubject ?? pickString(dhanamData.customer_id),
+    januaSubject,
     customerEmail: customerEmail ? customerEmail.toLowerCase() : null,
+    customerName: pickString(
+      dhanamData.buyer_name,
+      dhanamData.customer_name,
+      customerDetails.name,
+      metadata.customer_name,
+    ),
     stripeCustomerId: pickString(
       stripeObject.customer,
       dhanamData.stripe_customer_id,
@@ -387,6 +408,7 @@ interface PersistResult {
   status: 'recorded' | 'duplicate' | 'orphan'
   conversion_id?: string
   contact_id?: string | null
+  contact_created?: boolean
   lead_id?: string | null
   referral_id?: string | null
   payment_reconciliation_status?: string | null
@@ -395,53 +417,84 @@ interface PersistResult {
   engagement_id?: string | null
 }
 
-async function persistEvent(event: NormalizedEvent): Promise<PersistResult> {
-  const db = getDb()
-
-  // Idempotency — same event_id seen twice ⇒ one conversion row total.
+/** Whether a `webhook_events` row already exists for this Dhanam event id. */
+async function isEventRecorded(db: Tx | ReturnType<typeof getDb>, eventId: string) {
   const prior = await db
     .select({ id: webhookEvents.id })
     .from(webhookEvents)
     .where(
       and(
         eq(webhookEvents.provider, 'dhanam'),
-        sql`${webhookEvents.payload} ->> 'event_id' = ${event.eventId}`,
+        sql`${webhookEvents.payload} ->> 'event_id' = ${eventId}`,
       ),
     )
     .limit(1)
-  if (prior.length > 0) {
+  return prior.length > 0
+}
+
+/** Transaction-scoped advisory lock, released at commit or rollback. */
+async function lockAdvisoryKey(tx: Tx, key: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`)
+}
+
+async function persistEvent(event: NormalizedEvent): Promise<PersistResult> {
+  const db = getDb()
+
+  // Idempotency — same event_id seen twice ⇒ one conversion row total.
+  // `webhook_events` has no unique index, so this early check is only a fast
+  // path; the authoritative check is repeated under a lock below.
+  if (await isEventRecorded(db, event.eventId)) {
     return { status: 'duplicate' }
   }
 
   const contactId = await resolveContactId(event)
   const leadInfo = contactId ? await resolveLeadAndStage(contactId) : null
 
-  return await db.transaction((tx: Tx) => persistEventInTransaction(tx, event, contactId, leadInfo))
+  return await db.transaction(async (tx: Tx) => {
+    // Serialize deliveries of the same event (retries can overlap). This lock
+    // is always taken first, before any buyer lock, so the order is fixed.
+    await lockAdvisoryKey(tx, `phynd:dhanam:event:${event.eventId}`)
+    if (await isEventRecorded(tx, event.eventId)) {
+      return { status: 'duplicate' } satisfies PersistResult
+    }
+    return persistEventInTransaction(tx, event, contactId, leadInfo)
+  })
 }
 
 async function persistEventInTransaction(
   tx: Tx,
   event: NormalizedEvent,
-  contactId: string | null,
-  leadInfo: LeadStageInfo | null,
+  matchedContactId: string | null,
+  matchedLeadInfo: LeadStageInfo | null,
 ): Promise<PersistResult> {
   const webhookEventId = await recordWebhookAudit(tx, event)
 
-  if (!contactId) {
+  const buyer = matchedContactId
+    ? { contactId: matchedContactId, created: false }
+    : await findOrCreatePaidBuyer(tx, event)
+  if (!buyer) {
     return recordOrphanEvent(event)
   }
+  const { contactId } = buyer
+  // A buyer first matched inside the transaction may already own a lead.
+  const leadInfo =
+    matchedContactId || buyer.created ? matchedLeadInfo : await resolveLeadAndStage(contactId)
 
-  const conversionId = await recordConversion(tx, event, contactId, leadInfo, webhookEventId)
+  const conversionId = await recordConversion(tx, event, buyer, leadInfo, webhookEventId)
   const referralId = await maybeMarkReferralConverted(tx, event, contactId, leadInfo, conversionId)
   await maybePromoteLead(tx, event, leadInfo)
 
   const engagementId = await maybeRecordEngagementEvent(tx, contactId, event)
-  const paymentReconciliation = await maybeReconcilePayment(tx, event, contactId, engagementId)
+  const refundedEarlier = buyer.created ? await hasEarlierRefund(tx, event) : false
+  const paymentReconciliation = refundedEarlier
+    ? null
+    : await maybeReconcilePayment(tx, event, contactId, engagementId)
 
   return {
     status: 'recorded',
     conversion_id: conversionId,
     contact_id: contactId,
+    ...(buyer.created ? { contact_created: true } : {}),
     lead_id: leadInfo?.leadId ?? null,
     referral_id: referralId,
     payment_reconciliation_status: paymentReconciliation?.status ?? null,
@@ -488,18 +541,21 @@ function buildAuditPayload(event: NormalizedEvent) {
   } satisfies Record<string, unknown>
 }
 
+/** Only a paid event creates a contact; any other event for an unknown buyer stays an orphan. */
+async function findOrCreatePaidBuyer(tx: Tx, event: NormalizedEvent): Promise<BuyerContact | null> {
+  if (!STRIPE_PAID_EVENT_TYPES.has(event.eventType)) return null
+  return findOrCreateBuyerContact(tx, event)
+}
+
 function recordOrphanEvent(event: NormalizedEvent): PersistResult {
-  logger.warn(
-    { event_id: event.eventId, event_type: event.eventType, janua_user_id: event.januaUserId },
-    'dhanam event received but no contact match — orphan logged',
-  )
+  logOrphanEvent(logger, event, STRIPE_PAID_EVENT_TYPES.has(event.eventType))
   return { status: 'orphan', contact_id: null, lead_id: null, referral_id: null }
 }
 
 async function recordConversion(
   tx: Tx,
   event: NormalizedEvent,
-  contactId: string,
+  buyer: BuyerContact,
   leadInfo: LeadStageInfo | null,
   webhookEventId: string | null,
 ): Promise<string | undefined> {
@@ -507,10 +563,14 @@ async function recordConversion(
     .insert(conversions)
     .values({
       type: mapEventTypeToConversionType(event.eventType),
-      contactId,
+      contactId: buyer.contactId,
       leadId: leadInfo?.leadId ?? null,
       value: conversionValue(event),
-      metadata: buildConversionMetadata(event, webhookEventId),
+      metadata: {
+        ...buildConversionMetadata(event, webhookEventId),
+        // Provenance: this event is what created the contact.
+        ...(buyer.created ? { contact_created: true } : {}),
+      },
     })
     .returning({ id: conversions.id })
 
@@ -571,6 +631,40 @@ async function maybePromoteLead(tx: Tx, event: NormalizedEvent, leadInfo: LeadSt
   await tx.update(leads).set(updateValues).where(eq(leads.id, leadInfo.leadId))
 }
 
+/**
+ * A refund for a buyer the CRM did not know yet is stored as an orphan and
+ * never applied. When the paid event for that payment then creates the
+ * contact (for example a retried paid event arriving after the refund), the
+ * order must not be reconciled as paid. Returns true when such a stored refund
+ * exists; the caller then skips reconciliation and leaves it to an operator.
+ */
+async function hasEarlierRefund(tx: Tx, event: NormalizedEvent): Promise<boolean> {
+  if (!event.paymentId) return false
+  const stored = await tx
+    .select({ id: webhookEvents.id, eventType: webhookEvents.eventType })
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.provider, 'dhanam'),
+        sql`${webhookEvents.payload} ->> 'payment_id' = ${event.paymentId}`,
+      ),
+    )
+  const refund = stored.find(
+    (row: { id: string; eventType: string }) =>
+      classifyPaymentLifecycle(row.eventType) === 'refunded',
+  )
+  if (!refund) return false
+  logger.warn(
+    {
+      event_id: event.eventId,
+      payment_id: event.paymentId,
+      refund_webhook_event_id: refund.id,
+    },
+    'DHANAM_PAID_AFTER_STORED_REFUND: a refund for this payment was stored before the buyer had a contact — order not reconciled as paid',
+  )
+  return true
+}
+
 async function maybeReconcilePayment(
   tx: Tx,
   event: NormalizedEvent,
@@ -591,31 +685,6 @@ async function maybeReconcilePayment(
     orderId: event.orderId,
     quoteId: event.quoteId,
   })
-}
-
-async function resolveContactId(event: NormalizedEvent): Promise<string | null> {
-  const db = getDb()
-  // Strategy: janua_user_id (richer mapping) → email (fallback).
-  // We deliberately skip `stripe_customer_id` matching — PhyndCRM doesn't
-  // store Stripe customer IDs anywhere (the federation provider fetches
-  // billing state on-demand from dhanam itself).
-  if (event.januaUserId) {
-    const [row] = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(and(eq(contacts.externalJanuaId, event.januaUserId), isNull(contacts.deletedAt)))
-      .limit(1)
-    if (row?.id) return row.id
-  }
-  if (event.customerEmail) {
-    const [row] = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(and(eq(contacts.email, event.customerEmail), isNull(contacts.deletedAt)))
-      .limit(1)
-    if (row?.id) return row.id
-  }
-  return null
 }
 
 interface LeadStageInfo {
@@ -754,8 +823,9 @@ async function maybeRecordEngagementEvent(
     },
     // Idempotency for the engagement timeline — `engagement_events` has a
     // `(engagement_id, dedup_key)` composite index for fast lookups, but
-    // no unique constraint. The unique constraint on `webhook_events`
-    // already prevents duplicate processing, so this is purely a logical
+    // no unique constraint. `webhook_events` has no unique constraint
+    // either: duplicate processing is prevented by the per-event advisory
+    // lock and the re-check in `persistEvent`, so this is purely a logical
     // dedup key for portal-side queries.
     dedupKey: `dhanam:${event.eventId}`,
   })

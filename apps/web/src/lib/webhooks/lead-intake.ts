@@ -37,6 +37,7 @@ export const LEAD_INTAKE_ORIGIN_LABEL: Record<LeadIntakeSource, string> = {
 const STAFF_TIME_ZONE = 'America/Mexico_City'
 /** 09:00 in Mexico City, which is UTC-6 all year. */
 const FOLLOW_UP_HOUR_UTC = 15
+const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 
 export function isLeadIntakeSource(value: unknown): value is LeadIntakeSource {
   return typeof value === 'string' && (LEAD_INTAKE_SOURCES as readonly string[]).includes(value)
@@ -52,8 +53,9 @@ export function formatBookingStart(
   timezone: string | undefined,
 ): string | undefined {
   if (!startsAt) return undefined
-  const date = new Date(startsAt)
-  if (Number.isNaN(date.getTime())) return startsAt
+  // Date() also accepts loose free text; only an ISO-8601 date-time is a date here.
+  const date = ISO_DATE_TIME.test(startsAt) ? new Date(startsAt) : null
+  if (!date || Number.isNaN(date.getTime())) return startsAt
 
   const format = (timeZone: string): string =>
     `${new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(date)} (${timeZone})`

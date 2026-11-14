@@ -247,9 +247,11 @@ async function handleLeadEvent(ctx: PhyndServiceContext, event: LeadIntakeEnvelo
   // The prospect's own words go on the contact, followed by where they came
   // from, so the first person to open the record reads both.
   await new NotesService(ctx).create({
-    content: [message ?? '(sin mensaje)', '', ...originLines(source, attribution, planInterest)].join(
-      '\n',
-    ),
+    content: [
+      message ?? '(sin mensaje)',
+      '',
+      ...originLines(source, attribution, planInterest),
+    ].join('\n'),
     entityType: 'contact',
     entityId: contact.id,
   })

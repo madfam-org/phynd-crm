@@ -33,8 +33,8 @@ describe('leadAttributionRows', () => {
   })
 
   it('shows a start that is not a date as stored', () => {
-    const rows = new Map(leadAttributionRows({ booking: { starts_at: 'pendiente' } }))
-    expect(rows.get('Meeting start')).toBe('pendiente')
+    const rows = new Map(leadAttributionRows({ booking: { starts_at: 'mañana a las 10' } }))
+    expect(rows.get('Meeting start')).toBe('mañana a las 10')
   })
 
   it('is empty without attribution', () => {

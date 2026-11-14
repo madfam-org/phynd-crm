@@ -1,8 +1,11 @@
 import type { LeadAttribution } from '@phynd/types/crm'
 
+const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
 function formatMeetingStart(startsAt: string, timezone: string | undefined): string {
-  const date = new Date(startsAt)
-  if (Number.isNaN(date.getTime())) return startsAt
+  // Date() also accepts loose free text; only an ISO-8601 date-time is a date here.
+  const date = ISO_DATE_TIME.test(startsAt) ? new Date(startsAt) : null
+  if (!date || Number.isNaN(date.getTime())) return startsAt
   if (timezone) {
     try {
       const text = date.toLocaleString(undefined, {

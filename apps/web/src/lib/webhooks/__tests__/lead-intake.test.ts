@@ -103,6 +103,9 @@ describe('formatBookingStart', () => {
 
   it('returns a value that is not a date as it was sent, and nothing for no value', () => {
     expect(formatBookingStart('mañana a las 10', 'America/Mexico_City')).toBe('mañana a las 10')
+    expect(formatBookingStart('2026-13-45T99:99:00Z', 'America/Mexico_City')).toBe(
+      '2026-13-45T99:99:00Z',
+    )
     expect(formatBookingStart(undefined, 'America/Mexico_City')).toBeUndefined()
   })
 })

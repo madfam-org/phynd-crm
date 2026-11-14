@@ -474,6 +474,47 @@ The receiver:
 
 Avala producers must send the shared event envelope documented in Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md`.
 
+## Lead-intake webhook
+
+PhyndCRM receives new leads from Kalya bookings and from contact forms on the public site at `POST /api/webhooks/lead-intake`.
+
+Request: `content-type: application/json` and `x-madfam-signature: t=<unix seconds>,v1=<hex>`, where `hex = HMAC-SHA256(PHYND_CRM_EVENTS_SECRET, t + "." + rawBody)` (the same scheme and secret as the Avala and nauta receivers).
+
+```json
+{
+  "schema_version": "1",
+  "event_id": "<uuid, stable per booking or per site lead>",
+  "event_type": "kalya.booking.created | site.lead.captured",
+  "source": "kalya | madfam-site",
+  "occurred_at": "<ISO-8601>",
+  "payload": {
+    "lead": { "name": "", "email": "", "phone": "", "company": "", "message": "" },
+    "context": { "page": "", "locale": "", "tenant": "", "plan_interest": "" },
+    "attribution": { "utm_source": "", "utm_medium": "", "utm_campaign": "", "utm_content": "", "utm_term": "", "referrer": "" },
+    "booking": { "id": "", "event_type_name": "", "starts_at": "<ISO-8601>", "timezone": "", "host_name": "" }
+  }
+}
+```
+
+Only `lead.name` and `lead.email` are expected on every lead; senders omit keys that have no value. `kalya.booking.created` comes from source `kalya` and `site.lead.captured` from source `madfam-site`.
+
+| Response | Meaning |
+| --- | --- |
+| `200 { "received": true }` | Stored. Also returned for a lead event without an email and for an event type the receiver does not know yet (both are recorded, nothing is created) |
+| `200 { "received": true, "deduplicated": true }` | The `event_id` was already processed for that source; nothing is created again |
+| `400` | Not JSON, missing `event_id`/`event_type`, unknown `source`, or a source that does not match the event type |
+| `401` | Missing, stale or wrong signature |
+| `429` | Rate limit (retry after 60 s) |
+| `503` | `PHYND_CRM_EVENTS_SECRET` is not configured |
+
+For a lead event the receiver:
+
+- reuses the contact with that email, or creates it; an existing contact is never modified;
+- creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, and the booking for a Kalya event; known keys only, length-capped);
+- writes a note on the contact with the prospect's message and where it came from;
+- opens a follow-up task on the lead, due the next business day;
+- emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
+
 ## Production domain truth
 
 The only valid production domains for PhyndCRM are `https://phynd.app` for the product surface and `https://crm.madfam.io` for the MADFAM tenant slice. Any local, demo, staging, or preview URL in this repository is non-production and must not be used in campaign traffic.
@@ -489,4 +530,5 @@ Public repo sanitization and campaign-readiness requirements are tracked in `doc
 | Selva service-token read tools | this repo | [`docs/SELVA_CRM_AGENT_TOOLS.md`](docs/SELVA_CRM_AGENT_TOOLS.md) |
 | Marketing consent API | this repo | [`docs/CONSENT_API.md`](docs/CONSENT_API.md) |
 | Avala lifecycle events → `POST /api/webhooks/avala` | Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md` (shared event envelope) | [§ Avala webhook receiver](#avala-webhook-receiver) |
+| Kalya bookings and site leads → `POST /api/webhooks/lead-intake` | this repo | [§ Lead-intake webhook](#lead-intake-webhook) |
 | dev → staging → prod promotion | [internal-devops RFC 0001](https://github.com/madfam-org/internal-devops/blob/main/rfcs/0001-dev-staging-prod-pipeline.md) | [`AGENTS.md`](AGENTS.md) § Deployment Pipeline |

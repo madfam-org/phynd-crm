@@ -66,6 +66,7 @@ export const activitiesRouter = router({
         title: z.string().min(1).max(255).optional(),
         description: z.string().nullable().optional(),
         dueAt: z.date().nullable().optional(),
+        ownerId: z.string().uuid().optional(),
       }),
     )
     .mutation(({ ctx, input }) => {

@@ -7,6 +7,11 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
+  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    _tag: 'sql',
+    text: strings.join('?'),
+    values,
+  })),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
@@ -82,6 +87,39 @@ describe('ActivitiesService', () => {
       expect(result.hasMore).toBe(false)
     })
 
+    it('lists newest first, the id breaking ties', async () => {
+      mockDb._qb._result = []
+      await service.listRecent()
+      expect(mockDb._qb.orderBy).toHaveBeenCalledWith(
+        { _tag: 'desc', col: 'activities.createdAt' },
+        { _tag: 'desc', col: 'activities.id' },
+      )
+    })
+
+    it('continues after the cursor row in that order', async () => {
+      mockDb._qb._result = []
+      await service.listRecent({ cursor: 'activity-050' })
+      const where = mockDb._qb.where.mock.calls[0]?.[0] as {
+        args: Array<{ _tag: string; text: string; values: unknown[] }>
+      }
+      const cursor = where.args[0]
+      expect(cursor?._tag).toBe('sql')
+      expect(cursor?.text).toContain(
+        ') < (select c.created_at, c.id from activities c where c.id = ',
+      )
+      expect(cursor?.values).toEqual(['activities.createdAt', 'activities.id', 'activity-050'])
+    })
+
+    it('returns the last id of the page as the next cursor', async () => {
+      mockDb._qb._result = [
+        makeActivity({ id: 'newest' }),
+        makeActivity({ id: 'middle' }),
+        makeActivity({ id: 'oldest' }),
+      ]
+      const result = await service.listRecent({ limit: 2 })
+      expect(result.nextCursor).toBe('middle')
+    })
+
     it('filters by ownerId when provided', async () => {
       mockDb._qb._result = [makeActivity({ ownerId: 'user-1' })]
       const result = await service.listRecent(undefined, { ownerId: 'user-1' })
@@ -106,6 +144,31 @@ describe('ActivitiesService', () => {
       expect(result).toEqual(newActivity)
       expect(mockDb.insert).toHaveBeenCalled()
     })
+
+    it('assigns the caller as owner by default', async () => {
+      mockDb._qb._result = [makeActivity()]
+      await service.create({
+        entityId: 'lead-001',
+        entityType: 'lead',
+        title: 'Test',
+        type: 'task',
+      })
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.ownerId).toBe('test-user')
+    })
+
+    it('creates an unowned activity when ownerId is null', async () => {
+      mockDb._qb._result = [makeActivity({ ownerId: null })]
+      await service.create({
+        entityId: 'lead-001',
+        entityType: 'lead',
+        ownerId: null,
+        title: 'Follow up',
+        type: 'task',
+      })
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.ownerId).toBeNull()
+    })
   })
 
   // -------------------------------------------------------------------------
@@ -118,6 +181,13 @@ describe('ActivitiesService', () => {
       const result = await service.update('activity-001', { title: 'Updated Title' })
       expect(result).toEqual(updated)
       expect(mockDb.update).toHaveBeenCalled()
+    })
+
+    it('sets the owner, e.g. when someone takes an unowned follow-up', async () => {
+      mockDb._qb._result = [makeActivity({ ownerId: 'user-2' })]
+      await service.update('activity-001', { ownerId: 'user-2' })
+      const set = mockDb._qb.set.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(set.ownerId).toBe('user-2')
     })
 
     it('returns null when updating nonexistent activity', async () => {

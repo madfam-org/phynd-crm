@@ -31,6 +31,20 @@ export interface ServiceContext {
   }
 }
 
+/** The handle `db.transaction(async (tx) => …)` passes to its callback. */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0]
+
+/**
+ * The same context with every service query running on `tx`, so several
+ * services can share one transaction. A service's own `db.transaction(…)`
+ * then opens a savepoint inside it. A Drizzle transaction exposes the same
+ * query API as the database; it only lacks the pool handle (`$client`), which
+ * services do not use.
+ */
+export function withTransaction(ctx: ServiceContext, tx: Transaction): ServiceContext {
+  return { ...ctx, db: tx as unknown as Database }
+}
+
 export function createServiceContext(
   db: Database,
   cache: CacheManagerLike,

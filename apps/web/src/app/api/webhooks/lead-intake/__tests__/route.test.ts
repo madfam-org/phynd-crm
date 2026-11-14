@@ -328,6 +328,15 @@ describe('POST /api/webhooks/lead-intake — envelope', () => {
     expect(state.insertedWebhookEvents[0]?.provider).toBe('kalya')
     expect(state.insertedWebhookEvents[0]?.eventType).toBe('kalya.booking.rescheduled')
   })
+
+  it('records an unknown event type longer than the column, cut to fit', async () => {
+    const eventType = `kalya.${'x'.repeat(200)}`
+    const res = await post(makeBookingEvent({ event_type: eventType }))
+    expect(res.status).toBe(200)
+    expect(state.insertedWebhookEvents[0]?.eventType).toBe(eventType.slice(0, 100))
+    const payload = state.insertedWebhookEvents[0]?.payload as { event_type: string }
+    expect(payload.event_type).toBe(eventType)
+  })
 })
 
 describe('POST /api/webhooks/lead-intake — Kalya booking', () => {

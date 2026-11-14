@@ -172,12 +172,15 @@ async function hasSeenEvent(event: LeadIntakeEnvelope): Promise<boolean> {
 }
 
 async function recordWebhookEvent(event: LeadIntakeEnvelope): Promise<void> {
-  await getDb().insert(webhookEvents).values({
-    provider: event.source,
-    eventType: event.eventType,
-    payload: event.raw,
-    processedAt: new Date(),
-  })
+  await getDb()
+    .insert(webhookEvents)
+    .values({
+      provider: event.source,
+      // The column holds 100 characters; the payload keeps the full value.
+      eventType: event.eventType.slice(0, 100),
+      payload: event.raw,
+      processedAt: new Date(),
+    })
 }
 
 function createIntakeContext(source: LeadIntakeSource): PhyndServiceContext {

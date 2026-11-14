@@ -1,3 +1,4 @@
+import { LeadAttributionCard } from '@/components/leads/lead-attribution'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { TagsPanel } from '@/components/tags/tags-panel'
 import { EntityTimeline } from '@/components/timeline/entity-timeline'
@@ -76,6 +77,8 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           </div>
         </div>
       </div>
+
+      <LeadAttributionCard attribution={lead.attribution} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">

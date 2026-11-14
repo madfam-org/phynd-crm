@@ -1,6 +1,7 @@
 import { getDb } from '@phynd/db'
 import { contacts } from '@phynd/db/schema'
 import { and, eq, isNull, sql } from 'drizzle-orm'
+import { classifyPaymentLifecycle } from './payment-lifecycle'
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
@@ -159,6 +160,8 @@ interface OrphanEvent {
  *   is expected: warn, with its own stable marker.
  * - Any other paid event should have carried a usable email: error, with a
  *   stable marker, because a purchase now has no customer record.
+ * - A failed payment never creates a contact, so its follow-up task cannot be
+ *   opened: warn, with its own stable marker.
  */
 export function logOrphanEvent(logger: OrphanLogger, event: OrphanEvent, paid: boolean): void {
   const ids = {
@@ -167,6 +170,13 @@ export function logOrphanEvent(logger: OrphanLogger, event: OrphanEvent, paid: b
     janua_user_id: event.januaUserId,
   }
   if (!paid) {
+    if (classifyPaymentLifecycle(event.eventType) === 'failed') {
+      logger.warn(
+        { ...ids, payment_id: event.paymentId, subscription_id: event.subscriptionId },
+        'DHANAM_PAYMENT_FAILED_WITHOUT_CONTACT: failed payment matches no contact — orphan logged, no follow-up task',
+      )
+      return
+    }
     logger.warn(ids, 'dhanam event received but no contact match — orphan logged')
     return
   }

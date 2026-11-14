@@ -58,7 +58,11 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     ordersById: new Map<string, Record<string, unknown>>(),
     ordersByQuoteId: new Map<string, Array<Record<string, unknown>>>(),
     ordersByOpportunityId: new Map<string, Array<Record<string, unknown>>>(),
+    contactOwnerById: new Map<string, string>(), // contact_id → owner user id
+    // Every `activities` row, seeded or inserted.
+    activities: [] as Array<Record<string, unknown>>,
     inserts: {
+      activities: [] as Array<Record<string, unknown>>,
       contacts: [] as Array<Record<string, unknown>>,
       webhookEvents: [] as Array<Record<string, unknown>>,
       conversions: [] as Array<Record<string, unknown>>,
@@ -132,6 +136,12 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
   }
 
   const resolveContacts = (): unknown[] => {
+    const idIdx = whereIndex('contacts.id')
+    if (idIdx >= 0) {
+      const id = whereValue(idIdx)
+      return [{ id, ownerId: state.contactOwnerById.get(id) ?? null }]
+    }
+
     const januaIdx = whereIndex('contacts.externalJanuaId')
     if (januaIdx >= 0) return resolveContactsByJanuaId(whereValue(januaIdx))
 
@@ -141,6 +151,22 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     const emailIdx = whereIndex('contacts.email')
     const id = emailIdx >= 0 ? state.contactByEmail.get(whereValue(emailIdx)) : undefined
     return id ? [rowById(id)] : []
+  }
+
+  // Open tasks on a contact whose description holds the bound marker.
+  const resolveActivities = (): unknown[] => {
+    const entityIdx = whereIndex('activities.entityId')
+    if (entityIdx < 0) return []
+    const entityId = whereValue(entityIdx)
+    const marker = whereValue(whereIndex('sql'))
+    return state.activities.filter(
+      (row) =>
+        row.entityType === 'contact' &&
+        row.entityId === entityId &&
+        row.type === 'task' &&
+        row.status === 'pending' &&
+        String(row.description ?? '').includes(marker),
+    )
   }
 
   const resolveLeads = (): unknown[] => {
@@ -227,6 +253,8 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
         return resolveContacts()
       case 'leads':
         return resolveLeads()
+      case 'activities':
+        return resolveActivities()
       case 'pipeline_stages':
         return resolvePipelineStages()
       case 'referral_codes':
@@ -305,6 +333,14 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     return id
   }
 
+  // A created task is found by the next open-task look-up, under the id returned.
+  const recordActivityInsert = (v: Record<string, unknown>): string => {
+    const id = `act_${state.activities.length + 1}`
+    state.inserts.activities.push(v)
+    state.activities.push({ id, ...v })
+    return id
+  }
+
   const insertRecorders: Record<string, (v: Record<string, unknown>) => void> = {
     webhook_events: (v) => {
       state.inserts.webhookEvents.push(v)
@@ -335,6 +371,9 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
       qb.values = vi.fn((v: Record<string, unknown>) => {
         if (tableName === 'contacts') {
           const id = recordContactInsert(v)
+          qb.returning = vi.fn(() => Promise.resolve([{ id }]))
+        } else if (tableName === 'activities') {
+          const id = recordActivityInsert(v)
           qb.returning = vi.fn(() => Promise.resolve([{ id }]))
         } else {
           insertRecorders[tableName]?.(v)
@@ -437,8 +476,17 @@ function tableMock(name: string, columns: Record<string, string>) {
 }
 
 vi.mock('@phynd/db/schema', () => ({
+  activities: tableMock('activities', {
+    id: 'activities.id',
+    type: 'activities.type',
+    status: 'activities.status',
+    description: 'activities.description',
+    entityType: 'activities.entityType',
+    entityId: 'activities.entityId',
+  }),
   contacts: tableMock('contacts', {
     id: 'contacts.id',
+    ownerId: 'contacts.ownerId',
     email: 'contacts.email',
     externalJanuaId: 'contacts.externalJanuaId',
     deletedAt: 'contacts.deletedAt',
@@ -653,6 +701,9 @@ beforeEach(() => {
   state.ordersById.clear()
   state.ordersByQuoteId.clear()
   state.ordersByOpportunityId.clear()
+  state.contactOwnerById.clear()
+  state.activities.length = 0
+  state.inserts.activities.length = 0
   state.inserts.contacts.length = 0
   state.inserts.webhookEvents.length = 0
   state.inserts.conversions.length = 0
@@ -1534,5 +1585,211 @@ describe('POST /api/webhooks/dhanam — non-paid event types', () => {
     )
     // Lead untouched — tier shuffles aren't won-state changes.
     expect(state.updates.leads).toHaveLength(0)
+  })
+})
+
+/** A `payment.failed` envelope as the billing relay sends it (flat `data.*`). */
+function paymentFailedEvent(
+  dataOverrides: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    type: 'payment.failed',
+    id: 'evt_fail_1',
+    timestamp: '2026-11-14T18:00:00.000Z',
+    data: {
+      customer_id: 'billing_user_fail_1',
+      payment_id: 'pi_fail_1',
+      amount: '1234.50',
+      amount_minor: 123450,
+      currency: 'MXN',
+      customer_email: 'pat.example@example.com',
+      payment_method: 'card',
+      failure_reason: 'Your card has insufficient funds.',
+      failure_code: 'card_declined',
+      ...dataOverrides,
+    },
+    ...overrides,
+  }
+}
+
+async function postFailed(dataOverrides = {}, overrides = {}) {
+  const res = await POST(
+    signedRequest(JSON.stringify(paymentFailedEvent(dataOverrides, overrides))),
+  )
+  return { res, json: (await res.json()) as Record<string, unknown> }
+}
+
+describe('POST /api/webhooks/dhanam — failed payment follow-up task', () => {
+  beforeEach(() => {
+    state.contactByEmail.set('pat.example@example.com', 'contact_fail')
+    state.contactOwnerById.set('contact_fail', 'user_owner_1')
+  })
+
+  it("opens one pending task on the contact, assigned to the contact's owner and due within a day", async () => {
+    const before = Date.now()
+    const { res, json } = await postFailed()
+    expect(res.status).toBe(200)
+    expect(json.status).toBe('recorded')
+    expect(json.failed_payment_task).toEqual({ status: 'created', taskId: 'act_1' })
+
+    expect(state.inserts.activities).toHaveLength(1)
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    expect(task).toMatchObject({
+      type: 'task',
+      status: 'pending',
+      entityType: 'contact',
+      entityId: 'contact_fail',
+      ownerId: 'user_owner_1',
+    })
+    const dueAt = (task.dueAt as Date).getTime()
+    expect(dueAt).toBeGreaterThan(before)
+    expect(dueAt).toBeLessThanOrEqual(Date.now() + 24 * 60 * 60 * 1000)
+
+    expect(task.title).toBe('Pago fallido (1,234.50 MXN): dar seguimiento')
+    const description = String(task.description)
+    expect(description).toContain('Monto: 1,234.50 MXN.')
+    expect(description).toContain(
+      'Motivo: Your card has insufficient funds (código card_declined).',
+    )
+    expect(description).toContain('Ref.: dhanam-pago-fallido')
+
+    // The task lock is taken after the per-event lock.
+    expect(state.advisoryLocks).toEqual([
+      'phynd:dhanam:event:evt_fail_1',
+      'phynd:dhanam:failed-payment-task:contact_fail',
+    ])
+    // Still recorded as before, and no new contact.
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.conversions).toHaveLength(1)
+    expect(state.inserts.contacts).toHaveLength(0)
+  })
+
+  it('leaves the task unassigned when the contact has no owner, and omits a missing reason', async () => {
+    state.contactOwnerById.clear()
+    await postFailed({ failure_reason: undefined, failure_code: undefined })
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    expect(task.ownerId).toBeNull()
+    expect(String(task.description)).not.toContain('Motivo')
+  })
+
+  it('creates nothing more on a duplicate delivery of the same event', async () => {
+    await postFailed()
+    const second = await postFailed()
+    expect(second.json.status).toBe('duplicate')
+    expect(state.inserts.activities).toHaveLength(1)
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+  })
+
+  it('does not open a second task while the first failed-payment task is still open', async () => {
+    const first = await postFailed()
+    const retry = await postFailed({ payment_id: 'pi_fail_2' }, { id: 'evt_fail_2' })
+    expect(retry.json.status).toBe('recorded')
+    expect(retry.json.failed_payment_task).toEqual({
+      status: 'already_open',
+      taskId: (first.json.failed_payment_task as { taskId: string }).taskId,
+    })
+    expect(state.inserts.activities).toHaveLength(1)
+    // The retry itself is still recorded.
+    expect(state.inserts.webhookEvents).toHaveLength(2)
+  })
+
+  it('opens a new task once the earlier one is completed, and ignores other open tasks', async () => {
+    state.activities.push(
+      {
+        id: 'act_done',
+        type: 'task',
+        status: 'completed',
+        entityType: 'contact',
+        entityId: 'contact_fail',
+        description: 'Ref.: dhanam-pago-fallido',
+      },
+      {
+        id: 'act_other',
+        type: 'task',
+        status: 'pending',
+        entityType: 'contact',
+        entityId: 'contact_fail',
+        description: 'Llamar para renovar',
+      },
+    )
+    const { json } = await postFailed()
+    expect((json.failed_payment_task as { status: string }).status).toBe('created')
+    expect(state.inserts.activities).toHaveLength(1)
+  })
+
+  it('creates neither a task nor a contact for a buyer with no contact, and warns with a stable code', async () => {
+    state.contactByEmail.clear()
+    const { res, json } = await postFailed()
+    expect(res.status).toBe(200)
+    expect(json.status).toBe('orphan')
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.contacts).toHaveLength(0)
+    expect(state.inserts.activities).toHaveLength(0)
+
+    expect(mockLogger.error).not.toHaveBeenCalled()
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const [fields, message] = mockLogger.warn.mock.calls[0] as [Record<string, unknown>, string]
+    expect(message).toContain('DHANAM_PAYMENT_FAILED_WITHOUT_CONTACT')
+    expect(fields).toEqual({
+      event_id: 'evt_fail_1',
+      event_type: 'payment.failed',
+      janua_user_id: 'billing_user_fail_1',
+      payment_id: 'pi_fail_1',
+      subscription_id: null,
+    })
+    expect(JSON.stringify(fields)).not.toContain('example.com')
+  })
+
+  it('never puts payment-instrument data in the task', async () => {
+    await postFailed({
+      failure_reason: 'Card 4111 1111 1111 1111 ending 1111 was declined',
+      card_last4: '9876',
+      payment_method_details: { card: { brand: 'visa', last4: '9876', exp_year: 2031 } },
+    })
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    const text = `${String(task.title)}\n${String(task.description)}`
+    expect(text).toContain('Motivo: Card [oculto] ending [oculto] was declined')
+    for (const leaked of ['4111', '1111', '9876', 'visa', '2031']) {
+      expect(text).not.toContain(leaked)
+    }
+  })
+
+  it('reads the reason from a Stripe-native payment_intent.payment_failed event', async () => {
+    const event = {
+      id: 'evt_pi_failed_1',
+      type: 'payment_intent.payment_failed',
+      data: {
+        object: {
+          id: 'pi_native_1',
+          amount: 50000,
+          currency: 'mxn',
+          customer_email: 'pat.example@example.com',
+          last_payment_error: {
+            message: 'Your card was declined.',
+            decline_code: 'generic_decline',
+            payment_method: { card: { last4: '9876' } },
+          },
+        },
+      },
+    }
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    expect(task.title).toBe('Pago fallido (500.00 MXN): dar seguimiento')
+    expect(String(task.description)).toContain(
+      'Motivo: Your card was declined (código generic_decline).',
+    )
+    expect(String(task.description)).not.toContain('9876')
+  })
+
+  it('opens no task for a successful payment', async () => {
+    const res = await POST(
+      signedRequest(
+        JSON.stringify(paymentSucceededEvent({ customer_email: 'pat.example@example.com' })),
+      ),
+    )
+    expect(res.status).toBe(200)
+    expect(state.inserts.activities).toHaveLength(0)
   })
 })

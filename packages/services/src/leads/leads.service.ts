@@ -1,11 +1,12 @@
 import { isFeatureEnabled } from '@phynd/config/features'
 import { conversions, leads, stageTransitions } from '@phynd/db/schema'
-import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
+import type { LeadAttribution, PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { actorIdOf } from '../identity/actor'
 import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
 import { NotificationsService } from '../notifications/notifications.service'
+import { sanitizeLeadAttribution } from './lead-attribution'
 
 export class LeadsService {
   constructor(private readonly ctx: ServiceContext) {}
@@ -77,11 +78,19 @@ export class LeadsService {
     contactId?: string
     externalJanuaId?: string
     source?: string
+    attribution?: LeadAttribution | null
     pipelineId: string
     stageId: string
   }) {
+    // Whatever the caller passes, only the known attribution shape is stored.
+    const { attribution, ...fields } = data
+    const values =
+      attribution === undefined
+        ? fields
+        : { ...fields, attribution: sanitizeLeadAttribution(attribution) }
+
     const created = await this.ctx.db.transaction(async (tx) => {
-      const [lead] = await tx.insert(leads).values(data).returning()
+      const [lead] = await tx.insert(leads).values(values).returning()
       // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
       const newLead = lead!
 

@@ -22,8 +22,13 @@ export class ActivitiesService {
     dueAt?: Date
     entityType: EntityType
     entityId: string
+    /**
+     * Owner of the activity. Omitted: the caller (the usual case). `null`: no
+     * owner yet, for items a machine caller opens for whoever picks them up.
+     */
+    ownerId?: string | null
   }) {
-    const ownerId = requireCrmUserId(this.ctx.auth)
+    const ownerId = data.ownerId !== undefined ? data.ownerId : requireCrmUserId(this.ctx.auth)
     const [activity] = await this.ctx.db
       .insert(activities)
       .values({

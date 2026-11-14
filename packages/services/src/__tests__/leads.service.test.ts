@@ -1,3 +1,4 @@
+import type { LeadAttribution } from '@phynd/types/crm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LeadsService } from '../leads/leads.service'
 import { type MockDatabase, createTestContext, makeLead } from './helpers'
@@ -166,6 +167,54 @@ describe('LeadsService', () => {
 
       expect(result).toEqual(newLead)
       expect(result.contactId).toBeNull()
+    })
+
+    it('stores only the known attribution shape', async () => {
+      mockDb._qb._result = [makeLead({ id: 'lead-attributed' })]
+
+      await service.create({
+        attribution: {
+          booking: { id: 'bk-1', starts_at: '2026-11-17T16:00:00.000Z' },
+          // Not part of the shape: must never reach the row.
+          internal_note: 'x',
+          utm_campaign: '  otono  ',
+          utm_medium: 42,
+          utm_source: 'newsletter',
+        } as unknown as LeadAttribution,
+        pipelineId: 'pipeline-001',
+        source: 'kalya',
+        stageId: 'stage-001',
+      })
+
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.source).toBe('kalya')
+      expect(inserted.attribution).toEqual({
+        booking: { id: 'bk-1', starts_at: '2026-11-17T16:00:00.000Z' },
+        utm_campaign: 'otono',
+        utm_source: 'newsletter',
+      })
+    })
+
+    it('stores null when the attribution has nothing usable', async () => {
+      mockDb._qb._result = [makeLead({ id: 'lead-empty-attribution' })]
+
+      await service.create({
+        attribution: { utm_source: '   ' },
+        pipelineId: 'pipeline-001',
+        stageId: 'stage-001',
+      })
+
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.attribution).toBeNull()
+    })
+
+    it('leaves the column untouched when no attribution is passed', async () => {
+      mockDb._qb._result = [makeLead({ id: 'lead-plain' })]
+
+      await service.create({ pipelineId: 'pipeline-001', stageId: 'stage-001' })
+
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect('attribution' in inserted).toBe(false)
     })
   })
 

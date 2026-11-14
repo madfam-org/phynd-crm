@@ -1,7 +1,34 @@
 import { LeadsService, requireCrmUserId } from '@phynd/services'
+import {
+  LEAD_ATTRIBUTION_MAX_LENGTH,
+  LEAD_ATTRIBUTION_URL_MAX_LENGTH,
+} from '@phynd/services/leads/lead-attribution'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 import { entityId } from '../validation'
+
+const attributionValue = z.string().trim().min(1).max(LEAD_ATTRIBUTION_MAX_LENGTH)
+const attributionUrl = z.string().trim().min(1).max(LEAD_ATTRIBUTION_URL_MAX_LENGTH)
+
+// Same shape `sanitizeLeadAttribution` keeps; unknown keys are stripped.
+const leadAttributionInput = z.object({
+  utm_source: attributionValue.optional(),
+  utm_medium: attributionValue.optional(),
+  utm_campaign: attributionValue.optional(),
+  utm_content: attributionValue.optional(),
+  utm_term: attributionValue.optional(),
+  referrer: attributionUrl.optional(),
+  landing_page: attributionUrl.optional(),
+  booking: z
+    .object({
+      id: attributionValue.optional(),
+      starts_at: attributionValue.optional(),
+      event_type_name: attributionValue.optional(),
+      host_name: attributionValue.optional(),
+      timezone: attributionValue.optional(),
+    })
+    .optional(),
+})
 
 const paginationInput = z
   .object({
@@ -57,6 +84,7 @@ export const leadsRouter = router({
         contactId: z.string().uuid().optional(),
         externalJanuaId: z.string().optional(),
         source: z.string().max(100).optional(),
+        attribution: leadAttributionInput.nullable().optional(),
         pipelineId: entityId,
         stageId: entityId,
       }),

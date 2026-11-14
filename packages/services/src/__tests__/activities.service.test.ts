@@ -106,6 +106,31 @@ describe('ActivitiesService', () => {
       expect(result).toEqual(newActivity)
       expect(mockDb.insert).toHaveBeenCalled()
     })
+
+    it('assigns the caller as owner by default', async () => {
+      mockDb._qb._result = [makeActivity()]
+      await service.create({
+        entityId: 'lead-001',
+        entityType: 'lead',
+        title: 'Test',
+        type: 'task',
+      })
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.ownerId).toBe('test-user')
+    })
+
+    it('creates an unowned activity when ownerId is null', async () => {
+      mockDb._qb._result = [makeActivity({ ownerId: null })]
+      await service.create({
+        entityId: 'lead-001',
+        entityType: 'lead',
+        ownerId: null,
+        title: 'Follow up',
+        type: 'task',
+      })
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.ownerId).toBeNull()
+    })
   })
 
   // -------------------------------------------------------------------------

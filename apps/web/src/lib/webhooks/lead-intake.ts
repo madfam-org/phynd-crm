@@ -172,6 +172,7 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
   ]
   const optionalRows: [string, string | undefined][] = [
     ['Plan de interés', lead.planInterest],
+    ['Cuenta de origen (tenant)', lead.attribution?.tenant],
     ['Tipo de reunión', booking?.event_type_name],
     ['Inicio', bookingStart],
     ['Anfitrión', booking?.host_name],

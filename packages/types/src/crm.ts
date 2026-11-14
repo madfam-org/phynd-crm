@@ -43,6 +43,8 @@ export interface LeadAttribution {
   utm_term?: string
   referrer?: string
   landing_page?: string
+  /** The sender's own account or workspace the lead arrived through. */
+  tenant?: string
   booking?: LeadBookingAttribution
 }
 

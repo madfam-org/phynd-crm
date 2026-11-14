@@ -35,6 +35,7 @@ export function leadAttributionRows(
     ['UTM term', attribution.utm_term],
     ['Referrer', attribution.referrer],
     ['Landing page', attribution.landing_page],
+    ['Tenant', attribution.tenant],
     ['Meeting type', booking?.event_type_name],
     [
       'Meeting start',

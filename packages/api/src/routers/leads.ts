@@ -19,6 +19,7 @@ const leadAttributionInput = z.object({
   utm_term: attributionValue.optional(),
   referrer: attributionUrl.optional(),
   landing_page: attributionUrl.optional(),
+  tenant: attributionValue.optional(),
   booking: z
     .object({
       id: attributionValue.optional(),

@@ -101,4 +101,12 @@ describe('sanitizeLeadAttribution', () => {
     })
     expect(sanitizeLeadAttribution(once)).toEqual(once)
   })
+
+  it('keeps a tenant string, cut to the value length', () => {
+    expect(sanitizeLeadAttribution({ tenant: ' equipo ' })).toEqual({ tenant: 'equipo' })
+    expect(sanitizeLeadAttribution({ tenant: 't'.repeat(400) })?.tenant).toHaveLength(
+      LEAD_ATTRIBUTION_MAX_LENGTH,
+    )
+    expect(sanitizeLeadAttribution({ tenant: { id: 'x' } })).toBeNull()
+  })
 })

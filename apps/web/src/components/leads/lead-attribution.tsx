@@ -36,6 +36,13 @@ export function leadAttributionRows(
     ['Referrer', attribution.referrer],
     ['Landing page', attribution.landing_page],
     ['Tenant', attribution.tenant],
+    ['Quote', attribution.quote_number ?? attribution.quote_id],
+    [
+      'Quote total',
+      attribution.quote_total
+        ? [attribution.quote_total, attribution.quote_currency].filter(Boolean).join(' ')
+        : undefined,
+    ],
     ['Meeting type', booking?.event_type_name],
     [
       'Meeting start',

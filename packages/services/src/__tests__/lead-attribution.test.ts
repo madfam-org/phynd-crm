@@ -109,4 +109,22 @@ describe('sanitizeLeadAttribution', () => {
     )
     expect(sanitizeLeadAttribution({ tenant: { id: 'x' } })).toBeNull()
   })
+
+  it('keeps the quote keys as strings', () => {
+    expect(
+      sanitizeLeadAttribution({
+        quote_id: 'cq_1',
+        quote_number: 'Q-1',
+        quote_total: '10.50',
+        quote_currency: 'MXN',
+        quote_items: 3,
+      }),
+    ).toEqual({
+      quote_id: 'cq_1',
+      quote_number: 'Q-1',
+      quote_total: '10.50',
+      quote_currency: 'MXN',
+    })
+    expect(sanitizeLeadAttribution({ quote_total: 10.5 })).toBeNull()
+  })
 })

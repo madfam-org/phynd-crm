@@ -20,6 +20,10 @@ const leadAttributionInput = z.object({
   referrer: attributionUrl.optional(),
   landing_page: attributionUrl.optional(),
   tenant: attributionValue.optional(),
+  quote_id: attributionValue.optional(),
+  quote_number: attributionValue.optional(),
+  quote_total: attributionValue.optional(),
+  quote_currency: attributionValue.optional(),
   booking: z
     .object({
       id: attributionValue.optional(),

@@ -32,6 +32,24 @@ describe('leadAttributionRows', () => {
     expect(rows.get('Meeting start')).toContain('(America/Mexico_City)')
   })
 
+  it('shows the tenant and the quote, its number before its id', () => {
+    const rows = new Map(
+      leadAttributionRows({
+        tenant: 'taller-ejemplo',
+        quote_id: 'cq_1',
+        quote_number: 'Q-1',
+        quote_total: '100.50',
+        quote_currency: 'MXN',
+      }),
+    )
+    expect(rows.get('Tenant')).toBe('taller-ejemplo')
+    expect(rows.get('Quote')).toBe('Q-1')
+    expect(rows.get('Quote total')).toBe('100.50 MXN')
+    const unpriced = new Map(leadAttributionRows({ quote_id: 'cq_2' }))
+    expect(unpriced.get('Quote')).toBe('cq_2')
+    expect(unpriced.has('Quote total')).toBe(false)
+  })
+
   it('shows a start that is not a date as stored', () => {
     const rows = new Map(leadAttributionRows({ booking: { starts_at: 'mañana a las 10' } }))
     expect(rows.get('Meeting start')).toBe('mañana a las 10')

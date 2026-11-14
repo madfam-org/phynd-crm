@@ -14,6 +14,10 @@ const FIELD_LIMITS = {
   referrer: LEAD_ATTRIBUTION_URL_MAX_LENGTH,
   landing_page: LEAD_ATTRIBUTION_URL_MAX_LENGTH,
   tenant: LEAD_ATTRIBUTION_MAX_LENGTH,
+  quote_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  quote_number: LEAD_ATTRIBUTION_MAX_LENGTH,
+  quote_total: LEAD_ATTRIBUTION_MAX_LENGTH,
+  quote_currency: LEAD_ATTRIBUTION_MAX_LENGTH,
 } as const satisfies Record<Exclude<keyof LeadAttribution, 'booking'>, number>
 
 const BOOKING_FIELDS = [

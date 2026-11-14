@@ -45,6 +45,12 @@ export interface LeadAttribution {
   landing_page?: string
   /** The sender's own account or workspace the lead arrived through. */
   tenant?: string
+  /** The requested quote, for a lead from the quoting platform. */
+  quote_id?: string
+  quote_number?: string
+  /** Plain decimal string; absent while the quote has no price. */
+  quote_total?: string
+  quote_currency?: string
   booking?: LeadBookingAttribution
 }
 

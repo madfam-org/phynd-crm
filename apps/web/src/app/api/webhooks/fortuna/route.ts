@@ -103,8 +103,25 @@ function validateTimestamp(req: Request): NextResponse | null {
   return null
 }
 
+/**
+ * Fortuna signs with the same scheme under two header names: the grant
+ * dispatcher sends `X-Fortuna-Signature`, the prospect dispatcher sends
+ * `X-Madfam-Fortuna-Signature`. Both are HMAC-SHA256 over the raw body, with
+ * an optional `sha256=` prefix. Whichever is present is checked against the
+ * one secret; an absent or empty header fails validation.
+ */
+const SIGNATURE_HEADERS = ['x-madfam-fortuna-signature', 'x-fortuna-signature'] as const
+
+function readSignature(req: Request): string {
+  for (const name of SIGNATURE_HEADERS) {
+    const value = req.headers.get(name)
+    if (value) return value
+  }
+  return ''
+}
+
 function validateSignature(req: Request, body: string, secret: string): NextResponse | null {
-  const signature = req.headers.get('x-fortuna-signature') ?? ''
+  const signature = readSignature(req)
   if (!validateWebhookSignature(body, signature, secret)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
@@ -494,7 +511,7 @@ export async function POST(req: Request) {
   const timestampError = validateTimestamp(req)
   if (timestampError) return timestampError
 
-  // Signature validation — Fortuna uses X-Fortuna-Signature instead of X-Webhook-Signature
+  // Signature validation — Fortuna's own header names (see SIGNATURE_HEADERS), not X-Webhook-Signature
   const body = await req.text()
   const signatureError = validateSignature(req, body, secret)
   if (signatureError) return signatureError

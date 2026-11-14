@@ -599,4 +599,97 @@ describe('Fortuna webhook route — prospect.qualified', () => {
     expect(insertedValues(schema.contacts)[0]?.marketingConsent).toBe(false)
     expect(insertedValues(schema.leads)[0]?.unsubscribed).toBe(true)
   })
+
+  // The prospect dispatcher's request, header for header: the signature
+  // travels as `X-Madfam-Fortuna-Signature: sha256=<hex>` over the exact body
+  // bytes, with `X-Fortuna-Event` and no timestamp header. These tests run the
+  // real validator, so a wrong header name or scheme fails them.
+  describe('signature as the prospect dispatcher sends it', () => {
+    function dispatcherRequest(bodyStr: string, signature: string) {
+      return new Request('http://localhost/api/webhooks/fortuna', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Madfam-Fortuna-Signature': signature,
+          'X-Fortuna-Event': 'prospect.qualified',
+          'User-Agent': 'Fortuna-ProspectDispatcher/1.0',
+        },
+        body: bodyStr,
+      })
+    }
+
+    function sign(bodyStr: string, secret: string) {
+      return `sha256=${crypto.createHmac('sha256', secret).update(bodyStr).digest('hex')}`
+    }
+
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import('@phynd/federation/webhooks')>(
+        '@phynd/federation/webhooks',
+      )
+      mockValidateWebhookSignature.mockImplementation((...args: unknown[]) =>
+        actual.validateWebhookSignature(...(args as [string, string, string])),
+      )
+    })
+
+    it('accepts a correctly signed request under X-Madfam-Fortuna-Signature', async () => {
+      queueQueryResults([], [], [{ id: 'contact-new' }], [{ id: 'lead-new' }], [], [])
+      // Python's json.dumps spacing, to prove the raw bytes are what is verified.
+      const bodyStr = JSON.stringify(prospectEnvelope(), null, 1)
+
+      const res = await postProspect(dispatcherRequest(bodyStr, sign(bodyStr, 'test-secret')))
+
+      expect(res.status).toBe(200)
+      expect(insertedValues(schema.leads)).toHaveLength(1)
+    })
+
+    it('rejects a signature made with another secret and writes nothing', async () => {
+      const bodyStr = JSON.stringify(prospectEnvelope())
+
+      const res = await postProspect(dispatcherRequest(bodyStr, sign(bodyStr, 'other-secret')))
+
+      expect(res.status).toBe(401)
+      expect(mockDb.insert).not.toHaveBeenCalled()
+    })
+
+    it('rejects a body changed after signing', async () => {
+      const signed = JSON.stringify(prospectEnvelope())
+      const sent = JSON.stringify(prospectEnvelope({ data: { business_name: 'Tampered' } }))
+
+      const res = await postProspect(dispatcherRequest(sent, sign(signed, 'test-secret')))
+
+      expect(res.status).toBe(401)
+      expect(mockDb.insert).not.toHaveBeenCalled()
+    })
+
+    it('rejects a request with no signature header at all', async () => {
+      const res = await postProspect(
+        new Request('http://localhost/api/webhooks/fortuna', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prospectEnvelope()),
+        }),
+      )
+
+      expect(res.status).toBe(401)
+      expect(mockDb.insert).not.toHaveBeenCalled()
+    })
+
+    it('still accepts the grant dispatcher header name', async () => {
+      queueQueryResults([], [], [{ id: 'contact-new' }], [{ id: 'lead-new' }], [], [])
+      const bodyStr = JSON.stringify(prospectEnvelope())
+
+      const res = await postProspect(
+        new Request('http://localhost/api/webhooks/fortuna', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Fortuna-Signature': sign(bodyStr, 'test-secret'),
+          },
+          body: bodyStr,
+        }),
+      )
+
+      expect(res.status).toBe(200)
+    })
+  })
 })

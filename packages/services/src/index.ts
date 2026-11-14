@@ -154,7 +154,12 @@ export {
 } from './payment-evidence/reconciliation'
 export { EngagementPortalMagicLinkService } from './engagement-portal/magic-link.service'
 export { EngagementPortalSignoffService } from './engagement-portal/signoff.service'
-export { createServiceContext, type ServiceContext } from './context'
+export {
+  createServiceContext,
+  type ServiceContext,
+  type Transaction,
+  withTransaction,
+} from './context'
 export { GrantsService } from './grants/grants.service'
 export { LeadScoringService } from './lead-scoring/lead-scoring.service'
 export {

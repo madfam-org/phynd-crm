@@ -253,6 +253,21 @@ describe('LeadsService', () => {
       expect(isFeatureEnabled).toHaveBeenCalledWith('leadScoring')
     })
 
+    it('scores in its own (sub)transaction and swallows a scoring failure', async () => {
+      const { isFeatureEnabled } = await import('@phynd/config/features')
+      ;(isFeatureEnabled as ReturnType<typeof vi.fn>).mockReturnValue(true)
+      mockDb._qb._result = [makeLead({ id: 'lead-001', status: 'qualified' })]
+      mockDb.transaction.mockClear()
+      mockDb.transaction.mockRejectedValueOnce(new Error('scoring query failed'))
+
+      const result = await service.update('lead-001', { status: 'qualified' })
+
+      expect(result).toEqual(expect.objectContaining({ id: 'lead-001' }))
+      // On a caller's transaction this is a savepoint: the failure rolls back
+      // the scoring only and leaves the caller's transaction usable.
+      expect(mockDb.transaction).toHaveBeenCalledTimes(1)
+    })
+
     it('does not trigger scoring for non-status updates', async () => {
       const { isFeatureEnabled } = await import('@phynd/config/features')
       const spy = isFeatureEnabled as ReturnType<typeof vi.fn>

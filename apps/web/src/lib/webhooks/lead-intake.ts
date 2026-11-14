@@ -97,7 +97,9 @@ export function nextBusinessDayDueAt(now: Date = new Date()): Date {
  * it is unset or empty, `NAUTA_LEADS_NOTIFY_EMAIL` is used so the address
  * already configured for the nauta webhook keeps working.
  */
-export function leadNotificationRecipients(env: NodeJS.ProcessEnv = process.env): string[] {
+export function leadNotificationRecipients(
+  env: Record<string, string | undefined> = process.env,
+): string[] {
   const parse = (value: string | undefined): string[] =>
     (value ?? '')
       .split(',')

@@ -360,7 +360,9 @@ describe('Fortuna webhook route', () => {
 // prospect.qualified — envelope as built by Fortuna's prospect dispatcher
 // ---------------------------------------------------------------------------
 
-function prospectEnvelope(overrides: { data?: Record<string, unknown>; [key: string]: unknown } = {}) {
+function prospectEnvelope(
+  overrides: { data?: Record<string, unknown>; [key: string]: unknown } = {},
+) {
   const { data, ...rest } = overrides
   return {
     event: 'prospect.qualified',
@@ -519,7 +521,12 @@ describe('Fortuna webhook route — prospect.qualified', () => {
   })
 
   it('fills only a blank company on an existing contact', async () => {
-    const existing = { id: 'contact-existing', name: 'X', email: 'hola@example-shop.mx', company: null }
+    const existing = {
+      id: 'contact-existing',
+      name: 'X',
+      email: 'hola@example-shop.mx',
+      company: null,
+    }
     queueQueryResults([], [existing], [], [{ id: 'lead-new' }], [], [])
 
     const res = await postProspect(createSignedRequest(prospectEnvelope()))

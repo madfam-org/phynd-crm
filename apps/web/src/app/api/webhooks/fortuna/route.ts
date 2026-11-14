@@ -3,14 +3,7 @@ import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
-import {
-  contacts,
-  leads,
-  notes,
-  pipelineStages,
-  pipelines,
-  webhookEvents,
-} from '@phynd/db/schema'
+import { contacts, leads, notes, pipelineStages, pipelines, webhookEvents } from '@phynd/db/schema'
 import { validateWebhookSignature } from '@phynd/federation/webhooks'
 import { createLogger } from '@phynd/logging'
 import { GrantsService, PipelinesService, createServiceContext } from '@phynd/services'

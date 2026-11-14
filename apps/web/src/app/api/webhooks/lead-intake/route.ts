@@ -2,13 +2,19 @@ import { getCacheManager } from '@/lib/federation/clients'
 import {
   BOOKING_EVENT_TYPE,
   LEAD_INTAKE_ORIGIN_LABEL,
+  LEAD_INTAKE_PROVIDER,
   type LeadIntakeSource,
+  type LeadQuote,
   type NewLeadNotification,
+  QUOTE_EVENT_TYPE,
   formatBookingStart,
   isLeadIntakeSource,
   leadEventSource,
   nextBusinessDayDueAt,
   notifyNewLead,
+  quoteLabel,
+  quoteSummary,
+  readLeadQuote,
 } from '@/lib/webhooks/lead-intake'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
@@ -32,9 +38,10 @@ import type { LeadAttribution } from '@phynd/types/crm'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-// Lead intake → PhyndCRM. Two senders share one envelope: a meeting booked in
-// Kalya (`kalya.booking.created`) and a contact form on the public site
-// (`site.lead.captured`). Each becomes a contact + a lead in the default
+// Lead intake → PhyndCRM. Three senders share one envelope: a meeting booked in
+// Kalya (`kalya.booking.created`), a contact form on the public site
+// (`site.lead.captured`) and a quote requested on the quoting platform
+// (`cotiza.quote.requested`). Each becomes a contact + a lead in the default
 // pipeline with its source and attribution, a note with the prospect's words,
 // a follow-up task and one notification email.
 //
@@ -55,16 +62,19 @@ import { NextResponse } from 'next/server'
 // Envelope:
 //   {
 //     schema_version: '1',
-//     event_id: string,            // uuid, stable per booking / per site lead
-//     event_type: 'kalya.booking.created' | 'site.lead.captured',
-//     source: 'kalya' | 'madfam-site',
+//     event_id: string,            // uuid, stable per booking / site lead / quote
+//     event_type: 'kalya.booking.created' | 'site.lead.captured'
+//               | 'cotiza.quote.requested',
+//     source: 'kalya' | 'madfam-site' | 'cotiza',
 //     occurred_at: ISO-8601,
 //     payload: {
 //       lead: { name, email, phone?, company?, message? },
 //       context?: { page?, locale?, tenant?, plan_interest? },
 //       attribution?: { utm_source?, utm_medium?, utm_campaign?, utm_content?,
 //                       utm_term?, referrer? },
-//       booking?: { id, event_type_name?, starts_at, timezone?, host_name? }
+//       booking?: { id, event_type_name?, starts_at, timezone?, host_name? },
+//       quote?: { id, number?, total?, currency?, item_count? }  // required
+//                                          // (with its id) on a quote request
 //     }
 //   }
 
@@ -100,6 +110,8 @@ type LeadFields = {
   phoneAsSent?: string
   message?: string
   planInterest?: string
+  /** Set on a quote request only. */
+  quote: LeadQuote | null
   attribution: LeadAttribution | null
 }
 
@@ -135,7 +147,7 @@ function parseEnvelope(raw: Record<string, unknown>): LeadIntakeEnvelope | { err
   if (!eventId) return { error: 'event_id is required' }
   if (!eventType) return { error: 'event_type is required' }
   if (!isLeadIntakeSource(raw.source)) {
-    return { error: "source must be 'kalya' or 'madfam-site'" }
+    return { error: "source must be 'kalya', 'madfam-site' or 'cotiza'" }
   }
   const expectedSource = leadEventSource(eventType)
   if (expectedSource && expectedSource !== raw.source) {
@@ -160,6 +172,12 @@ function readLead(event: LeadIntakeEnvelope): LeadFields | null | { error: strin
     return { error: 'lead.email is not a valid address of at most 255 characters' }
   }
 
+  // A quote request without a usable quote id cannot be followed up.
+  const quote = event.eventType === QUOTE_EVENT_TYPE ? readLeadQuote(payload.quote) : null
+  if (event.eventType === QUOTE_EVENT_TYPE && !quote) {
+    return { error: 'quote.id is required (a string of at most 100 characters)' }
+  }
+
   const phoneAsSent = readString(lead.phone)
   const phoneFits = phoneAsSent !== undefined && charLength(phoneAsSent) <= CONTACT_PHONE_MAX
 
@@ -171,12 +189,18 @@ function readLead(event: LeadIntakeEnvelope): LeadFields | null | { error: strin
     phoneAsSent: cut(phoneAsSent, NOTE_PHONE_MAX),
     message: readString(lead.message),
     planInterest: readString(context.plan_interest),
-    // landing_page and tenant come from the context only; the sanitiser keeps
-    // the known keys, strings only, cut to their length.
+    quote,
+    // landing_page and tenant come from the context only, the quote keys from
+    // the validated quote only (never from the attribution block); the
+    // sanitiser keeps the known keys, strings only, cut to their length.
     attribution: sanitizeLeadAttribution({
       ...readObject(payload.attribution),
       landing_page: context.page,
       tenant: context.tenant,
+      quote_id: quote?.id,
+      quote_number: quote?.number,
+      quote_total: quote?.total,
+      quote_currency: quote?.total ? quote.currency : undefined,
       booking: event.eventType === BOOKING_EVENT_TYPE ? payload.booking : undefined,
     }),
   }
@@ -353,7 +377,7 @@ async function hasSeenEvent(tx: Transaction, event: LeadIntakeEnvelope): Promise
     .from(webhookEvents)
     .where(
       and(
-        eq(webhookEvents.provider, event.source),
+        eq(webhookEvents.provider, LEAD_INTAKE_PROVIDER[event.source]),
         sql`${webhookEvents.payload} ->> 'event_id' = ${event.eventId}`,
       ),
     )
@@ -364,7 +388,7 @@ async function hasSeenEvent(tx: Transaction, event: LeadIntakeEnvelope): Promise
 
 async function recordWebhookEvent(tx: Transaction, event: LeadIntakeEnvelope): Promise<void> {
   await tx.insert(webhookEvents).values({
-    provider: event.source,
+    provider: LEAD_INTAKE_PROVIDER[event.source],
     // The column holds 100 characters; the payload keeps the full value.
     eventType: event.eventType.slice(0, 100),
     payload: event.raw,
@@ -427,6 +451,7 @@ async function storeLead(
         source,
         name: displayName,
         attribution,
+        quote: lead.quote,
       })
     : null
 
@@ -440,13 +465,14 @@ async function storeLead(
     phone: lead.phoneAsSent,
     message: lead.message,
     planInterest: lead.planInterest,
+    quote: lead.quote,
     page: attribution?.landing_page,
     attribution,
     followUpDueAt,
   }
 }
 
-/** Short origin lines for the contact note: page, plan, tenant, meeting, campaign. */
+/** Short origin lines for the contact note: page, plan, quote, tenant, meeting, campaign. */
 function originLines(source: LeadIntakeSource, lead: LeadFields): string[] {
   const { attribution, planInterest } = lead
   const origin = [`— vía ${LEAD_INTAKE_ORIGIN_LABEL[source]}`]
@@ -454,6 +480,7 @@ function originLines(source: LeadIntakeSource, lead: LeadFields): string[] {
   if (planInterest) origin.push(`interés: ${planInterest}`)
   const lines = [origin.join(' · ')]
 
+  if (lead.quote) lines.push(`— ${quoteSummary(lead.quote)}`)
   if (attribution?.tenant) lines.push(`— cuenta de origen (tenant): ${attribution.tenant}`)
 
   const meeting = bookingSummary(attribution)
@@ -496,19 +523,26 @@ async function openFollowUp(
     source: LeadIntakeSource
     name: string
     attribution: LeadAttribution | null
+    quote: LeadQuote | null
   },
 ): Promise<Date | null> {
   const dueAt = nextBusinessDayDueAt()
   const meeting = bookingSummary(input.attribution)
+  // The quote label goes first so a long name cannot cut it off.
+  const subject = input.quote ? `cotización ${quoteLabel(input.quote)} · ${input.name}` : input.name
   try {
     await ctx.db.transaction((savepoint) =>
       new ActivitiesService(withTransaction(ctx, savepoint)).create({
         type: 'task',
         // `activities.title` is varchar(255).
-        title: cut(`Dar seguimiento: ${input.name}`, CONTACT_TEXT_MAX) ?? 'Dar seguimiento',
-        description: [`Lead por ${LEAD_INTAKE_ORIGIN_LABEL[input.source]}.`, meeting]
+        title: cut(`Dar seguimiento: ${subject}`, CONTACT_TEXT_MAX) ?? 'Dar seguimiento',
+        description: [
+          `Lead por ${LEAD_INTAKE_ORIGIN_LABEL[input.source]}.`,
+          meeting ? `Reunión: ${meeting}` : undefined,
+          input.quote ? `Solicitud de ${quoteSummary(input.quote)}.` : undefined,
+        ]
           .filter((part): part is string => part !== undefined)
-          .join(' Reunión: '),
+          .join(' '),
         dueAt,
         entityType: 'lead',
         entityId: input.leadId,

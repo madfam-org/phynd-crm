@@ -9,15 +9,30 @@ import type { LeadAttribution } from '@phynd/types/crm'
 
 const logger = createLogger('web:webhook:lead-intake')
 
-export const LEAD_INTAKE_SOURCES = ['kalya', 'madfam-site'] as const
+export const LEAD_INTAKE_SOURCES = ['kalya', 'madfam-site', 'cotiza'] as const
 export type LeadIntakeSource = (typeof LEAD_INTAKE_SOURCES)[number]
 
 export const BOOKING_EVENT_TYPE = 'kalya.booking.created'
 export const SITE_LEAD_EVENT_TYPE = 'site.lead.captured'
+export const QUOTE_EVENT_TYPE = 'cotiza.quote.requested'
 
 const LEAD_EVENT_SOURCE: Record<string, LeadIntakeSource> = {
   [BOOKING_EVENT_TYPE]: 'kalya',
   [SITE_LEAD_EVENT_TYPE]: 'madfam-site',
+  [QUOTE_EVENT_TYPE]: 'cotiza',
+}
+
+/**
+ * `webhook_events.provider` for this route's records. Other routes also write
+ * `webhook_events` with a sender's own name (the ops-events route takes it
+ * from the payload), so the quoting platform's lead events get a provider of
+ * their own and the event_id lookup only ever sees this route's rows. Fits
+ * the varchar(20) column.
+ */
+export const LEAD_INTAKE_PROVIDER: Record<LeadIntakeSource, string> = {
+  kalya: 'kalya',
+  'madfam-site': 'madfam-site',
+  cotiza: 'cotiza-lead-intake',
 }
 
 /**
@@ -31,6 +46,92 @@ export function leadEventSource(eventType: string): LeadIntakeSource | undefined
 export const LEAD_INTAKE_ORIGIN_LABEL: Record<LeadIntakeSource, string> = {
   kalya: 'reserva en Kalya',
   'madfam-site': 'formulario del sitio',
+  cotiza: 'solicitud de cotización',
+}
+
+const SUBJECT_PREFIX: Record<LeadIntakeSource, string> = {
+  kalya: 'Nueva reserva en Kalya',
+  'madfam-site': 'Nuevo lead del sitio',
+  cotiza: 'Nueva solicitud de cotización',
+}
+
+/** The quote a `cotiza.quote.requested` event carries, validated and bounded. */
+export interface LeadQuote {
+  id: string
+  number?: string
+  /** Plain decimal string; absent while the quote has no price. */
+  total?: string
+  /** ISO 4217-shaped: three letters, upper case. */
+  currency?: string
+  itemCount?: number
+}
+
+const QUOTE_ID_MAX = 100
+const QUOTE_NUMBER_MAX = 50
+const QUOTE_TOTAL_MAX = 20
+const QUOTE_ITEM_COUNT_MAX = 10_000
+const DECIMAL = /^\d+(\.\d+)?$/
+const CURRENCY = /^[A-Za-z]{3}$/
+
+function boundedString(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed !== '' && Array.from(trimmed).length <= max ? trimmed : undefined
+}
+
+/**
+ * The `payload.quote` block, or `null` when it has no usable `id` (absent,
+ * not a string, empty or over 100 characters). Every other field that does
+ * not fit its shape is dropped on its own, so a malformed field never loses
+ * the lead.
+ */
+export function readLeadQuote(value: unknown): LeadQuote | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const block = value as Record<string, unknown>
+  const id = boundedString(block.id, QUOTE_ID_MAX)
+  if (!id) return null
+
+  const quote: LeadQuote = { id }
+  const number = boundedString(block.number, QUOTE_NUMBER_MAX)
+  if (number) quote.number = number
+  const total = boundedString(block.total, QUOTE_TOTAL_MAX)
+  if (total && DECIMAL.test(total)) quote.total = total
+  const currency = boundedString(block.currency, 3)
+  if (currency && CURRENCY.test(currency)) quote.currency = currency.toUpperCase()
+  const itemCount = block.item_count
+  if (
+    typeof itemCount === 'number' &&
+    Number.isInteger(itemCount) &&
+    itemCount >= 0 &&
+    itemCount <= QUOTE_ITEM_COUNT_MAX
+  ) {
+    quote.itemCount = itemCount
+  }
+  return quote
+}
+
+/** How staff refer to a quote: its number, else its id. */
+export function quoteLabel(quote: LeadQuote): string {
+  return quote.number ?? quote.id
+}
+
+/** «1500.00 MXN», «1500.00», or «sin precio aún» while there is no total. */
+export function quotePrice(quote: LeadQuote): string {
+  if (!quote.total) return 'sin precio aún'
+  return quote.currency ? `${quote.total} ${quote.currency}` : quote.total
+}
+
+/** «3 partidas» / «1 partida», or undefined when the count is unknown. */
+export function quoteItems(quote: LeadQuote): string | undefined {
+  if (quote.itemCount === undefined) return undefined
+  return `${quote.itemCount} ${quote.itemCount === 1 ? 'partida' : 'partidas'}`
+}
+
+/** One line for notes and tasks: «cotización Q-1 · 1500.00 MXN · 3 partidas». */
+export function quoteSummary(quote: LeadQuote): string {
+  return [`cotización ${quoteLabel(quote)}`, quotePrice(quote), quoteItems(quote)]
+    .filter((part): part is string => part !== undefined)
+    .join(' · ')
 }
 
 /** Staff work in Mexico City: the fallback zone for times and the follow-up clock. */
@@ -133,8 +234,50 @@ export interface NewLeadNotification {
   planInterest?: string
   page?: string
   attribution: LeadAttribution | null
+  /** The requested quote, for a `cotiza.quote.requested` lead. */
+  quote?: LeadQuote | null
   /** Set when a follow-up task was opened for the lead. */
   followUpDueAt?: Date | null
+}
+
+/** Table rows of the notification: the person always, the rest when known. */
+function notificationRows(
+  lead: NewLeadNotification,
+  bookingStart: string | undefined,
+): [string, string | undefined][] {
+  const booking = lead.attribution?.booking
+  const quote = lead.quote ?? undefined
+  const optionalRows: [string, string | undefined][] = [
+    ['Cotización', quote && quoteLabel(quote)],
+    ['Total', quote && quotePrice(quote)],
+    ['Partidas', quote?.itemCount === undefined ? undefined : String(quote.itemCount)],
+    ['Plan de interés', lead.planInterest],
+    ['Cuenta de origen (tenant)', lead.attribution?.tenant],
+    ['Tipo de reunión', booking?.event_type_name],
+    ['Inicio', bookingStart],
+    ['Anfitrión', booking?.host_name],
+    ['Fuente (UTM)', lead.attribution?.utm_source],
+    ['Medio (UTM)', lead.attribution?.utm_medium],
+    ['Campaña (UTM)', lead.attribution?.utm_campaign],
+  ]
+  return [
+    ['Nombre', lead.name],
+    ['Correo', lead.email],
+    ['Organización', lead.company],
+    ['Teléfono', lead.phone],
+    ...optionalRows.filter(([, value]) => value !== undefined),
+  ]
+}
+
+/** The inbox preview: the prospect's words, else the meeting, the quote or the origin. */
+function notificationPreheader(
+  lead: NewLeadNotification,
+  bookingStart: string | undefined,
+): string {
+  if (lead.message) return lead.message.slice(0, 120)
+  if (bookingStart) return `Reunión: ${bookingStart}`
+  if (lead.quote) return `Solicitud de ${quoteSummary(lead.quote)}`
+  return `Origen: ${LEAD_INTAKE_ORIGIN_LABEL[lead.source]}`
 }
 
 /**
@@ -164,23 +307,7 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
   const booking = lead.attribution?.booking
   const bookingStart = formatBookingStart(booking?.starts_at, booking?.timezone)
 
-  const rows: [string, string | undefined][] = [
-    ['Nombre', lead.name],
-    ['Correo', lead.email],
-    ['Organización', lead.company],
-    ['Teléfono', lead.phone],
-  ]
-  const optionalRows: [string, string | undefined][] = [
-    ['Plan de interés', lead.planInterest],
-    ['Cuenta de origen (tenant)', lead.attribution?.tenant],
-    ['Tipo de reunión', booking?.event_type_name],
-    ['Inicio', bookingStart],
-    ['Anfitrión', booking?.host_name],
-    ['Fuente (UTM)', lead.attribution?.utm_source],
-    ['Medio (UTM)', lead.attribution?.utm_medium],
-    ['Campaña (UTM)', lead.attribution?.utm_campaign],
-  ]
-  rows.push(...optionalRows.filter(([, value]) => value !== undefined))
+  const rows = notificationRows(lead, bookingStart)
 
   const followUp = lead.followUpDueAt
     ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'full', timeZone: STAFF_TIME_ZONE }).format(
@@ -208,7 +335,7 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
     '</div>',
   ].join('')
 
-  const subjectPrefix = lead.source === 'kalya' ? 'Nueva reserva en Kalya' : 'Nuevo lead del sitio'
+  const subjectPrefix = SUBJECT_PREFIX[lead.source]
 
   try {
     const emailService = new EmailService()
@@ -216,9 +343,7 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
       to: recipients.join(','),
       subject: `${subjectPrefix}: ${lead.name}${lead.company ? ` (${lead.company})` : ''}`,
       html,
-      preheader:
-        lead.message?.slice(0, 120) ??
-        (bookingStart ? `Reunión: ${bookingStart}` : `Origen: ${origin}`),
+      preheader: notificationPreheader(lead, bookingStart),
       tags: [
         { name: 'source', value: lead.source },
         ...(lead.leadId ? [{ name: 'lead_id', value: lead.leadId }] : []),

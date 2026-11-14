@@ -10,12 +10,16 @@ import {
   leadEventSource,
   leadNotificationRecipients,
   nextBusinessDayDueAt,
+  quotePrice,
+  quoteSummary,
+  readLeadQuote,
 } from '../lead-intake'
 
 describe('leadEventSource', () => {
   it('maps each lead event to the one source allowed to send it', () => {
     expect(leadEventSource('kalya.booking.created')).toBe('kalya')
     expect(leadEventSource('site.lead.captured')).toBe('madfam-site')
+    expect(leadEventSource('cotiza.quote.requested')).toBe('cotiza')
   })
 
   it('returns undefined for anything else, including inherited object keys', () => {
@@ -26,9 +30,10 @@ describe('leadEventSource', () => {
 })
 
 describe('isLeadIntakeSource', () => {
-  it('accepts only the two known sources', () => {
+  it('accepts only the three known sources', () => {
     expect(isLeadIntakeSource('kalya')).toBe(true)
     expect(isLeadIntakeSource('madfam-site')).toBe(true)
+    expect(isLeadIntakeSource('cotiza')).toBe(true)
     expect(isLeadIntakeSource('nauta')).toBe(false)
     expect(isLeadIntakeSource(undefined)).toBe(false)
     expect(isLeadIntakeSource(['kalya'])).toBe(false)
@@ -137,5 +142,50 @@ describe('leadNotificationRecipients', () => {
       }),
     ).toEqual(['a@example.test'])
     expect(leadNotificationRecipients({})).toEqual([])
+  })
+})
+
+describe('readLeadQuote', () => {
+  it('keeps every field that fits its shape', () => {
+    expect(
+      readLeadQuote({ id: 'q1', number: 'Q-1', total: '100.25', currency: 'usd', item_count: 0 }),
+    ).toEqual({ id: 'q1', number: 'Q-1', total: '100.25', currency: 'USD', itemCount: 0 })
+  })
+
+  it('needs an id of at most 100 characters', () => {
+    expect(readLeadQuote(undefined)).toBeNull()
+    expect(readLeadQuote(['q1'])).toBeNull()
+    expect(readLeadQuote({ id: '   ' })).toBeNull()
+    expect(readLeadQuote({ id: 'q'.repeat(101) })).toBeNull()
+    expect(readLeadQuote({ id: 'q'.repeat(100) })?.id).toHaveLength(100)
+  })
+
+  it('drops a total that is not a plain decimal of at most 20 characters', () => {
+    for (const total of ['1,000', '-5', '1e3', '.5', '5.', ' ', 12, '1'.repeat(21)]) {
+      expect(readLeadQuote({ id: 'q', total })?.total).toBeUndefined()
+    }
+    expect(readLeadQuote({ id: 'q', total: '1'.repeat(20) })?.total).toHaveLength(20)
+    expect(readLeadQuote({ id: 'q', total: '0' })?.total).toBe('0')
+  })
+
+  it('drops a currency that is not three letters, a number over 50, a bad item count', () => {
+    const quote = readLeadQuote({
+      id: 'q',
+      number: 'n'.repeat(51),
+      currency: 'MX1',
+      item_count: 10_001,
+    })
+    expect(quote).toEqual({ id: 'q' })
+    expect(readLeadQuote({ id: 'q', item_count: -1 })).toEqual({ id: 'q' })
+    expect(readLeadQuote({ id: 'q', item_count: '3' })).toEqual({ id: 'q' })
+    expect(readLeadQuote({ id: 'q', item_count: 10_000 })?.itemCount).toBe(10_000)
+  })
+
+  it('summarizes a quote for staff', () => {
+    expect(
+      quoteSummary({ id: 'q', number: 'Q-1', total: '10', currency: 'MXN', itemCount: 1 }),
+    ).toBe('cotización Q-1 · 10 MXN · 1 partida')
+    expect(quotePrice({ id: 'q', total: '10' })).toBe('10')
+    expect(quoteSummary({ id: 'q' })).toBe('cotización q · sin precio aún')
   })
 })

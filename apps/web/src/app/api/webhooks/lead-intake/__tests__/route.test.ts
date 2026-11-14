@@ -355,6 +355,36 @@ function makeSiteEvent(overrides: Partial<Record<string, unknown>> = {}) {
   }
 }
 
+const QUOTE_EVENT_ID = '0b6f6b0e-52a5-4c0c-9a53-6f6f2c1d0003'
+
+function makeQuoteEvent(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    schema_version: '1',
+    event_id: QUOTE_EVENT_ID,
+    event_type: 'cotiza.quote.requested',
+    source: 'cotiza',
+    occurred_at: '2026-11-14T18:10:00.000Z',
+    payload: {
+      lead: {
+        name: 'Rosa Compradora',
+        email: 'Compras@Taller.example.test',
+        company: 'Taller Ejemplo',
+        message: 'Necesito el precio con envío.',
+      },
+      context: { page: '/cotizar', locale: 'es-MX', tenant: 'taller-ejemplo' },
+      attribution: { utm_source: 'directo' },
+      quote: {
+        id: 'cq_01HZXQUOTE',
+        number: 'Q-2026-11-0042',
+        total: '18450.50',
+        currency: 'mxn',
+        item_count: 3,
+      },
+    } as Payload & { quote?: unknown },
+    ...overrides,
+  }
+}
+
 function post(event: unknown, headerOverride?: string) {
   return POST(signedRequest(JSON.stringify(event), headerOverride))
 }
@@ -1196,5 +1226,162 @@ describe('POST /api/webhooks/lead-intake — tenant and page', () => {
     expect(html).toContain('Vía javascript:alert(1)//&quot;&gt;&lt;b&gt;x&lt;/b&gt;')
     expect(html).not.toContain('href="javascript')
     expect(html.match(/<a /g)).toHaveLength(1)
+  })
+})
+
+describe('POST /api/webhooks/lead-intake — quote request', () => {
+  it('accepts cotiza.quote.requested only from source cotiza', async () => {
+    expect((await post(makeQuoteEvent({ source: 'kalya' }))).status).toBe(400)
+    expect((await post(makeQuoteEvent({ source: 'madfam-site' }))).status).toBe(400)
+    expect((await post(makeBookingEvent({ source: 'cotiza' }))).status).toBe(400)
+    expect((await post(makeSiteEvent({ source: 'cotiza' }))).status).toBe(400)
+    expect(mockDb.transaction).not.toHaveBeenCalled()
+    expect((await post(makeQuoteEvent())).status).toBe(200)
+  })
+
+  it('creates the lead with source cotiza and the quote in the attribution', async () => {
+    const res = await post(makeQuoteEvent())
+    expect(res.status).toBe(200)
+    expect(committed('contacts')[0]?.email).toBe('compras@taller.example.test')
+    const lead = committed('leads')[0] as { source: string; attribution: Record<string, string> }
+    expect(lead.source).toBe('cotiza')
+    expect(lead.attribution).toEqual({
+      utm_source: 'directo',
+      landing_page: '/cotizar',
+      tenant: 'taller-ejemplo',
+      quote_id: 'cq_01HZXQUOTE',
+      quote_number: 'Q-2026-11-0042',
+      quote_total: '18450.50',
+      quote_currency: 'MXN',
+    })
+    // Its own provider value: other routes write webhook_events as 'cotiza'.
+    expect(committed('webhook_events')[0]?.provider).toBe('cotiza-lead-intake')
+    expect(JSON.stringify(store.dedupLookups[0])).toContain(
+      '"webhook_events.provider","cotiza-lead-intake"',
+    )
+  })
+
+  it('writes the quote in the note, the task and the email for a priced quote', async () => {
+    await post(makeQuoteEvent())
+    expect(String(committed('notes')[0]?.content).split('\n')).toEqual([
+      'Necesito el precio con envío.',
+      '',
+      '— vía solicitud de cotización · /cotizar',
+      '— cotización Q-2026-11-0042 · 18450.50 MXN · 3 partidas',
+      '— cuenta de origen (tenant): taller-ejemplo',
+      '— utm: directo / — / —',
+    ])
+    const task = committed('activities')[0] as { title: string; description: string }
+    expect(task.title).toBe('Dar seguimiento: cotización Q-2026-11-0042 · Rosa Compradora')
+    expect(task.description).toBe(
+      'Lead por solicitud de cotización. Solicitud de cotización Q-2026-11-0042 · 18450.50 MXN · 3 partidas.',
+    )
+    const email = sentEmail()
+    expect(email.subject).toBe('Nueva solicitud de cotización: Rosa Compradora (Taller Ejemplo)')
+    expect(email.html).toContain('Nuevo lead — solicitud de cotización')
+    expect(email.html).toContain('Q-2026-11-0042')
+    expect(email.html).toContain('18450.50 MXN')
+    expect(email.html).toMatch(/Partidas<\/td><td[^>]*>3</)
+    expect(email.tags).toContainEqual({ name: 'source', value: 'cotiza' })
+  })
+
+  it('says «sin precio aún» for an unpriced quote and falls back to the id', async () => {
+    const event = makeQuoteEvent()
+    event.payload.quote = { id: 'cq_SIN_PRECIO' }
+    event.payload.lead.message = undefined
+    const res = await post(event)
+    expect(res.status).toBe(200)
+    const lines = String(committed('notes')[0]?.content).split('\n')
+    expect(lines).toContain('— cotización cq_SIN_PRECIO · sin precio aún')
+    const task = committed('activities')[0] as { title: string; description: string }
+    expect(task.title).toBe('Dar seguimiento: cotización cq_SIN_PRECIO · Rosa Compradora')
+    expect(task.description).toContain('sin precio aún')
+    const attribution = committed('leads')[0]?.attribution as Record<string, string>
+    expect(attribution.quote_id).toBe('cq_SIN_PRECIO')
+    expect(attribution.quote_total).toBeUndefined()
+    expect(attribution.quote_currency).toBeUndefined()
+    const { html, preheader } = sentEmail()
+    expect(html).toContain('sin precio aún')
+    expect(html).not.toContain('Partidas')
+    expect(preheader).toBe('Solicitud de cotización cq_SIN_PRECIO · sin precio aún')
+  })
+
+  it('drops malformed quote fields and keeps the lead', async () => {
+    const event = makeQuoteEvent()
+    event.payload.quote = {
+      id: '  cq_OK  ',
+      number: 'N'.repeat(51),
+      total: '1,234.50',
+      currency: 'pesos',
+      item_count: 2.5,
+    }
+    const res = await post(event)
+    expect(res.status).toBe(200)
+    const attribution = committed('leads')[0]?.attribution as Record<string, string>
+    expect(attribution.quote_id).toBe('cq_OK')
+    expect(attribution.quote_number).toBeUndefined()
+    expect(attribution.quote_total).toBeUndefined()
+    expect(String(committed('notes')[0]?.content)).toContain('— cotización cq_OK · sin precio aún')
+    expect(mockSendEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it('escapes quote values in the email', async () => {
+    const event = makeQuoteEvent()
+    event.payload.quote = { id: 'cq_1', number: '<script>alert(1)</script>' }
+    const res = await post(event)
+    expect(res.status).toBe(200)
+    const { html } = sentEmail()
+    expect(html).not.toContain('<script')
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+  })
+
+  it('rejects a quote request without a usable quote.id with 422 and records nothing', async () => {
+    const cases: unknown[] = [
+      undefined,
+      {},
+      { id: '' },
+      { id: 42 },
+      { id: 'x'.repeat(101) },
+      'cq_1',
+    ]
+    for (const quote of cases) {
+      const event = makeQuoteEvent()
+      event.payload.quote = quote
+      expect((await post(event)).status).toBe(422)
+    }
+    expect(mockDb.transaction).not.toHaveBeenCalled()
+    expect(committed('webhook_events')).toHaveLength(0)
+  })
+
+  it('never takes quote keys from the attribution block', async () => {
+    const event = makeSiteEvent()
+    event.payload.attribution = { utm_source: 'buscador', quote_id: 'spoofed', quote_total: '1' }
+    const res = await post(event)
+    expect(res.status).toBe(200)
+    const attribution = committed('leads')[0]?.attribution as Record<string, string>
+    expect(attribution).toEqual({
+      utm_source: 'buscador',
+      landing_page: 'https://sitio.example.test/contacto',
+    })
+  })
+
+  it('a replay of a quote request writes and sends nothing', async () => {
+    await post(makeQuoteEvent())
+    const before = JSON.stringify(store.committed)
+    mockSendEmail.mockClear()
+    const replay = await post(makeQuoteEvent())
+    expect((await replay.json()) as Row).toEqual({ received: true, deduplicated: true })
+    expect(JSON.stringify(store.committed)).toBe(before)
+    expect(mockSendEmail).not.toHaveBeenCalled()
+  })
+
+  it('is not deduplicated by a webhook_events row another route wrote as cotiza', async () => {
+    store.committed.webhook_events.push({
+      provider: 'cotiza',
+      payload: { event_id: QUOTE_EVENT_ID },
+    })
+    const res = await post(makeQuoteEvent())
+    expect((await res.json()) as Row).toEqual({ received: true })
+    expect(committed('leads')).toHaveLength(1)
   })
 })

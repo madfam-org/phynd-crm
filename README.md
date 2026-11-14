@@ -476,27 +476,30 @@ Avala producers must send the shared event envelope documented in Avala's `docs/
 
 ## Lead-intake webhook
 
-PhyndCRM receives new leads from Kalya bookings and from contact forms on the public site at `POST /api/webhooks/lead-intake`.
+PhyndCRM receives new leads from Kalya bookings, from contact forms on the public site and from quote requests on the quoting platform (Cotiza) at `POST /api/webhooks/lead-intake`.
 
 Request: `content-type: application/json` and `x-madfam-signature: t=<unix seconds>,v1=<hex>`, where `hex = HMAC-SHA256(PHYND_CRM_LEAD_INTAKE_SECRET, t + "." + rawBody)`: the same scheme as the Avala and nauta receivers, with a key used by this route only (there is no fallback to `PHYND_CRM_EVENTS_SECRET`). The key is used exactly as configured (no trimming). Bodies are limited to 64 KB.
 
 ```json
 {
   "schema_version": "1",
-  "event_id": "<uuid, stable per booking or per site lead>",
-  "event_type": "kalya.booking.created | site.lead.captured",
-  "source": "kalya | madfam-site",
+  "event_id": "<uuid, stable per booking, per site lead or per quote>",
+  "event_type": "kalya.booking.created | site.lead.captured | cotiza.quote.requested",
+  "source": "kalya | madfam-site | cotiza",
   "occurred_at": "<ISO-8601>",
   "payload": {
     "lead": { "name": "", "email": "", "phone": "", "company": "", "message": "" },
     "context": { "page": "", "locale": "", "tenant": "", "plan_interest": "" },
     "attribution": { "utm_source": "", "utm_medium": "", "utm_campaign": "", "utm_content": "", "utm_term": "", "referrer": "" },
-    "booking": { "id": "", "event_type_name": "", "starts_at": "<ISO-8601>", "timezone": "", "host_name": "" }
+    "booking": { "id": "", "event_type_name": "", "starts_at": "<ISO-8601>", "timezone": "", "host_name": "" },
+    "quote": { "id": "", "number": "", "total": "<decimal string, absent when unpriced>", "currency": "MXN", "item_count": 0 }
   }
 }
 ```
 
-Only `lead.name` and `lead.email` are expected on every lead; senders omit keys that have no value. `kalya.booking.created` comes from source `kalya` and `site.lead.captured` from source `madfam-site`.
+Only `lead.name` and `lead.email` are expected on every lead; senders omit keys that have no value. `kalya.booking.created` comes from source `kalya`, `site.lead.captured` from source `madfam-site` and `cotiza.quote.requested` from source `cotiza`; any other pairing is a 400.
+
+`quote` is read only on `cotiza.quote.requested`, where `quote.id` (a string of at most 100 characters) is required (422 otherwise). The other quote fields are dropped on their own when they do not fit: `number` at most 50 characters, `total` a plain decimal (`^\d+(\.\d+)?$`, at most 20 characters), `currency` three letters (stored upper-case), `item_count` an integer from 0 to 10000. A dropped field never loses the lead.
 
 | Response | Meaning |
 | --- | --- |
@@ -505,17 +508,17 @@ Only `lead.name` and `lead.email` are expected on every lead; senders omit keys 
 | `400` | Not JSON, missing `event_id`/`event_type`, unknown `source`, or a source that does not match the event type |
 | `401` | Missing, stale or wrong signature |
 | `413` | Body larger than 64 KB (checked before the signature) |
-| `422` | `schema_version` is not `"1"`, or `lead.email` is not an address of at most 255 characters |
+| `422` | `schema_version` is not `"1"`, `lead.email` is not an address of at most 255 characters, or a `cotiza.quote.requested` has no usable `quote.id` |
 | `429` | Rate limit (retry after 60 s) |
 | `500` | Storing failed; nothing was kept, so a retry processes the event once |
 | `503` | `PHYND_CRM_LEAD_INTAKE_SECRET` is not configured |
 
 For a lead event the receiver:
 
-- stores everything below and the `webhook_events` record in one transaction, serialized per `event_id` and per email address, so a retried or concurrent delivery creates nothing twice;
+- stores everything below and the `webhook_events` record (provider = the source, except `cotiza-lead-intake` for quote requests, so other routes' `cotiza` rows never count as a replay) in one transaction, serialized per `event_id` and per email address, so a retried or concurrent delivery creates nothing twice;
 - reuses the contact with that email regardless of letter case, or creates it (in lower case); an existing contact is never modified. `name` and `company` are cut to 255 characters; a `phone` longer than 50 characters is not put on the contact but is quoted (up to 200 characters) in the note;
-- creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, `tenant` from `context.tenant`, and the booking for a Kalya event; known keys only, length-capped);
-- writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent);
+- creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, `tenant` from `context.tenant`, the booking for a Kalya event, and `quote_id`/`quote_number`/`quote_total`/`quote_currency` for a quote request; known keys only, length-capped). Leads have no amount column, so the quote total is kept in the attribution only;
+- writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent, and for a quote request its number or id, total with currency or «sin precio aún», and item count);
 - opens an unowned follow-up task on the lead, due the next business day (`activities.update` with `ownerId` assigns it);
 - after the transaction commits, emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
 

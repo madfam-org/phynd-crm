@@ -144,14 +144,21 @@ interface OrphanEvent {
   eventId: string
   eventType: string
   januaUserId: string | null
+  /** Only checked for presence; never logged. */
+  customerEmail: string | null
   paymentId: string | null
   subscriptionId: string | null
 }
 
 /**
- * Log an event that ends without a contact. A paid one is an error with a
- * stable marker, because a purchase now has no customer record. The line
- * carries identifiers only: never the buyer's email or name.
+ * Log an event that ends without a contact. The line carries identifiers
+ * only: never the buyer's email or name.
+ *
+ * - A product `subscription.*` envelope never carries an email (it names the
+ *   organization and the billing customer id only), so an unknown buyer there
+ *   is expected: warn, with its own stable marker.
+ * - Any other paid event should have carried a usable email: error, with a
+ *   stable marker, because a purchase now has no customer record.
  */
 export function logOrphanEvent(logger: OrphanLogger, event: OrphanEvent, paid: boolean): void {
   const ids = {
@@ -163,8 +170,16 @@ export function logOrphanEvent(logger: OrphanLogger, event: OrphanEvent, paid: b
     logger.warn(ids, 'dhanam event received but no contact match — orphan logged')
     return
   }
+  const paidIds = { ...ids, payment_id: event.paymentId, subscription_id: event.subscriptionId }
+  if (event.eventType.startsWith('subscription.') && !event.customerEmail) {
+    logger.warn(
+      paidIds,
+      'DHANAM_SUBSCRIPTION_EVENT_WITHOUT_CONTACT: subscription event carries no email and matches no contact — orphan logged',
+    )
+    return
+  }
   logger.error(
-    { ...ids, payment_id: event.paymentId, subscription_id: event.subscriptionId },
+    paidIds,
     'DHANAM_PAID_EVENT_WITHOUT_CONTACT: paid event has no usable email, so the purchase has no customer contact — orphan logged',
   )
 }

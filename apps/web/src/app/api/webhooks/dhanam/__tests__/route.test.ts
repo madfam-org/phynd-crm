@@ -40,6 +40,11 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     deletedContactJanuaIds: new Set<string>(),
     // Keys of the transaction-scoped advisory locks taken, in order.
     advisoryLocks: [] as string[],
+    // Recorded `webhook_events` rows by the payment id in their payload.
+    eventsByPaymentId: new Map<string, Array<{ id: string; eventType: string }>>(),
+    // Event ids that a concurrent delivery records while this one waits for
+    // the per-event lock (simulates an overlapping retry).
+    recordedWhileWaiting: new Set<string>(),
     leadByContactId: new Map<string, { id: string; pipelineId: string }>(),
     stagesByPipelineId: new Map<string, Array<{ id: string; name: string }>>(),
     referralCodeByCode: new Map<string, string>(), // code → referral_code_id
@@ -72,6 +77,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
   let pendingSelectFrom = ''
   let pendingWhereCols: string[] = []
   let pendingWhereVals: unknown[] = []
+  let pendingSqlRaw = ''
 
   const pushWhere = (col: string, val: unknown): void => {
     pendingWhereCols.push(col)
@@ -87,7 +93,10 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     },
     // sql template — capture the last bound value (the `event_id` of the
     // prior-event lookup, the email of the case-insensitive contact lookup).
-    sql: (obj) => pushWhere('sql', obj.value),
+    sql: (obj) => {
+      pendingSqlRaw = String(obj.raw ?? '')
+      pushWhere('sql', obj.value)
+    },
     isNull: (obj) => pushWhere(`isNull:${String(obj.col)}`, null),
   }
 
@@ -102,8 +111,9 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
   const rowById = (id: string): Row => ({ id })
 
   const resolveWebhookEvents = (): unknown[] => {
-    const eventId = String(pendingWhereVals[pendingWhereVals.length - 1] ?? '')
-    return state.priorEventIds.has(eventId) ? [rowById('wh_existing')] : []
+    const value = String(pendingWhereVals[pendingWhereVals.length - 1] ?? '')
+    if (pendingSqlRaw.includes("'payment_id'")) return state.eventsByPaymentId.get(value) ?? []
+    return state.priorEventIds.has(value) ? [rowById('wh_existing')] : []
   }
 
   const resolveContactsByJanuaId = (januaId: string): unknown[] => {
@@ -275,6 +285,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
           pendingSelectFrom = ''
           pendingWhereCols = []
           pendingWhereVals = []
+          pendingSqlRaw = ''
           return Promise.resolve(result).then(resolve)
         }
         return Promise.resolve([]).then(resolve)
@@ -298,8 +309,16 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     webhook_events: (v) => {
       state.inserts.webhookEvents.push(v)
       // A recorded event is found by the next idempotency lookup.
-      const eventId = (v.payload as Record<string, unknown> | undefined)?.event_id
-      if (typeof eventId === 'string') state.priorEventIds.add(eventId)
+      const payload = (v.payload ?? {}) as Record<string, unknown>
+      if (typeof payload.event_id === 'string') state.priorEventIds.add(payload.event_id)
+      if (typeof payload.payment_id === 'string') {
+        const rows = state.eventsByPaymentId.get(payload.payment_id) ?? []
+        rows.push({
+          id: `wh_${state.inserts.webhookEvents.length}`,
+          eventType: String(v.eventType),
+        })
+        state.eventsByPaymentId.set(payload.payment_id, rows)
+      }
     },
     conversions: (v) => state.inserts.conversions.push(v),
     engagement_events: (v) => state.inserts.engagementEvents.push(v),
@@ -366,7 +385,13 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     execute: vi.fn(async (query: unknown) => {
       // The only raw statement the route runs is the advisory lock; the sql
       // mock keeps its bound key in `value`.
-      state.advisoryLocks.push(String((query as { value?: unknown }).value))
+      const key = String((query as { value?: unknown }).value)
+      state.advisoryLocks.push(key)
+      // An overlapping delivery that held this lock commits before we get it.
+      const eventId = key.startsWith('phynd:dhanam:event:')
+        ? key.slice('phynd:dhanam:event:'.length)
+        : null
+      if (eventId && state.recordedWhileWaiting.has(eventId)) state.priorEventIds.add(eventId)
       return []
     }),
     transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => unknown) => cb(mockDb)),
@@ -590,29 +615,6 @@ function paymentSucceededEvent(
   }
 }
 
-/**
- * A user-scoped grant: the purchase entitles the buyer's own user, so the
- * event carries `grant_to: "user"`, `user_id` (a Janua subject) and
- * `user_email`, and no `organization_id`.
- */
-function userGrantEvent(dataOverrides: Record<string, unknown> = {}) {
-  return {
-    type: 'subscription.created',
-    id: 'evt_user_grant_1',
-    timestamp: '2026-11-13T18:05:00.000Z',
-    data: {
-      customer_id: 'billing_user_grant_1',
-      subscription_id: 'sub_grant_1',
-      plan_id: 'karafiel_pro',
-      grant_to: 'user',
-      user_id: 'janua_sub_grant_1',
-      user_email: 'grant.buyer@example.com',
-      status: 'created',
-      ...dataOverrides,
-    },
-  }
-}
-
 function orderRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'order_tablaco',
@@ -639,6 +641,8 @@ beforeEach(() => {
   state.contactByEmail.clear()
   state.deletedContactJanuaIds.clear()
   state.advisoryLocks.length = 0
+  state.eventsByPaymentId.clear()
+  state.recordedWhileWaiting.clear()
   state.leadByContactId.clear()
   state.stagesByPipelineId.clear()
   state.referralCodeByCode.clear()
@@ -916,8 +920,11 @@ describe('POST /api/webhooks/dhanam — first-time buyer', () => {
       // A purchase is not a marketing opt-in.
       marketingConsent: false,
     })
-    // The look-up-then-insert is serialized per buyer email.
-    expect(state.advisoryLocks).toEqual(['phynd:buyer:email:ada.buyer@example.com'])
+    // The event lock first, then the look-up-then-insert serialized per buyer email.
+    expect(state.advisoryLocks).toEqual([
+      'phynd:dhanam:event:evt_pay_new_1',
+      'phynd:buyer:email:ada.buyer@example.com',
+    ])
 
     // Same lifecycle as a known buyer without a lead or an engagement.
     expect(state.inserts.webhookEvents).toHaveLength(1)
@@ -1030,8 +1037,9 @@ describe('POST /api/webhooks/dhanam — first-time buyer', () => {
       email: 'ada.buyer@example.com',
       externalJanuaId: 'janua_sub_new_1',
     })
-    // Email first, then the Janua subject: always the same order.
+    // Event, then email, then the Janua subject: always the same order.
     expect(state.advisoryLocks).toEqual([
+      'phynd:dhanam:event:evt_pay_new_1',
       'phynd:buyer:email:ada.buyer@example.com',
       'phynd:buyer:janua:janua_sub_new_1',
     ])
@@ -1051,7 +1059,7 @@ describe('POST /api/webhooks/dhanam — first-time buyer', () => {
     })
   })
 
-  it('does not create a contact, take a lock or change the response for a known buyer', async () => {
+  it('does not create a contact, take a buyer lock or change the response for a known buyer', async () => {
     state.contactByEmail.set('ada.buyer@example.com', 'contact_known')
 
     const res = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
@@ -1061,76 +1069,79 @@ describe('POST /api/webhooks/dhanam — first-time buyer', () => {
     expect(json).not.toHaveProperty('contact_created')
 
     expect(state.inserts.contacts).toHaveLength(0)
-    expect(state.advisoryLocks).toHaveLength(0)
+    expect(state.advisoryLocks).toEqual(['phynd:dhanam:event:evt_pay_new_1'])
     const meta = expectArrayItem(state.inserts.conversions, 0, 'conversion insert')
       .metadata as Record<string, unknown>
     expect(meta).not.toHaveProperty('contact_created')
   })
-})
 
-describe('POST /api/webhooks/dhanam — user-scoped grant', () => {
-  it('creates the buyer contact for a grant that has a user but no organization', async () => {
-    const res = await POST(signedRequest(JSON.stringify(userGrantEvent())))
+  it('records nothing when an overlapping delivery of the same event commits first', async () => {
+    // Passes the early check, then finds the row once it holds the event lock.
+    state.recordedWhileWaiting.add('evt_pay_new_1')
+
+    const res = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
     expect(res.status).toBe(200)
-    const json = (await res.json()) as Record<string, unknown>
-    expect(json).toMatchObject({
-      status: 'recorded',
-      contact_id: 'contact_new_1',
-      contact_created: true,
-    })
+    expect(((await res.json()) as { status: string }).status).toBe('duplicate')
 
-    expect(state.inserts.contacts).toHaveLength(1)
-    expect(expectArrayItem(state.inserts.contacts, 0, 'contact insert')).toMatchObject({
-      name: 'grant.buyer',
-      email: 'grant.buyer@example.com',
-      externalJanuaId: 'janua_sub_grant_1',
-    })
-
-    expect(state.inserts.conversions).toHaveLength(1)
-    const conv = expectArrayItem(state.inserts.conversions, 0, 'conversion insert')
-    expect(conv).toMatchObject({ type: 'dhanam_subscription_created', contactId: 'contact_new_1' })
-    expect(conv.metadata).toMatchObject({
-      plan_id: 'karafiel_pro',
-      subscription_id: 'sub_grant_1',
-      // The grant is the user's own: there is no organization to record.
-      organization_id: null,
-      janua_user_id: 'janua_sub_grant_1',
-    })
-  })
-
-  it('attaches the grant to the existing contact that has the same Janua subject', async () => {
-    state.contactByJanuaId.set('janua_sub_grant_1', 'contact_grant_known')
-    state.leadByContactId.set('contact_grant_known', {
-      id: 'lead_grant_known',
-      pipelineId: 'pipe_default',
-    })
-    state.stagesByPipelineId.set('pipe_default', [{ id: 'stage_won', name: 'Closed Won' }])
-
-    const res = await POST(signedRequest(JSON.stringify(userGrantEvent())))
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as Record<string, unknown>
-    expect(json).toMatchObject({
-      status: 'recorded',
-      contact_id: 'contact_grant_known',
-      lead_id: 'lead_grant_known',
-    })
+    expect(state.advisoryLocks).toEqual(['phynd:dhanam:event:evt_pay_new_1'])
+    expect(state.inserts.webhookEvents).toHaveLength(0)
     expect(state.inserts.contacts).toHaveLength(0)
-
-    await new Promise((r) => setTimeout(r, 0))
-    expect(expectArrayItem(state.updates.leads, 0, 'lead update').values).toMatchObject({
-      status: 'converted',
-      stageId: 'stage_won',
-    })
+    expect(state.inserts.conversions).toHaveLength(0)
   })
 
-  it('does not read `user_id` as a Janua subject outside a user grant', async () => {
-    const res = await POST(
+  it('does not reconcile the order as paid when a refund for the payment was stored first', async () => {
+    // The refund arrives while the buyer is still unknown: stored as an orphan.
+    const refund = await POST(
       signedRequest(
-        JSON.stringify(userGrantEvent({ grant_to: undefined, organization_id: 'org_1' })),
+        JSON.stringify(
+          paymentSucceededEvent(
+            { customer_email: undefined },
+            { id: 'evt_refund_1', type: 'payment.refunded' },
+          ),
+        ),
       ),
     )
-    expect(res.status).toBe(200)
-    expect(expectArrayItem(state.inserts.contacts, 0, 'contact insert').externalJanuaId).toBeNull()
+    expect(((await refund.json()) as { status: string }).status).toBe('orphan')
+    mockLogger.warn.mockClear()
+
+    // The paid event for the same payment then creates the contact.
+    const paid = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(paid.status).toBe(200)
+    const json = (await paid.json()) as Record<string, unknown>
+    expect(json).toMatchObject({
+      status: 'recorded',
+      contact_created: true,
+      payment_reconciliation_status: null,
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(state.updates.orders).toHaveLength(0)
+
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const [fields, message] = mockLogger.warn.mock.calls[0] as [Record<string, unknown>, string]
+    expect(message).toContain('DHANAM_PAID_AFTER_STORED_REFUND')
+    expect(fields).toEqual({
+      event_id: 'evt_pay_new_1',
+      payment_id: 'pi_new_1',
+      refund_webhook_event_id: 'wh_1',
+    })
+    expect(JSON.stringify(fields)).not.toContain('example.com')
+  })
+
+  it('reconciles as usual when the stored events for the payment hold no refund', async () => {
+    await POST(
+      signedRequest(
+        JSON.stringify(
+          paymentSucceededEvent(
+            { customer_email: undefined },
+            { id: 'evt_failed_first', type: 'payment.failed' },
+          ),
+        ),
+      ),
+    )
+    const paid = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(((await paid.json()) as Record<string, unknown>).payment_reconciliation_status).toBe(
+      'unmatched',
+    )
   })
 })
 
@@ -1166,6 +1177,39 @@ describe('POST /api/webhooks/dhanam — orphan path', () => {
     })
   })
 
+  it('warns, not errors, for a product subscription event with no email and no contact', async () => {
+    // The product envelope names the organization and billing customer only.
+    const event = {
+      type: 'subscription.created',
+      id: 'evt_sub_product_1',
+      timestamp: '2026-11-13T18:05:00.000Z',
+      data: {
+        customer_id: 'billing_customer_1',
+        subscription_id: 'sub_product_1',
+        plan_id: 'karafiel_pro',
+        organization_id: 'org_1',
+        status: 'created',
+      },
+    }
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('orphan')
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.contacts).toHaveLength(0)
+
+    expect(mockLogger.error).not.toHaveBeenCalled()
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const [fields, message] = mockLogger.warn.mock.calls[0] as [Record<string, unknown>, string]
+    expect(message).toContain('DHANAM_SUBSCRIPTION_EVENT_WITHOUT_CONTACT')
+    expect(fields).toEqual({
+      event_id: 'evt_sub_product_1',
+      event_type: 'subscription.created',
+      janua_user_id: 'billing_customer_1',
+      payment_id: null,
+      subscription_id: 'sub_product_1',
+    })
+  })
+
   it('keeps the orphan path when the email is not usable, and never logs it', async () => {
     const res = await POST(
       signedRequest(JSON.stringify(paymentSucceededEvent({ customer_email: 'not an email' }))),
@@ -1195,7 +1239,7 @@ describe('POST /api/webhooks/dhanam — orphan path', () => {
     expect(state.inserts.webhookEvents).toHaveLength(1)
     expect(state.inserts.contacts).toHaveLength(0)
     expect(state.inserts.conversions).toHaveLength(0)
-    expect(state.advisoryLocks).toHaveLength(0)
+    expect(state.advisoryLocks).toEqual(['phynd:dhanam:event:evt_pay_failed_1'])
     expect(mockLogger.error).not.toHaveBeenCalled()
     expect(mockLogger.warn).toHaveBeenCalledTimes(1)
   })

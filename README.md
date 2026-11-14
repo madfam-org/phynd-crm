@@ -399,7 +399,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation API Keys    | `PRAVARA_API_KEY`, `SELVA_API_KEY`, `FEDERATION_API_TOKEN` |
 | Machine auth (Janua)   | `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — see [docs/MACHINE_AUTH.md](docs/MACHINE_AUTH.md) |
 | Production dispatch    | `PRAVARA_DISPATCH_URL`, `SELVA_DISPATCH_URL`, `PRAVARA_DISPATCH_SECRET`, `SELVA_DISPATCH_SECRET`, `PRODUCTION_DISPATCH_SCAN_LIMIT`, `PRODUCTION_DISPATCH_TIMEOUT_MS` |
-| Webhook secrets        | `JANUA_WEBHOOK_SECRET`, `JANUA_TELEMETRY_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, `CEQ_WEBHOOK_SECRET`, `COFORMA_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` |
+| Webhook secrets        | `JANUA_WEBHOOK_SECRET`, `JANUA_TELEMETRY_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, `CEQ_WEBHOOK_SECRET`, `COFORMA_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_CRM_LEAD_INTAKE_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` |
 | Payments / engagement  | `PHYNDCRM_OUTBOUND_SECRET`, `COTIZA_WEBHOOK_TIMEOUT`, `KARAFIEL_API_URL`, `KARAFIEL_API_KEY`, `KARAFIEL_WEBHOOK_SECRET` |
 | Email / campaigns      | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_ALLOWLIST_DOMAINS`, `UNSUBSCRIBE_SECRET`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `INTERNAL_TEZCA_KEY`, `TEZCA_API_URL`, `TEZCA_PUBLIC_URL`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_REFRESH_TOKEN`, `REDDIT_USERNAME`, `REDDIT_PASSWORD`, `REDDIT_USER_AGENT`, `REDDIT_TARGET_SUBREDDITS` |
 | Observability          | `LOG_LEVEL`, `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `WORKER_HEALTH_PORT` |
@@ -478,7 +478,7 @@ Avala producers must send the shared event envelope documented in Avala's `docs/
 
 PhyndCRM receives new leads from Kalya bookings and from contact forms on the public site at `POST /api/webhooks/lead-intake`.
 
-Request: `content-type: application/json` and `x-madfam-signature: t=<unix seconds>,v1=<hex>`, where `hex = HMAC-SHA256(PHYND_CRM_EVENTS_SECRET, t + "." + rawBody)` (the same scheme and secret as the Avala and nauta receivers).
+Request: `content-type: application/json` and `x-madfam-signature: t=<unix seconds>,v1=<hex>`, where `hex = HMAC-SHA256(PHYND_CRM_LEAD_INTAKE_SECRET, t + "." + rawBody)`: the same scheme as the Avala and nauta receivers, with a key used by this route only (there is no fallback to `PHYND_CRM_EVENTS_SECRET`). The key is used exactly as configured (no trimming). Bodies are limited to 64 KB.
 
 ```json
 {
@@ -501,19 +501,23 @@ Only `lead.name` and `lead.email` are expected on every lead; senders omit keys 
 | Response | Meaning |
 | --- | --- |
 | `200 { "received": true }` | Stored. Also returned for a lead event without an email and for an event type the receiver does not know yet (both are recorded, nothing is created) |
-| `200 { "received": true, "deduplicated": true }` | The `event_id` was already processed for that source; nothing is created again |
+| `200 { "received": true, "deduplicated": true }` | The `event_id` was already processed for that source; nothing is created or sent again. Safe to retry with the same `event_id` and a fresh signature |
 | `400` | Not JSON, missing `event_id`/`event_type`, unknown `source`, or a source that does not match the event type |
 | `401` | Missing, stale or wrong signature |
+| `413` | Body larger than 64 KB (checked before the signature) |
+| `422` | `schema_version` is not `"1"`, or `lead.email` is not an address of at most 255 characters |
 | `429` | Rate limit (retry after 60 s) |
-| `503` | `PHYND_CRM_EVENTS_SECRET` is not configured |
+| `500` | Storing failed; nothing was kept, so a retry processes the event once |
+| `503` | `PHYND_CRM_LEAD_INTAKE_SECRET` is not configured |
 
 For a lead event the receiver:
 
-- reuses the contact with that email, or creates it; an existing contact is never modified;
-- creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, and the booking for a Kalya event; known keys only, length-capped);
-- writes a note on the contact with the prospect's message and where it came from;
-- opens a follow-up task on the lead, due the next business day;
-- emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
+- stores everything below and the `webhook_events` record in one transaction, serialized per `event_id` and per email address, so a retried or concurrent delivery creates nothing twice;
+- reuses the contact with that email regardless of letter case, or creates it (in lower case); an existing contact is never modified. `name` and `company` are cut to 255 characters; a `phone` longer than 50 characters is not put on the contact but is quoted (up to 200 characters) in the note;
+- creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, `tenant` from `context.tenant`, and the booking for a Kalya event; known keys only, length-capped);
+- writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent);
+- opens an unowned follow-up task on the lead, due the next business day (`activities.update` with `ownerId` assigns it);
+- after the transaction commits, emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
 
 ## Production domain truth
 

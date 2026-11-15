@@ -2,6 +2,7 @@ import { contacts, leads, opportunities } from '@phynd/db/schema'
 import { and, ilike, isNull, or } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { maskPersonName, shouldMaskPiiForAgent } from '../pii/mask'
+import { containsPattern } from './like-pattern'
 
 export interface SearchResult {
   id: string
@@ -15,7 +16,8 @@ export class SearchService {
 
   async search(query: string, options?: { limit?: number }): Promise<SearchResult[]> {
     const limit = options?.limit ?? 20
-    const pattern = `%${query}%`
+    // The search text is matched literally: `%` and `_` are not wildcards.
+    const pattern = containsPattern(query)
 
     const [contactResults, leadResults, oppResults] = await Promise.all([
       this.ctx.db

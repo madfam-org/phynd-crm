@@ -162,5 +162,19 @@ describe('SearchService', () => {
       )
       expect(params).toEqual(['%acme%', '%acme%', '%acme%'])
     })
+
+    it.each([
+      ['a percent sign', '100%', '%100\\%%'],
+      ['an underscore', 'a_b', '%a\\_b%'],
+      ['a backslash', 'a\\b', '%a\\\\b%'],
+    ])('matches %s in the search text literally, in every query', async (_name, text, pattern) => {
+      mockDb._qb._result = []
+
+      await service.search(text)
+
+      expect(renderedWhere(mockDb, contacts).params).toEqual([pattern, pattern, pattern])
+      expect(renderedWhere(mockDb, leads).params).toEqual([pattern])
+      expect(renderedWhere(mockDb, opportunities).params).toEqual([pattern])
+    })
   })
 })

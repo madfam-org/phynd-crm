@@ -9,6 +9,7 @@
     "./convergence/convergence-feed": "./src/convergence/convergence-feed.ts",
     "./errors": "./src/errors.ts",
     "./identity": "./src/identity/index.ts",
+    "./leads/lead-attribution": "./src/leads/lead-attribution.ts",
     "./email": "./src/email/email.service.ts",
     "./email/preheader": "./src/email/preheader.ts",
     "./email/unsubscribe-token": "./src/email/unsubscribe-token.ts",

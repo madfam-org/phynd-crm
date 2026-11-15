@@ -49,6 +49,8 @@ const envSchemaBase = z.object({
   COFORMA_WEBHOOK_SECRET: z.string().min(16).optional(),
   PHYND_CRM_EVENTS_SECRET: z.string().min(16).optional(),
   PHYND_ENGAGEMENT_EVENTS_SECRET: z.string().min(16).optional(),
+  // Lead intake (/api/webhooks/lead-intake) only; never the shared events key
+  PHYND_CRM_LEAD_INTAKE_SECRET: z.string().min(16).optional(),
   // Cross-product consent capture + suppression API (dhanam/karafiel/tezca)
   PHYND_CONSENT_EVENTS_SECRET: z.string().min(16).optional(),
   // Resend event webhook (svix whsec_… signing secret) — open/click tracking

@@ -1,6 +1,6 @@
 import { contacts } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt, isNull } from 'drizzle-orm'
+import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 export class ContactsService {
@@ -56,6 +56,20 @@ export class ContactsService {
       .select()
       .from(contacts)
       .where(and(eq(contacts.email, email), isNull(contacts.deletedAt)))
+    return contact ?? null
+  }
+
+  /**
+   * The oldest live contact whose email matches regardless of letter case.
+   * Addresses typed in by hand or sent by other systems may carry capitals.
+   */
+  async getByEmailIgnoringCase(email: string) {
+    const [contact] = await this.ctx.db
+      .select()
+      .from(contacts)
+      .where(and(sql`lower(${contacts.email}) = lower(${email})`, isNull(contacts.deletedAt)))
+      .orderBy(asc(contacts.createdAt))
+      .limit(1)
     return contact ?? null
   }
 

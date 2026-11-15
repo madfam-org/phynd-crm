@@ -25,7 +25,7 @@ vi.mock('@phynd/db/schema', () => {
   }
   return {
     activities: table('activities', ['entityType', 'entityId', 'createdAt']),
-    contacts: table('contacts', ['id', 'email', 'deletedAt']),
+    contacts: table('contacts', ['id', 'email', 'deletedAt', 'createdAt']),
     conversions: table('conversions', ['id', 'type']),
     engagementArtifacts: table('engagement_artifacts', ['engagementId', 'createdAt']),
     engagementEvents: table('engagement_events', ['engagementId', 'dedupKey', 'createdAt']),
@@ -53,11 +53,16 @@ vi.mock('@phynd/db/schema', () => {
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
+  asc: vi.fn((col: unknown) => ({ _tag: 'asc', col })),
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
-  sql: vi.fn(() => ({ _tag: 'sql' })),
+  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    _tag: 'sql',
+    text: strings.join('?'),
+    values,
+  })),
 }))
 
 import type { ServiceContext } from '../context'
@@ -102,6 +107,9 @@ function captureEq(cond: unknown, into: Map<string, unknown>) {
   const obj = cond as Record<string, unknown>
   if (obj._tag === 'eq' && typeof obj.col === 'string') {
     into.set(obj.col, obj.val)
+  } else if (obj._tag === 'sql' && obj.text === 'lower(?) = ?' && Array.isArray(obj.values)) {
+    // lower(<column>) = <value>: kept under `lower(<column>)`.
+    into.set(`lower(${String(obj.values[0])})`, obj.values[1])
   } else if (obj._tag === 'and' && Array.isArray(obj.args)) {
     for (const inner of obj.args) captureEq(inner, into)
   }
@@ -127,8 +135,13 @@ function selectContacts(state: HarnessState, where: Map<string, unknown>): Row[]
     const row = state.contactsById.get(String(where.get('contacts.id')))
     return row && !row.deletedAt ? [{ id: row.id }] : []
   }
-  const email = where.get('contacts.email')
-  const match = [...state.contactsById.values()].find((c) => c.email === email && !c.deletedAt)
+  // Same semantics as the query: lower(email) = <lower-case value>, live
+  // contacts only, oldest first. An exact-match query would find nothing.
+  const lowered = where.get('lower(contacts.email)')
+  if (typeof lowered !== 'string') return []
+  const match = [...state.contactsById.values()]
+    .filter((c) => !c.deletedAt && String(c.email).toLowerCase() === lowered)
+    .sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')))[0]
   return match ? [{ id: match.id }] : []
 }
 
@@ -486,6 +499,49 @@ describe('CotizaQuoteLifecycleService', () => {
     // quote_viewed still materializes the quote mapping on first sight.
     expect(state.inserts.quotes).toHaveLength(1)
     expect(state.quotesById.get(String(state.inserts.quotes?.[0]?.id))?.status).toBe('draft')
+  })
+
+  it('finds a contact stored with capitals by a lower-case event address', async () => {
+    seedContact(state, { email: 'Ana.Perez@Example.com' })
+
+    const service = new CotizaQuoteLifecycleService(createCtx(state))
+    const result = await service.processWebhookPayload(
+      payload('quote_viewed', {}, { contact_email: 'ana.perez@example.com' }),
+    )
+
+    expect(result.outcome).toBe('recorded')
+    if (result.outcome === 'skipped') throw new Error('unreachable')
+    expect(result.contactId).toBe('contact_1')
+  })
+
+  it('picks the oldest live contact when several share an address in any case', async () => {
+    seedContact(state, { id: 'contact_new', email: 'ana@example.com', createdAt: '2026-11-02' })
+    seedContact(state, {
+      id: 'contact_gone',
+      email: 'ANA@example.com',
+      createdAt: '2026-10-01',
+      deletedAt: '2026-10-05',
+    })
+    seedContact(state, { id: 'contact_old', email: 'Ana@Example.com', createdAt: '2026-10-15' })
+
+    const service = new CotizaQuoteLifecycleService(createCtx(state))
+    const result = await service.processWebhookPayload(
+      payload('quote_viewed', {}, { contact_email: 'ANA@EXAMPLE.COM' }),
+    )
+
+    if (result.outcome === 'skipped') throw new Error('expected a resolved contact')
+    expect(result.contactId).toBe('contact_old')
+  })
+
+  it('does not find a contact for an unrelated address', async () => {
+    seedContact(state, { email: 'Ana.Perez@Example.com' })
+
+    const service = new CotizaQuoteLifecycleService(createCtx(state))
+    const result = await service.processWebhookPayload(
+      payload('quote_sent', {}, { contact_email: 'ana.perez@example.org' }),
+    )
+
+    expect(result).toEqual({ outcome: 'skipped', reason: 'unresolved_contact' })
   })
 
   it('skips events for unknown contacts without writing anything', async () => {

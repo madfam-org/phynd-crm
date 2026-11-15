@@ -1,5 +1,5 @@
 import { contacts, engagements, externalReferences, quotes } from '@phynd/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { EngagementsService } from '../engagements/engagements.service'
 import { ConflictError } from '../errors'
@@ -387,12 +387,18 @@ async function findContactIdByCotizaCustomer(
   return confirmContactId(db, ref.entityId)
 }
 
+/**
+ * `email` is already lower case. Stored addresses may carry capitals (typed by
+ * hand, or reused by the lead-intake webhook), so compare in lower case; the
+ * oldest live match is the contact the lead-intake webhook reuses too.
+ */
 async function findContactIdByEmail(db: Db, email: string | null): Promise<string | null> {
   if (!email) return null
   const [row] = await db
     .select({ id: contacts.id })
     .from(contacts)
-    .where(and(eq(contacts.email, email), isNull(contacts.deletedAt)))
+    .where(and(sql`lower(${contacts.email}) = ${email}`, isNull(contacts.deletedAt)))
+    .orderBy(asc(contacts.createdAt))
     .limit(1)
   return row?.id ?? null
 }

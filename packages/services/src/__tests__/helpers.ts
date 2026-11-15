@@ -201,6 +201,7 @@ export function makeContact(overrides: Record<string, unknown> = {}) {
 
 export function makeLead(overrides: Record<string, unknown> = {}) {
   return {
+    attribution: null,
     contactId: null,
     createdAt: new Date('2025-01-15T10:00:00Z'),
     deletedAt: null,

@@ -20,6 +20,12 @@
  * as SQL's NULL). Anything else throws, so an unsupported query can never pass
  * silently. Rows are keyed by column name (`deleted_at`); instants are ISO
  * strings.
+ *
+ * Writes: only a single-row `insert into "<table>" (<columns>) values (<$n or
+ * default>)` without `returning` (the MCP's own audit record). The row lands
+ * in `inserts` (a column left to its database default is absent); a table
+ * listed in `failInsertsInto` refuses the statement, as a database that is
+ * down or a missing table would.
  */
 import { drizzle } from 'drizzle-orm/pg-proxy'
 
@@ -221,12 +227,53 @@ function run(tables: FakeTables, sql: string, params: readonly unknown[]) {
   return { table, rows: rows.map((row) => columns.map((name) => row[name] ?? null)) }
 }
 
-export function createFakeTenantDb(tables: FakeTables) {
+export interface FakeInsert {
+  table: string
+  row: Record<string, unknown>
+}
+
+function parseInsert(sql: string, params: readonly unknown[]): FakeInsert | null {
+  const match = /^insert into "(\w+)" \((.+?)\) values \((.+?)\)$/.exec(sql.trim())
+  if (!match) return null
+  const [, table = '', columnList = '', valueList = ''] = match
+  const columns = columnList.split(',').map((item) => {
+    const name = /^"(\w+)"$/.exec(item.trim())?.[1]
+    if (!name) throw new Error(`fake-tenant-db: unsupported insert column: ${item}`)
+    return name
+  })
+  const values = valueList.split(',').map((item) => item.trim())
+  if (values.length !== columns.length) {
+    throw new Error(`fake-tenant-db: unsupported insert (one row only): ${sql}`)
+  }
+  const row: Record<string, unknown> = {}
+  columns.forEach((name, index) => {
+    const value = values[index] ?? ''
+    if (value === 'default') return
+    const placeholder = /^\$(\d+)$/.exec(value)
+    if (!placeholder?.[1]) throw new Error(`fake-tenant-db: unsupported insert value: ${value}`)
+    row[name] = params[Number(placeholder[1]) - 1] ?? null
+  })
+  return { table, row }
+}
+
+export function createFakeTenantDb(
+  tables: FakeTables,
+  options: { failInsertsInto?: ReadonlySet<string> } = {},
+) {
   const queries: FakeQuery[] = []
+  const inserts: FakeInsert[] = []
   const db = drizzle(async (sql, params) => {
+    const insert = parseInsert(sql, params)
+    if (insert) {
+      if (options.failInsertsInto?.has(insert.table)) {
+        throw new Error(`fake-tenant-db: insert into ${insert.table} refused`)
+      }
+      inserts.push(insert)
+      return { rows: [] }
+    }
     const result = run(tables, sql, params)
     queries.push({ sql, params, table: result.table })
     return { rows: result.rows }
   })
-  return { db, queries }
+  return { db, queries, inserts }
 }

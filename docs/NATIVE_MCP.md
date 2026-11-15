@@ -213,6 +213,31 @@ and no argument hash is kept (a hash of a short search term can be reversed by
 guessing). `contacts_get` records which contact was read. The token is never
 logged. `detail` is a reason code or an error class name.
 
+### Stored record (`mcp_call_audit`, migration `0019`)
+
+Besides the log line, every `tools/call` from an admitted caller (verified
+token, allowed client, within its rate) writes one row to `mcp_call_audit` in
+the caller's tenant database: `called_at` (database time), `client_id`,
+`tenant_id`, `tool` (null when the call named no tool of the catalog),
+`args` (the same summary as the log line, so no personal data), `outcome`,
+`result_count` (rows returned by a successful call, else null) and `masked`.
+Protocol methods (`initialize`, `ping`, `tools/list`) and refused callers
+(401, 403, 429, 503) are not stored; their log line remains.
+
+The row is written after the tool ran and before the answer is sent, and the
+write cannot be skipped: if the insert fails, the call answers the tool error
+`audit_unavailable` and none of the rows read leave (the log line records
+`outcome: audit_failed` with the error class). A call that already failed with
+an internal error keeps its 500. So the migration must be applied before the
+switch is turned on, or every tool call fails.
+
+**Retention.** Rows are kept until deleted; there is no deletion job yet. The
+table holds no personal data (client ids, tool names, identifiers, counts).
+The owner decides a retention period before the MCP is enabled for a
+consumer; a scheduled deletion of rows older than that period is follow-up
+work, and until it exists rows are deleted by hand
+(`delete from mcp_call_audit where called_at < now() - interval '<period>'`).
+
 ## Enabling it (owner steps; agents never do these)
 
 Prerequisite: Janua machine tokens are already on for this deployment
@@ -236,6 +261,8 @@ Prerequisite: Janua machine tokens are already on for this deployment
    ```
 
 3. **Promote this code** as usual (`promote-to-prod.yml`); the route ships off.
+   The PreSync migration job applies `0019` (`mcp_call_audit`); without that
+   table every tool call answers `audit_unavailable`.
 4. **Allowlist the client and turn the switch on.** Both values are plain
    configuration (identifiers, not secrets), declared like the deployment's
    other non-secret env: add them under `containers[web].env` in

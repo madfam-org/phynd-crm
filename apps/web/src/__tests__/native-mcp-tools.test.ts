@@ -8,7 +8,11 @@
 import { setFeatureFlags } from '@phynd/config/features'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type FakeQuery, createFakeTenantDb } from '@/lib/mcp/__tests__/fake-tenant-db'
+import {
+  type FakeInsert,
+  type FakeQuery,
+  createFakeTenantDb,
+} from '@/lib/mcp/__tests__/fake-tenant-db'
 import {
   DELETED_CONTACT_ID,
   DELETED_DEAL_ID,
@@ -75,12 +79,19 @@ let stub: Awaited<ReturnType<typeof createMachineTokenStub>>
 let token: string
 let queries: FakeQuery[]
 let otherTenantQueries: FakeQuery[]
+let stored: FakeInsert[]
+let otherTenantStored: FakeInsert[]
 
-function useTables(tables = TENANT_A_TABLES) {
-  const bound = createFakeTenantDb(tables)
+function useTables(
+  tables = TENANT_A_TABLES,
+  options: Parameters<typeof createFakeTenantDb>[1] = {},
+) {
+  const bound = createFakeTenantDb(tables, options)
   const other = createFakeTenantDb(TENANT_B_TABLES)
   queries = bound.queries
   otherTenantQueries = other.queries
+  stored = bound.inserts
+  otherTenantStored = other.inserts
   getDb.mockReset()
   getDb.mockImplementation((tenantId: string) => {
     if (tenantId === TENANT_ID) return bound.db
@@ -826,5 +837,72 @@ describe('audit (one record per call)', () => {
   it('logs protocol calls without a tool', async () => {
     await POST(mcpRequest(rpc('tools/list'), { bearer: token }))
     expect(audits().at(-1)).toMatchObject({ rpcMethod: 'tools/list', tool: null, args: null })
+  })
+})
+
+describe('stored audit (mcp_call_audit, one row per tools/call)', () => {
+  it('stores one row per call in the caller tenant, with the log summary and no personal data', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    await callTool('contacts_search', { query: 'ana@example.test', owner_id: OWNER_A, limit: 10 })
+    expect(stored).toHaveLength(1)
+    expect(stored[0]?.table).toBe('mcp_call_audit')
+    const row = stored[0]?.row ?? {}
+    expect(row).toMatchObject({
+      client_id: CLIENT_ID,
+      tenant_id: TENANT_ID,
+      tool: 'contacts_search',
+      outcome: 'ok',
+      result_count: 1,
+      masked: true,
+    })
+    expect(JSON.parse(String(row.args))).toEqual({
+      has_query: true,
+      owner_id: OWNER_A,
+      has_cursor: false,
+      limit: 10,
+    })
+    // The time is the database default (`called_at`), never caller-supplied.
+    expect(row).not.toHaveProperty('called_at')
+    expect(typeof row.id).toBe('string')
+    expect(JSON.stringify(stored)).not.toMatch(/ana@example|Ana Ejemplo|Taller/)
+    expect(otherTenantStored).toEqual([])
+    // The log line is still written.
+    expect(audits().at(-1)).toMatchObject({ tool: 'contacts_search', outcome: 'ok' })
+  })
+
+  it('stores refusals and unknown tools too, and nothing for protocol methods or refused callers', async () => {
+    await callTool('contacts_get', { contact_id: DELETED_CONTACT_ID })
+    await callTool('leads_list', { source: 'x'.repeat(101) })
+    await POST(mcpRequest(toolCall('contacts_delete'), { bearer: token }))
+    await POST(mcpRequest(rpc('tools/list'), { bearer: token }))
+    await POST(mcpRequest(toolCall('leads_list'), { bearer: 'not-a-token' }))
+    expect(stored.map((entry) => [entry.row.tool, entry.row.outcome, entry.row.result_count])).toEqual([
+      ['contacts_get', 'not_found', null],
+      ['leads_list', 'invalid_arguments', null],
+      [null, 'unknown_tool', null],
+    ])
+    expect(stored[1]?.row.args).toBeNull()
+    expect(JSON.stringify(stored)).not.toContain('xxxx')
+  })
+
+  it('a call whose row cannot be stored fails with a tool error and returns nothing', async () => {
+    useTables(TENANT_A_TABLES, { failInsertsInto: new Set(['mcp_call_audit']) })
+    const answer = await callTool('contacts_search', { query: 'ana' })
+    expect(answer.status).toBe(200)
+    expect(answer.isError).toBe(true)
+    expect(answer.text).toBe(
+      'audit_unavailable: the call could not be recorded; nothing was returned',
+    )
+    expect(answer.data).toEqual({})
+    expect(answer.raw).not.toMatch(/Ana|ana@example|Taller/)
+    // The read ran, but nothing of it left; the log line says why.
+    expect(queries.length).toBeGreaterThan(0)
+    expect(stored).toEqual([])
+    expect(audits().at(-1)).toMatchObject({
+      tool: 'contacts_search',
+      outcome: 'audit_failed',
+      resultCount: null,
+      detail: 'Error',
+    })
   })
 })

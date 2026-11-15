@@ -22,7 +22,12 @@ const { rateLimit, logCalls } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/rate-limiter', () => ({ checkApiRateLimit: rateLimit }))
-vi.mock('@phynd/db', () => ({ getDb: () => ({}) }))
+// Tools never run here, but every `tools/call` stores its audit row.
+vi.mock('@phynd/db', async () => {
+  const { createFakeTenantDb } = await import('@/lib/mcp/__tests__/fake-tenant-db')
+  const { db } = createFakeTenantDb({})
+  return { getDb: () => db }
+})
 vi.mock('@/lib/federation/clients', () => ({ getCacheManager: () => ({}) }))
 vi.mock('@phynd/logging', () => ({
   createLogger: () => {

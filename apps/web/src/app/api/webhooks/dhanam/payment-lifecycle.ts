@@ -84,3 +84,21 @@ export function buildEngagementMessage(event: PaymentLifecycleEvent): string {
   if (PAYMENT_CANCELLED_EVENT_TYPES.has(event.eventType)) return 'Payment cancelled'
   return `Billing event: ${event.eventType}`
 }
+
+/**
+ * `conversions.type` of a Dhanam event. Analytics queries and the derived
+ * customer health (`@phynd/services` `customer-health.ts`) filter on it.
+ */
+export function mapEventTypeToConversionType(eventType: string): string {
+  // Keep these tight + stable; analytics queries filter on `conversions.type`.
+  // Use a `dhanam_` prefix to disambiguate from `ecosystem_payment_succeeded`
+  // (routecraft) and the existing visitor_to_lead / lead_to_opportunity etc.
+  if (eventType === 'checkout.session.completed') return 'dhanam_checkout_completed'
+  if (eventType === 'customer.subscription.created' || eventType === 'subscription.created') {
+    return 'dhanam_subscription_created'
+  }
+  if (eventType === 'invoice.payment_succeeded' || eventType === 'payment.succeeded') {
+    return 'dhanam_payment_succeeded'
+  }
+  return `dhanam_${eventType.replace(/[^a-z0-9_]+/gi, '_')}`
+}

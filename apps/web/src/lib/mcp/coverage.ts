@@ -69,7 +69,7 @@ export const MCP_COVERAGE: Readonly<Record<string, ProcedureCoverage>> = {
   },
   'contacts.getById': {
     tools: [MCP_TOOL_NAMES.contactsGet],
-    service: 'ContactsService.getById',
+    service: 'ContactsService.getDetail',
   },
   'contacts.listMine': { exempt: PER_USER },
   'contacts.create': { exempt: WRITE },

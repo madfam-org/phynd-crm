@@ -25,6 +25,7 @@ import {
   logOrphanEvent,
   resolveContactId,
 } from './buyer-contact'
+import { type CustomerStageResult, applyCustomerStage } from './customer-stage'
 import { type DhanamWebhookPayload, type NormalizedEvent, normalizeEvent } from './envelope'
 import { type FailedPaymentTaskResult, maybeOpenFailedPaymentTask } from './failed-payment-task'
 import {
@@ -33,6 +34,7 @@ import {
   classifyPaymentLifecycle,
   conversionValue,
   engagementEventStatus,
+  mapEventTypeToConversionType,
 } from './payment-lifecycle'
 
 const logger = createLogger('web:webhook:dhanam')
@@ -79,6 +81,9 @@ const logger = createLogger('web:webhook:dhanam')
  *           first active engagement, if one exists.
  *        f) On a failed payment, open one follow-up task on the contact unless
  *           one is still open (see failed-payment-task.ts).
+ *        g) Move the contact's lifecycle stage: paid → customer; subscription
+ *           cancelled or fully refunded → former customer when no other
+ *           active paid relationship is visible (see customer-stage.ts).
  *   7. Invalidate federation cache (preserve the prior route's behavior).
  *   8. Return 200.
  *
@@ -180,6 +185,7 @@ interface PersistResult {
   quote_id?: string | null
   engagement_id?: string | null
   failed_payment_task?: FailedPaymentTaskResult
+  customer_stage?: CustomerStageResult
 }
 
 /** Whether a `webhook_events` row already exists for this Dhanam event id. */
@@ -255,6 +261,7 @@ async function persistEventInTransaction(
     ? null
     : await maybeReconcilePayment(tx, event, contactId, engagementId)
   const failedPaymentTask = await maybeOpenFailedPaymentTask(tx, event, contactId, logger)
+  const customerStage = await applyCustomerStage(tx, event, contactId, paymentReconciliation)
 
   return {
     status: 'recorded',
@@ -268,6 +275,7 @@ async function persistEventInTransaction(
     quote_id: paymentReconciliation?.quoteId ?? null,
     engagement_id: paymentReconciliation?.engagementId ?? engagementId ?? null,
     ...(failedPaymentTask ? { failed_payment_task: failedPaymentTask } : {}),
+    ...(customerStage ? { customer_stage: customerStage } : {}),
   }
 }
 
@@ -598,18 +606,4 @@ async function maybeRecordEngagementEvent(
   })
 
   return eng.id
-}
-
-function mapEventTypeToConversionType(eventType: string): string {
-  // Keep these tight + stable; analytics queries filter on `conversions.type`.
-  // Use a `dhanam_` prefix to disambiguate from `ecosystem_payment_succeeded`
-  // (routecraft) and the existing visitor_to_lead / lead_to_opportunity etc.
-  if (eventType === 'checkout.session.completed') return 'dhanam_checkout_completed'
-  if (eventType === 'customer.subscription.created' || eventType === 'subscription.created') {
-    return 'dhanam_subscription_created'
-  }
-  if (eventType === 'invoice.payment_succeeded' || eventType === 'payment.succeeded') {
-    return 'dhanam_payment_succeeded'
-  }
-  return `dhanam_${eventType.replace(/[^a-z0-9_]+/gi, '_')}`
 }

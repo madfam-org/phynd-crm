@@ -144,7 +144,8 @@ was deleted after it (`contacts_get` answers `not_found` for it).
 ### Data boundary
 
 Returned: what an operator sees in the lists and on the contact page (names,
-emails, phones, companies, lead source/status/score, task title/description/due
+emails, phones, companies, the contact's lifecycle stage and derived payment
+health (never masked: they are statuses, not personal text), lead source/status/score, task title/description/due
 date, deal name/value/stage, pipeline and stage names, owner ids).
 
 Never returned, by construction (each record is projected field by field in

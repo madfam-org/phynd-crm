@@ -17,6 +17,7 @@ import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { CreateContactDialog } from './create-contact-dialog'
+import { CustomerHealthBadge, CustomerStageBadge } from './customer-stage-badges'
 import { DeleteContactDialog } from './delete-contact-dialog'
 import { EditContactDialog } from './edit-contact-dialog'
 
@@ -52,6 +53,8 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
         { key: 'phone', header: 'Phone' },
         { key: 'company', header: 'Company' },
         { key: 'status', header: 'Status' },
+        { key: 'lifecycleStage', header: 'Etapa' },
+        { key: 'health', header: 'Pagos' },
       ],
       'contacts',
     )
@@ -74,6 +77,16 @@ export function ContactsDataTable({ initialData }: ContactsDataTableProps) {
           row.status === 'active' ? 'success' : row.status === 'archived' ? 'secondary' : 'warning'
         return <Badge variant={variant}>{row.status}</Badge>
       },
+    },
+    {
+      id: 'lifecycleStage',
+      header: 'Etapa',
+      cell: (row) => (
+        <div className="flex flex-wrap items-center gap-1">
+          <CustomerStageBadge stage={row.lifecycleStage} />
+          <CustomerHealthBadge health={row.health} />
+        </div>
+      ),
     },
     {
       id: 'actions',

@@ -17,6 +17,13 @@ import { createId } from './utils'
 export const SPANISH_FORMALITIES = ['tu', 'usted'] as const
 export type SpanishFormality = (typeof SPANISH_FORMALITIES)[number]
 
+// Where the person stands as a buyer, separate from `status` (the record's
+// own state: active / inactive / archived). Set by billing events: a
+// successful payment makes a customer; a cancellation or full refund with no
+// other active paid relationship makes a former customer. Never back to lead.
+export const CONTACT_LIFECYCLE_STAGES = ['lead', 'customer', 'former_customer'] as const
+export type ContactLifecycleStage = (typeof CONTACT_LIFECYCLE_STAGES)[number]
+
 export const contacts = pgTable(
   'contacts',
   {
@@ -36,6 +43,10 @@ export const contacts = pgTable(
     preferredName: varchar('preferred_name', { length: 255 }),
     spanishFormality: varchar('spanish_formality', { length: 8 }).$type<SpanishFormality>(),
     status: varchar('status', { length: 20 }).notNull().default('active'),
+    lifecycleStage: varchar('lifecycle_stage', { length: 20 })
+      .$type<ContactLifecycleStage>()
+      .notNull()
+      .default('lead'),
     ownerId: text('owner_id').references(() => users.id),
     marketingConsent: boolean('marketing_consent').notNull().default(false),
     consentedAt: timestamp('consented_at', { withTimezone: true }),
@@ -49,6 +60,10 @@ export const contacts = pgTable(
   (table) => [
     uniqueIndex('contacts_external_janua_id_uniq').on(table.externalJanuaId),
     index('contacts_coforma_cab_membership_id_idx').on(table.coformaCabMembershipId),
+    check(
+      'contacts_lifecycle_stage_check',
+      sql`${table.lifecycleStage} in ('lead', 'customer', 'former_customer')`,
+    ),
     check(
       'contacts_spanish_formality_check',
       sql`${table.spanishFormality} is null or ${table.spanishFormality} in ('tu', 'usted')`,

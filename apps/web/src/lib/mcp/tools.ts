@@ -173,7 +173,7 @@ const contactsGet: McpTool = {
       summary: summarize({ contact_id: contactId, activity_limit: activityLimit }),
       execute: async (ctx, { masked: mask }) => {
         // The contact first: a deleted contact's activities are never read.
-        const contact = await new ContactsService(ctx).getById(contactId)
+        const contact = await new ContactsService(ctx).getDetail(contactId)
         if (!contact) return { ok: false, error: 'not_found', message: 'no such contact' }
         const activities = await new ActivitiesService(ctx).listRecentForEntity(
           'contact',

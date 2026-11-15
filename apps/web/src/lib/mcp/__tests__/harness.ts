@@ -56,6 +56,7 @@ function contact(n: number, fields: Record<string, string | number | boolean | n
     preferred_name: null,
     spanish_formality: null,
     status: 'active',
+    lifecycle_stage: 'lead',
     owner_id: OWNER_A,
     external_janua_id: `janua-sub-${String(n)}`,
     coforma_cab_membership_id: null,
@@ -126,6 +127,10 @@ function activity(n: number, fields: Record<string, string | number | boolean | 
   }
 }
 
+function conversion(n: number, contactN: number, type: string, createdAt: string): FakeRow {
+  return { id: uuid(n), contact_id: uuid(contactN), type, created_at: createdAt }
+}
+
 export const DELETED_CONTACT_ID = uuid(3)
 export const DELETED_LEAD_ID = uuid(14)
 export const DELETED_DEAL_ID = uuid(24)
@@ -138,8 +143,18 @@ export const CONSENT_MARK = 'janua-sub-'
 /** The tenant the deployment's machine clients are bound to. */
 export const TENANT_A_TABLES: FakeTables = {
   contacts: [
-    contact(1, { name: 'Ana Ejemplo', email: 'ana@example.test', company: 'Taller Ejemplo' }),
-    contact(2, { name: 'Beto Muestra', email: 'beto@muestra.test', owner_id: OWNER_B }),
+    contact(1, {
+      name: 'Ana Ejemplo',
+      email: 'ana@example.test',
+      company: 'Taller Ejemplo',
+      lifecycle_stage: 'customer',
+    }),
+    contact(2, {
+      name: 'Beto Muestra',
+      email: 'beto@muestra.test',
+      owner_id: OWNER_B,
+      lifecycle_stage: 'customer',
+    }),
     contact(3, {
       name: `Ana ${DELETED_MARK}`,
       email: 'borrada@example.test',
@@ -198,6 +213,14 @@ export const TENANT_A_TABLES: FakeTables = {
     activity(43, { entity_type: 'lead', entity_id: uuid(11) }),
     activity(44, { title: `Tarea ${DELETED_MARK}`, entity_type: 'quote', entity_id: uuid(61) }),
     activity(45, { title: `Tarea ${DELETED_MARK}`, entity_type: 'order', entity_id: uuid(62) }),
+  ],
+  // Billing outcomes the Dhanam webhook recorded: contact 1 paid; contact 2
+  // paid, then a later payment failed; contact 4 has a non-payment conversion.
+  conversions: [
+    conversion(71, 1, 'dhanam_payment_succeeded', '2026-11-02T00:00:00.000Z'),
+    conversion(72, 2, 'dhanam_checkout_completed', '2026-11-02T00:00:00.000Z'),
+    conversion(73, 2, 'dhanam_invoice_payment_failed', '2026-11-03T00:00:00.000Z'),
+    conversion(74, 4, 'visitor_to_lead', '2026-11-03T00:00:00.000Z'),
   ],
   quotes: [{ id: uuid(61), deleted_at: '2026-11-05T00:00:00.000Z' }],
   orders: [{ id: uuid(62), deleted_at: '2026-11-05T00:00:00.000Z' }],

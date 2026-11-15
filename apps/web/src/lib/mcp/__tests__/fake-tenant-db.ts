@@ -9,7 +9,7 @@
  *
  * It understands only the single-table reads the tools make:
  *   select <columns> from "<table>" [where <predicates>] [order by …] [limit $n]
- * with predicates `is null`, `=`, `>`, `>=`, `<` (ANDed), one OR group of
+ * with predicates `is null`, `=`, `>`, `>=`, `<`, `in ($1, …)` (ANDed), one OR group of
  * `ilike`, and correlated anti-joins
  *   not exists (select 1 from "<other>" where (<terms joined by and>))
  * whose terms are `"t"."c" = $n`, `"t"."c" = "u"."d"`, `"t"."c" is [not] null`
@@ -160,6 +160,17 @@ function parseWhere(
           compare(row[first], anchor[innerFirst]) || compare(row[second], anchor[innerSecond])
         return holds(order)
       })
+      return ''
+    },
+  )
+  rest = rest.replace(
+    new RegExp(`${column} in \\((\\$\\d+(?:, \\$\\d+)*)\\)`, 'g'),
+    (_m, name: string, list: string) => {
+      const wanted = list.split(', ').map((item) => param(item.slice(1)))
+      all.push(
+        (row) =>
+          (row[name] ?? null) !== null && wanted.some((value) => compare(row[name], value) === 0),
+      )
       return ''
     },
   )

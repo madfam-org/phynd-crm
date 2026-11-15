@@ -180,6 +180,8 @@ describe('contacts_search', () => {
       company: 'Taller Ejemplo',
       preferred_name: null,
       status: 'active',
+      lifecycle_stage: 'customer',
+      health: 'ok',
       owner_id: OWNER_A,
       created_at: '2026-11-01T12:00:00.000Z',
       updated_at: '2026-11-01T12:00:00.000Z',
@@ -208,6 +210,31 @@ describe('contacts_search', () => {
   it('filters by owner', async () => {
     const answer = await callTool('contacts_search', { owner_id: OWNER_B })
     expect(answer.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(2)])
+  })
+
+  it('carries each contact stage and the health derived from its billing outcomes', async () => {
+    const answer = await callTool('contacts_search')
+    const view = answer.data.contacts.map(
+      (row: { id: string; lifecycle_stage: string; health: string | null }) => [
+        row.id,
+        row.lifecycle_stage,
+        row.health,
+      ],
+    )
+    expect(view).toEqual([
+      [uuid(1), 'customer', 'ok'],
+      // Paid, then a later payment failed.
+      [uuid(2), 'customer', 'payment_failed'],
+      // A lead with no payment outcome: no health.
+      [uuid(4), 'lead', null],
+    ])
+    // One read of the billing outcomes for the whole page.
+    expect(queries.filter((query) => query.table === 'conversions')).toHaveLength(1)
+    const detail = await callTool('contacts_get', { contact_id: uuid(2) })
+    expect(detail.data.contact).toMatchObject({
+      lifecycle_stage: 'customer',
+      health: 'payment_failed',
+    })
   })
 })
 

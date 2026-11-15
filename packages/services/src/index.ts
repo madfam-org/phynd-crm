@@ -87,7 +87,14 @@ export {
 export { RedditBotService, type BotCampaignPayload } from './campaigns/reddit-bot'
 export { RedditClient, createRedditClientFromEnv, type RedditPost } from './campaigns/reddit-client'
 export { postRedditComment, extractPostId } from './campaigns/reddit-poster'
-export { ContactsService } from './contacts/contacts.service'
+export { ContactsService, type ContactWithHealth } from './contacts/contacts.service'
+export {
+  CUSTOMER_HEALTHS,
+  type CustomerHealth,
+  FAILED_PAYMENT_CONVERSION_TYPES,
+  PAID_PAYMENT_CONVERSION_TYPES,
+  deriveCustomerHealth,
+} from './contacts/customer-health'
 export { ConversionsService } from './conversions/conversions.service'
 export {
   canonicalKarafielMilestone,

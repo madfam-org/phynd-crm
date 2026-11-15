@@ -276,7 +276,13 @@ describe.each([
     rateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0 })
     const res = await GET(request(feed, NOVEMBER, authorized))
     expect(res.status).toBe(429)
-    expect(rateLimit).toHaveBeenCalledWith('convergence:127.0.0.1', { maxRequests: 60 })
+    expect(rateLimit).toHaveBeenCalledWith('convergence:unknown', { maxRequests: 60 })
+  })
+
+  it('keys the limit by the last x-forwarded-for entry, never the first', async () => {
+    const forwarded = { ...authorized, 'x-forwarded-for': '192.0.2.250, 198.51.100.4' }
+    await GET(request(feed, NOVEMBER, forwarded))
+    expect(rateLimit).toHaveBeenCalledWith('convergence:198.51.100.4', { maxRequests: 60 })
   })
 })
 

@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { validateMadfamSignature, validateWebhookSignature } from '@phynd/federation/webhooks'
 import { createLogger } from '@phynd/logging'
 import { NextResponse } from 'next/server'
@@ -37,7 +38,7 @@ export async function parseSignedWebhookRequest(
 ): Promise<ParsedWebhookRequest> {
   const schemes = options.schemes ?? ['legacy']
 
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(request.headers)
   const { allowed, remaining } = await checkRateLimit(ip)
 
   if (!allowed) {

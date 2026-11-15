@@ -487,6 +487,33 @@ describe('POST /api/webhooks/lead-intake — envelope', () => {
     expect(res.status).toBe(429)
   })
 
+  it('keys the limiter by the last x-forwarded-for entry, never the first', async () => {
+    mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
+    const req = signedRequest(JSON.stringify(makeBookingEvent()))
+    req.headers.set('x-forwarded-for', '192.0.2.250, 10.0.0.42')
+    const res = await POST(req)
+    expect(res.status).toBe(429)
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('10.0.0.42')
+    expect(mockCheckRateLimit).not.toHaveBeenCalledWith('192.0.2.250')
+  })
+
+  it('keys the limiter by the edge-set address when present', async () => {
+    mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
+    const req = signedRequest(JSON.stringify(makeBookingEvent()))
+    req.headers.set('cf-connecting-ip', '203.0.113.7')
+    req.headers.set('x-forwarded-for', '192.0.2.250, 10.0.0.42')
+    await POST(req)
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('203.0.113.7')
+  })
+
+  it('shares the unknown key when no address can be established', async () => {
+    mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
+    const req = signedRequest(JSON.stringify(makeBookingEvent()))
+    req.headers.set('x-forwarded-for', 'not-an-address')
+    await POST(req)
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('unknown')
+  })
+
   it('rejects a declared content-length over 64 KB with 413, before the signature', async () => {
     const req = new Request('http://localhost/api/webhooks/lead-intake', {
       method: 'POST',

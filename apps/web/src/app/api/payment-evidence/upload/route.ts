@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { createAppContextFromRequest } from '@/lib/trpc/request-context'
 import { createLogger } from '@phynd/logging'
@@ -20,7 +21,7 @@ const logger = createLogger('web:payment-evidence-upload')
 // response carries the key and an extractor's PREFILL. Nothing is recorded
 // until staff confirm the fields (paymentEvidence.create).
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+  const ip = clientAddress(req.headers)
   if (!(await checkApiRateLimit(ip)).allowed) return error(429, 'Too many requests')
 
   const staff = await staffContext(req)

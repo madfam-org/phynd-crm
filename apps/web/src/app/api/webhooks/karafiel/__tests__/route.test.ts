@@ -179,6 +179,24 @@ describe('POST /api/webhooks/karafiel', () => {
     expect(res.status).toBe(429)
   })
 
+  it('keys the limiter by the last x-forwarded-for entry, never the first', async () => {
+    mockCheckRateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
+    const req = createRequest(validPayload)
+    req.headers.set('x-forwarded-for', '192.0.2.250, 10.0.0.42')
+    const res = await POST(req)
+    expect(res.status).toBe(429)
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('10.0.0.42')
+    expect(mockCheckRateLimit).not.toHaveBeenCalledWith('192.0.2.250')
+  })
+
+  it('keys the limiter by the edge-set address when present', async () => {
+    const req = createRequest(validPayload)
+    req.headers.set('cf-connecting-ip', '203.0.113.7')
+    req.headers.set('x-forwarded-for', '192.0.2.250, 10.0.0.42')
+    await POST(req)
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('203.0.113.7')
+  })
+
   it('returns 401 when timestamp header is missing', async () => {
     const res = await POST(createRequest(validPayload, { timestamp: null }))
     expect(res.status).toBe(401)

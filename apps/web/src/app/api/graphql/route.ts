@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { createAppContextFromRequest } from '@/lib/trpc/request-context'
 import { schema } from '@phynd/api'
@@ -12,7 +13,7 @@ const { handleRequest } = createYoga({
 })
 
 async function withRateLimit(request: Request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+  const ip = clientAddress(request.headers)
   const { allowed } = await checkApiRateLimit(ip)
   if (!allowed) {
     return new Response(JSON.stringify({ error: 'Too many requests' }), {

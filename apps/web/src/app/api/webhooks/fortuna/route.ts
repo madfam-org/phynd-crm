@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { resolveRedisUrl } from '@phynd/config/connections'
@@ -89,7 +90,7 @@ const MAX_EVENT_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_EVENT_FUTURE_SKEW_MS = 10 * 60 * 1000
 
 async function checkWebhookRateLimit(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(req.headers)
   const { allowed, remaining } = await checkRateLimit(ip)
 
   if (!allowed) {

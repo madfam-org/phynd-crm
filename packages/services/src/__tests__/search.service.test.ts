@@ -1,3 +1,6 @@
+import { contacts, leads, opportunities } from '@phynd/db/schema'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SearchService } from '../search/search.service'
 import {
@@ -9,36 +12,22 @@ import {
 } from './helpers'
 
 // ---------------------------------------------------------------------------
-// Mock external modules
+// Helpers
 // ---------------------------------------------------------------------------
+// drizzle-orm and the schema are real here (only the database is a mock), so
+// the condition each query hands to `.where()` can be rendered to SQL and
+// asserted on as text.
 
-vi.mock('drizzle-orm', () => ({
-  and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
-  ilike: vi.fn((col: unknown, val: unknown) => ({ _tag: 'ilike', col, val })),
-  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
-  or: vi.fn((...args: unknown[]) => ({ _tag: 'or', args })),
-}))
+type SearchTable = typeof contacts | typeof leads | typeof opportunities
 
-vi.mock('@phynd/db/schema', () => ({
-  contacts: {
-    company: 'contacts.company',
-    email: 'contacts.email',
-    id: 'contacts.id',
-    name: 'contacts.name',
-  },
-  leads: {
-    deletedAt: 'leads.deletedAt',
-    id: 'leads.id',
-    source: 'leads.source',
-    status: 'leads.status',
-  },
-  opportunities: {
-    deletedAt: 'opportunities.deletedAt',
-    id: 'opportunities.id',
-    name: 'opportunities.name',
-    value: 'opportunities.value',
-  },
-}))
+/** Renders the `.where()` condition of the query that selects from `table`. */
+function renderedWhere(mockDb: MockDatabase, table: SearchTable) {
+  // Each query calls `.from()` then `.where()` once, so the call indexes match.
+  const index = mockDb._qb.from.mock.calls.findIndex(([selected]) => selected === table)
+  expect(index).toBeGreaterThanOrEqual(0)
+  const condition = mockDb._qb.where.mock.calls[index]?.[0] as SQL
+  return new PgDialect().sqlToQuery(condition)
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -145,6 +134,33 @@ describe('SearchService', () => {
       await service.search('test', { limit: 5 })
 
       expect(mockDb._qb.limit).toHaveBeenCalled()
+    })
+
+    it.each([
+      ['contacts', contacts],
+      ['leads', leads],
+      ['opportunities', opportunities],
+    ] as const)('applies the soft-delete filter to the %s query', async (name, table) => {
+      mockDb._qb._result = []
+
+      await service.search('acme')
+
+      const { sql } = renderedWhere(mockDb, table)
+      expect(sql).toContain(`"${name}"."deleted_at" is null`)
+    })
+
+    it('requires the soft-delete filter together with the contact text match', async () => {
+      mockDb._qb._result = []
+
+      await service.search('acme')
+
+      // The filter is ANDed with the whole group of text matches; it is not
+      // one more alternative inside the OR.
+      const { sql, params } = renderedWhere(mockDb, contacts)
+      expect(sql).toBe(
+        '(("contacts"."name" ilike $1 or "contacts"."email" ilike $2 or "contacts"."company" ilike $3) and "contacts"."deleted_at" is null)',
+      )
+      expect(params).toEqual(['%acme%', '%acme%', '%acme%'])
     })
   })
 })

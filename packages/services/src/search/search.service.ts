@@ -22,10 +22,13 @@ export class SearchService {
         .select()
         .from(contacts)
         .where(
-          or(
-            ilike(contacts.name, pattern),
-            ilike(contacts.email, pattern),
-            ilike(contacts.company, pattern),
+          and(
+            or(
+              ilike(contacts.name, pattern),
+              ilike(contacts.email, pattern),
+              ilike(contacts.company, pattern),
+            ),
+            isNull(contacts.deletedAt),
           ),
         )
         .limit(limit),

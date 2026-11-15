@@ -166,21 +166,30 @@ Prerequisite: Janua machine tokens are already on for this deployment
 (`PHYND_CRM_MACHINE_TENANT_ID` and `PHYND_CRM_MACHINE_JANUA_ORG_ID` set, see
 [MACHINE_AUTH.md](./MACHINE_AUTH.md)).
 
-1. **Reserve the scope in Janua.** Add `phynd-crm-pipeline:read` to
-   `PHYND_CRM_SCOPES` in janua `apps/api/app/core/reserved_oauth_boundaries.py`
-   (audience `phynd-crm` is already reserved), merge, and promote that Janua
-   image. Until then Janua will not issue the scope.
-2. **Declare one client per consumer** in enclii
-   `config/ecosystem-oidc-provision.yaml`, modelled on the existing
-   `nauta-phynd-crm` entry: `audience: phynd-crm`, `grant_types: [client_credentials]`,
-   `allowed_scopes: [phynd-crm-pipeline:read]`, `organization_id` = the value of
-   `PHYND_CRM_MACHINE_JANUA_ORG_ID`, an `intake_target` in the consumer's own
-   secret path. Merge, then provision (the first run creates the client and
-   prints its `jnc_…` id; the secret goes to the consumer through intake, never
-   to chat or git):
+1. **Reserve the scope in Janua.** madfam-org/janua#799 adds
+   `phynd-crm-pipeline:read` to `PHYND_CRM_SCOPES` in janua
+   `apps/api/app/core/reserved_oauth_boundaries.py` (audience `phynd-crm` is
+   already reserved). Merge it and promote that Janua image. Until then Janua
+   will not issue the scope.
+2. **Declare and provision one client per consumer.** madfam-org/enclii#967
+   declares the first two in enclii `config/ecosystem-oidc-provision.yaml`
+   (RFC 0051 ruling M3): `selva-phynd-crm-pipeline` and
+   `ops-agents-phynd-crm-pipeline`, each `audience: phynd-crm`,
+   `grant_types: [client_credentials]`,
+   `allowed_scopes: [phynd-crm-pipeline:read]`, org-bound to the organization of
+   `PHYND_CRM_MACHINE_JANUA_ORG_ID`. A later consumer gets its own entry on the
+   same model. After that PR is merged and deployed, provision each one (the
+   first run creates the client and prints its `jnc_…` id; the secret goes to
+   the consumer through intake, never to chat or git). The order of operations,
+   including the Vault policy re-apply the ops-agents client needs first, is in
+   enclii `docs/runbooks/SECRET_INTAKE.md` § PhyndCRM native MCP readers:
 
    ```bash
-   enclii --profile admin secrets provision oidc --platform <consumer>-phynd-crm-mcp --intake-profile default --json --reason "<consumer> reads the CRM pipeline over MCP"
+   enclii --profile admin secrets provision oidc --platform selva-phynd-crm-pipeline --intake-profile default --json --reason "Selva reads the CRM pipeline over MCP"
+   ```
+
+   ```bash
+   enclii --profile admin secrets provision oidc --platform ops-agents-phynd-crm-pipeline --intake-profile default --json --reason "ops agents read the CRM pipeline over MCP"
    ```
 
 3. **Promote this code** as usual (`promote-to-prod.yml`); the route ships off.
@@ -194,7 +203,7 @@ Prerequisite: Janua machine tokens are already on for this deployment
 
    ```yaml
    - name: PHYND_CRM_MCP_READ_CLIENTS
-     value: "<jnc_client_id>@<janua_org_uuid>"
+     value: "<jnc_selva_client_id>@<janua_org_uuid>,<jnc_ops_agents_client_id>@<janua_org_uuid>"
    - name: PHYND_CRM_MCP_ENABLED
      value: "true"
    ```

@@ -10,7 +10,8 @@
  *   - an `engagement_events` timeline entry for the client portal
  *
  * These tests verify all five pathways plus the signature/rate-limit/idempotency
- * guards and the orphan path (event arrives, but we can't find the contact).
+ * guards, the first-time buyer path (a paid event creates the contact it then
+ * records against) and the orphan path (no contact and no usable email).
  */
 import crypto from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,6 +21,8 @@ type Row = { id: string }
 // ---------------------------------------------------------------------------
 // Hoisted mocks — must come before route import.
 // ---------------------------------------------------------------------------
+
+const mockLogger = vi.hoisted(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 
 const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.hoisted(() => {
   const mockCheckRateLimit = vi.fn().mockResolvedValue({ allowed: true, remaining: 99 })
@@ -32,6 +35,16 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     priorEventIds: new Set<string>(),
     contactByJanuaId: new Map<string, string>(), // janua_id → contact_id
     contactByEmail: new Map<string, string>(), // email → contact_id
+    // Janua ids held by a soft-deleted contact (the column is unique across
+    // live and deleted rows).
+    deletedContactJanuaIds: new Set<string>(),
+    // Keys of the transaction-scoped advisory locks taken, in order.
+    advisoryLocks: [] as string[],
+    // Recorded `webhook_events` rows by the payment id in their payload.
+    eventsByPaymentId: new Map<string, Array<{ id: string; eventType: string }>>(),
+    // Event ids that a concurrent delivery records while this one waits for
+    // the per-event lock (simulates an overlapping retry).
+    recordedWhileWaiting: new Set<string>(),
     leadByContactId: new Map<string, { id: string; pipelineId: string }>(),
     stagesByPipelineId: new Map<string, Array<{ id: string; name: string }>>(),
     referralCodeByCode: new Map<string, string>(), // code → referral_code_id
@@ -46,6 +59,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     ordersByQuoteId: new Map<string, Array<Record<string, unknown>>>(),
     ordersByOpportunityId: new Map<string, Array<Record<string, unknown>>>(),
     inserts: {
+      contacts: [] as Array<Record<string, unknown>>,
       webhookEvents: [] as Array<Record<string, unknown>>,
       conversions: [] as Array<Record<string, unknown>>,
       engagementEvents: [] as Array<Record<string, unknown>>,
@@ -63,20 +77,33 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
   let pendingSelectFrom = ''
   let pendingWhereCols: string[] = []
   let pendingWhereVals: unknown[] = []
+  let pendingSqlRaw = ''
 
-  const captureWhereCondition = (cond: unknown): void => {
+  const pushWhere = (col: string, val: unknown): void => {
+    pendingWhereCols.push(col)
+    pendingWhereVals.push(val)
+  }
+
+  const whereCaptors: Record<string, (obj: Record<string, unknown>) => void> = {
+    eq: (obj) => {
+      if (typeof obj.col === 'string') pushWhere(obj.col, obj.val)
+    },
+    and: (obj) => {
+      if (Array.isArray(obj.args)) for (const inner of obj.args) captureWhereCondition(inner)
+    },
+    // sql template — capture the last bound value (the `event_id` of the
+    // prior-event lookup, the email of the case-insensitive contact lookup).
+    sql: (obj) => {
+      pendingSqlRaw = String(obj.raw ?? '')
+      pushWhere('sql', obj.value)
+    },
+    isNull: (obj) => pushWhere(`isNull:${String(obj.col)}`, null),
+  }
+
+  function captureWhereCondition(cond: unknown): void {
     if (!cond || typeof cond !== 'object') return
     const obj = cond as Record<string, unknown>
-    if (obj._tag === 'eq' && typeof obj.col === 'string') {
-      pendingWhereCols.push(obj.col)
-      pendingWhereVals.push(obj.val)
-    } else if (obj._tag === 'and' && Array.isArray(obj.args)) {
-      for (const inner of obj.args) captureWhereCondition(inner)
-    } else if (obj._tag === 'sql') {
-      // sql template — capture the bound `event_id` for prior-event lookup.
-      pendingWhereCols.push('sql')
-      pendingWhereVals.push(obj.value)
-    }
+    whereCaptors[String(obj._tag)]?.(obj)
   }
 
   const whereIndex = (column: string): number => pendingWhereCols.findIndex((c) => c === column)
@@ -84,16 +111,32 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
   const rowById = (id: string): Row => ({ id })
 
   const resolveWebhookEvents = (): unknown[] => {
-    const eventId = String(pendingWhereVals[pendingWhereVals.length - 1] ?? '')
-    return state.priorEventIds.has(eventId) ? [rowById('wh_existing')] : []
+    const value = String(pendingWhereVals[pendingWhereVals.length - 1] ?? '')
+    if (pendingSqlRaw.includes("'payment_id'")) return state.eventsByPaymentId.get(value) ?? []
+    return state.priorEventIds.has(value) ? [rowById('wh_existing')] : []
+  }
+
+  const resolveContactsByJanuaId = (januaId: string): unknown[] => {
+    const includesDeleted = whereIndex('isNull:contacts.deletedAt') < 0
+    if (includesDeleted && state.deletedContactJanuaIds.has(januaId)) {
+      return [{ id: 'contact_deleted', deletedAt: new Date(0) }]
+    }
+    const id = state.contactByJanuaId.get(januaId)
+    return id ? [rowById(id)] : []
+  }
+
+  // Case-insensitive email lookup: `lower(contacts.email) = <email>`.
+  const resolveContactsByLowerEmail = (wanted: string): unknown[] => {
+    const match = [...state.contactByEmail].find(([email]) => email.toLowerCase() === wanted)
+    return match ? [rowById(match[1])] : []
   }
 
   const resolveContacts = (): unknown[] => {
     const januaIdx = whereIndex('contacts.externalJanuaId')
-    if (januaIdx >= 0) {
-      const id = state.contactByJanuaId.get(whereValue(januaIdx))
-      return id ? [rowById(id)] : []
-    }
+    if (januaIdx >= 0) return resolveContactsByJanuaId(whereValue(januaIdx))
+
+    const lowerEmailIdx = whereIndex('sql')
+    if (lowerEmailIdx >= 0) return resolveContactsByLowerEmail(whereValue(lowerEmailIdx))
 
     const emailIdx = whereIndex('contacts.email')
     const id = emailIdx >= 0 ? state.contactByEmail.get(whereValue(emailIdx)) : undefined
@@ -242,6 +285,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
           pendingSelectFrom = ''
           pendingWhereCols = []
           pendingWhereVals = []
+          pendingSqlRaw = ''
           return Promise.resolve(result).then(resolve)
         }
         return Promise.resolve([]).then(resolve)
@@ -252,6 +296,35 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     return qb
   }
 
+  // A created contact is visible to every later lookup, like a committed row.
+  const recordContactInsert = (v: Record<string, unknown>): string => {
+    const id = `contact_new_${state.inserts.contacts.length + 1}`
+    state.inserts.contacts.push({ id, ...v })
+    if (typeof v.email === 'string') state.contactByEmail.set(v.email, id)
+    if (typeof v.externalJanuaId === 'string') state.contactByJanuaId.set(v.externalJanuaId, id)
+    return id
+  }
+
+  const insertRecorders: Record<string, (v: Record<string, unknown>) => void> = {
+    webhook_events: (v) => {
+      state.inserts.webhookEvents.push(v)
+      // A recorded event is found by the next idempotency lookup.
+      const payload = (v.payload ?? {}) as Record<string, unknown>
+      if (typeof payload.event_id === 'string') state.priorEventIds.add(payload.event_id)
+      if (typeof payload.payment_id === 'string') {
+        const rows = state.eventsByPaymentId.get(payload.payment_id) ?? []
+        rows.push({
+          id: `wh_${state.inserts.webhookEvents.length}`,
+          eventType: String(v.eventType),
+        })
+        state.eventsByPaymentId.set(payload.payment_id, rows)
+      }
+    },
+    conversions: (v) => state.inserts.conversions.push(v),
+    engagement_events: (v) => state.inserts.engagementEvents.push(v),
+    external_references: (v) => state.inserts.externalReferences.push(v),
+  }
+
   const mockDb = {
     select: vi.fn(() => makeQb()),
     insert: vi.fn((table: unknown) => {
@@ -260,10 +333,12 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
       const tableName = String(table)
       const origValues = qb.values as ReturnType<typeof vi.fn>
       qb.values = vi.fn((v: Record<string, unknown>) => {
-        if (tableName === 'webhook_events') state.inserts.webhookEvents.push(v)
-        else if (tableName === 'conversions') state.inserts.conversions.push(v)
-        else if (tableName === 'engagement_events') state.inserts.engagementEvents.push(v)
-        else if (tableName === 'external_references') state.inserts.externalReferences.push(v)
+        if (tableName === 'contacts') {
+          const id = recordContactInsert(v)
+          qb.returning = vi.fn(() => Promise.resolve([{ id }]))
+        } else {
+          insertRecorders[tableName]?.(v)
+        }
         return (origValues as (v: Record<string, unknown>) => unknown)(v)
       })
       return qb
@@ -306,6 +381,18 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
         return (origSet as (v: Record<string, unknown>) => unknown)(v)
       })
       return qb
+    }),
+    execute: vi.fn(async (query: unknown) => {
+      // The only raw statement the route runs is the advisory lock; the sql
+      // mock keeps its bound key in `value`.
+      const key = String((query as { value?: unknown }).value)
+      state.advisoryLocks.push(key)
+      // An overlapping delivery that held this lock commits before we get it.
+      const eventId = key.startsWith('phynd:dhanam:event:')
+        ? key.slice('phynd:dhanam:event:'.length)
+        : null
+      if (eventId && state.recordedWhileWaiting.has(eventId)) state.priorEventIds.add(eventId)
+      return []
     }),
     transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => unknown) => cb(mockDb)),
   }
@@ -436,11 +523,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@phynd/logging', () => ({
-  createLogger: vi.fn(() => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  })),
+  createLogger: vi.fn(() => mockLogger),
 }))
 
 import { POST } from '../route'
@@ -500,6 +583,38 @@ function checkoutCompletedEvent(overrides: Record<string, unknown> = {}) {
   }
 }
 
+/**
+ * The `payment.succeeded` envelope the billing relay sends for a settled
+ * payment: flat `data.*`, `customer_id` is the billing platform's own user
+ * id (not a Janua subject), and the buyer's email and name ride along when
+ * the payment provider has them.
+ */
+function paymentSucceededEvent(
+  dataOverrides: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    type: 'payment.succeeded',
+    id: 'evt_pay_new_1',
+    timestamp: '2026-11-13T18:00:00.000Z',
+    data: {
+      customer_id: 'billing_user_new_1',
+      subscription_id: 'sub_new_1',
+      payment_id: 'pi_new_1',
+      amount: '150.00',
+      amount_minor: 15000,
+      currency: 'MXN',
+      plan_id: 'essentials',
+      product: 'dhanam',
+      buyer_name: 'Ada Comprador',
+      customer_email: 'Ada.Buyer@Example.com',
+      payment_method: 'card',
+      ...dataOverrides,
+    },
+    ...overrides,
+  }
+}
+
 function orderRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'order_tablaco',
@@ -524,6 +639,10 @@ beforeEach(() => {
   state.priorEventIds.clear()
   state.contactByJanuaId.clear()
   state.contactByEmail.clear()
+  state.deletedContactJanuaIds.clear()
+  state.advisoryLocks.length = 0
+  state.eventsByPaymentId.clear()
+  state.recordedWhileWaiting.clear()
   state.leadByContactId.clear()
   state.stagesByPipelineId.clear()
   state.referralCodeByCode.clear()
@@ -534,6 +653,7 @@ beforeEach(() => {
   state.ordersById.clear()
   state.ordersByQuoteId.clear()
   state.ordersByOpportunityId.clear()
+  state.inserts.contacts.length = 0
   state.inserts.webhookEvents.length = 0
   state.inserts.conversions.length = 0
   state.inserts.engagementEvents.length = 0
@@ -545,6 +665,9 @@ beforeEach(() => {
 
   mockCheckRateLimit.mockReset().mockResolvedValue({ allowed: true, remaining: 99 })
   mockValidateWebhookSignature.mockReset().mockReturnValue(true)
+  mockLogger.info.mockReset()
+  mockLogger.warn.mockReset()
+  mockLogger.error.mockReset()
 })
 
 afterEach(() => {
@@ -770,10 +893,264 @@ describe('POST /api/webhooks/dhanam — happy path: checkout.session.completed',
   })
 })
 
+describe('POST /api/webhooks/dhanam — first-time buyer', () => {
+  it('creates exactly one contact from the event and records the purchase against it', async () => {
+    // No state setup — the CRM has never seen this buyer.
+    const res = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    expect(json).toMatchObject({
+      received: true,
+      status: 'recorded',
+      contact_id: 'contact_new_1',
+      contact_created: true,
+      lead_id: null,
+      referral_id: null,
+      payment_reconciliation_status: 'unmatched',
+    })
+
+    expect(state.inserts.contacts).toHaveLength(1)
+    expect(expectArrayItem(state.inserts.contacts, 0, 'contact insert')).toEqual({
+      id: 'contact_new_1',
+      name: 'Ada Comprador',
+      email: 'ada.buyer@example.com',
+      // `customer_id` is the billing platform's id, never stored as a Janua subject.
+      externalJanuaId: null,
+      status: 'active',
+      // A purchase is not a marketing opt-in.
+      marketingConsent: false,
+    })
+    // The event lock first, then the look-up-then-insert serialized per buyer email.
+    expect(state.advisoryLocks).toEqual([
+      'phynd:dhanam:event:evt_pay_new_1',
+      'phynd:buyer:email:ada.buyer@example.com',
+    ])
+
+    // Same lifecycle as a known buyer without a lead or an engagement.
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.conversions).toHaveLength(1)
+    const conv = expectArrayItem(state.inserts.conversions, 0, 'conversion insert')
+    expect(conv).toMatchObject({
+      type: 'dhanam_payment_succeeded',
+      contactId: 'contact_new_1',
+      leadId: null,
+      value: '150.00',
+    })
+    expect(conv.metadata).toMatchObject({
+      event_id: 'evt_pay_new_1',
+      plan_id: 'essentials',
+      payment_id: 'pi_new_1',
+      amount_minor: 15000,
+      currency: 'MXN',
+      contact_created: true,
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(state.updates.leads).toHaveLength(0)
+    expect(state.inserts.engagementEvents).toHaveLength(0)
+    expect(mockLogger.error).not.toHaveBeenCalled()
+  })
+
+  it('names the contact after the email local part when the event has no name', async () => {
+    const res = await POST(
+      signedRequest(JSON.stringify(paymentSucceededEvent({ buyer_name: undefined }))),
+    )
+    expect(res.status).toBe(200)
+    expect(state.inserts.contacts).toHaveLength(1)
+    expect(expectArrayItem(state.inserts.contacts, 0, 'contact insert').name).toBe('ada.buyer')
+  })
+
+  it('creates nothing new when the same event is delivered again', async () => {
+    const body = JSON.stringify(paymentSucceededEvent())
+    const first = await POST(signedRequest(body))
+    const replay = await POST(signedRequest(body))
+    expect(first.status).toBe(200)
+    expect(replay.status).toBe(200)
+    expect(((await first.json()) as { status: string }).status).toBe('recorded')
+    expect(((await replay.json()) as { status: string }).status).toBe('duplicate')
+
+    expect(state.inserts.contacts).toHaveLength(1)
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.conversions).toHaveLength(1)
+  })
+
+  it('attaches a second, different event for the same new buyer to the one contact', async () => {
+    const first = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    const second = await POST(
+      signedRequest(
+        JSON.stringify(
+          paymentSucceededEvent(
+            { payment_id: 'pi_new_2', buyer_name: 'A. Comprador' },
+            { id: 'evt_pay_new_2' },
+          ),
+        ),
+      ),
+    )
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    const secondJson = (await second.json()) as Record<string, unknown>
+    expect(secondJson.status).toBe('recorded')
+    expect(secondJson.contact_id).toBe('contact_new_1')
+    expect(secondJson).not.toHaveProperty('contact_created')
+
+    expect(state.inserts.contacts).toHaveLength(1)
+    expect(state.inserts.conversions).toHaveLength(2)
+    expect(state.inserts.conversions.map((c) => c.contactId)).toEqual([
+      'contact_new_1',
+      'contact_new_1',
+    ])
+    const secondMeta = expectArrayItem(state.inserts.conversions, 1, 'second conversion')
+      .metadata as Record<string, unknown>
+    expect(secondMeta).not.toHaveProperty('contact_created')
+  })
+
+  it('reuses a contact whose stored email differs only in case, and promotes its lead', async () => {
+    state.contactByEmail.set('Ada.Buyer@Example.com', 'contact_caps')
+    state.leadByContactId.set('contact_caps', { id: 'lead_caps', pipelineId: 'pipe_default' })
+    state.stagesByPipelineId.set('pipe_default', [{ id: 'stage_won', name: 'Closed Won' }])
+
+    const res = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    expect(json).toMatchObject({
+      status: 'recorded',
+      contact_id: 'contact_caps',
+      lead_id: 'lead_caps',
+    })
+    expect(json).not.toHaveProperty('contact_created')
+
+    expect(state.inserts.contacts).toHaveLength(0)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(expectArrayItem(state.updates.leads, 0, 'lead update')).toMatchObject({
+      id: 'lead_caps',
+      values: { status: 'converted', stageId: 'stage_won' },
+    })
+  })
+
+  it('stores the Janua subject on the new contact when the event names one', async () => {
+    const event = paymentSucceededEvent({ janua_user_id: 'janua_sub_new_1' })
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { contact_created: boolean }).contact_created).toBe(true)
+
+    expect(state.inserts.contacts).toHaveLength(1)
+    expect(expectArrayItem(state.inserts.contacts, 0, 'contact insert')).toMatchObject({
+      email: 'ada.buyer@example.com',
+      externalJanuaId: 'janua_sub_new_1',
+    })
+    // Event, then email, then the Janua subject: always the same order.
+    expect(state.advisoryLocks).toEqual([
+      'phynd:dhanam:event:evt_pay_new_1',
+      'phynd:buyer:email:ada.buyer@example.com',
+      'phynd:buyer:janua:janua_sub_new_1',
+    ])
+  })
+
+  it('leaves the Janua subject off the new contact when a deleted contact still holds it', async () => {
+    state.deletedContactJanuaIds.add('janua_sub_new_1')
+
+    const event = paymentSucceededEvent({ janua_user_id: 'janua_sub_new_1' })
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('recorded')
+    expect(state.inserts.contacts).toHaveLength(1)
+    expect(expectArrayItem(state.inserts.contacts, 0, 'contact insert')).toMatchObject({
+      email: 'ada.buyer@example.com',
+      externalJanuaId: null,
+    })
+  })
+
+  it('does not create a contact, take a buyer lock or change the response for a known buyer', async () => {
+    state.contactByEmail.set('ada.buyer@example.com', 'contact_known')
+
+    const res = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    expect(json).toMatchObject({ status: 'recorded', contact_id: 'contact_known' })
+    expect(json).not.toHaveProperty('contact_created')
+
+    expect(state.inserts.contacts).toHaveLength(0)
+    expect(state.advisoryLocks).toEqual(['phynd:dhanam:event:evt_pay_new_1'])
+    const meta = expectArrayItem(state.inserts.conversions, 0, 'conversion insert')
+      .metadata as Record<string, unknown>
+    expect(meta).not.toHaveProperty('contact_created')
+  })
+
+  it('records nothing when an overlapping delivery of the same event commits first', async () => {
+    // Passes the early check, then finds the row once it holds the event lock.
+    state.recordedWhileWaiting.add('evt_pay_new_1')
+
+    const res = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('duplicate')
+
+    expect(state.advisoryLocks).toEqual(['phynd:dhanam:event:evt_pay_new_1'])
+    expect(state.inserts.webhookEvents).toHaveLength(0)
+    expect(state.inserts.contacts).toHaveLength(0)
+    expect(state.inserts.conversions).toHaveLength(0)
+  })
+
+  it('does not reconcile the order as paid when a refund for the payment was stored first', async () => {
+    // The refund arrives while the buyer is still unknown: stored as an orphan.
+    const refund = await POST(
+      signedRequest(
+        JSON.stringify(
+          paymentSucceededEvent(
+            { customer_email: undefined },
+            { id: 'evt_refund_1', type: 'payment.refunded' },
+          ),
+        ),
+      ),
+    )
+    expect(((await refund.json()) as { status: string }).status).toBe('orphan')
+    mockLogger.warn.mockClear()
+
+    // The paid event for the same payment then creates the contact.
+    const paid = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(paid.status).toBe(200)
+    const json = (await paid.json()) as Record<string, unknown>
+    expect(json).toMatchObject({
+      status: 'recorded',
+      contact_created: true,
+      payment_reconciliation_status: null,
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(state.updates.orders).toHaveLength(0)
+
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const [fields, message] = mockLogger.warn.mock.calls[0] as [Record<string, unknown>, string]
+    expect(message).toContain('DHANAM_PAID_AFTER_STORED_REFUND')
+    expect(fields).toEqual({
+      event_id: 'evt_pay_new_1',
+      payment_id: 'pi_new_1',
+      refund_webhook_event_id: 'wh_1',
+    })
+    expect(JSON.stringify(fields)).not.toContain('example.com')
+  })
+
+  it('reconciles as usual when the stored events for the payment hold no refund', async () => {
+    await POST(
+      signedRequest(
+        JSON.stringify(
+          paymentSucceededEvent(
+            { customer_email: undefined },
+            { id: 'evt_failed_first', type: 'payment.failed' },
+          ),
+        ),
+      ),
+    )
+    const paid = await POST(signedRequest(JSON.stringify(paymentSucceededEvent())))
+    expect(((await paid.json()) as Record<string, unknown>).payment_reconciliation_status).toBe(
+      'unmatched',
+    )
+  })
+})
+
 describe('POST /api/webhooks/dhanam — orphan path', () => {
-  it('returns 200 + status:orphan when no contact match exists, but records the webhook_event', async () => {
-    // No state setup — contactByJanuaId + contactByEmail empty.
-    const res = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+  it('returns 200 + status:orphan for a paid event with no contact and no email, and records the webhook_event', async () => {
+    // No state setup — no contact, and the event names no email to create one from.
+    const res = await POST(
+      signedRequest(JSON.stringify(paymentSucceededEvent({ customer_email: undefined }))),
+    )
     expect(res.status).toBe(200)
     const json = (await res.json()) as { received: boolean; status: string }
     expect(json.received).toBe(true)
@@ -781,10 +1158,90 @@ describe('POST /api/webhooks/dhanam — orphan path', () => {
 
     // webhook_events row written for reconciliation.
     expect(state.inserts.webhookEvents).toHaveLength(1)
-    // No conversion + no lead update + no engagement event.
+    // No contact + no conversion + no lead update + no engagement event.
+    expect(state.inserts.contacts).toHaveLength(0)
     expect(state.inserts.conversions).toHaveLength(0)
     expect(state.inserts.engagementEvents).toHaveLength(0)
     expect(state.updates.leads).toHaveLength(0)
+
+    // Loud, and with identifiers only.
+    expect(mockLogger.error).toHaveBeenCalledTimes(1)
+    const [fields, message] = mockLogger.error.mock.calls[0] as [Record<string, unknown>, string]
+    expect(message).toContain('DHANAM_PAID_EVENT_WITHOUT_CONTACT')
+    expect(fields).toEqual({
+      event_id: 'evt_pay_new_1',
+      event_type: 'payment.succeeded',
+      janua_user_id: 'billing_user_new_1',
+      payment_id: 'pi_new_1',
+      subscription_id: 'sub_new_1',
+    })
+  })
+
+  it('warns, not errors, for a product subscription event with no email and no contact', async () => {
+    // The product envelope names the organization and billing customer only.
+    const event = {
+      type: 'subscription.created',
+      id: 'evt_sub_product_1',
+      timestamp: '2026-11-13T18:05:00.000Z',
+      data: {
+        customer_id: 'billing_customer_1',
+        subscription_id: 'sub_product_1',
+        plan_id: 'karafiel_pro',
+        organization_id: 'org_1',
+        status: 'created',
+      },
+    }
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('orphan')
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.contacts).toHaveLength(0)
+
+    expect(mockLogger.error).not.toHaveBeenCalled()
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const [fields, message] = mockLogger.warn.mock.calls[0] as [Record<string, unknown>, string]
+    expect(message).toContain('DHANAM_SUBSCRIPTION_EVENT_WITHOUT_CONTACT')
+    expect(fields).toEqual({
+      event_id: 'evt_sub_product_1',
+      event_type: 'subscription.created',
+      janua_user_id: 'billing_customer_1',
+      payment_id: null,
+      subscription_id: 'sub_product_1',
+    })
+  })
+
+  it('keeps the orphan path when the email is not usable, and never logs it', async () => {
+    const res = await POST(
+      signedRequest(JSON.stringify(paymentSucceededEvent({ customer_email: 'not an email' }))),
+    )
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('orphan')
+    expect(state.inserts.contacts).toHaveLength(0)
+    expect(state.inserts.conversions).toHaveLength(0)
+
+    expect(mockLogger.error).toHaveBeenCalledTimes(1)
+    const logged = JSON.stringify(mockLogger.error.mock.calls[0])
+    expect(logged).not.toContain('not an email')
+    expect(logged).not.toContain('Ada Comprador')
+  })
+
+  it('does not create a contact from an event that is not a successful payment', async () => {
+    const res = await POST(
+      signedRequest(
+        JSON.stringify(
+          paymentSucceededEvent({}, { id: 'evt_pay_failed_1', type: 'payment.failed' }),
+        ),
+      ),
+    )
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('orphan')
+
+    expect(state.inserts.webhookEvents).toHaveLength(1)
+    expect(state.inserts.contacts).toHaveLength(0)
+    expect(state.inserts.conversions).toHaveLength(0)
+    expect(state.advisoryLocks).toEqual(['phynd:dhanam:event:evt_pay_failed_1'])
+    expect(mockLogger.error).not.toHaveBeenCalled()
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
   })
 
   it('still records the orphan when the customer has no leads', async () => {

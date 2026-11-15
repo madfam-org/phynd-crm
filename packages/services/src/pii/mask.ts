@@ -27,6 +27,20 @@ export function maskPersonName(name: string): string {
   return `${parts[0]} ***`
 }
 
+/** What a value masked as a whole reads; nothing of the original is kept. */
+export const MASKED_VALUE = '[redacted]'
+
+/**
+ * Mask a value as a whole (a company name, a lead source): the result is the
+ * fixed {@link MASKED_VALUE}, so it is recognisably masked and keeps nothing
+ * of the original (not its first letters, not its length) to reverse. Absent
+ * stays null, so a reader can still tell "none" from "masked".
+ */
+export function maskWholeValue(value: string | null | undefined): string | null {
+  if (!value) return null
+  return MASKED_VALUE
+}
+
 export function maskFreeText(text: string | null | undefined): string | null {
   if (!text) return null
   if (text.length <= 24) return '[redacted]'

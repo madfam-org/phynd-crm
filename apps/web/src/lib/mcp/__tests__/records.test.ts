@@ -41,7 +41,7 @@ describe('record projections', () => {
       toContact({ id: 'c', name: 'N', status: 'active', ...EXTRA }, false),
     ],
     ['activity', ACTIVITY_SCHEMA, toActivity({ id: 'a', title: 'T', dueAt: NOW, ...EXTRA }, false)],
-    ['lead', LEAD_SCHEMA, toLead({ id: 'l', score: 3, ...EXTRA })],
+    ['lead', LEAD_SCHEMA, toLead({ id: 'l', score: 3, ...EXTRA }, false)],
     ['deal', DEAL_SCHEMA, toDeal({ id: 'd', name: 'D', value: '1.00', ...EXTRA }, false)],
     [
       'pipeline',
@@ -65,5 +65,29 @@ describe('record projections', () => {
       title: '',
       description: null,
     })
+  })
+
+  it('masks company and lead source as a whole, and keeps absent values null', () => {
+    const contact = toContact({ id: 'c', name: 'Ana Ejemplo', company: 'Taller Ejemplo' }, true)
+    expect(contact.company).toBe('[redacted]')
+    expect(toContact({ id: 'c', name: 'N', company: null }, true).company).toBeNull()
+    expect(toContact({ id: 'c', name: 'N', company: 'Taller Ejemplo' }, false).company).toBe(
+      'Taller Ejemplo',
+    )
+    // Nothing of the original survives: not its letters, not its length.
+    const short = toContact({ id: 'c', name: 'N', company: 'AB' }, true).company
+    const long = toContact({ id: 'c', name: 'N', company: 'A much longer company name' }, true)
+    expect(short).toBe(long.company)
+
+    expect(toLead({ id: 'l', source: 'web' }, true).source).toBe('[redacted]')
+    expect(toLead({ id: 'l', source: null }, true).source).toBeNull()
+    expect(toLead({ id: 'l', source: 'web' }, false).source).toBe('web')
+  })
+
+  it('returns a lead source in clear to a masked caller only when it named that source', () => {
+    expect(toLead({ id: 'l', source: 'web' }, true, 'web').source).toBe('web')
+    // A row whose source differs from the named one stays masked.
+    expect(toLead({ id: 'l', source: 'tezca' }, true, 'web').source).toBe('[redacted]')
+    expect(toLead({ id: 'l', source: 'Web' }, true, 'web').source).toBe('[redacted]')
   })
 })

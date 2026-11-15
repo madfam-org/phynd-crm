@@ -161,8 +161,17 @@ Never returned, by construction (each record is projected field by field in
 the global `piiMasking` flag says: contact names (`Ana ***`), emails
 (`a***@example.com`), phones (`***1234`), preferred names, and the free text of
 task titles and descriptions and deal names (`[redacted]`, or the first 12
-characters then `…[redacted]`). Company, lead source, pipeline and stage names,
-ids, amounts and dates are not masked. The server instructions and the tool
+characters then `…[redacted]`), and companies and lead sources as a whole
+(`[redacted]`: nothing of the value is kept, not its first letters nor its
+length; an absent value stays `null`). Pipeline and stage names, ids,
+statuses, amounts and dates are not masked.
+
+Filtering by a masked field still works. `leads_list` with `source` matches the
+stored value exactly, and each returned lead whose stored source equals the
+named one carries it as named (the caller already knows it); the projection
+checks that equality itself, so no other source is ever returned in clear.
+`contacts_search` still matches `query` against the stored company, name and
+email; the rows come back masked. The server instructions and the tool
 descriptions say what a masked value looks like, so an agent never takes a
 masked email for an address. Why: an agent's conversation may leave the
 company's infrastructure (a hosted model, a transcript), so full personal data

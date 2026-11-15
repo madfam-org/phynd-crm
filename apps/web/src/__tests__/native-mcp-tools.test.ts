@@ -690,10 +690,43 @@ describe('masking (every MCP client masked by default)', () => {
     expect(audits().at(-1)).toMatchObject({ masked: true })
   })
 
+  it('a masked client reads companies and lead sources as [redacted]', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    const { search, detail } = await contactViews()
+    expect(search.company).toBe('[redacted]')
+    expect(detail.contact.company).toBe('[redacted]')
+    const leads = (await callTool('leads_list')).data.leads
+    expect(leads.map((row: { source: string | null }) => row.source)).toEqual([
+      '[redacted]',
+      '[redacted]',
+      '[redacted]',
+    ])
+    expect(schemaViolations({ leads, next_cursor: null, has_more: false }, outputSchemaOf('leads_list'))).toEqual([])
+    const raw = (await callTool('leads_list')).raw
+    expect(raw).not.toContain('tezca')
+    expect(raw).not.toMatch(/\bweb\b/)
+  })
+
+  it('a masked client can still filter leads by source, and reads back only the source it named', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    const tezca = await callTool('leads_list', { source: 'tezca' })
+    expect(tezca.data.leads.map((row: { id: string }) => row.id)).toEqual([uuid(12), uuid(13)])
+    expect(tezca.data.leads.map((row: { source: string }) => row.source)).toEqual([
+      'tezca',
+      'tezca',
+    ])
+    expect(tezca.raw).not.toMatch(/\bweb\b/)
+    // Searching by company still matches the stored value; the row is masked.
+    const byCompany = await callTool('contacts_search', { query: 'taller' })
+    expect(byCompany.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(1)])
+    expect(byCompany.data.contacts[0].company).toBe('[redacted]')
+  })
+
   it('a client on the unmasked list reads full values, and the audit says so', async () => {
     const { search, detail } = await contactViews()
-    expect(search).toMatchObject(FULL_CONTACT)
+    expect(search).toMatchObject({ ...FULL_CONTACT, company: 'Taller Ejemplo' })
     expect(detail.contact).toMatchObject(FULL_CONTACT)
+    expect((await callTool('leads_list')).data.leads[0].source).toBe('web')
     expect(audits().at(-1)).toMatchObject({ masked: false })
   })
 

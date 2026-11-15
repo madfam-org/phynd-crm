@@ -96,7 +96,7 @@ function page<T, R>(
 const contactsSearch: McpTool = {
   name: MCP_TOOL_NAMES.contactsSearch,
   title: 'contacts.search',
-  description: `Contacts (people and their companies), newest state, deleted contacts excluded. With query: a case-insensitive substring of the name, email or company, taken literally. Without it: every contact. ${PAGING_NOTE} ${MCP_MASKING_NOTE} ${UNTRUSTED_NOTE}`,
+  description: `Contacts (people and their companies), newest state, deleted contacts excluded. With query: a case-insensitive substring of the name, email or company, taken literally (the match runs on the stored values, also when they are returned masked). Without it: every contact. ${PAGING_NOTE} ${MCP_MASKING_NOTE} ${UNTRUSTED_NOTE}`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -202,7 +202,8 @@ const leadsList: McpTool = {
       source: {
         type: 'string',
         pattern: SOURCE_PATTERN,
-        description: 'Only this source, exactly as stored (for example web).',
+        description:
+          'Only this source, exactly as stored (for example web). When sources are masked, the leads this filter returns carry it as you named it.',
       },
       owner_id: OWNER_ID_SCHEMA,
       cursor: CURSOR_SCHEMA,
@@ -227,7 +228,7 @@ const leadsList: McpTool = {
         has_cursor: cursor !== null,
         limit,
       }),
-      execute: async (ctx) => {
+      execute: async (ctx, { masked: mask }) => {
         const result = await new LeadsService(ctx).list(
           { limit, ...(cursor ? { cursor } : {}) },
           {
@@ -236,7 +237,7 @@ const leadsList: McpTool = {
             ...(source ? { source } : {}),
           },
         )
-        return page('leads', result, limit, toLead)
+        return page('leads', result, limit, (row) => toLead(row, mask, source))
       },
     }
   },

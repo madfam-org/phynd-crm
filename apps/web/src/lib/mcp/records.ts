@@ -14,11 +14,20 @@
  * Personal fields are MASKED for every MCP client unless the owner listed it
  * in `PHYND_CRM_MCP_UNMASKED_CLIENTS` (`auth.ts` decides; the global
  * `piiMasking` flag plays no part here). Masked: contact names, emails, phones
- * and preferred names; activity titles and descriptions; deal names (the
- * `@phynd/services` `pii/mask` helpers). Not masked: company, lead source,
- * pipeline and stage names, ids, amounts and dates.
+ * and preferred names; companies and lead sources (as a whole, `[redacted]`);
+ * activity titles and descriptions; deal names (the `@phynd/services`
+ * `pii/mask` helpers). Not masked: pipeline and stage names, ids, statuses,
+ * amounts and dates. A lead source the caller itself named as a filter is
+ * returned as named (it already knows it); every other source stays masked.
  */
-import { maskEmail, maskFreeText, maskPersonName, maskPhone } from '@phynd/services'
+import {
+  MASKED_VALUE,
+  maskEmail,
+  maskFreeText,
+  maskPersonName,
+  maskPhone,
+  maskWholeValue,
+} from '@phynd/services'
 
 type Row = Readonly<Record<string, unknown>>
 
@@ -47,7 +56,10 @@ export const CONTACT_SCHEMA = {
     name: { type: 'string', description: UNTRUSTED },
     email: { ...nullableString, description: UNTRUSTED },
     phone: { ...nullableString, description: UNTRUSTED },
-    company: { ...nullableString, description: UNTRUSTED },
+    company: {
+      ...nullableString,
+      description: `Company name; "${MASKED_VALUE}" when masked. ${UNTRUSTED}`,
+    },
     preferred_name: { ...nullableString, description: UNTRUSTED },
     status: { type: 'string', description: 'active, inactive or archived.' },
     owner_id: nullableString,
@@ -77,7 +89,7 @@ export function toContact(row: Row, mask: boolean) {
     name: mask ? maskPersonName(name) : name,
     email: mask ? maskEmail(text(row.email)) : text(row.email),
     phone: mask ? maskPhone(text(row.phone)) : text(row.phone),
-    company: text(row.company),
+    company: mask ? maskWholeValue(text(row.company)) : text(row.company),
     preferred_name: mask && preferredName ? maskPersonName(preferredName) : preferredName,
     status: text(row.status) ?? '',
     owner_id: text(row.ownerId),
@@ -146,7 +158,10 @@ export const LEAD_SCHEMA = {
   properties: {
     id: { type: 'string' },
     contact_id: nullableString,
-    source: { ...nullableString, description: `Where the lead came from. ${UNTRUSTED}` },
+    source: {
+      ...nullableString,
+      description: `Where the lead came from; "${MASKED_VALUE}" when masked, except a source passed as the source filter. ${UNTRUSTED}`,
+    },
     status: { type: 'string', description: 'new, contacted, qualified, unqualified, converted.' },
     score: { type: ['integer', 'null'] },
     pipeline_id: { type: 'string' },
@@ -170,11 +185,18 @@ export const LEAD_SCHEMA = {
   additionalProperties: false,
 } as const
 
-export function toLead(row: Row) {
+/**
+ * `namedSource` is the source the caller filtered by. A masked caller gets that
+ * one back as it named it; any other value is masked. The equality is checked
+ * here, not assumed from the filter, so a source is never revealed that the
+ * caller did not name.
+ */
+export function toLead(row: Row, mask: boolean, namedSource: string | null = null) {
+  const source = text(row.source)
   return {
     id: text(row.id) ?? '',
     contact_id: text(row.contactId),
-    source: text(row.source),
+    source: !mask || (namedSource !== null && source === namedSource) ? source : maskWholeValue(source),
     status: text(row.status) ?? '',
     score: integer(row.score),
     pipeline_id: text(row.pipelineId) ?? '',

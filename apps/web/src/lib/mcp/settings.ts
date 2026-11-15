@@ -59,7 +59,7 @@ export const MCP_SERVER_INFO = {
 
 /** What a masked value looks like; the instructions and the tool descriptions quote it. */
 export const MCP_MASKING_NOTE =
-  'Personal fields may be masked: a name reads "Ana ***", an email "a***@example.com", a phone "***1234", and free text (task titles and descriptions, deal names) "[redacted]" or its first 12 characters followed by "…[redacted]". A masked value is not real data: never use it as an address, a number or a name.'
+  'Personal fields may be masked: a name reads "Ana ***", an email "a***@example.com", a phone "***1234", and free text (task titles and descriptions, deal names) "[redacted]" or its first 12 characters followed by "…[redacted]", and a company or a lead source "[redacted]" (leads_list returns the source you filtered by as you named it). A masked value is not real data: never use it as an address, a number or a name.'
 
 export const MCP_INSTRUCTIONS = [
   'You are connected to PhyndCRM as a machine client, read-only: contacts, leads, open tasks, deals and the pipeline stages they sit in.',

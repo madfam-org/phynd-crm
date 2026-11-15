@@ -181,10 +181,12 @@ export {
 export { OpportunitiesService } from './opportunities/opportunities.service'
 export { OpsEventsService, type OpsEventIngestResult } from './ops-events/ops-events.service'
 export {
+  MASKED_VALUE,
   maskEmail,
   maskFreeText,
   maskPersonName,
   maskPhone,
+  maskWholeValue,
   shouldMaskPiiForAgent,
 } from './pii/mask'
 export { OrdersService } from './orders/orders.service'

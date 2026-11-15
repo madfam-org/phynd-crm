@@ -66,7 +66,7 @@ Latest repository and production evidence is recorded in
 - `FEDERATION_API_TOKEN` — LEGACY static service-to-service bearer (Selva only; grants every `SERVICE_AUTH_SCOPES` scope)
 - `FEDERATION_SERVICE_USER_ID` — machine principal for service auth (default `service:selva`)
 - `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — Janua `client_credentials` machine tokens (off while the first two are unset; audience default `phynd-crm`); see `docs/MACHINE_AUTH.md`
-- `PHYND_CRM_MCP_ENABLED`, `PHYND_CRM_MCP_READ_CLIENTS` — native MCP, read-only (`POST /mcp`; 404 unless the switch is exactly `true`; readers are Janua clients with scope `phynd-crm-pipeline:read` listed as `client-id@org-id`); see `docs/NATIVE_MCP.md`
+- `PHYND_CRM_MCP_ENABLED`, `PHYND_CRM_MCP_READ_CLIENTS` — native MCP, read-only (`POST /mcp`; 404 unless the switch is exactly `true`; readers are Janua clients with scope `phynd-crm-pipeline:read` listed as `client-id@org-id`); `PHYND_CRM_MCP_UNMASKED_CLIENTS` — MCP readers that get personal fields unmasked (default empty: every MCP client masked); see `docs/NATIVE_MCP.md`
 - `PHYND_DEPLOYMENT_TIER` — `staging` | `production`; staging blocks outbound prod MADFAM URLs
 - `WORKER_HEALTH_PORT` — worker health endpoint, default `3001`
 

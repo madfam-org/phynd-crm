@@ -62,7 +62,9 @@ Authorization is the MCP's own (`apps/web/src/lib/mcp/auth.ts`), and all three h
 
 `PHYND_CRM_MCP_READ_CLIENTS` = `client-id@org-id,client-id@org-id` (identifiers,
 not secrets). Blank = no readers; one malformed or duplicated entry = no readers
-at all (fail closed).
+at all (fail closed). Consumer clients are provisioned one per consumer, once
+the owner names the consumers; who may read the CRM over MCP is the owner's
+decision, and none is decided by this code.
 
 The scope is separate from the tRPC machine path in both directions:
 `phynd-crm-pipeline:read` is not in `MACHINE_SCOPE_GRANTS` (it opens no tRPC
@@ -78,13 +80,27 @@ Answers before JSON-RPC, in order:
 
 1. the source address over 300 requests/minute → **429** (before any token is verified);
 2. a browser `Origin` header → **403** `origin_not_allowed` (machine edge, DNS-rebinding defense);
-3. no or invalid token → **401** `WWW-Authenticate: Bearer realm="phynd-crm-mcp", error="invalid_token"`;
+3. no or invalid token (bad signature, expired, wrong claims, no matching key)
+   → **401** `WWW-Authenticate: Bearer realm="phynd-crm-mcp", error="invalid_token"`;
+   Janua's key set unreachable (network error, timeout, a non-200 or unreadable
+   answer) → **503** `verifier_unavailable` with `Retry-After: 30`: an outage is
+   not reported as the caller's fault;
 4. a valid machine token that fails a check above → **403** (with
    `error="insufficient_scope", scope="phynd-crm-pipeline:read"` for the scope);
-5. the client over **60 requests/minute** → **429** `Retry-After: 60`.
+5. the client over **60 requests/minute** → **429** with `Retry-After` = the
+   seconds left in its window.
 
 Both limits use the app's Redis limiter (`checkApiRateLimit`), shared across
-pods and **fail closed**: with Redis down, `/mcp` answers 429.
+pods, each in a key namespace of its own (`mcp-address`, `mcp-client`) that no
+other route's address-keyed limit can reach. Count and expiry are one atomic
+Lua call, and a key found without an expiry gets one, so no bucket can stay
+closed forever. The limiter **fails closed**: with Redis unreachable, `/mcp`
+answers **503** `rate_limiter_unavailable` with `Retry-After: 30`, not 429.
+
+The source address is `CF-Connecting-IP`, else the LAST `X-Forwarded-For`
+entry (the one the proxy in front of the app appended), and only when it
+parses as an IPv4 or IPv6 address; anything else shares one fixed bucket. The
+first `X-Forwarded-For` entry is whatever the caller wrote and is never used.
 
 ## Tools
 
@@ -93,7 +109,7 @@ pods and **fail closed**: with Redis down, `/mcp` answers 429.
 | `contacts_search` | `contacts.search` | `ContactsService.list` | `query?` (1–100 chars: name, email or company, literal), `owner_id?`, `cursor?`, `limit?` |
 | `contacts_get` | `contacts.get` | `ContactsService.getById` + `ActivitiesService.listRecentForEntity` | `contact_id`, `activity_limit?` |
 | `leads_list` | `leads.list` | `LeadsService.list` | `status?`, `source?` (exact), `owner_id?`, `cursor?`, `limit?` |
-| `tasks_list_open` | `tasks.list_open` | `ActivitiesService.listRecent` (status `pending`) | `owner_id?`, `type?`, `due_from?`, `due_before?`, `cursor?`, `limit?` |
+| `tasks_list_open` | `tasks.list_open` | `ActivitiesService.listRecent` (type `task`, status `pending`, `excludeDeletedParents`) | `owner_id?`, `due_from?`, `due_before?`, `cursor?`, `limit?` |
 | `deals_list` | `deals.list` | `OpportunitiesService.list` | `stage_id?`, `pipeline_id?`, `status?`, `owner_id?`, `cursor?`, `limit?` |
 | `pipelines_list` | `pipelines.list` | `PipelinesService.list` + `getStages` | none |
 
@@ -107,9 +123,19 @@ A page is 25 rows by default and **at most 50**; a larger `limit` is refused
 **Arguments** are checked against the published input schema before any query
 runs; an unknown argument is refused (counted, never echoed).
 
+**Open tasks.** An open task is an activity of type `task` whose status is
+`pending`. Status alone is not enough: `pending` is the column default and
+nothing completes a note, a logged call or a fabrication update, so those stay
+`pending` forever and are never listed as tasks.
+
 **Deleted rows.** Soft-deleted contacts, leads and deals never leave: the tools
 call the same `list` / `getById` the UI calls, which filter `deleted_at`. A
 deleted contact is `not_found`, and its activities are not read.
+`tasks_list_open` leaves out every task whose parent record (contact, lead,
+deal, quote or order, all soft-deletable) is soft-deleted, in SQL (one
+`NOT EXISTS` per parent table); the staff Activities page still lists them.
+What can still leave: a lead or deal keeps the `contact_id` of a contact that
+was deleted after it (`contacts_get` answers `not_found` for it).
 
 ### Data boundary
 
@@ -127,9 +153,23 @@ Never returned, by construction (each record is projected field by field in
 - notes, tags, quotes, orders, payment evidence, campaigns, visitor tracking,
   staff names (rows carry `owner_id` only).
 
-When the `piiMasking` feature is on (`FEATURE_PII_MASKING=true`), names, emails,
-phones and free text are masked for the MCP principal, exactly as global search
-and the unified profile already do for `service:` actors.
+**Masked by default.** Every MCP client reads personal fields masked, whatever
+the global `piiMasking` flag says: contact names (`Ana ***`), emails
+(`a***@example.com`), phones (`***1234`), preferred names, and the free text of
+task titles and descriptions and deal names (`[redacted]`, or the first 12
+characters then `…[redacted]`). Company, lead source, pipeline and stage names,
+ids, amounts and dates are not masked. The server instructions and the tool
+descriptions say what a masked value looks like, so an agent never takes a
+masked email for an address. Why: an agent's conversation may leave the
+company's infrastructure (a hosted model, a transcript), so full personal data
+leaves only by a deliberate owner decision.
+
+The owner grants an exception per client in `PHYND_CRM_MCP_UNMASKED_CLIENTS`
+(same `client-id@org-id` format and parser as the readers list; default
+empty). Fail safe: unset, empty, malformed, a duplicate, or any entry that is
+not also on `PHYND_CRM_MCP_READ_CLIENTS` → nobody is unmasked, and the web log
+carries one `mcp_unmasked_clients_ignored` warning for that value. The audit
+record of every call carries `masked`.
 
 **Untrusted text.** Names, titles, descriptions, sources and stage names were
 typed by people or arrived from outside systems (web forms, webhooks). The
@@ -151,7 +191,7 @@ One structured log record per request, logger `web:mcp`, event `mcp_call`
 (`info`; refusals and failures at `warn`):
 
 ```json
-{"event":"mcp_call","clientId":"jnc_…","tenantId":"madfam","rpcMethod":"tools/call","tool":"contacts_search","outcome":"ok","httpStatus":200,"latencyMs":12.4,"resultCount":3,"args":{"has_query":true,"owner_id":"…","has_cursor":false,"limit":25},"detail":null}
+{"event":"mcp_call","clientId":"jnc_…","tenantId":"<tenant>","rpcMethod":"tools/call","tool":"contacts_search","outcome":"ok","httpStatus":200,"latencyMs":12.4,"resultCount":3,"args":{"has_query":true,"owner_id":"…","has_cursor":false,"limit":25},"detail":null,"masked":true}
 ```
 
 `args` holds identifiers, enumerations, numbers and flags only. Search text and
@@ -166,30 +206,20 @@ Prerequisite: Janua machine tokens are already on for this deployment
 (`PHYND_CRM_MACHINE_TENANT_ID` and `PHYND_CRM_MACHINE_JANUA_ORG_ID` set, see
 [MACHINE_AUTH.md](./MACHINE_AUTH.md)).
 
-1. **Reserve the scope in Janua.** madfam-org/janua#799 adds
-   `phynd-crm-pipeline:read` to `PHYND_CRM_SCOPES` in janua
-   `apps/api/app/core/reserved_oauth_boundaries.py` (audience `phynd-crm` is
-   already reserved). Merge it and promote that Janua image. Until then Janua
-   will not issue the scope.
-2. **Declare and provision one client per consumer.** madfam-org/enclii#967
-   declares the first two in enclii `config/ecosystem-oidc-provision.yaml`
-   (RFC 0051 ruling M3): `selva-phynd-crm-pipeline` and
-   `ops-agents-phynd-crm-pipeline`, each `audience: phynd-crm`,
-   `grant_types: [client_credentials]`,
-   `allowed_scopes: [phynd-crm-pipeline:read]`, org-bound to the organization of
-   `PHYND_CRM_MACHINE_JANUA_ORG_ID`. A later consumer gets its own entry on the
-   same model. After that PR is merged and deployed, provision each one (the
-   first run creates the client and prints its `jnc_…` id; the secret goes to
-   the consumer through intake, never to chat or git). The order of operations,
-   including the Vault policy re-apply the ops-agents client needs first, is in
-   enclii `docs/runbooks/SECRET_INTAKE.md` § PhyndCRM native MCP readers:
+1. **Reserve the scope in Janua.** Add `phynd-crm-pipeline:read` to Janua's
+   reserved PhyndCRM scopes (audience `phynd-crm` is already reserved), merge
+   and promote that Janua image. Until then Janua will not issue the scope.
+2. **Name the consumers, then provision one client per consumer.** Which
+   consumers may read the CRM over MCP is an open owner decision. For each one
+   the owner names, declare a Janua client in the ecosystem OIDC provisioning
+   registry with `audience: phynd-crm`, `grant_types: [client_credentials]`,
+   `allowed_scopes: [phynd-crm-pipeline:read]`, org-bound to the organization
+   of `PHYND_CRM_MACHINE_JANUA_ORG_ID`, and provision it (the first run creates
+   the client and prints its `jnc_…` id; the secret goes to the consumer
+   through intake, never to chat or git):
 
    ```bash
-   enclii --profile admin secrets provision oidc --platform selva-phynd-crm-pipeline --intake-profile default --json --reason "Selva reads the CRM pipeline over MCP"
-   ```
-
-   ```bash
-   enclii --profile admin secrets provision oidc --platform ops-agents-phynd-crm-pipeline --intake-profile default --json --reason "ops agents read the CRM pipeline over MCP"
+   enclii --profile admin secrets provision oidc --platform <consumer>-phynd-crm-pipeline --intake-profile default --json --reason "<consumer> reads the CRM pipeline over MCP"
    ```
 
 3. **Promote this code** as usual (`promote-to-prod.yml`); the route ships off.
@@ -203,10 +233,13 @@ Prerequisite: Janua machine tokens are already on for this deployment
 
    ```yaml
    - name: PHYND_CRM_MCP_READ_CLIENTS
-     value: "<jnc_selva_client_id>@<janua_org_uuid>,<jnc_ops_agents_client_id>@<janua_org_uuid>"
+     value: "<jnc_consumer_client_id>@<janua_org_uuid>"
    - name: PHYND_CRM_MCP_ENABLED
      value: "true"
    ```
+
+   `PHYND_CRM_MCP_UNMASKED_CLIENTS` stays empty (every client masked) unless
+   the owner grants a client an exception, as its own reviewed change.
 
 5. **Smoke test** (replace the host; the token comes from the consumer's own
    client):
@@ -238,5 +271,3 @@ next request). To remove one consumer: take its entry out of
   RFC 9728 metadata): this slice is machine clients only.
 - Notes, tags, lead/deal by id, leads and deals by contact, analytics: listed
   as "not in the first slice" in `coverage.ts`.
-- Open tasks of a soft-deleted record are still listed by `tasks_list_open`
-  (activities have no soft delete; the staff Activities page shows them too).

@@ -8,8 +8,9 @@
  * GATES, IN ORDER (each one answers before the next is looked at; the switch
  * itself is the route's, see `app/mcp/route.ts`):
  *   1. the source address over its rate → 429 (before any token is verified);
- *      the address is `clientAddress()`: never a caller-chosen first
- *      `X-Forwarded-For` entry;
+ *      the address is the shared `clientAddress()` (`lib/client-address.ts`):
+ *      never a caller-chosen first `X-Forwarded-For` entry, and anything that
+ *      is not an IP address shares `UNKNOWN_CLIENT_ADDRESS`;
  *   2. a browser `Origin` header → 403 `origin_not_allowed` (machine clients
  *      only; DNS-rebinding protection, as the transport requires);
  *   3. the Janua machine token (`lib/mcp/auth.ts`) → 401 with
@@ -33,8 +34,7 @@
  * no argument digest is kept either (a hash of a short search term can be
  * reversed by guessing).
  */
-import { isIP } from 'node:net'
-
+import { clientAddress } from '@/lib/client-address'
 import type { ServiceContext } from '@phynd/services/context'
 import type { AuthContext } from '@phynd/types/auth'
 
@@ -203,28 +203,6 @@ async function readCapped(request: Request, limit: number): Promise<string | nul
     chunks.push(value)
   }
   return Buffer.concat(chunks).toString('utf8')
-}
-
-/** The key every request without a usable address shares. */
-export const UNKNOWN_CLIENT_ADDRESS = 'unknown'
-
-/**
- * The address the per-address limit is keyed by. The FIRST `X-Forwarded-For`
- * entry is whatever the caller wrote, so it is never used: `CF-Connecting-IP`
- * (set by the edge), else the LAST `X-Forwarded-For` entry (appended by the
- * proxy in front of the app). Accepted only when it parses as an IPv4 or IPv6
- * address; anything else shares one fixed key.
- */
-export function clientAddress(headers: Headers): string {
-  const candidates = [
-    headers.get('cf-connecting-ip'),
-    headers.get('x-forwarded-for')?.split(',').at(-1) ?? null,
-  ]
-  for (const candidate of candidates) {
-    const value = candidate?.trim() ?? ''
-    if (value !== '' && isIP(value) !== 0) return value.toLowerCase()
-  }
-  return UNKNOWN_CLIENT_ADDRESS
 }
 
 export function createMcpServer(deps: McpServerDeps) {

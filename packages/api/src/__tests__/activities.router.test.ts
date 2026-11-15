@@ -111,6 +111,30 @@ describe('activities router', () => {
     expect(result).toHaveProperty('items')
   })
 
+  it('update assigns an owner given as a user id', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    await expect(
+      caller.activities.update({
+        id: '00000000-0000-0000-0000-000000000002',
+        ownerId: '00000000-0000-0000-0000-000000000001',
+      }),
+    ).resolves.not.toThrow()
+    const db = ctx.db as unknown as { update: ReturnType<typeof vi.fn> }
+    expect(db.update).toHaveBeenCalled()
+  })
+
+  it('update rejects an owner that is not a user id', async () => {
+    const ctx = createMockCtx()
+    const caller = createCaller(ctx)
+    await expect(
+      caller.activities.update({
+        id: '00000000-0000-0000-0000-000000000002',
+        ownerId: 'not-a-user-id',
+      }),
+    ).rejects.toThrow()
+  })
+
   it('create accepts quote entityType', async () => {
     const ctx = createMockCtx()
     const caller = createCaller(ctx)

@@ -6,6 +6,7 @@
  * Order: rate limit → bearer auth → period → tenant scope → read. The body
  * is the bare JSON array converge-dash validates; errors are `{ error }`.
  */
+import { clientAddress } from '@/lib/client-address'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { resolveDatabaseUrl } from '@phynd/config/connections'
 import { getDb } from '@phynd/db'
@@ -39,7 +40,7 @@ type FeedReader<T> = (
 ) => Promise<FeedResult<T>>
 
 function clientIp(request: Request): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
+  return clientAddress(request.headers)
 }
 
 export function createConvergenceHandler<T>(feed: ConvergenceFeedName, read: FeedReader<T>) {

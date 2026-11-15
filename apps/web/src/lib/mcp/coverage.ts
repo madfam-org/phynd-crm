@@ -90,7 +90,9 @@ export const MCP_COVERAGE: Readonly<Record<string, ProcedureCoverage>> = {
 
   // ── activities (tasks) ────────────────────────────────────────────────────
   // tasks_list_open calls the same listRecent, narrowed to open tasks (type
-  // task, status pending) whose parent record is not soft-deleted.
+  // task, status pending) whose parent record is not soft-deleted, and pages
+  // the same way: newest first by (created_at, id), the cursor being the id
+  // of the previous page's last row.
   'activities.list': {
     tools: [MCP_TOOL_NAMES.tasksListOpen],
     service: 'ActivitiesService.listRecent',

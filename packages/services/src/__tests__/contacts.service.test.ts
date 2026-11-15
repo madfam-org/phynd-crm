@@ -4,6 +4,12 @@ import { type MockDatabase, createTestContext, makeContact } from './helpers'
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
+  asc: vi.fn((col: unknown) => ({ _tag: 'asc', col })),
+  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    _tag: 'sql',
+    text: strings.join('?'),
+    values,
+  })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
@@ -11,6 +17,7 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@phynd/db/schema', () => ({
   contacts: {
+    createdAt: 'contacts.createdAt',
     deletedAt: 'contacts.deletedAt',
     email: 'contacts.email',
     externalJanuaId: 'contacts.externalJanuaId',
@@ -288,6 +295,31 @@ describe('ContactsService', () => {
       await service.bulkCreate([{ name: 'Test' }])
 
       expect(mockDb.transaction).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('getByEmailIgnoringCase()', () => {
+    it('compares lower(email) with lower($1) among live contacts, oldest first', async () => {
+      const stored = makeContact({ email: 'Ana.Perez@Example.com' })
+      mockDb._qb._result = [stored]
+      const result = await service.getByEmailIgnoringCase('ana.perez@example.com')
+      expect(result).toEqual(stored)
+      const where = mockDb._qb.where.mock.calls[0]?.[0] as {
+        args: Array<{ _tag: string; text?: string; values?: unknown[]; col?: unknown }>
+      }
+      expect(where.args[0]).toEqual({
+        _tag: 'sql',
+        text: 'lower(?) = lower(?)',
+        values: ['contacts.email', 'ana.perez@example.com'],
+      })
+      expect(where.args[1]).toEqual({ _tag: 'isNull', col: 'contacts.deletedAt' })
+      expect(mockDb._qb.orderBy).toHaveBeenCalledWith({ _tag: 'asc', col: 'contacts.createdAt' })
+      expect(mockDb._qb.limit).toHaveBeenCalledWith(1)
+    })
+
+    it('returns null when no contact matches', async () => {
+      mockDb._qb._result = []
+      expect(await service.getByEmailIgnoringCase('nadie@example.com')).toBeNull()
     })
   })
 })

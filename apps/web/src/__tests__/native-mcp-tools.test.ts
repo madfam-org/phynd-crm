@@ -24,6 +24,7 @@ import {
   TENANT_A_TABLES,
   TENANT_B_TABLES,
   manyContacts,
+  manyOpenTasks,
   mcpRequest,
   rpc,
   schemaViolations,
@@ -295,7 +296,8 @@ describe('tasks_list_open', () => {
 
   it('lists only open tasks: type task, status pending, parent not deleted', async () => {
     const answer = await callTool('tasks_list_open')
-    expect(ids(answer)).toEqual([uuid(31), uuid(35), uuid(39), uuid(43)])
+    // Newest first; 39 and 43 share created_at, so the higher id comes first.
+    expect(ids(answer)).toEqual([uuid(35), uuid(31), uuid(43), uuid(39)])
     expect(schemaViolations(answer.data, outputSchemaOf('tasks_list_open'))).toEqual([])
   })
 
@@ -328,6 +330,50 @@ describe('tasks_list_open', () => {
       due_before: '2026-11-25T15:00:00Z',
     })
     expect(ids(window)).toEqual([uuid(31), uuid(43)])
+  })
+
+  it('pages newest first by (created_at, id), never skipping or repeating a tied row', async () => {
+    const tasks = manyOpenTasks(70)
+    useTables({ ...TENANT_A_TABLES, activities: tasks })
+    const expected = [...tasks]
+      .sort(
+        (a, b) =>
+          Date.parse(String(b.created_at)) - Date.parse(String(a.created_at)) ||
+          (String(b.id) < String(a.id) ? -1 : 1),
+      )
+      .map((row) => row.id)
+
+    const listed: string[] = []
+    const cursors: string[] = []
+    let cursor: string | null = null
+    let pages = 0
+    do {
+      const answer: ToolAnswer = await callTool('tasks_list_open', {
+        limit: 10,
+        ...(cursor ? { cursor } : {}),
+      })
+      listed.push(...ids(answer))
+      cursor = answer.data.next_cursor as string | null
+      if (cursor) cursors.push(cursor)
+      pages += 1
+    } while (cursor !== null && pages < 20)
+
+    expect(pages).toBe(7)
+    expect(listed).toEqual(expected)
+    // Each cursor is the id of the last row of its page.
+    expect(cursors).toEqual([9, 19, 29, 39, 49, 59].map((index) => expected[index]))
+    // And at least one page boundary splits rows that share created_at.
+    const createdAt = new Map(tasks.map((row) => [row.id, row.created_at]))
+    const tiedBoundaries = [9, 19, 29, 39, 49, 59].filter(
+      (index) => createdAt.get(expected[index] ?? '') === createdAt.get(expected[index + 1] ?? ''),
+    )
+    expect(tiedBoundaries.length).toBeGreaterThan(0)
+  })
+
+  it('a cursor naming no activity yields an empty page', async () => {
+    const answer = await callTool('tasks_list_open', { cursor: uuid(999999) })
+    expect(ids(answer)).toEqual([])
+    expect(answer.data).toMatchObject({ next_cursor: null, has_more: false })
   })
 
   it('refuses a date without an offset', async () => {

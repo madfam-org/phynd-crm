@@ -56,6 +56,7 @@ public contributor needs for local development:
 | `PHYND_CAMPAIGN_IMPORT_SECRET` | HMAC secret for the campaign import/send/export API routes | Secret-store value |
 | `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | Secret-store value |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | Secret-store value |
+| `PHYND_CRM_LEAD_INTAKE_SECRET` | HMAC key for `/api/webhooks/lead-intake` only (Kalya bookings, site contact forms); not shared with other routes | Secret-store value |
 | `FEDERATION_API_TOKEN` | LEGACY static service-to-service token, Selva only (grants every `SERVICE_AUTH_SCOPES` scope) | Secret-store value |
 | `FEDERATION_SERVICE_USER_ID` | Machine principal id for service token (default `service:selva`) | `service:selva` |
 | `PHYND_CRM_MACHINE_TENANT_ID` | Tenant for Janua machine tokens; unset = machine tokens off ([MACHINE_AUTH.md](./MACHINE_AUTH.md)) | `madfam` |

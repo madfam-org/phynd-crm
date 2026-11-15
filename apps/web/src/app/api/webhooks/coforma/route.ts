@@ -25,6 +25,7 @@
  *     receiver pattern.
  */
 
+import { clientAddress } from '@/lib/client-address'
 import { getDb } from '@phynd/db'
 import { contacts, webhookEvents } from '@phynd/db/schema'
 import { validateMadfamSignature } from '@phynd/federation'
@@ -82,7 +83,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
   }
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(req.headers)
   const { allowed, remaining } = await checkRateLimit(ip)
   if (!allowed) {
     return NextResponse.json(

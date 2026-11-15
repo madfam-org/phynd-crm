@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { resolveTenantIdForWebhook } from '@/lib/webhooks/engagement-writer'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { getDb } from '@phynd/db'
@@ -63,7 +64,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 })
   }
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(req.headers)
   const { allowed, remaining } = await checkRateLimit(ip)
   if (!allowed) {
     return NextResponse.json(

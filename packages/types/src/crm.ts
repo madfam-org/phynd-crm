@@ -22,11 +22,44 @@ export interface Contact {
 
 export type ContactStatus = 'active' | 'inactive' | 'archived'
 
+/** The meeting a lead scheduled, when the lead came from a booking. */
+export interface LeadBookingAttribution {
+  id?: string
+  starts_at?: string
+  event_type_name?: string
+  host_name?: string
+  timezone?: string
+}
+
+/**
+ * Where a lead came from: campaign parameters, the page it arrived on and, for
+ * a scheduled meeting, the booking. Mirrors the `leads.attribution` column.
+ */
+export interface LeadAttribution {
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  utm_content?: string
+  utm_term?: string
+  referrer?: string
+  landing_page?: string
+  /** The sender's own account or workspace the lead arrived through. */
+  tenant?: string
+  /** The requested quote, for a lead from the quoting platform. */
+  quote_id?: string
+  quote_number?: string
+  /** Plain decimal string; absent while the quote has no price. */
+  quote_total?: string
+  quote_currency?: string
+  booking?: LeadBookingAttribution
+}
+
 export interface Lead {
   id: string
   contactId: string | null
   externalJanuaId: string | null
   source: string | null
+  attribution?: LeadAttribution | null
   status: LeadStatus
   score: number | null
   pipelineId: string

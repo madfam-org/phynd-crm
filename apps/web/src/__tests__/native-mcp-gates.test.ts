@@ -40,6 +40,7 @@ vi.mock('@phynd/logging', () => ({
 }))
 
 import { DELETE, GET, OPTIONS, PATCH, POST, PUT } from '@/app/mcp/route'
+import { UNKNOWN_CLIENT_ADDRESS } from '@/lib/client-address'
 
 const READERS = `${CLIENT_ID}@${ORG_ID}`
 const ALLOWED = { allowed: true, remaining: 1, retryAfterMs: 0, unavailable: false }
@@ -361,7 +362,7 @@ describe('rate limits (the shared Redis limiter, fail closed)', () => {
     for (const headers of cases) {
       rateLimit.mockClear()
       await POST(mcpRequest(rpc('ping'), { bearer: await reader(), headers }))
-      expect(rateLimit.mock.calls[0]?.[0]).toBe('unknown')
+      expect(rateLimit.mock.calls[0]?.[0]).toBe(UNKNOWN_CLIENT_ADDRESS)
     }
   })
 

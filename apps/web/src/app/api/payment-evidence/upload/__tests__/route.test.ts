@@ -113,6 +113,25 @@ describe('POST /api/payment-evidence/upload', () => {
     )
   })
 
+  it('limits under the trusted address, not the first x-forwarded-for entry', async () => {
+    rateMock.mockResolvedValue({ allowed: false })
+    const req = upload(buildSyntheticReceiptPdf('simple'))
+    req.headers.set('x-forwarded-for', '192.0.2.250, 198.51.100.4')
+    const res = await POST(req)
+    expect(res.status).toBe(429)
+    expect(rateMock).toHaveBeenCalledWith('198.51.100.4')
+    expect(rateMock).not.toHaveBeenCalledWith('192.0.2.250')
+    expect(contextMock).not.toHaveBeenCalled()
+  })
+
+  it('keys the limiter by the edge-set address when present', async () => {
+    const req = upload(buildSyntheticReceiptPdf('simple'))
+    req.headers.set('cf-connecting-ip', '203.0.113.7')
+    req.headers.set('x-forwarded-for', '192.0.2.250, 198.51.100.4')
+    await POST(req)
+    expect(rateMock).toHaveBeenCalledWith('203.0.113.7')
+  })
+
   it('refuses unsupported types and files over 10 MB, and a missing file', async () => {
     expect((await POST(upload(Buffer.from('GIF89a-not-allowed')))).status).toBe(415)
     const big = Buffer.alloc(10 * 1024 * 1024 + 1)

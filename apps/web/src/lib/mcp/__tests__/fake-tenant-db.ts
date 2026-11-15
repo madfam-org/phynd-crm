@@ -13,8 +13,12 @@
  * `ilike`, and correlated anti-joins
  *   not exists (select 1 from "<other>" where (<terms joined by and>))
  * whose terms are `"t"."c" = $n`, `"t"."c" = "u"."d"`, `"t"."c" is [not] null`
- * over the outer and the inner table. Anything else throws, so an unsupported
- * query can never pass silently. Rows are keyed by column name (`deleted_at`); instants are ISO
+ * over the outer and the inner table, and a keyset comparison against one row
+ * looked up by key
+ *   ("t"."a", "t"."b") < (select c.a, c.b from <t> c where c.<key> = $n)
+ * with `<`, `<=`, `>` or `>=` compared column by column (no such row: false,
+ * as SQL's NULL). Anything else throws, so an unsupported query can never pass
+ * silently. Rows are keyed by column name (`deleted_at`); instants are ISO
  * strings.
  */
 import { drizzle } from 'drizzle-orm/pg-proxy'
@@ -122,6 +126,34 @@ function parseWhere(
       const matches = parseCorrelated(predicate, table, inner, params)
       const innerRows = tables[inner] ?? []
       all.push((row) => !innerRows.some((candidate) => matches(row, candidate)))
+      return ''
+    },
+  )
+  rest = rest.replace(
+    new RegExp(
+      `\\(${column}, ${column}\\) (<=|>=|<|>) \\(select c\\.(\\w+), c\\.(\\w+) from (\\w+) c where c\\.(\\w+) = \\$(\\d+)\\)`,
+      'g',
+    ),
+    (
+      _m,
+      first: string,
+      second: string,
+      operator: string,
+      innerFirst: string,
+      innerSecond: string,
+      inner: string,
+      key: string,
+      n: string,
+    ) => {
+      const holds = OPERATORS[operator]
+      if (!holds) throw new Error(`fake-tenant-db: unsupported operator ${operator}`)
+      const anchor = (tables[inner] ?? []).find((row) => compare(row[key], param(n)) === 0)
+      all.push((row) => {
+        if (!anchor) return false
+        const order =
+          compare(row[first], anchor[innerFirst]) || compare(row[second], anchor[innerSecond])
+        return holds(order)
+      })
       return ''
     },
   )

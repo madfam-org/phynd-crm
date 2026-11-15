@@ -5,6 +5,7 @@
  * External products call this to check if a code is valid before applying it.
  */
 
+import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
@@ -26,7 +27,7 @@ const SERVICE_AUTH: AuthContext = {
 
 export async function POST(req: Request) {
   // Rate limiting
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(req.headers)
   const { allowed } = await checkRateLimit(ip)
   if (!allowed) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })

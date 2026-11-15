@@ -116,7 +116,11 @@ first `X-Forwarded-For` entry is whatever the caller wrote and is never used.
 Wire names use underscores (Anthropic tool names match `^[a-zA-Z0-9_-]{1,64}$`);
 each tool's `title` carries the dotted catalog name.
 
-**Paging.** Cursor-based (`next_cursor` → `cursor`, same filters), ordered by id.
+**Paging.** Cursor-based (`next_cursor` → `cursor`, same filters). The
+cursor is always the id of the last row of the previous page. Contacts, leads
+and deals are ordered by id; `tasks_list_open` is newest first, by creation
+time and then id, so tasks created at the same instant are neither skipped nor
+repeated across a page boundary.
 A page is 25 rows by default and **at most 50**; a larger `limit` is refused
 (`invalid_arguments`), not clamped. `contacts_get` returns at most 50 activities.
 

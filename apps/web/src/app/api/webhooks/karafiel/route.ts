@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import {
   createWebhookEngagementsService,
@@ -38,7 +39,7 @@ type Db = ReturnType<typeof getDb>
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
 async function checkKarafielRateLimit(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(req.headers)
   const { allowed, remaining } = await checkRateLimit(ip)
   if (!allowed) {
     return {

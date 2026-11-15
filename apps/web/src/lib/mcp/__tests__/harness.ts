@@ -248,6 +248,18 @@ export function manyContacts(count: number): FakeRow[] {
   return Array.from({ length: count }, (_unused, index) => contact(1000 + index, {}))
 }
 
+/**
+ * `count` open tasks for paging, created in groups of three that share one
+ * instant, so page boundaries fall inside a tie on `created_at`.
+ */
+export function manyOpenTasks(count: number): FakeRow[] {
+  return Array.from({ length: count }, (_unused, index) =>
+    activity(2000 + index, {
+      created_at: new Date(Date.UTC(2026, 10, 1, 0, Math.floor(index / 3))).toISOString(),
+    }),
+  )
+}
+
 // ── A strict JSON-Schema check (the subset the tool schemas use) ─────────────
 
 interface Schema {

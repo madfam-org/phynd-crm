@@ -18,6 +18,7 @@ import {
   readLeadQuote,
 } from '@/lib/webhooks/lead-intake'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
+import { resolveSystemTaskOwner } from '@/lib/webhooks/system-task-owner'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { webhookEvents } from '@phynd/db/schema'
@@ -449,6 +450,7 @@ async function storeLead(
   const followUpDueAt = crmLead
     ? await openFollowUp(ctx, {
         leadId: crmLead.id,
+        contactOwnerId: contact.ownerId,
         source,
         name: displayName,
         attribution,
@@ -511,9 +513,11 @@ function bookingSummary(attribution: LeadAttribution | null): string | undefined
 }
 
 /**
- * One follow-up task on the lead, due the next business day. It has no owner
- * yet (a new lead has none); it shows on the lead's timeline and in the
- * activities list, and whoever takes it sets its owner. Best effort: it runs
+ * One follow-up task on the lead, due the next business day. It goes to the
+ * contact's owner (a reused contact may have one), else to the configured
+ * default task owner (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`); with neither it is
+ * unassigned, a warning is logged, and whoever takes it sets its owner. It
+ * shows on the lead's timeline and in the activities list. Best effort: it runs
  * in a savepoint, so a failure rolls back only the task, is logged, and the
  * lead is still stored.
  */
@@ -521,6 +525,7 @@ async function openFollowUp(
   ctx: PhyndServiceContext,
   input: {
     leadId: string
+    contactOwnerId: string | null
     source: LeadIntakeSource
     name: string
     attribution: LeadAttribution | null
@@ -532,8 +537,12 @@ async function openFollowUp(
   // The quote label goes first so a long name cannot cut it off.
   const subject = input.quote ? `cotización ${quoteLabel(input.quote)} · ${input.name}` : input.name
   try {
-    await ctx.db.transaction((savepoint) =>
-      new ActivitiesService(withTransaction(ctx, savepoint)).create({
+    await ctx.db.transaction(async (savepoint) => {
+      const ownerId = await resolveSystemTaskOwner(savepoint, logger, {
+        contactOwnerId: input.contactOwnerId,
+        logContext: { task: 'lead_intake_follow_up', lead_id: input.leadId },
+      })
+      return new ActivitiesService(withTransaction(ctx, savepoint)).create({
         type: 'task',
         // `activities.title` is varchar(255).
         title: cut(`Dar seguimiento: ${subject}`, CONTACT_TEXT_MAX) ?? 'Dar seguimiento',
@@ -547,9 +556,9 @@ async function openFollowUp(
         dueAt,
         entityType: 'lead',
         entityId: input.leadId,
-        ownerId: null,
-      }),
-    )
+        ownerId,
+      })
+    })
     return dueAt
   } catch (error) {
     logger.warn({ err: error, leadId: input.leadId }, 'lead follow-up task not created')

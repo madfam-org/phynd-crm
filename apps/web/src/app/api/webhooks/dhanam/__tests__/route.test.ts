@@ -59,6 +59,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     ordersByQuoteId: new Map<string, Array<Record<string, unknown>>>(),
     ordersByOpportunityId: new Map<string, Array<Record<string, unknown>>>(),
     contactOwnerById: new Map<string, string>(), // contact_id → owner user id
+    userIds: new Set<string>(), // existing CRM `users.id`
     // Every `activities` row, seeded or inserted.
     activities: [] as Array<Record<string, unknown>>,
     inserts: {
@@ -245,8 +246,17 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     return contactIdx >= 0 ? (state.ordersByContactId.get(whereValue(contactIdx)) ?? []) : []
   }
 
+  const resolveUsers = (): unknown[] => {
+    const idIdx = whereIndex('users.id')
+    if (idIdx < 0) return []
+    const id = whereValue(idIdx)
+    return state.userIds.has(id) ? [rowById(id)] : []
+  }
+
   const resolveSelectResult = (): unknown[] => {
     switch (pendingSelectFrom) {
+      case 'users':
+        return resolveUsers()
       case 'webhook_events':
         return resolveWebhookEvents()
       case 'contacts':
@@ -546,6 +556,9 @@ vi.mock('@phynd/db/schema', () => ({
     status: 'referrals.status',
     createdAt: 'referrals.createdAt',
   }),
+  users: tableMock('users', {
+    id: 'users.id',
+  }),
   webhookEvents: tableMock('webhook_events', {
     id: 'webhookEvents.id',
     provider: 'webhookEvents.provider',
@@ -702,6 +715,8 @@ beforeEach(() => {
   state.ordersByQuoteId.clear()
   state.ordersByOpportunityId.clear()
   state.contactOwnerById.clear()
+  state.userIds.clear()
+  delete process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID
   state.activities.length = 0
   state.inserts.activities.length = 0
   state.inserts.contacts.length = 0
@@ -723,6 +738,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.DHANAM_WEBHOOK_SECRET
+  delete process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID
 })
 
 // ---------------------------------------------------------------------------
@@ -1665,12 +1681,53 @@ describe('POST /api/webhooks/dhanam — failed payment follow-up task', () => {
     expect(state.inserts.contacts).toHaveLength(0)
   })
 
-  it('leaves the task unassigned when the contact has no owner, and omits a missing reason', async () => {
+  it('leaves the task unassigned when the contact has no owner and no default is set, and omits a missing reason', async () => {
     state.contactOwnerById.clear()
     await postFailed({ failure_reason: undefined, failure_code: undefined })
     const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
     expect(task.ownerId).toBeNull()
     expect(String(task.description)).not.toContain('Motivo')
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'DEFAULT_TASK_OWNER_UNAVAILABLE',
+        reason: 'unset',
+        contact_id: 'contact_fail',
+      }),
+      expect.stringMatching(/^DEFAULT_TASK_OWNER_UNAVAILABLE: /),
+    )
+  })
+
+  it('assigns the configured default task owner when the contact has no owner', async () => {
+    state.contactOwnerById.clear()
+    state.userIds.add('user_default_1')
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = ' user_default_1 '
+    await postFailed()
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    expect(task.ownerId).toBe('user_default_1')
+    expect(mockLogger.warn).not.toHaveBeenCalled()
+  })
+
+  it("keeps the contact's owner over the configured default", async () => {
+    state.userIds.add('user_default_1')
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = 'user_default_1'
+    await postFailed()
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    expect(task.ownerId).toBe('user_owner_1')
+  })
+
+  it('leaves the task unassigned and warns once when the default names no user', async () => {
+    state.contactOwnerById.clear()
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = 'user_missing'
+    await postFailed()
+    const task = expectArrayItem(state.inserts.activities, 0, 'task insert')
+    expect(task.ownerId).toBeNull()
+    const ownerWarnings = mockLogger.warn.mock.calls.filter(
+      ([fields]) => (fields as { code?: string }).code === 'DEFAULT_TASK_OWNER_UNAVAILABLE',
+    )
+    expect(ownerWarnings).toHaveLength(1)
+    expect(ownerWarnings[0]?.[0]).toMatchObject({ reason: 'unknown_user' })
+    // The configured id is not logged.
+    expect(JSON.stringify(ownerWarnings)).not.toContain('user_missing')
   })
 
   it('creates nothing more on a duplicate delivery of the same event', async () => {

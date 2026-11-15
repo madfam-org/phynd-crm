@@ -398,6 +398,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation URLs        | `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `SELVA_API_URL`, `FORJ_API_URL` |
 | Federation API Keys    | `PRAVARA_API_KEY`, `SELVA_API_KEY`, `FEDERATION_API_TOKEN` |
 | Machine auth (Janua)   | `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — see [docs/MACHINE_AUTH.md](docs/MACHINE_AUTH.md) |
+| System task owner      | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` — CRM user who owns system-created tasks on a contact without owner; unset = unassigned + warning |
 | Native MCP (read-only) | `PHYND_CRM_MCP_ENABLED`, `PHYND_CRM_MCP_READ_CLIENTS`, `PHYND_CRM_MCP_UNMASKED_CLIENTS` — off by default, see [docs/NATIVE_MCP.md](docs/NATIVE_MCP.md) |
 | Production dispatch    | `PRAVARA_DISPATCH_URL`, `SELVA_DISPATCH_URL`, `PRAVARA_DISPATCH_SECRET`, `SELVA_DISPATCH_SECRET`, `PRODUCTION_DISPATCH_SCAN_LIMIT`, `PRODUCTION_DISPATCH_TIMEOUT_MS` |
 | Webhook secrets        | `JANUA_WEBHOOK_SECRET`, `JANUA_TELEMETRY_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, `CEQ_WEBHOOK_SECRET`, `COFORMA_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_CRM_LEAD_INTAKE_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` |
@@ -520,7 +521,7 @@ For a lead event the receiver:
 - reuses the contact with that email regardless of letter case, or creates it (in lower case); an existing contact is never modified. `name` and `company` are cut to 255 characters; a `phone` longer than 50 characters is not put on the contact but is quoted (up to 200 characters) in the note;
 - creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, `tenant` from `context.tenant`, the booking for a Kalya event, and `quote_id`/`quote_number`/`quote_total`/`quote_currency` for a quote request; known keys only, length-capped). Leads have no amount column, so the quote total is kept in the attribution only;
 - writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent, and for a quote request its number or id, total with currency or «sin precio aún», and item count);
-- opens an unowned follow-up task on the lead, due the next business day (`activities.update` with `ownerId` assigns it);
+- opens a follow-up task on the lead, due the next business day, owned by the contact's owner, else by `PHYND_CRM_DEFAULT_TASK_OWNER_ID` when it names a CRM user, else unassigned with a `DEFAULT_TASK_OWNER_UNAVAILABLE` warning (`activities.update` with `ownerId` assigns it);
 - after the transaction commits, emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
 
 ## Production domain truth

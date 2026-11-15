@@ -254,7 +254,7 @@ async function persistEventInTransaction(
   const paymentReconciliation = refundedEarlier
     ? null
     : await maybeReconcilePayment(tx, event, contactId, engagementId)
-  const failedPaymentTask = await maybeOpenFailedPaymentTask(tx, event, contactId)
+  const failedPaymentTask = await maybeOpenFailedPaymentTask(tx, event, contactId, logger)
 
   return {
     status: 'recorded',

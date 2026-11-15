@@ -65,6 +65,18 @@ spec:
                   name: phynd-crm-convergence-secrets
                   key: CONVERGENCE_API_TOKEN
                   optional: true
+            # HMAC key for POST /api/webhooks/lead-intake (Kalya, public site,
+            # Cotiza). Optional: until phynd-crm-lead-intake exists the pod
+            # still starts and the route answers 503 "not configured". Must
+            # equal the three senders' lead-intake secret. Activation: provision
+            # through the platform's secret intake, wait for ESO sync, then
+            # rollout restart this Deployment. See phynd-crm-lead-intake.yaml.
+            - name: PHYND_CRM_LEAD_INTAKE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: phynd-crm-lead-intake
+                  key: PHYND_CRM_LEAD_INTAKE_SECRET
+                  optional: true
           envFrom:
             - secretRef:
                 name: phynd-crm-secrets

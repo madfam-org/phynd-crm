@@ -201,6 +201,16 @@ describe('Janua machine token (configured)', () => {
     expect(JSON.stringify(logCalls)).not.toContain(token)
   })
 
+  it('JWKS unreachable: the tRPC answer is unchanged (401), the log names the outage', async () => {
+    stub.installJwks().mockRejectedValue(new TypeError('fetch failed'))
+    const res = await call('engagements.getById', { bearer: await stub.mint() })
+    expect(res.status).toBe(401)
+    const refused = logCalls.find(
+      ([, fields]) => (fields as { event?: string }).event === 'machine_auth_rejected',
+    )
+    expect(refused?.[1]).toMatchObject({ reason: 'keys_unavailable', detail: 'TypeError' })
+  })
+
   it('is not honoured on the GraphQL surface', async () => {
     const ctx = await createAppContextFromRequest(
       new Request('https://crm.madfam.io/api/graphql', {

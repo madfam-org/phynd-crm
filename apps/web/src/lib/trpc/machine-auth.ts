@@ -97,6 +97,8 @@ export function grantedScopes(tokenScopes: readonly string[]): string[] {
 
 export type MachineAuthRejection =
   | 'invalid_token'
+  /** Janua's key set could not be fetched: an outage, not a bad token. */
+  | 'keys_unavailable'
   | 'not_client_credentials'
   | 'bad_subject'
   | 'bad_lifetime'
@@ -113,6 +115,22 @@ function reject(reason: MachineAuthRejection, detail?: string): MachineAuthResul
 }
 
 type Claims = Record<string, unknown>
+
+/**
+ * Whether a verification error means Janua's keys could not be FETCHED, as
+ * opposed to a token that is bad (signature, expiry, claims, no matching key):
+ * a network error (not a JOSE error at all), the JWKS timeout, a non-200 or
+ * non-JSON answer (jose's generic error, thrown only by the key-set fetch) or
+ * a malformed key set.
+ */
+export function isKeyFetchFailure(err: unknown): boolean {
+  if (!(err instanceof joseErrors.JOSEError)) return true
+  return (
+    err instanceof joseErrors.JWKSTimeout ||
+    err instanceof joseErrors.JWKSInvalid ||
+    err.code === joseErrors.JOSEError.code
+  )
+}
 
 /** Signature, issuer, audience and expiry (jose), or the refusal. */
 async function verifySignature(
@@ -139,7 +157,7 @@ async function verifySignature(
     // anything else (JWKS unreachable) is reported by name only.
     const detail =
       err instanceof joseErrors.JOSEError ? err.code : err instanceof Error ? err.name : 'unknown'
-    return reject('invalid_token', detail)
+    return reject(isKeyFetchFailure(err) ? 'keys_unavailable' : 'invalid_token', detail)
   }
 }
 

@@ -1,6 +1,6 @@
 import { activities } from '@phynd/db/schema'
 import type { EntityType, PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { requireCrmUserId } from '../identity/actor'
 
@@ -22,8 +22,13 @@ export class ActivitiesService {
     dueAt?: Date
     entityType: EntityType
     entityId: string
+    /**
+     * Owner of the activity. Omitted: the caller (the usual case). `null`: no
+     * owner yet, for items a machine caller opens for whoever picks them up.
+     */
+    ownerId?: string | null
   }) {
-    const ownerId = requireCrmUserId(this.ctx.auth)
+    const ownerId = data.ownerId !== undefined ? data.ownerId : requireCrmUserId(this.ctx.auth)
     const [activity] = await this.ctx.db
       .insert(activities)
       .values({
@@ -42,7 +47,11 @@ export class ActivitiesService {
     const limit = pagination?.limit ?? 50
     const conditions = []
     if (pagination?.cursor) {
-      conditions.push(gt(activities.id, pagination.cursor))
+      // Newest first. The cursor is the last id of the previous page; rows
+      // after it are older, with the id breaking ties on the same instant.
+      conditions.push(
+        sql`(${activities.createdAt}, ${activities.id}) < (select c.created_at, c.id from activities c where c.id = ${pagination.cursor})`,
+      )
     }
     if (filters?.ownerId) {
       conditions.push(eq(activities.ownerId, filters.ownerId))
@@ -52,7 +61,7 @@ export class ActivitiesService {
       .select()
       .from(activities)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(activities.id)
+      .orderBy(desc(activities.createdAt), desc(activities.id))
       .limit(limit + 1)
 
     const hasMore = rows.length > limit
@@ -66,7 +75,13 @@ export class ActivitiesService {
 
   async update(
     id: string,
-    data: { title?: string; description?: string | null; dueAt?: Date | null },
+    data: {
+      title?: string
+      description?: string | null
+      dueAt?: Date | null
+      /** Assigns the activity, e.g. someone claiming an unowned follow-up. */
+      ownerId?: string
+    },
   ) {
     const [activity] = await this.ctx.db
       .update(activities)

@@ -22,9 +22,14 @@ export type McpToolResult =
   | { ok: true; body: Record<string, unknown>; count: number }
   | { ok: false; error: 'not_found'; message: string }
 
+/** How the caller sees personal fields: decided by `lib/mcp/auth.ts`, masked by default. */
+export interface McpView {
+  readonly masked: boolean
+}
+
 export interface McpToolRun {
   summary: McpArgsSummary
-  execute: (ctx: ServiceContext) => Promise<McpToolResult>
+  execute: (ctx: ServiceContext, view: McpView) => Promise<McpToolResult>
 }
 
 export interface McpTool {

@@ -27,7 +27,10 @@ import { MCP_TOOL_NAMES } from './tools'
 export interface CoveredProcedure {
   /** The tools that ARE this read. */
   readonly tools: readonly string[]
-  /** The service method both the procedure and the tools call. */
+  /**
+   * The service method the procedure calls. The tools call the same method,
+   * except where a comment on the entry names the variant they call.
+   */
   readonly service: string
 }
 
@@ -86,13 +89,18 @@ export const MCP_COVERAGE: Readonly<Record<string, ProcedureCoverage>> = {
   'leads.delete': { exempt: WRITE },
 
   // ── activities (tasks) ────────────────────────────────────────────────────
+  // tasks_list_open calls the same listRecent, narrowed to open tasks (type
+  // task, status pending) whose parent record is not soft-deleted.
   'activities.list': {
     tools: [MCP_TOOL_NAMES.tasksListOpen],
     service: 'ActivitiesService.listRecent',
   },
+  // The UI's procedure calls listForEntity (every activity, oldest first);
+  // contacts_get calls listRecentForEntity: the same entity filter, newest
+  // first, capped at activity_limit.
   'activities.listForEntity': {
     tools: [MCP_TOOL_NAMES.contactsGet],
-    service: 'ActivitiesService.listRecentForEntity',
+    service: 'ActivitiesService.listForEntity',
   },
   'activities.listMine': { exempt: PER_USER },
   'activities.create': { exempt: WRITE },

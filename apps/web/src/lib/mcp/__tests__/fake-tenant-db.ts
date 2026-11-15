@@ -9,9 +9,12 @@
  *
  * It understands only the single-table reads the tools make:
  *   select <columns> from "<table>" [where <predicates>] [order by …] [limit $n]
- * with predicates `is null`, `=`, `>`, `>=`, `<` (ANDed) and one OR group of
- * `ilike`. Anything else throws, so an unsupported query can never pass
- * silently. Rows are keyed by column name (`deleted_at`); instants are ISO
+ * with predicates `is null`, `=`, `>`, `>=`, `<` (ANDed), one OR group of
+ * `ilike`, and correlated anti-joins
+ *   not exists (select 1 from "<other>" where (<terms joined by and>))
+ * whose terms are `"t"."c" = $n`, `"t"."c" = "u"."d"`, `"t"."c" is [not] null`
+ * over the outer and the inner table. Anything else throws, so an unsupported
+ * query can never pass silently. Rows are keyed by column name (`deleted_at`); instants are ISO
  * strings.
  */
 import { drizzle } from 'drizzle-orm/pg-proxy'
@@ -64,13 +67,64 @@ const OPERATORS: Readonly<Record<string, (order: number) => boolean>> = {
   '<=': (order) => order <= 0,
 }
 
-function parseWhere(where: string, table: string, params: readonly unknown[]): Check {
+type PairCheck = (outer: FakeRow, inner: FakeRow) => boolean
+
+/** The ANDed terms of a correlated subquery's where clause, over (outer row, inner row). */
+function parseCorrelated(
+  predicate: string,
+  outer: string,
+  inner: string,
+  params: readonly unknown[],
+): PairCheck {
+  const ref = /^"(\w+)"\."(\w+)"$/
+  const reader = (term: string) => {
+    const [, table, name] = ref.exec(term.trim()) ?? []
+    if (!name || (table !== outer && table !== inner)) {
+      throw new Error(`fake-tenant-db: unsupported column in subquery: ${term}`)
+    }
+    return (o: FakeRow, i: FakeRow) => (table === outer ? o : i)[name] ?? null
+  }
+  const checks: PairCheck[] = predicate.split(' and ').map((term) => {
+    const nullTest = /^(.+?) is (not )?null$/.exec(term.trim())
+    if (nullTest?.[1]) {
+      const read = reader(nullTest[1])
+      const wantNull = nullTest[2] === undefined
+      return (o, i) => (read(o, i) === null) === wantNull
+    }
+    const equal = /^(.+?) = (.+)$/.exec(term.trim())
+    if (!equal?.[1] || !equal[2]) throw new Error(`fake-tenant-db: unsupported term: ${term}`)
+    const left = reader(equal[1])
+    const placeholder = /^\$(\d+)$/.exec(equal[2].trim())
+    if (placeholder?.[1]) {
+      const value = params[Number(placeholder[1]) - 1]
+      return (o, i) => left(o, i) !== null && compare(left(o, i), value) === 0
+    }
+    const right = reader(equal[2])
+    return (o, i) => left(o, i) !== null && compare(left(o, i), right(o, i)) === 0
+  })
+  return (o, i) => checks.every((check) => check(o, i))
+}
+
+function parseWhere(
+  where: string,
+  table: string,
+  params: readonly unknown[],
+  tables: FakeTables,
+): Check {
   const all: Check[] = []
   const any: Check[] = []
   const column = `"${table}"\\."(\\w+)"`
   const param = (index: string) => params[Number(index) - 1]
 
-  let rest = where
+  let rest = where.replace(
+    /not exists \(select 1 from "(\w+)" where \((.+?)\)\)/g,
+    (_m, inner: string, predicate: string) => {
+      const matches = parseCorrelated(predicate, table, inner, params)
+      const innerRows = tables[inner] ?? []
+      all.push((row) => !innerRows.some((candidate) => matches(row, candidate)))
+      return ''
+    },
+  )
   rest = rest.replace(new RegExp(`${column} is null`, 'g'), (_m, name: string) => {
     all.push((row) => (row[name] ?? null) === null)
     return ''
@@ -116,7 +170,7 @@ function run(tables: FakeTables, sql: string, params: readonly unknown[]) {
   })
 
   let rows = [...(tables[table] ?? [])]
-  if (where) rows = rows.filter(parseWhere(where, table, params))
+  if (where) rows = rows.filter(parseWhere(where, table, params, tables))
   if (orderBy) {
     const keys = orderBy.split(',').map((item) => {
       const parsed = new RegExp(`^"${table}"\\."(\\w+)"(?: (asc|desc))?$`).exec(item.trim())

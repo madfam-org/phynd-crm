@@ -4,7 +4,7 @@
  */
 import type { FakeRow, FakeTables } from './fake-tenant-db'
 
-export const MCP_URL = 'https://crm.madfam.io/mcp'
+export const MCP_URL = 'https://crm.example.test/mcp'
 export const MCP_SCOPE = 'phynd-crm-pipeline:read'
 
 export function uuid(n: number): string {
@@ -127,6 +127,10 @@ function activity(n: number, fields: Record<string, string | number | boolean | 
 }
 
 export const DELETED_CONTACT_ID = uuid(3)
+export const DELETED_LEAD_ID = uuid(14)
+export const DELETED_DEAL_ID = uuid(24)
+export const DELETED_QUOTE_ID = uuid(61)
+export const DELETED_ORDER_ID = uuid(62)
 export const DELETED_MARK = 'BORRADO-NO-DEBE-SALIR'
 export const OTHER_TENANT_MARK = 'OTRO-INQUILINO-NO-DEBE-SALIR'
 export const CONSENT_MARK = 'janua-sub-'
@@ -177,7 +181,26 @@ export const TENANT_A_TABLES: FakeTables = {
       entity_id: DELETED_CONTACT_ID,
       created_at: '2026-11-04T13:00:00.000Z',
     }),
+    // Never completed, so `pending` forever (the column default): not tasks.
+    activity(37, { type: 'note', entity_id: uuid(2) }),
+    activity(38, { type: 'fabrication_update', entity_id: uuid(2) }),
+    // An open task of another owner, due later.
+    activity(39, { owner_id: OWNER_B, due_at: '2026-11-25T15:00:00.000Z', entity_id: uuid(2) }),
+    // Open tasks of soft-deleted records: never listed as open tasks.
+    activity(40, { title: `Tarea ${DELETED_MARK}`, entity_id: DELETED_CONTACT_ID }),
+    activity(41, { title: `Tarea ${DELETED_MARK}`, entity_type: 'lead', entity_id: uuid(14) }),
+    activity(42, {
+      title: `Tarea ${DELETED_MARK}`,
+      entity_type: 'opportunity',
+      entity_id: uuid(24),
+    }),
+    // An open task of a live lead.
+    activity(43, { entity_type: 'lead', entity_id: uuid(11) }),
+    activity(44, { title: `Tarea ${DELETED_MARK}`, entity_type: 'quote', entity_id: uuid(61) }),
+    activity(45, { title: `Tarea ${DELETED_MARK}`, entity_type: 'order', entity_id: uuid(62) }),
   ],
+  quotes: [{ id: uuid(61), deleted_at: '2026-11-05T00:00:00.000Z' }],
+  orders: [{ id: uuid(62), deleted_at: '2026-11-05T00:00:00.000Z' }],
   pipelines: [
     { id: 'pipeline_default_sales', name: 'Default Sales Pipeline', is_default: true },
     { id: 'pipeline_delivery', name: 'Project Delivery', is_default: false },

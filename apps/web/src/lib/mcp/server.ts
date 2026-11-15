@@ -8,13 +8,19 @@
  * GATES, IN ORDER (each one answers before the next is looked at; the switch
  * itself is the route's, see `app/mcp/route.ts`):
  *   1. the source address over its rate → 429 (before any token is verified);
+ *      the address is `clientAddress()`: never a caller-chosen first
+ *      `X-Forwarded-For` entry;
  *   2. a browser `Origin` header → 403 `origin_not_allowed` (machine clients
  *      only; DNS-rebinding protection, as the transport requires);
  *   3. the Janua machine token (`lib/mcp/auth.ts`) → 401 with
  *      `WWW-Authenticate: Bearer realm="phynd-crm-mcp"`; a valid machine token
  *      without the scope, from another organization or not on the readers
- *      list → 403;
- *   4. the client over its rate → 429 with `Retry-After`;
+ *      list → 403; Janua's keys unreachable → 503 with `Retry-After` (an
+ *      outage must not read as a wave of bad tokens);
+ *   4. the client over its rate → 429 with `Retry-After` = the time left in
+ *      its window.
+ *   A rate limiter that cannot be read refuses (fail closed) with 503 and
+ *   `Retry-After`, not 429: it is not the caller's fault.
  *   5. an unsupported `MCP-Protocol-Version` → 400; not `application/json` →
  *      415; over 64 KiB → 413; a batch → 400;
  *   6. the JSON-RPC message: `initialize`, `ping`, `tools/list`,
@@ -27,6 +33,8 @@
  * no argument digest is kept either (a hash of a short search term can be
  * reversed by guessing).
  */
+import { isIP } from 'node:net'
+
 import type { ServiceContext } from '@phynd/services/context'
 import type { AuthContext } from '@phynd/types/auth'
 
@@ -38,6 +46,7 @@ import {
   MCP_PROTOCOL_VERSIONS,
   MCP_READ_SCOPE,
   MCP_SERVER_INFO,
+  MCP_UNAVAILABLE_RETRY_AFTER_SECONDS,
 } from './settings'
 import { McpArgumentError, type McpTool, READ_ONLY_ANNOTATIONS } from './tool'
 
@@ -88,14 +97,26 @@ export interface McpAuditRecord {
   args: Readonly<Record<string, string | number | boolean>> | null
   /** A reason code or an error class name; never a message, a token or a row. */
   detail: string | null
+  /** Whether personal fields were masked for this caller; null before a caller is known. */
+  masked: boolean | null
 }
+
+/** A rate limiter's answer: allowed, or refused with when to retry. */
+export type McpRateDecision =
+  | { readonly allowed: true }
+  | {
+      readonly allowed: false
+      readonly retryAfterSeconds: number
+      /** The limiter backend failed (refused, fail closed): 503, not 429. */
+      readonly unavailable: boolean
+    }
 
 export interface McpServerDeps {
   readonly verify: (authorization: string | null) => Promise<McpCaller | McpRefusal>
-  /** False when the source address is over its rate (or the limiter is down: fail closed). */
-  readonly allowIp: (ip: string) => Promise<boolean>
-  /** False when the client is over its rate (or the limiter is down: fail closed). */
-  readonly allowClient: (clientId: string) => Promise<boolean>
+  /** The source address's rate (`clientAddress()`), before any token is read. */
+  readonly allowIp: (ip: string) => Promise<McpRateDecision>
+  /** The verified client's rate. */
+  readonly allowClient: (clientId: string) => Promise<McpRateDecision>
   /** The service context every tool of this call runs in. */
   readonly contextFor: (auth: AuthContext) => ServiceContext
   readonly tools: readonly McpTool[]
@@ -184,8 +205,26 @@ async function readCapped(request: Request, limit: number): Promise<string | nul
   return Buffer.concat(chunks).toString('utf8')
 }
 
-function sourceIp(request: Request): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
+/** The key every request without a usable address shares. */
+export const UNKNOWN_CLIENT_ADDRESS = 'unknown'
+
+/**
+ * The address the per-address limit is keyed by. The FIRST `X-Forwarded-For`
+ * entry is whatever the caller wrote, so it is never used: `CF-Connecting-IP`
+ * (set by the edge), else the LAST `X-Forwarded-For` entry (appended by the
+ * proxy in front of the app). Accepted only when it parses as an IPv4 or IPv6
+ * address; anything else shares one fixed key.
+ */
+export function clientAddress(headers: Headers): string {
+  const candidates = [
+    headers.get('cf-connecting-ip'),
+    headers.get('x-forwarded-for')?.split(',').at(-1) ?? null,
+  ]
+  for (const candidate of candidates) {
+    const value = candidate?.trim() ?? ''
+    if (value !== '' && isIP(value) !== 0) return value.toLowerCase()
+  }
+  return UNKNOWN_CLIENT_ADDRESS
 }
 
 export function createMcpServer(deps: McpServerDeps) {
@@ -241,7 +280,7 @@ export function createMcpServer(deps: McpServerDeps) {
       // ever holds values that passed the tool's own validation.
       const run = call.tool.prepare(call.args)
       audit.args = run.summary
-      const read = await run.execute(deps.contextFor(caller.auth))
+      const read = await run.execute(deps.contextFor(caller.auth), { masked: caller.masked })
       if (!read.ok) {
         audit.outcome = read.error
         return toolError(id, `${read.error}: ${read.message}`)
@@ -330,6 +369,10 @@ export function createMcpServer(deps: McpServerDeps) {
   function refusal(audit: Audit, caller: McpRefusal): Response {
     audit.clientId = caller.clientId ?? null
     audit.detail = caller.reason
+    if (caller.status === 503) {
+      audit.outcome = 'verifier_unavailable'
+      return unavailable(caller.error)
+    }
     if (caller.status === 401) {
       audit.outcome = 'unauthenticated'
       return json(
@@ -350,11 +393,32 @@ export function createMcpServer(deps: McpServerDeps) {
     )
   }
 
+  function unavailable(error: string): Response {
+    return json(503, { error }, { 'retry-after': String(MCP_UNAVAILABLE_RETRY_AFTER_SECONDS) })
+  }
+
+  /** A refusal of a rate gate: 503 when the limiter is down, else 429. */
+  function rateRefusal(
+    audit: Audit,
+    decision: Exclude<McpRateDecision, { allowed: true }>,
+    outcome: string,
+    text: string,
+  ): Response {
+    if (decision.unavailable) {
+      audit.outcome = 'limiter_unavailable'
+      return unavailable('rate_limiter_unavailable')
+    }
+    audit.outcome = outcome
+    return rpcError(429, null, CODE.rateLimited, text, {
+      'retry-after': String(Math.max(1, Math.ceil(decision.retryAfterSeconds))),
+    })
+  }
+
   /** Gates 1 to 4: who is calling, or the refusal. */
   async function admit(request: Request, audit: Audit): Promise<McpCaller | Response> {
-    if (!(await deps.allowIp(sourceIp(request)))) {
-      audit.outcome = 'rate_limited_ip'
-      return rpcError(429, null, CODE.rateLimited, 'rate limit exceeded', { 'retry-after': '60' })
+    const byAddress = await deps.allowIp(clientAddress(request.headers))
+    if (!byAddress.allowed) {
+      return rateRefusal(audit, byAddress, 'rate_limited_ip', 'rate limit exceeded')
     }
     if (request.headers.get('origin') !== null) {
       audit.outcome = 'origin_refused'
@@ -367,12 +431,11 @@ export function createMcpServer(deps: McpServerDeps) {
     if (!caller.ok) return refusal(audit, caller)
     audit.clientId = caller.clientId
     audit.tenantId = caller.auth.tenantId
+    audit.masked = caller.masked
 
-    if (!(await deps.allowClient(caller.clientId))) {
-      audit.outcome = 'rate_limited'
-      return rpcError(429, null, CODE.rateLimited, 'rate limit exceeded for this client', {
-        'retry-after': '60',
-      })
+    const byClient = await deps.allowClient(caller.clientId)
+    if (!byClient.allowed) {
+      return rateRefusal(audit, byClient, 'rate_limited', 'rate limit exceeded for this client')
     }
     return caller
   }
@@ -440,6 +503,7 @@ export function createMcpServer(deps: McpServerDeps) {
       resultCount: null,
       args: null,
       detail: null,
+      masked: null,
     }
     let response: Response
     try {

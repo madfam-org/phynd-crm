@@ -1,6 +1,6 @@
-import { activities } from '@phynd/db/schema'
+import { activities, contacts, leads, opportunities, orders, quotes } from '@phynd/db/schema'
 import type { EntityType, PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, desc, eq, gt, gte, lt } from 'drizzle-orm'
+import { type SQL, and, desc, eq, gt, gte, isNotNull, lt, notExists, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { requireCrmUserId } from '../identity/actor'
 
@@ -14,6 +14,26 @@ export interface ActivityListFilters {
   dueFrom?: Date
   /** Due strictly before this instant (activities without a due date never match). */
   dueBefore?: Date
+  /**
+   * Leave out activities whose parent record (`entity_type` + `entity_id`) is
+   * soft-deleted. Off by default: the staff Activities page lists them.
+   */
+  excludeDeletedParents?: boolean
+}
+
+/**
+ * Every record an activity can hang off (`EntityType`); each has `deleted_at`.
+ * Built on use, not at module load, so a test that mocks part of the schema
+ * can still load this module.
+ */
+function parentTables() {
+  return [
+    ['contact', contacts],
+    ['lead', leads],
+    ['opportunity', opportunities],
+    ['order', orders],
+    ['quote', quotes],
+  ] as const satisfies ReadonlyArray<readonly [EntityType, unknown]>
 }
 
 export class ActivitiesService {
@@ -57,6 +77,24 @@ export class ActivitiesService {
     return activity!
   }
 
+  /** One `NOT EXISTS` per parent table: no soft-deleted parent of that type matches. */
+  private withoutDeletedParents(): SQL[] {
+    return parentTables().map(([entityType, parent]) =>
+      notExists(
+        this.ctx.db
+          .select({ one: sql`1` })
+          .from(parent)
+          .where(
+            and(
+              eq(activities.entityType, entityType),
+              eq(parent.id, activities.entityId),
+              isNotNull(parent.deletedAt),
+            ),
+          ),
+      ),
+    )
+  }
+
   async listRecent(
     pagination?: PaginationInput,
     filters?: ActivityListFilters,
@@ -80,6 +118,9 @@ export class ActivitiesService {
     }
     if (filters?.dueBefore) {
       conditions.push(lt(activities.dueAt, filters.dueBefore))
+    }
+    if (filters?.excludeDeletedParents) {
+      conditions.push(...this.withoutDeletedParents())
     }
 
     const rows = await this.ctx.db

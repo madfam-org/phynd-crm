@@ -42,6 +42,7 @@ vi.mock('@phynd/logging', () => ({
 import { DELETE, GET, OPTIONS, PATCH, POST, PUT } from '@/app/mcp/route'
 
 const READERS = `${CLIENT_ID}@${ORG_ID}`
+const ALLOWED = { allowed: true, remaining: 1, retryAfterMs: 0, unavailable: false }
 
 let stub: Awaited<ReturnType<typeof createMachineTokenStub>>
 
@@ -61,7 +62,7 @@ beforeAll(async () => {
 beforeEach(() => {
   logCalls.length = 0
   rateLimit.mockReset()
-  rateLimit.mockResolvedValue({ allowed: true, remaining: 1 })
+  rateLimit.mockResolvedValue(ALLOWED)
   stub.installJwks()
   for (const [name, value] of Object.entries(MACHINE_ENV)) vi.stubEnv(name, value)
   vi.stubEnv('PHYND_CRM_MCP_ENABLED', 'true')
@@ -167,7 +168,7 @@ describe('authentication', () => {
   ])('%s → 401', async (name, mintToken) => {
     const token = await mintToken()
     const url = name.includes('query string')
-      ? `https://crm.madfam.io/mcp?access_token=${await reader()}`
+      ? `https://crm.example.test/mcp?access_token=${await reader()}`
       : undefined
     const res = await POST(
       mcpRequest(rpc('tools/list'), {
@@ -177,6 +178,47 @@ describe('authentication', () => {
     )
     expect(res.status).toBe(401)
     expect(res.headers.get('www-authenticate')).toContain('error="invalid_token"')
+  })
+
+  it('JWKS unreachable (network error) → 503 with Retry-After, not 401', async () => {
+    stub.installJwks().mockRejectedValue(new TypeError('fetch failed'))
+    const res = await POST(mcpRequest(rpc('tools/list'), { bearer: await reader() }))
+    expect(res.status).toBe(503)
+    expect(res.headers.get('retry-after')).toBe('30')
+    expect(res.headers.get('www-authenticate')).toBeNull()
+    expect(await res.json()).toEqual({ error: 'verifier_unavailable' })
+    expect(lastAudit()).toMatchObject({
+      outcome: 'verifier_unavailable',
+      httpStatus: 503,
+      detail: 'keys_unavailable:TypeError',
+    })
+  })
+
+  it.each([
+    [
+      'a JWKS timeout',
+      () => Promise.reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })),
+    ],
+    ['a JWKS answering 502', async () => new Response('bad gateway', { status: 502 })],
+    ['a JWKS answering non-JSON', async () => new Response('<html>', { status: 200 })],
+  ])('%s → 503', async (_name, answer) => {
+    stub.installJwks().mockImplementation(answer)
+    const res = await POST(mcpRequest(rpc('tools/list'), { bearer: await reader() }))
+    expect(res.status).toBe(503)
+  })
+
+  it('with the JWKS reachable, an expired or wrongly signed token is still 401', async () => {
+    const expired = await stub.mint({
+      iat: 1_700_000_000,
+      exp: 1_700_000_900,
+      claims: { scope: MCP_SCOPE },
+    })
+    const forged = await (await createMachineTokenStub()).mint({ claims: { scope: MCP_SCOPE } })
+    for (const token of [expired, forged]) {
+      stub.installJwks()
+      const res = await POST(mcpRequest(rpc('tools/list'), { bearer: token }))
+      expect(res.status).toBe(401)
+    }
   })
 
   it('a token signed by another key → 401', async () => {
@@ -273,37 +315,103 @@ describe('authorization (a valid machine token is not enough)', () => {
 })
 
 describe('rate limits (the shared Redis limiter, fail closed)', () => {
-  it('counts each verified call against its own client', async () => {
+  const limitedFor =
+    (prefix: 'mcp-address' | 'mcp-client', result: Record<string, unknown>) =>
+    async (_key: string, options: { namespace?: string }) =>
+      options.namespace === prefix ? result : ALLOWED
+
+  it('counts each call in namespaces of its own, by address and by verified client', async () => {
     await POST(
       mcpRequest(rpc('ping'), {
         bearer: await reader(),
-        headers: { 'x-forwarded-for': '203.0.113.7, 10.0.0.1' },
+        headers: { 'cf-connecting-ip': '203.0.113.7', 'x-forwarded-for': '198.51.100.1' },
       }),
     )
     expect(rateLimit.mock.calls).toEqual([
-      ['mcp-ip:203.0.113.7', { maxRequests: 300 }],
-      [`mcp:${CLIENT_ID}`, { maxRequests: 60 }],
+      ['203.0.113.7', { maxRequests: 300, namespace: 'mcp-address' }],
+      [CLIENT_ID, { maxRequests: 60, namespace: 'mcp-client' }],
     ])
   })
 
-  it('a client over its rate → 429 with Retry-After, and no tool runs', async () => {
-    rateLimit.mockImplementation(async (key: string) => ({
-      allowed: !key.startsWith('mcp:'),
-      remaining: 0,
-    }))
+  it('a spoofed first X-Forwarded-For entry does not change the address key', async () => {
+    const keys: string[] = []
+    for (const forwarded of [
+      '198.51.100.9',
+      'mcp:jnc_victim, 198.51.100.9',
+      '10.9.9.9, 198.51.100.9',
+    ]) {
+      rateLimit.mockClear()
+      await POST(
+        mcpRequest(rpc('ping'), {
+          bearer: await reader(),
+          headers: { 'x-forwarded-for': forwarded },
+        }),
+      )
+      keys.push(rateLimit.mock.calls[0]?.[0] as string)
+    }
+    expect(keys).toEqual(['198.51.100.9', '198.51.100.9', '198.51.100.9'])
+  })
+
+  it('an address that is not an IP shares one fixed key', async () => {
+    const cases: Array<Record<string, string>> = [
+      {},
+      { 'x-forwarded-for': `mcp:${CLIENT_ID}` },
+      { 'cf-connecting-ip': 'not-an-ip', 'x-forwarded-for': '203.0.113.7, evil' },
+    ]
+    for (const headers of cases) {
+      rateLimit.mockClear()
+      await POST(mcpRequest(rpc('ping'), { bearer: await reader(), headers }))
+      expect(rateLimit.mock.calls[0]?.[0]).toBe('unknown')
+    }
+  })
+
+  it('a client over its rate → 429 with Retry-After = the time left in its window', async () => {
+    rateLimit.mockImplementation(
+      limitedFor('mcp-client', {
+        allowed: false,
+        remaining: 0,
+        retryAfterMs: 17_200,
+        unavailable: false,
+      }),
+    )
     const res = await POST(mcpRequest(rpc('tools/list'), { bearer: await reader() }))
     expect(res.status).toBe(429)
-    expect(res.headers.get('retry-after')).toBe('60')
+    expect(res.headers.get('retry-after')).toBe('18')
     expect(lastAudit()).toMatchObject({ outcome: 'rate_limited', clientId: CLIENT_ID })
   })
 
   it('an address over its rate → 429 before any token is verified', async () => {
-    rateLimit.mockResolvedValue({ allowed: false, remaining: 0 })
+    rateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      retryAfterMs: 400,
+      unavailable: false,
+    })
     const res = await POST(mcpRequest(rpc('tools/list'), { bearer: await reader() }))
     expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('1')
     expect(stub.jwksUrls).toEqual([])
     expect(lastAudit()).toMatchObject({ outcome: 'rate_limited_ip', clientId: null })
   })
+
+  it.each(['mcp-address', 'mcp-client'] as const)(
+    'the limiter backend failing (%s) → 503 with Retry-After, never 429',
+    async (namespace) => {
+      rateLimit.mockImplementation(
+        limitedFor(namespace, {
+          allowed: false,
+          remaining: 0,
+          retryAfterMs: 60_000,
+          unavailable: true,
+        }),
+      )
+      const res = await POST(mcpRequest(rpc('tools/list'), { bearer: await reader() }))
+      expect(res.status).toBe(503)
+      expect(res.headers.get('retry-after')).toBe('30')
+      expect(await res.json()).toEqual({ error: 'rate_limiter_unavailable' })
+      expect(lastAudit()).toMatchObject({ outcome: 'limiter_unavailable', httpStatus: 503 })
+    },
+  )
 })
 
 describe('JSON-RPC over stateless HTTP', () => {

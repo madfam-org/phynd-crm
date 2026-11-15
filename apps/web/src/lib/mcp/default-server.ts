@@ -1,6 +1,7 @@
 /**
  * The process's MCP server, wired to the app's own parts: the Janua machine
- * verifier, the Redis rate limiter every API route uses (fail closed), the
+ * verifier, the Redis rate limiter every API route uses (fail closed, in
+ * namespaces of its own), the
  * tenant database and the structured logger.
  *
  * `mcpServerFor()` is null while the MCP is off, and the route then answers
@@ -9,14 +10,19 @@
  * case is logged, so a switch flipped without its prerequisites is visible.
  */
 import { getCacheManager } from '@/lib/federation/clients'
-import { checkApiRateLimit } from '@/lib/rate-limiter'
+import { type RateLimitResult, checkApiRateLimit } from '@/lib/rate-limiter'
 import type { MachineAuthConfig } from '@/lib/trpc/machine-auth'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
 import { createServiceContext } from '@phynd/services/context'
 
 import { mcpSwitch, resolveMcpCaller } from './auth'
-import { type McpAuditRecord, type McpServer, createMcpServer } from './server'
+import {
+  type McpAuditRecord,
+  type McpRateDecision,
+  type McpServer,
+  createMcpServer,
+} from './server'
 import {
   MCP_CLIENT_REQUESTS_PER_MINUTE,
   MCP_ENABLED_ENV,
@@ -35,15 +41,34 @@ function writeAudit(record: McpAuditRecord): void {
   }
 }
 
+function rateDecision(result: RateLimitResult): McpRateDecision {
+  if (result.allowed) return { allowed: true }
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil(result.retryAfterMs / 1000)),
+    unavailable: result.unavailable,
+  }
+}
+
 function serverFor(config: MachineAuthConfig): McpServer {
   return createMcpServer({
     verify: (authorization) => resolveMcpCaller(authorization, config),
+    // Each bucket has a namespace of its own: no address-keyed limiter of
+    // another route (keyed by whatever `X-Forwarded-For` says) can reach it.
     allowIp: async (ip) =>
-      (await checkApiRateLimit(`mcp-ip:${ip}`, { maxRequests: MCP_IP_REQUESTS_PER_MINUTE }))
-        .allowed,
+      rateDecision(
+        await checkApiRateLimit(ip, {
+          maxRequests: MCP_IP_REQUESTS_PER_MINUTE,
+          namespace: 'mcp-address',
+        }),
+      ),
     allowClient: async (clientId) =>
-      (await checkApiRateLimit(`mcp:${clientId}`, { maxRequests: MCP_CLIENT_REQUESTS_PER_MINUTE }))
-        .allowed,
+      rateDecision(
+        await checkApiRateLimit(clientId, {
+          maxRequests: MCP_CLIENT_REQUESTS_PER_MINUTE,
+          namespace: 'mcp-client',
+        }),
+      ),
     // The tenant is the verified caller's (the deployment's machine tenant):
     // the database is never chosen from the request.
     contextFor: (auth) =>

@@ -11,7 +11,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { type FakeQuery, createFakeTenantDb } from '@/lib/mcp/__tests__/fake-tenant-db'
 import {
   DELETED_CONTACT_ID,
+  DELETED_DEAL_ID,
+  DELETED_LEAD_ID,
   DELETED_MARK,
+  DELETED_ORDER_ID,
+  DELETED_QUOTE_ID,
   type Loose,
   MCP_SCOPE,
   OTHER_TENANT_MARK,
@@ -30,6 +34,7 @@ import {
   CLIENT_ID,
   MACHINE_ENV,
   ORG_ID,
+  OTHER_ORG_ID,
   TENANT_ID,
   createMachineTokenStub,
 } from '@/lib/trpc/__tests__/machine-token-stub'
@@ -60,6 +65,8 @@ vi.mock('@phynd/logging', () => ({
 
 import { POST } from '@/app/mcp/route'
 import { MCP_TOOLS } from '@/lib/mcp/tools'
+import { ActivitiesService } from '@phynd/services'
+import { createServiceContext } from '@phynd/services/context'
 
 const OTHER_TENANT = 'phynd'
 
@@ -126,11 +133,14 @@ beforeAll(async () => {
 beforeEach(async () => {
   logCalls.length = 0
   rateLimit.mockReset()
-  rateLimit.mockResolvedValue({ allowed: true, remaining: 1 })
+  rateLimit.mockResolvedValue({ allowed: true, remaining: 1, retryAfterMs: 0, unavailable: false })
   stub.installJwks()
   for (const [name, value] of Object.entries(MACHINE_ENV)) vi.stubEnv(name, value)
   vi.stubEnv('PHYND_CRM_MCP_ENABLED', 'true')
   vi.stubEnv('PHYND_CRM_MCP_READ_CLIENTS', `${CLIENT_ID}@${ORG_ID}`)
+  // Exact values are asserted below, so this client is the owner's exception;
+  // the masking describe takes it away again.
+  vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', `${CLIENT_ID}@${ORG_ID}`)
   token = await stub.mint({ claims: { scope: MCP_SCOPE } })
   useTables()
 })
@@ -281,31 +291,43 @@ describe('leads_list', () => {
 })
 
 describe('tasks_list_open', () => {
-  it('lists only pending activities', async () => {
+  const ids = (answer: ToolAnswer) => answer.data.tasks.map((row: { id: string }) => row.id)
+
+  it('lists only open tasks: type task, status pending, parent not deleted', async () => {
     const answer = await callTool('tasks_list_open')
-    expect(answer.data.tasks.map((row: { id: string }) => row.id)).toEqual([
-      uuid(31),
-      uuid(32),
-      uuid(35),
-    ])
+    expect(ids(answer)).toEqual([uuid(31), uuid(35), uuid(39), uuid(43)])
     expect(schemaViolations(answer.data, outputSchemaOf('tasks_list_open'))).toEqual([])
   })
 
-  it('filters by owner, type and due window', async () => {
-    const owned = await callTool('tasks_list_open', { owner_id: OWNER_B })
-    expect(owned.data.tasks.map((row: { id: string }) => row.id)).toEqual([uuid(32)])
-    const calls = await callTool('tasks_list_open', { type: 'call' })
-    expect(calls.data.tasks.map((row: { id: string }) => row.id)).toEqual([uuid(32)])
+  it('a pending note, call or fabrication update is not a task', async () => {
+    const pendingNonTasks = TENANT_A_TABLES.activities
+      ?.filter((row) => row.status === 'pending' && row.type !== 'task')
+      .map((row) => row.type)
+    expect(new Set(pendingNonTasks)).toEqual(new Set(['call', 'note', 'fabrication_update']))
+    const listed = ids(await callTool('tasks_list_open'))
+    for (const id of [uuid(32), uuid(37), uuid(38)]) expect(listed).not.toContain(id)
+    // The query itself asks for the type, not only the status.
+    expect(queries.at(-1)?.params).toEqual(expect.arrayContaining(['task', 'pending']))
+  })
 
+  it('takes no type argument any more', async () => {
+    const answer = await callTool('tasks_list_open', { type: 'call' })
+    expect(answer.isError).toBe(true)
+    expect(answer.text).toMatch(/^invalid_arguments: 1 unknown argument\(s\)/)
+    expect(queries).toEqual([])
+  })
+
+  it('filters by owner and due window', async () => {
+    expect(ids(await callTool('tasks_list_open', { owner_id: OWNER_B }))).toEqual([uuid(39)])
     const dueSoon = await callTool('tasks_list_open', { due_before: '2026-11-21T00:00:00-06:00' })
-    expect(dueSoon.data.tasks.map((row: { id: string }) => row.id)).toEqual([uuid(31)])
+    expect(ids(dueSoon)).toEqual([uuid(31), uuid(43)])
     const dueLater = await callTool('tasks_list_open', { due_from: '2026-11-21T00:00:00-06:00' })
-    expect(dueLater.data.tasks.map((row: { id: string }) => row.id)).toEqual([uuid(32)])
+    expect(ids(dueLater)).toEqual([uuid(39)])
     const window = await callTool('tasks_list_open', {
       due_from: '2026-11-20T15:00:00Z',
       due_before: '2026-11-25T15:00:00Z',
     })
-    expect(window.data.tasks.map((row: { id: string }) => row.id)).toEqual([uuid(31)])
+    expect(ids(window)).toEqual([uuid(31), uuid(43)])
   })
 
   it('refuses a date without an offset', async () => {
@@ -472,6 +494,44 @@ describe('deleted rows never leave', () => {
     expect(queries.map((query) => query.table)).toEqual(['contacts'])
   })
 
+  it('a pending task of a soft-deleted contact, lead, deal, quote or order is not listed', async () => {
+    const answer = await callTool('tasks_list_open', { limit: 50 })
+    expect(answer.isError).toBe(false)
+    expect(answer.raw).not.toContain(DELETED_MARK)
+    const listed = answer.data.tasks.map((row: { entity_id: string }) => row.entity_id)
+    for (const parent of [
+      DELETED_CONTACT_ID,
+      DELETED_LEAD_ID,
+      DELETED_DEAL_ID,
+      DELETED_QUOTE_ID,
+      DELETED_ORDER_ID,
+    ]) {
+      expect(listed).not.toContain(parent)
+    }
+    // In SQL, one anti-join per soft-deletable parent table.
+    const sql = queries.at(-1)?.sql ?? ''
+    for (const parent of ['contacts', 'leads', 'opportunities', 'quotes', 'orders']) {
+      expect(sql).toContain(`not exists (select 1 from "${parent}"`)
+    }
+  })
+
+  it('the UI path (listRecent without the option) still lists those tasks', async () => {
+    const { db } = createFakeTenantDb(TENANT_A_TABLES)
+    const ctx = createServiceContext(
+      db as unknown as Parameters<typeof createServiceContext>[0],
+      {} as never,
+      { userId: 'user-1', tenantId: TENANT_ID, roles: ['admin'], scopes: [], accessToken: '' },
+      TENANT_ID,
+    )
+    const result = await new ActivitiesService(ctx).listRecent(
+      { limit: 50 },
+      { type: 'task', status: 'pending' },
+    )
+    expect(result.items.map((row) => row.id)).toEqual(
+      expect.arrayContaining([uuid(40), uuid(41), uuid(42), uuid(44), uuid(45)]),
+    )
+  })
+
   it('no output carries a deleted_at field at all', async () => {
     for (const name of ['contacts_search', 'leads_list', 'deals_list', 'tasks_list_open']) {
       expect((await callTool(name)).raw).not.toContain('deleted_at')
@@ -481,7 +541,7 @@ describe('deleted rows never leave', () => {
 
 describe('tenancy (the tenant is the deployment’s, never the caller’s)', () => {
   it('reads only the bound tenant’s database, whatever Host the request names', async () => {
-    const hosts = ['crm.phynd.app', 'phynd.app', 'crm.madfam.io']
+    const hosts = ['crm.phynd.app', 'phynd.app', 'crm.example.test']
     for (const host of hosts) {
       const options = {
         url: `https://${host}/mcp`,
@@ -558,19 +618,64 @@ describe('privacy (what is withheld)', () => {
       }
     }
   })
+})
 
-  it('masks personal fields for the machine principal when piiMasking is on', async () => {
-    setFeatureFlags({ piiMasking: true })
-    const contact = (await callTool('contacts_get', { contact_id: uuid(1) })).data
-    expect(contact.contact).toMatchObject({
-      name: 'Ana ***',
-      email: 'a***@example.test',
-      phone: '***0000',
-    })
-    expect(contact.recent_activities[0].description).toBe('Llamar para …[redacted]')
-    expect(schemaViolations(contact, outputSchemaOf('contacts_get'))).toEqual([])
+describe('masking (every MCP client masked by default)', () => {
+  const MASKED_CONTACT = { name: 'Ana ***', email: 'a***@example.test', phone: '***0000' }
+  const FULL_CONTACT = { name: 'Ana Ejemplo', email: 'ana@example.test', phone: '+52 55 0000 0000' }
+
+  async function contactViews() {
+    const search = (await callTool('contacts_search', { query: 'ana@' })).data.contacts[0]
+    const detail = (await callTool('contacts_get', { contact_id: uuid(1) })).data
+    return { search, detail }
+  }
+
+  it('a client not listed as unmasked reads masked names, emails and phones', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    // The global flag is off (its default): it does not unmask an MCP client.
+    setFeatureFlags({ piiMasking: false })
+    const { search, detail } = await contactViews()
+    expect(search).toMatchObject(MASKED_CONTACT)
+    expect(detail.contact).toMatchObject(MASKED_CONTACT)
+    expect(detail.recent_activities[0].description).toBe('Llamar para …[redacted]')
+    expect(schemaViolations(detail, outputSchemaOf('contacts_get'))).toEqual([])
     const deals = (await callTool('deals_list')).data
     expect(deals.deals[0].name).toBe('[redacted]')
+    expect(audits().at(-1)).toMatchObject({ masked: true })
+  })
+
+  it('a client on the unmasked list reads full values, and the audit says so', async () => {
+    const { search, detail } = await contactViews()
+    expect(search).toMatchObject(FULL_CONTACT)
+    expect(detail.contact).toMatchObject(FULL_CONTACT)
+    expect(audits().at(-1)).toMatchObject({ masked: false })
+  })
+
+  it.each([
+    ['unset', undefined],
+    ['malformed', 'no-at-sign'],
+    ['malformed beside a good entry', `${CLIENT_ID}@${ORG_ID},no-at-sign`],
+    ['duplicated', `${CLIENT_ID}@${ORG_ID},${CLIENT_ID}@${ORG_ID}`],
+    ['this client bound to another organization', `${CLIENT_ID}@${OTHER_ORG_ID}`],
+    ['an entry that is not a reader', `${CLIENT_ID}@${ORG_ID},jnc_not_a_reader@${ORG_ID}`],
+  ])('unmasked list %s → masked', async (_name, value) => {
+    if (value === undefined) vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', undefined)
+    else vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', value)
+    const { search, detail } = await contactViews()
+    expect(search).toMatchObject(MASKED_CONTACT)
+    expect(detail.contact).toMatchObject(MASKED_CONTACT)
+    expect(audits().at(-1)).toMatchObject({ masked: true })
+  })
+
+  it('a malformed list is warned about once, not on every request', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', 'still,malformed')
+    await callTool('contacts_search')
+    await callTool('contacts_search')
+    await callTool('leads_list')
+    const warnings = logCalls.filter(
+      ([, fields]) => (fields as { event?: string }).event === 'mcp_unmasked_clients_ignored',
+    )
+    expect(warnings).toHaveLength(1)
   })
 })
 

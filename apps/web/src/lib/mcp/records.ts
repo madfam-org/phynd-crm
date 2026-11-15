@@ -11,19 +11,14 @@
  *     with its own ledger and is exempt from this slice (`coverage.ts`);
  *   - cross-system identifiers: `external_janua_id`, the Coforma ids.
  *
- * Personal fields follow the app's existing rule for machine readers: when the
- * `piiMasking` feature is on, names, emails, phones and free text are masked
- * for a `service:` principal (`@phynd/services` `pii/mask`), exactly as in
- * global search and the unified profile.
+ * Personal fields are MASKED for every MCP client unless the owner listed it
+ * in `PHYND_CRM_MCP_UNMASKED_CLIENTS` (`auth.ts` decides; the global
+ * `piiMasking` flag plays no part here). Masked: contact names, emails, phones
+ * and preferred names; activity titles and descriptions; deal names (the
+ * `@phynd/services` `pii/mask` helpers). Not masked: company, lead source,
+ * pipeline and stage names, ids, amounts and dates.
  */
-import {
-  maskEmail,
-  maskFreeText,
-  maskPersonName,
-  maskPhone,
-  shouldMaskPiiForAgent,
-} from '@phynd/services'
-import type { AuthContext } from '@phynd/types/auth'
+import { maskEmail, maskFreeText, maskPersonName, maskPhone } from '@phynd/services'
 
 type Row = Readonly<Record<string, unknown>>
 
@@ -41,11 +36,6 @@ function iso(value: unknown): string | null {
 
 function integer(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) ? value : null
-}
-
-/** Whether this caller's personal fields are masked (feature `piiMasking`). */
-export function masksPii(auth: AuthContext): boolean {
-  return shouldMaskPiiForAgent(auth)
 }
 
 // ── Contact ──────────────────────────────────────────────────────────────────

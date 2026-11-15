@@ -25,6 +25,7 @@ import {
   resolveContactId,
 } from './buyer-contact'
 import { type DhanamWebhookPayload, type NormalizedEvent, normalizeEvent } from './envelope'
+import { type FailedPaymentTaskResult, maybeOpenFailedPaymentTask } from './failed-payment-task'
 import {
   STRIPE_PAID_EVENT_TYPES,
   buildEngagementMessage,
@@ -75,6 +76,8 @@ const logger = createLogger('web:webhook:dhanam')
  *           eventType='dhanam:payment_succeeded' for paid events,
  *           or `dhanam:<envelope.type>` for others) to the contact's
  *           first active engagement, if one exists.
+ *        f) On a failed payment, open one follow-up task on the contact unless
+ *           one is still open (see failed-payment-task.ts).
  *   7. Invalidate federation cache (preserve the prior route's behavior).
  *   8. Return 200.
  *
@@ -175,6 +178,7 @@ interface PersistResult {
   order_id?: string | null
   quote_id?: string | null
   engagement_id?: string | null
+  failed_payment_task?: FailedPaymentTaskResult
 }
 
 /** Whether a `webhook_events` row already exists for this Dhanam event id. */
@@ -249,6 +253,7 @@ async function persistEventInTransaction(
   const paymentReconciliation = refundedEarlier
     ? null
     : await maybeReconcilePayment(tx, event, contactId, engagementId)
+  const failedPaymentTask = await maybeOpenFailedPaymentTask(tx, event, contactId)
 
   return {
     status: 'recorded',
@@ -261,6 +266,7 @@ async function persistEventInTransaction(
     order_id: paymentReconciliation?.orderId ?? null,
     quote_id: paymentReconciliation?.quoteId ?? null,
     engagement_id: paymentReconciliation?.engagementId ?? engagementId ?? null,
+    ...(failedPaymentTask ? { failed_payment_task: failedPaymentTask } : {}),
   }
 }
 

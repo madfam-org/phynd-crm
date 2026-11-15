@@ -1,11 +1,33 @@
 import { activities } from '@phynd/db/schema'
 import type { EntityType, PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, gt, gte, lt } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { requireCrmUserId } from '../identity/actor'
 
+export interface ActivityListFilters {
+  ownerId?: string
+  /** `pending`, `completed` or `cancelled`. */
+  status?: string
+  /** `call`, `email`, `meeting`, `task`, … */
+  type?: string
+  /** Due at or after this instant (activities without a due date never match). */
+  dueFrom?: Date
+  /** Due strictly before this instant (activities without a due date never match). */
+  dueBefore?: Date
+}
+
 export class ActivitiesService {
   constructor(private readonly ctx: ServiceContext) {}
+
+  /** The newest `limit` activities of one record, newest first. */
+  async listRecentForEntity(entityType: EntityType, entityId: string, limit = 20) {
+    return this.ctx.db
+      .select()
+      .from(activities)
+      .where(and(eq(activities.entityType, entityType), eq(activities.entityId, entityId)))
+      .orderBy(desc(activities.createdAt), desc(activities.id))
+      .limit(limit)
+  }
 
   async listForEntity(entityType: EntityType, entityId: string) {
     return this.ctx.db
@@ -37,7 +59,7 @@ export class ActivitiesService {
 
   async listRecent(
     pagination?: PaginationInput,
-    filters?: { ownerId?: string },
+    filters?: ActivityListFilters,
   ): Promise<PaginatedResult<typeof activities.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = []
@@ -46,6 +68,18 @@ export class ActivitiesService {
     }
     if (filters?.ownerId) {
       conditions.push(eq(activities.ownerId, filters.ownerId))
+    }
+    if (filters?.status) {
+      conditions.push(eq(activities.status, filters.status))
+    }
+    if (filters?.type) {
+      conditions.push(eq(activities.type, filters.type))
+    }
+    if (filters?.dueFrom) {
+      conditions.push(gte(activities.dueAt, filters.dueFrom))
+    }
+    if (filters?.dueBefore) {
+      conditions.push(lt(activities.dueAt, filters.dueBefore))
     }
 
     const rows = await this.ctx.db

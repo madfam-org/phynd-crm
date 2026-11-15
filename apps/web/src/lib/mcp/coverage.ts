@@ -55,6 +55,8 @@ const CAMPAIGN_SEND =
 const MONEY =
   'commercial and payment records (amounts, receipts, bank details): not a pipeline read'
 const STAFF_DIRECTORY = 'staff directory and access administration (admin-gated): names staff'
+const CASES =
+  'cases (requests with a deadline): no MCP tool yet by owner ruling; a later slice decides'
 const ANALYTICS = 'aggregates for the dashboard; a later slice can add them as their own tools'
 const TRACKING =
   'visitor sessions and page views: behavioural data about people, not a pipeline read'
@@ -109,6 +111,12 @@ export const MCP_COVERAGE: Readonly<Record<string, ProcedureCoverage>> = {
   'activities.update': { exempt: WRITE },
   'activities.delete': { exempt: WRITE },
   'activities.complete': { exempt: WRITE },
+
+  // ── cases ─────────────────────────────────────────────────────────────────
+  'cases.list': { exempt: CASES },
+  'cases.getById': { exempt: CASES },
+  'cases.create': { exempt: WRITE },
+  'cases.update': { exempt: WRITE },
 
   // ── opportunities (deals) ─────────────────────────────────────────────────
   'opportunities.list': {

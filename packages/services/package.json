@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./cases/case-deadlines": "./src/cases/case-deadlines.ts",
     "./context": "./src/context.ts",
     "./contacts/customer-health": "./src/contacts/customer-health.ts",
     "./convergence/convergence-feed": "./src/convergence/convergence-feed.ts",

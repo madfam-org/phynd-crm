@@ -87,6 +87,19 @@ export {
 export { RedditBotService, type BotCampaignPayload } from './campaigns/reddit-bot'
 export { RedditClient, createRedditClientFromEnv, type RedditPost } from './campaigns/reddit-client'
 export { postRedditComment, extractPostId } from './campaigns/reddit-poster'
+export {
+  type CaseListFilters,
+  type CaseWithContact,
+  CasesService,
+  type CreateCaseInput,
+  type UpdateCaseInput,
+} from './cases/cases.service'
+export {
+  CASE_DEFAULT_DUE_BUSINESS_DAYS,
+  addBusinessDaysEndOfDay,
+  defaultCaseDueAt,
+  isCaseOverdue,
+} from './cases/case-deadlines'
 export { ContactsService, type ContactWithHealth } from './contacts/contacts.service'
 export {
   CUSTOMER_HEALTHS,

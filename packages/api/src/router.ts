@@ -1,4 +1,5 @@
 import { activitiesRouter } from './routers/activities'
+import { casesRouter } from './routers/cases'
 import { aiKanbanRouter } from './routers/ai-kanban'
 import { analyticsRouter } from './routers/analytics'
 import { campaignAuthorizationsRouter } from './routers/campaign-authorizations'
@@ -32,6 +33,7 @@ import { router } from './trpc'
 
 export const appRouter = router({
   activities: activitiesRouter,
+  cases: casesRouter,
   aiKanban: aiKanbanRouter,
   analytics: analyticsRouter,
   campaignAuthorizations: campaignAuthorizationsRouter,

@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { checkApiRateLimit } from '@/lib/rate-limiter'
 import { createAppContextFromRequest } from '@/lib/trpc/request-context'
 import { appRouter } from '@phynd/api/router'
@@ -12,7 +13,7 @@ function assertAuthBypassNotEnabled() {
 const handler = async (req: Request) => {
   assertAuthBypassNotEnabled()
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+  const ip = clientAddress(req.headers)
   const { allowed } = await checkApiRateLimit(ip)
   if (!allowed) {
     return new Response(JSON.stringify({ error: 'Too many requests' }), {

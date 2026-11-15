@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { auth } from '@/lib/auth'
+import { clientAddress } from '@/lib/client-address'
 import { createDemoAuth, getDemoSessionIdFromCookieHeader } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
 import { resolveTenantIdFromHeaders } from '@/lib/http/tenant-context'
@@ -209,7 +210,7 @@ export function createAppContext(authCtx: AuthContext) {
 }
 
 function logServiceAuth(req: Request, authCtx: AuthContext, surface: 'trpc' | 'graphql') {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+  const ip = clientAddress(req.headers)
   serviceAuthLogger.info(
     {
       event: 'service_auth',

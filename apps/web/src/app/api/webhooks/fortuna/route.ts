@@ -1,3 +1,4 @@
+import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { resolveRedisUrl } from '@phynd/config/connections'
@@ -35,7 +36,7 @@ interface FortunaGrantPayload {
 }
 
 async function checkWebhookRateLimit(req: Request) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = clientAddress(req.headers)
   const { allowed, remaining } = await checkRateLimit(ip)
 
   if (!allowed) {

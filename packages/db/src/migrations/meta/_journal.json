@@ -148,6 +148,13 @@
       "when": 1794780780435,
       "tag": "0020_redundant_lightspeed",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794780790520,
+      "tag": "0021_boring_greymalkin",
+      "breakpoints": true
     }
   ]
 }

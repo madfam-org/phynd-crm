@@ -5,12 +5,19 @@ import type { ServiceContext } from '../context'
 import { actorIdOf } from '../identity/actor'
 import { NotificationsService } from '../notifications/notifications.service'
 
+export interface OpportunityListFilters {
+  ownerId?: string
+  pipelineId?: string
+  stageId?: string
+  status?: string
+}
+
 export class OpportunitiesService {
   constructor(private readonly ctx: ServiceContext) {}
 
   async list(
     pagination?: PaginationInput,
-    filters?: { ownerId?: string },
+    filters?: OpportunityListFilters,
   ): Promise<PaginatedResult<typeof opportunities.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(opportunities.deletedAt)]
@@ -19,6 +26,15 @@ export class OpportunitiesService {
     }
     if (filters?.ownerId) {
       conditions.push(eq(opportunities.ownerId, filters.ownerId))
+    }
+    if (filters?.pipelineId) {
+      conditions.push(eq(opportunities.pipelineId, filters.pipelineId))
+    }
+    if (filters?.stageId) {
+      conditions.push(eq(opportunities.stageId, filters.stageId))
+    }
+    if (filters?.status) {
+      conditions.push(eq(opportunities.status, filters.status))
     }
 
     const rows = await this.ctx.db

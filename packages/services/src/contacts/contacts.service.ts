@@ -1,14 +1,21 @@
 import { contacts } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, ilike, isNull, or, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
+import { containsPattern } from '../search/like-pattern'
+
+export interface ContactListFilters {
+  ownerId?: string
+  /** Case-insensitive substring of the name, email or company (taken literally). */
+  query?: string
+}
 
 export class ContactsService {
   constructor(private readonly ctx: ServiceContext) {}
 
   async list(
     pagination?: PaginationInput,
-    filters?: { ownerId?: string },
+    filters?: ContactListFilters,
   ): Promise<PaginatedResult<typeof contacts.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(contacts.deletedAt)]
@@ -17,6 +24,15 @@ export class ContactsService {
     }
     if (filters?.ownerId) {
       conditions.push(eq(contacts.ownerId, filters.ownerId))
+    }
+    if (filters?.query) {
+      const pattern = containsPattern(filters.query)
+      const match = or(
+        ilike(contacts.name, pattern),
+        ilike(contacts.email, pattern),
+        ilike(contacts.company, pattern),
+      )
+      if (match) conditions.push(match)
     }
 
     const rows = await this.ctx.db

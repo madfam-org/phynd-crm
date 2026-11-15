@@ -7,6 +7,7 @@ import {
   type MachineAuthConfig,
   bearerJwt,
   grantedScopes,
+  isKeyFetchFailure,
   machineAuthConfig,
   verifyMachineToken,
 } from '../machine-auth'
@@ -199,13 +200,25 @@ describe('verifyMachineToken', () => {
     expect(!result.ok && result.reason).toBe('invalid_token')
   })
 
-  it('refuses, without throwing, when the JWKS cannot be fetched', async () => {
+  it('refuses, without throwing, when the JWKS cannot be fetched: keys_unavailable, not invalid_token', async () => {
     vi.restoreAllMocks()
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('network down'))
     const result = await verifyMachineToken(await stub.mint(), {
       ...CONFIG,
       issuer: 'https://unreachable.janua.test',
     })
-    expect(!result.ok && result.reason).toBe('invalid_token')
+    expect(result).toEqual({ ok: false, reason: 'keys_unavailable', detail: 'TypeError' })
+  })
+
+  it('tells a key-fetch failure from a bad token', async () => {
+    const { errors } = await import('jose')
+    expect(isKeyFetchFailure(new TypeError('fetch failed'))).toBe(true)
+    expect(isKeyFetchFailure(new errors.JWKSTimeout())).toBe(true)
+    expect(isKeyFetchFailure(new errors.JWKSInvalid())).toBe(true)
+    expect(isKeyFetchFailure(new errors.JOSEError('Expected 200 OK'))).toBe(true)
+    expect(isKeyFetchFailure(new errors.JWKSNoMatchingKey())).toBe(false)
+    expect(isKeyFetchFailure(new errors.JWSSignatureVerificationFailed())).toBe(false)
+    expect(isKeyFetchFailure(new errors.JWTExpired('expired', {}))).toBe(false)
+    expect(isKeyFetchFailure(new errors.JWTClaimValidationFailed('aud', {}))).toBe(false)
   })
 })

@@ -62,6 +62,9 @@ public contributor needs for local development:
 | `PHYND_CRM_MACHINE_TENANT_ID` | Tenant for Janua machine tokens; unset = machine tokens off ([MACHINE_AUTH.md](./MACHINE_AUTH.md)) | `madfam` |
 | `PHYND_CRM_MACHINE_JANUA_ORG_ID` | Janua organization UUID a machine token's `org_id` must equal; unset = off | Janua org UUID |
 | `PHYND_CRM_MACHINE_AUDIENCE` | Required `aud` on machine tokens | `phynd-crm` (default) |
+| `PHYND_CRM_MCP_ENABLED` | Native MCP switch: `POST /mcp` is 404 unless exactly `true` and machine tokens are configured ([NATIVE_MCP.md](./NATIVE_MCP.md)) | `false` (default) |
+| `PHYND_CRM_MCP_READ_CLIENTS` | Janua clients allowed to read over MCP, `client-id@org-id` comma-separated; empty or malformed = none | empty (default) |
+| `PHYND_CRM_MCP_UNMASKED_CLIENTS` | MCP readers that get personal fields unmasked (owner exception); same format, each must also be a reader; empty, malformed or not a reader = every client masked | empty (default) |
 | `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks outbound calls to production hosts) | `production` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
 | `SENTRY_DSN` | Optional worker Sentry DSN | `https://...` |

@@ -4,6 +4,7 @@ import { isDemoSession } from '@/lib/demo'
 import {
   CANONICAL_PHYND_APP_HOST,
   MARKETING_AUTH_REDIRECT_HOSTS,
+  MCP_PATH,
   getAuthenticatedAppRootRedirect,
   getCanonicalLoginHost,
   getDormantClientHostRedirect,
@@ -40,6 +41,9 @@ const authMiddleware = auth((req) => {
     isCrawlFilePath(pathname) ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
+    // Native MCP (machine clients): gated by its own Janua machine token, and
+    // 404 while switched off. See app/mcp/route.ts.
+    pathname === MCP_PATH ||
     // External-client portal: gated by its own signed cookie, not the
     // Auth.js v5 staff session. /portal/verify exchanges the Janua
     // magic-link token; /portal/[id] and /portal/expired read the

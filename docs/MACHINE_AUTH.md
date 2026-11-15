@@ -53,6 +53,12 @@ Phynd scopes are checked per tRPC path by `enforceServiceScopes`
 query and `<router>:write` for a mutation. So the entry above reaches every
 `engagements.*` and `contacts.*` **query** and no mutation.
 
+The native MCP ([NATIVE_MCP.md](./NATIVE_MCP.md)) shares this verifier
+(`verifyMachineIdentity`: signature, issuer, audience, machine claims, lifetime)
+and the tenant binding below, but not this table: its scope
+`phynd-crm-pipeline:read` is deliberately absent here, so it opens no tRPC
+procedure, and no scope in this table opens an MCP tool.
+
 A new entry is a new reviewed machine edge: name the scope
 `phynd-crm-<thing>:read` (one colon), have it reserved in Janua (audience and
 scope) and deployed before any client carries it, then add the row here and in

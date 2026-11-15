@@ -8,12 +8,19 @@ import { LeadScoringService } from '../lead-scoring/lead-scoring.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { sanitizeLeadAttribution } from './lead-attribution'
 
+export interface LeadListFilters {
+  ownerId?: string
+  status?: string
+  /** Exact match on the lead's source (`web`, `tezca`, …). */
+  source?: string
+}
+
 export class LeadsService {
   constructor(private readonly ctx: ServiceContext) {}
 
   async list(
     pagination?: PaginationInput,
-    filters?: { ownerId?: string },
+    filters?: LeadListFilters,
   ): Promise<PaginatedResult<typeof leads.$inferSelect>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(leads.deletedAt)]
@@ -22,6 +29,12 @@ export class LeadsService {
     }
     if (filters?.ownerId) {
       conditions.push(eq(leads.ownerId, filters.ownerId))
+    }
+    if (filters?.status) {
+      conditions.push(eq(leads.status, filters.status))
+    }
+    if (filters?.source) {
+      conditions.push(eq(leads.source, filters.source))
     }
 
     const rows = await this.ctx.db

@@ -4,6 +4,13 @@ const AUTHENTICATED_APP_HOSTS = new Set(['crm.madfam.io', 'crm.phynd.app', 'stag
 const MARKETING_HOSTS = new Set(['phynd.app', 'www.phynd.app'])
 export const CANONICAL_PHYND_APP_HOST = 'crm.phynd.app'
 
+/**
+ * The native MCP endpoint (`app/mcp/route.ts`): a machine edge outside `/api`.
+ * It is public to the middleware (its own Janua machine token gates it) and,
+ * like `/api/*`, never redirected: a machine client does not follow redirects.
+ */
+export const MCP_PATH = '/mcp'
+
 /** Hosts that must not serve Auth.js directly — redirect to the CRM app host. */
 export const MARKETING_AUTH_REDIRECT_HOSTS = MARKETING_HOSTS
 
@@ -53,7 +60,7 @@ export function getCanonicalLoginHost(
  * with no users (stale bookmarks and old emails routed the operator into
  * exactly that — see docs/SSO_LEAD_FLOW_INCIDENT_2026-08-12.md).
  *
- * Deliberately NOT redirected: `/api/*`. Webhook producers and OAuth
+ * Deliberately NOT redirected: `/api/*` and `/mcp`. Webhook producers and OAuth
  * machinery don't follow redirects (and a 301 downgrades POST to GET), so a
  * blanket redirect would silently break any sender configured against this
  * host. The multi-tenant host architecture stays intact.
@@ -67,6 +74,6 @@ export function getDormantClientHostRedirect(
   search: string,
 ): string | null {
   if (normalizeHost(host) !== 'crm.phynd.app') return null
-  if (pathname.startsWith('/api/')) return null
+  if (pathname.startsWith('/api/') || pathname === MCP_PATH) return null
   return `https://crm.madfam.io${pathname}${search}`
 }

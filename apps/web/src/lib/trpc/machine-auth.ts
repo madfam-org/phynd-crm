@@ -117,7 +117,7 @@ type Claims = Record<string, unknown>
 /** Signature, issuer, audience and expiry (jose), or the refusal. */
 async function verifySignature(
   token: string,
-  config: MachineAuthConfig,
+  config: Pick<MachineAuthConfig, 'issuer' | 'audience'>,
   nowSeconds: number,
 ): Promise<Claims | MachineAuthResult> {
   try {
@@ -178,23 +178,60 @@ function isRefusal(value: Claims | MachineAuthResult): value is MachineAuthResul
   return 'ok' in value && value.ok === false
 }
 
+/** Who a verified Janua machine token is; says nothing about what it may do. */
+export interface MachineIdentity {
+  clientId: string
+  /** The token's signed `org_id` (null when the claim is absent or not a string). */
+  orgId: string | null
+  /** The space-separated `scope` claim, split; empty when absent. */
+  tokenScopes: string[]
+}
+
+export type MachineIdentityResult =
+  | { ok: true; identity: MachineIdentity }
+  | { ok: false; reason: MachineAuthRejection; detail?: string }
+
+/**
+ * The checks every Janua machine edge of this app shares: signature (JWKS),
+ * issuer, audience, expiry, the `client_credentials` claims, the subject and
+ * the lifetime. Authorization (organization, scopes, allowlists) is the
+ * caller's: the tRPC path below and the native MCP (`lib/mcp/auth.ts`) each
+ * apply their own, so a scope that opens one never opens the other.
+ */
+export async function verifyMachineIdentity(
+  token: string,
+  config: Pick<MachineAuthConfig, 'issuer' | 'audience'>,
+  nowSeconds: number = Math.floor(Date.now() / 1000),
+): Promise<MachineIdentityResult> {
+  const payload = await verifySignature(token, config, nowSeconds)
+  if (isRefusal(payload)) return payload as MachineIdentityResult
+
+  const identity = machineIdentity(payload, nowSeconds)
+  if ('refusal' in identity) return { ok: false, reason: identity.refusal }
+
+  const scopeClaim = payload.scope
+  return {
+    ok: true,
+    identity: {
+      clientId: identity.clientId,
+      orgId: typeof payload.org_id === 'string' ? payload.org_id : null,
+      tokenScopes: typeof scopeClaim === 'string' ? scopeClaim.split(/\s+/).filter(Boolean) : [],
+    },
+  }
+}
+
 /** Verifies a Janua machine token and builds its least-privilege auth context. */
 export async function verifyMachineToken(
   token: string,
   config: MachineAuthConfig,
   nowSeconds: number = Math.floor(Date.now() / 1000),
 ): Promise<MachineAuthResult> {
-  const payload = await verifySignature(token, config, nowSeconds)
-  if (isRefusal(payload)) return payload
+  const verified = await verifyMachineIdentity(token, config, nowSeconds)
+  if (!verified.ok) return reject(verified.reason, verified.detail)
+  const { clientId, orgId, tokenScopes } = verified.identity
 
-  const identity = machineIdentity(payload, nowSeconds)
-  if ('refusal' in identity) return reject(identity.refusal)
-  const { clientId } = identity
+  if (orgId !== config.januaOrgId) return reject('org_mismatch')
 
-  if (payload.org_id !== config.januaOrgId) return reject('org_mismatch')
-
-  const scopeClaim = payload.scope
-  const tokenScopes = typeof scopeClaim === 'string' ? scopeClaim.split(/\s+/).filter(Boolean) : []
   if (tokenScopes.length === 0) return reject('no_scope')
 
   const scopes = grantedScopes(tokenScopes)

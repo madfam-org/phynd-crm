@@ -20,6 +20,14 @@ describe('getDormantClientHostRedirect (holding redirect until first client tena
     expect(getDormantClientHostRedirect('crm.phynd.app', '/api/trpc/leads.getById', '')).toBeNull()
   })
 
+  it('never redirects /mcp: a machine client POSTs there and does not follow redirects', () => {
+    expect(getDormantClientHostRedirect('crm.phynd.app', '/mcp', '')).toBeNull()
+    // Only the exact path: anything else under it is ordinary browser traffic.
+    expect(getDormantClientHostRedirect('crm.phynd.app', '/mcp/anything', '')).toBe(
+      'https://crm.madfam.io/mcp/anything',
+    )
+  })
+
   it('leaves every other host alone — the MADFAM CRM and marketing site are unaffected', () => {
     expect(getDormantClientHostRedirect('crm.madfam.io', '/', '')).toBeNull()
     expect(getDormantClientHostRedirect('staging-crm.madfam.io', '/leads', '')).toBeNull()

@@ -13,6 +13,8 @@ export interface ContactListFilters {
   ownerId?: string
   /** Case-insensitive substring of the name, email or company (taken literally). */
   query?: string
+  /** A whole email address, matched exactly regardless of letter case. */
+  email?: string
 }
 
 export class ContactsService {
@@ -29,6 +31,9 @@ export class ContactsService {
     }
     if (filters?.ownerId) {
       conditions.push(eq(contacts.ownerId, filters.ownerId))
+    }
+    if (filters?.email) {
+      conditions.push(sql`lower(${contacts.email}) = lower(${filters.email})`)
     }
     if (filters?.query) {
       const pattern = containsPattern(filters.query)

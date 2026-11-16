@@ -76,6 +76,8 @@ const PAGE_SIZE_NOTE = `pass next_cursor back as cursor with the same filters; a
 const PAGING_NOTE = `Paged by id: ${PAGE_SIZE_NOTE}`
 const NEWEST_FIRST_PAGING_NOTE = `Newest first (by creation time, then id): ${PAGE_SIZE_NOTE}`
 const SEARCH_MAX_CHARS = 100
+/** A whole email address: what a masked client may search by. */
+const WHOLE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const INSTANT_SCHEMA = { type: 'string', format: 'date-time' } as const
 
 /** `limit` is the cap even if a service ever returned more. */
@@ -96,7 +98,7 @@ function page<T, R>(
 const contactsSearch: McpTool = {
   name: MCP_TOOL_NAMES.contactsSearch,
   title: 'contacts.search',
-  description: `Contacts (people and their companies), newest state, deleted contacts excluded. With query: a case-insensitive substring of the name, email or company, taken literally (the match runs on the stored values, also when they are returned masked). Without it: every contact. ${PAGING_NOTE} ${MCP_MASKING_NOTE} ${UNTRUSTED_NOTE}`,
+  description: `Contacts (people and their companies), newest state, deleted contacts excluded. With query: for a client that reads personal fields unmasked, a case-insensitive substring of the name, email or company, taken literally; for a masked client, only a whole email address, matched exactly regardless of letter case (any other query is refused with query_not_allowed). Without it: every contact. ${PAGING_NOTE} ${MCP_MASKING_NOTE} ${UNTRUSTED_NOTE}`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -104,7 +106,8 @@ const contactsSearch: McpTool = {
         type: 'string',
         minLength: 1,
         maxLength: SEARCH_MAX_CHARS,
-        description: 'Part of a name, an email or a company.',
+        description:
+          'Part of a name, an email or a company; a masked client may pass only a whole email address.',
       },
       owner_id: OWNER_ID_SCHEMA,
       cursor: CURSOR_SCHEMA,
@@ -128,9 +131,20 @@ const contactsSearch: McpTool = {
         limit,
       }),
       execute: async (ctx, { masked: mask }) => {
+        // A substring search would let a masked client recover masked names,
+        // emails and companies letter by letter: it may only look up an
+        // address it already has.
+        if (mask && query !== null && !WHOLE_EMAIL.test(query)) {
+          return {
+            ok: false as const,
+            error: 'query_not_allowed' as const,
+            message: 'this client may search contacts only by a whole email address',
+          }
+        }
+        const search = query === null ? {} : mask ? { email: query } : { query }
         const result = await new ContactsService(ctx).list(
           { limit, ...(cursor ? { cursor } : {}) },
-          { ...(ownerId ? { ownerId } : {}), ...(query ? { query } : {}) },
+          { ...(ownerId ? { ownerId } : {}), ...search },
         )
         return page('contacts', result, limit, (row) => toContact(row, mask))
       },

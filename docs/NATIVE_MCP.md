@@ -106,7 +106,7 @@ first `X-Forwarded-For` entry is whatever the caller wrote and is never used.
 
 | Tool (wire name) | Catalog name | Runs | Input |
 | --- | --- | --- | --- |
-| `contacts_search` | `contacts.search` | `ContactsService.list` | `query?` (1–100 chars: name, email or company, literal), `owner_id?`, `cursor?`, `limit?` |
+| `contacts_search` | `contacts.search` | `ContactsService.list` | `query?` (1–100 chars; unmasked client: substring of name, email or company, literal; masked client: a whole email address, exact, case-insensitive), `owner_id?`, `cursor?`, `limit?` |
 | `contacts_get` | `contacts.get` | `ContactsService.getById` + `ActivitiesService.listRecentForEntity` | `contact_id`, `activity_limit?` |
 | `leads_list` | `leads.list` | `LeadsService.list` | `status?`, `source?` (exact), `owner_id?`, `cursor?`, `limit?` |
 | `tasks_list_open` | `tasks.list_open` | `ActivitiesService.listRecent` (type `task`, status `pending`, `excludeDeletedParents`) | `owner_id?`, `due_from?`, `due_before?`, `cursor?`, `limit?` |
@@ -145,7 +145,7 @@ was deleted after it (`contacts_get` answers `not_found` for it).
 
 Returned: what an operator sees in the lists and on the contact page (names,
 emails, phones, companies, the contact's lifecycle stage and derived payment
-health (never masked: they are statuses, not personal text), lead source/status/score, task title/description/due
+health, lead source/status/score, task title/description/due
 date, deal name/value/stage, pipeline and stage names, owner ids).
 
 Never returned, by construction (each record is projected field by field in
@@ -167,12 +167,22 @@ characters then `…[redacted]`), and companies and lead sources as a whole
 length; an absent value stays `null`). Pipeline and stage names, ids,
 statuses, amounts and dates are not masked.
 
+**Stage and health are returned unmasked, by decision.** A contact's
+`lifecycle_stage` (lead, customer, former customer) and derived payment
+`health` (ok, payment failed, cancelled) reach every MCP client in clear,
+masked or not: they are statuses, not identifiers, and every field that
+identifies the person (name, preferred name, email, phone, company) stays
+masked.
+
 Filtering by a masked field still works. `leads_list` with `source` matches the
 stored value exactly, and each returned lead whose stored source equals the
 named one carries it as named (the caller already knows it); the projection
 checks that equality itself, so no other source is ever returned in clear.
-`contacts_search` still matches `query` against the stored company, name and
-email; the rows come back masked. The server instructions and the tool
+`contacts_search` is narrower for a masked client: a substring search would let
+it recover masked names, emails and companies one guess at a time, so its
+`query` must be a whole email address, matched exactly regardless of letter
+case; any other query is refused with the tool error `query_not_allowed` and no
+contact is read. Unmasked clients keep the substring search. The server instructions and the tool
 descriptions say what a masked value looks like, so an agent never takes a
 masked email for an address. Why: an agent's conversation may leave the
 company's infrastructure (a hosted model, a transcript), so full personal data

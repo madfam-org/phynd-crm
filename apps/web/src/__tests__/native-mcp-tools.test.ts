@@ -713,7 +713,9 @@ describe('masking (every MCP client masked by default)', () => {
   const FULL_CONTACT = { name: 'Ana Ejemplo', email: 'ana@example.test', phone: '+52 55 0000 0000' }
 
   async function contactViews() {
-    const search = (await callTool('contacts_search', { query: 'ana@' })).data.contacts[0]
+    // A whole address in another letter case: allowed masked and unmasked.
+    const search = (await callTool('contacts_search', { query: 'ANA@Example.test' })).data
+      .contacts[0]
     const detail = (await callTool('contacts_get', { contact_id: uuid(1) })).data
     return { search, detail }
   }
@@ -760,10 +762,36 @@ describe('masking (every MCP client masked by default)', () => {
       'tezca',
     ])
     expect(tezca.raw).not.toMatch(/\bweb\b/)
-    // Searching by company still matches the stored value; the row is masked.
+  })
+
+  it('a masked client may search contacts only by a whole email address, matched exactly', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    for (const query of ['taller', 'ana', 'ana@', '@example.test', 'Ana Ejemplo']) {
+      const refused = await callTool('contacts_search', { query })
+      expect(refused.isError, query).toBe(true)
+      expect(refused.text).toBe(
+        'query_not_allowed: this client may search contacts only by a whole email address',
+      )
+      expect(refused.raw).not.toMatch(/Ana Ejemplo|ana@example|Taller/)
+      expect(audits().at(-1)).toMatchObject({ outcome: 'query_not_allowed', resultCount: null })
+    }
+    // No contact was read for a refused query.
+    expect(queries.filter((query) => query.table === 'contacts')).toEqual([])
+
+    const exact = await callTool('contacts_search', { query: 'ANA@EXAMPLE.TEST' })
+    expect(exact.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(1)])
+    expect(exact.data.contacts[0]).toMatchObject({
+      email: 'a***@example.test',
+      company: '[redacted]',
+    })
+    // A partial address is not a match, it is refused; another full address finds nothing.
+    const none = await callTool('contacts_search', { query: 'nadie@example.test' })
+    expect(none.data.contacts).toEqual([])
+  })
+
+  it('an unmasked client keeps the substring search', async () => {
     const byCompany = await callTool('contacts_search', { query: 'taller' })
     expect(byCompany.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(1)])
-    expect(byCompany.data.contacts[0].company).toBe('[redacted]')
   })
 
   it('a client on the unmasked list reads full values, and the audit says so', async () => {

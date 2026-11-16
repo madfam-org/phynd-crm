@@ -45,7 +45,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     // Event ids that a concurrent delivery records while this one waits for
     // the per-event lock (simulates an overlapping retry).
     recordedWhileWaiting: new Set<string>(),
-    leadByContactId: new Map<string, { id: string; pipelineId: string }>(),
+    leadByContactId: new Map<string, { id: string; pipelineId: string; status?: string }>(),
     stagesByPipelineId: new Map<string, Array<{ id: string; name: string }>>(),
     referralCodeByCode: new Map<string, string>(), // code → referral_code_id
     referralByCodeIdAndEmail: new Map<string, string>(), // `${codeId}|${email}` → referral_id
@@ -61,6 +61,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     contactOwnerById: new Map<string, string>(), // contact_id → owner user id
     userIds: new Set<string>(), // existing CRM `users.id`
     contactStageById: new Map<string, string>(), // contact_id → lifecycle stage (default lead)
+    contactStageChangedAt: new Map<string, Date>(), // contact_id → lifecycle_stage_changed_at
     // Conversions recorded before the test's events: contact id, type, metadata.
     seededConversions: [] as Array<{
       contactId: string
@@ -155,6 +156,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
           id,
           ownerId: state.contactOwnerById.get(id) ?? null,
           stage: state.contactStageById.get(id) ?? 'lead',
+          changedAt: state.contactStageChangedAt.get(id) ?? null,
         },
       ]
     }
@@ -190,7 +192,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
     const contactIdx = whereIndex('leads.contactId')
     if (contactIdx < 0) return []
     const lead = state.leadByContactId.get(whereValue(contactIdx))
-    return lead ? [{ id: lead.id, pipelineId: lead.pipelineId }] : []
+    return lead ? [{ id: lead.id, status: lead.status ?? 'new', pipelineId: lead.pipelineId }] : []
   }
 
   const resolvePipelineStages = (): unknown[] => {
@@ -275,6 +277,14 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
   // Dhanam conversions of a contact (seeded, then recorded), shaped as the
   // customer-stage look-up selects them.
   const resolveConversions = (): unknown[] => {
+    // The lead-conversion look-up: a row of this type already on this lead.
+    const leadIdx = whereIndex('conversions.leadId')
+    if (leadIdx >= 0) {
+      const type = whereValue(whereIndex('conversions.type'))
+      return state.inserts.conversions
+        .filter((row) => row.leadId === whereValue(leadIdx) && row.type === type)
+        .map(() => rowById('conv_existing'))
+    }
     const contactIdx = whereIndex('conversions.contactId')
     if (contactIdx < 0) return []
     const contactId = whereValue(contactIdx)
@@ -414,14 +424,53 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
         state.eventsByPaymentId.set(payload.payment_id, rows)
       }
     },
-    conversions: (v) => state.inserts.conversions.push(v),
+    conversions: (v) => {
+      // The unique index `conversions_type_lead_uniq (type, lead_id)`.
+      if (
+        v.leadId &&
+        state.inserts.conversions.some((row) => row.type === v.type && row.leadId === v.leadId)
+      ) {
+        throw new Error(
+          'duplicate key value violates unique constraint "conversions_type_lead_uniq"',
+        )
+      }
+      state.inserts.conversions.push(v)
+    },
     engagement_events: (v) => state.inserts.engagementEvents.push(v),
     external_references: (v) => state.inserts.externalReferences.push(v),
   }
 
-  // `update contacts set lifecycle_stage … where id = $1 and lifecycle_stage
-  // (<>|=) $2`: applied to `contactStageById` when the guard holds; returning
-  // yields the row only when it changed.
+  // A contact as the stage rule sees it.
+  const contactRow = (id: string): Record<string, unknown> => ({
+    'contacts.id': id,
+    'contacts.lifecycleStage': state.contactStageById.get(id) ?? 'lead',
+    'contacts.lifecycleStageChangedAt': state.contactStageChangedAt.get(id) ?? null,
+  })
+
+  // Evaluates the mocked drizzle condition tree against one row.
+  const holds = (cond: Record<string, unknown>, row: Record<string, unknown>): boolean => {
+    const args = (cond.args ?? []) as Array<Record<string, unknown>>
+    const value = row[String(cond.col)]
+    switch (cond._tag) {
+      case 'and':
+        return args.every((inner) => holds(inner, row))
+      case 'or':
+        return args.some((inner) => holds(inner, row))
+      case 'eq':
+        return value === cond.val
+      case 'ne':
+        return value !== cond.val
+      case 'isNull':
+        return value === null || value === undefined
+      case 'lte':
+        return value instanceof Date && (cond.val as Date).getTime() >= value.getTime()
+      default:
+        throw new Error(`contacts update mock: unsupported ${String(cond._tag)}`)
+    }
+  }
+
+  // `update contacts set lifecycle_stage … where …`: applied to the contact
+  // state when the condition holds; returning yields the row only then.
   const contactStageUpdate = (qb: Record<string, unknown>) => {
     let values: Record<string, unknown> = {}
     let applied = false
@@ -429,16 +478,16 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
       values = v
       return qb
     })
-    qb.where = vi.fn((cond: unknown) => {
-      const terms = ((cond as { args?: unknown[] }).args ?? [cond]) as Array<
-        Record<string, unknown>
-      >
-      const id = String(terms.find((t) => t.col === 'contacts.id')?.val)
-      const current = state.contactStageById.get(id) ?? 'lead'
-      const guard = terms.find((t) => t.col === 'contacts.lifecycleStage')
-      applied = !guard || (guard._tag === 'ne' ? current !== guard.val : current === guard.val)
+    qb.where = vi.fn((cond: Record<string, unknown>) => {
+      const find = (c: Record<string, unknown>): string | undefined =>
+        c.col === 'contacts.id'
+          ? String(c.val)
+          : ((c.args ?? []) as Array<Record<string, unknown>>).map(find).find(Boolean)
+      const id = find(cond) ?? ''
+      applied = holds(cond, contactRow(id))
       if (applied) {
         state.contactStageById.set(id, String(values.lifecycleStage))
+        state.contactStageChangedAt.set(id, values.lifecycleStageChangedAt as Date)
         state.updates.contacts.push({ id, values })
       }
       return qb
@@ -575,6 +624,7 @@ vi.mock('@phynd/db/schema', () => ({
     id: 'contacts.id',
     ownerId: 'contacts.ownerId',
     lifecycleStage: 'contacts.lifecycleStage',
+    lifecycleStageChangedAt: 'contacts.lifecycleStageChangedAt',
     email: 'contacts.email',
     externalJanuaId: 'contacts.externalJanuaId',
     deletedAt: 'contacts.deletedAt',
@@ -582,6 +632,7 @@ vi.mock('@phynd/db/schema', () => ({
   conversions: tableMock('conversions', {
     id: 'conversions.id',
     contactId: 'conversions.contactId',
+    leadId: 'conversions.leadId',
     type: 'conversions.type',
     metadata: 'conversions.metadata',
   }),
@@ -606,6 +657,7 @@ vi.mock('@phynd/db/schema', () => ({
   leads: tableMock('leads', {
     id: 'leads.id',
     contactId: 'leads.contactId',
+    status: 'leads.status',
     pipelineId: 'leads.pipelineId',
     deletedAt: 'leads.deletedAt',
     createdAt: 'leads.createdAt',
@@ -652,8 +704,10 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col: String(col), val })),
-  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
+  isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col: String(col) })),
   ne: vi.fn((col: unknown, val: unknown) => ({ _tag: 'ne', col: String(col), val })),
+  or: vi.fn((...args: unknown[]) => ({ _tag: 'or', args })),
+  lte: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lte', col: String(col), val })),
   inArray: vi.fn((col: unknown, vals: unknown) => ({ _tag: 'inArray', col: String(col), vals })),
   sql: Object.assign(
     (strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -801,6 +855,7 @@ beforeEach(() => {
   state.contactOwnerById.clear()
   state.userIds.clear()
   state.contactStageById.clear()
+  state.contactStageChangedAt.clear()
   state.seededConversions.length = 0
   state.updates.contacts.length = 0
   delete process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID
@@ -1684,7 +1739,7 @@ describe('POST /api/webhooks/dhanam — non-paid event types', () => {
     // Conversion recorded for analytics.
     expect(state.inserts.conversions).toHaveLength(1)
     expect(expectArrayItem(state.inserts.conversions, 0, 'conversion insert').type).toBe(
-      'dhanam_customer_subscription_updated',
+      'dhanam_subscription_updated',
     )
     // Lead untouched — tier shuffles aren't won-state changes.
     expect(state.updates.leads).toHaveLength(0)
@@ -1945,10 +2000,11 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
     return (await res.json()) as Record<string, unknown>
   }
 
-  function cancellation(overrides: Record<string, unknown> = {}) {
+  function cancellation(overrides: Record<string, unknown> = {}, timestamp?: string) {
     return {
       id: 'evt_cancel_1',
       type: 'subscription.cancelled',
+      ...(timestamp ? { timestamp } : {}),
       data: { customer_id: 'billing_user_c1', subscription_id: 'sub_c1', ...overrides },
     }
   }
@@ -2074,6 +2130,79 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
     )
   })
 
+  it('a subscription start or a checkout not yet paid is not money received', async () => {
+    const started = await post({
+      id: 'evt_start_1',
+      type: 'subscription.created',
+      data: { customer_id: 'billing_user_c1', subscription_id: 'sub_c1', amount_minor: 100 },
+    })
+    expect(started.customer_stage).toBeUndefined()
+    const pending = await post(
+      checkoutCompletedEvent({
+        id: 'evt_checkout_async',
+        data: {
+          object: {
+            id: 'cs_async',
+            customer_email: 'cliente@example.test',
+            payment_status: 'unpaid',
+            amount_total: 19900,
+            currency: 'mxn',
+          },
+        },
+      }),
+    )
+    expect(pending.customer_stage).toBeUndefined()
+    expect(state.contactStageById.get('contact_c1')).toBeUndefined()
+
+    const paid = await post(
+      checkoutCompletedEvent({
+        id: 'evt_checkout_paid',
+        data: {
+          object: {
+            id: 'cs_paid',
+            customer_email: 'cliente@example.test',
+            payment_status: 'paid',
+            amount_total: 19900,
+            currency: 'mxn',
+          },
+        },
+      }),
+    )
+    expect(paid.customer_stage).toEqual({ stage: 'customer', changed: true })
+  })
+
+  it('a late redelivery of a payment older than the cancellation does not bring a customer back', async () => {
+    state.contactStageById.set('contact_c1', 'customer')
+    await post(cancellation({}, '2026-11-10T12:00:00.000Z'))
+    expect(state.contactStageById.get('contact_c1')).toBe('former_customer')
+
+    const old = await post(
+      paymentSucceededEvent(
+        { customer_email: 'cliente@example.test', payment_id: 'pi_old' },
+        { id: 'evt_pay_old', timestamp: '2026-11-01T12:00:00.000Z' },
+      ),
+    )
+    expect(old.customer_stage).toEqual({ stage: 'customer', changed: false })
+    expect(state.contactStageById.get('contact_c1')).toBe('former_customer')
+
+    const fresh = await post(
+      paymentSucceededEvent(
+        { customer_email: 'cliente@example.test', payment_id: 'pi_new' },
+        { id: 'evt_pay_new', timestamp: '2026-11-12T12:00:00.000Z' },
+      ),
+    )
+    expect(fresh.customer_stage).toEqual({ stage: 'customer', changed: true })
+  })
+
+  it('keeps a customer whose other order is partly refunded', async () => {
+    state.contactStageById.set('contact_c1', 'customer')
+    state.ordersByContactId.set('contact_c1', [
+      orderRow({ id: 'order_pr', contactId: 'contact_c1', paymentStatus: 'partial_refund' }),
+    ])
+    const json = await post(cancellation())
+    expect(json.customer_stage).toMatchObject({ kept: 'other_active_paid_relationship' })
+  })
+
   it('a full refund makes a customer a former customer; a partial refund does not', async () => {
     state.contactStageById.set('contact_c1', 'customer')
     const partial = await post(chargeRefunded({ amount: 19900, amount_refunded: 5000 }))
@@ -2088,25 +2217,199 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
   })
 })
 
-describe('conversion types behind the derived customer health', () => {
-  it('match what the webhook stores for paid and failed payments', async () => {
+describe('POST /api/webhooks/dhanam — repeated events for a contact with a lead', () => {
+  async function post(event: Record<string, unknown>) {
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    return { status: res.status, json: (await res.json()) as Record<string, unknown> }
+  }
+
+  beforeEach(() => {
+    state.contactByEmail.set('cliente@example.test', 'contact_l1')
+    state.leadByContactId.set('contact_l1', { id: 'lead_l1', pipelineId: 'pipe_l1' })
+    state.stagesByPipelineId.set('pipe_l1', [{ id: 'stage_won_l1', name: 'Closed Won' }])
+  })
+
+  function renewal(n: number) {
+    return paymentSucceededEvent(
+      { customer_email: 'cliente@example.test', payment_id: `pi_r${String(n)}` },
+      { id: `evt_renewal_${String(n)}` },
+    )
+  }
+
+  it('records every monthly payment; only the first, which converts the lead, carries it', async () => {
+    const first = await post(renewal(1))
+    expect(first.status).toBe(200)
+    // The lead is converted now.
+    state.leadByContactId.set('contact_l1', {
+      id: 'lead_l1',
+      pipelineId: 'pipe_l1',
+      status: 'converted',
+    })
+    const second = await post(renewal(2))
+    const third = await post(renewal(3))
+    expect([second.status, third.status]).toEqual([200, 200])
+    expect(state.inserts.conversions.map((row) => row.leadId)).toEqual(['lead_l1', null, null])
+    // The lead stays named in the metadata of every row.
+    expect(
+      state.inserts.conversions.map(
+        (row) => (row.metadata as Record<string, unknown>).contact_lead_id,
+      ),
+    ).toEqual(['lead_l1', 'lead_l1', 'lead_l1'])
+    // The lead is promoted once.
+    expect(state.updates.leads.map((update) => update.id)).toEqual(['lead_l1'])
+  })
+
+  it('never attributes the lead twice for the same type, even if the lead was reopened', async () => {
+    await post(renewal(1))
+    // Lead status still not converted (reopened by hand): no second attribution.
+    const again = await post(renewal(2))
+    expect(again.status).toBe(200)
+    expect(state.inserts.conversions.map((row) => row.leadId)).toEqual(['lead_l1', null])
+  })
+
+  it('records failed, paid, failed in turn without attributing the failures to the lead', async () => {
+    const steps = [
+      paymentFailedEvent({ customer_email: 'cliente@example.test' }, { id: 'evt_seq_1' }),
+      renewal(1),
+      paymentFailedEvent(
+        { customer_email: 'cliente@example.test', payment_id: 'pi_fail_9' },
+        { id: 'evt_seq_3' },
+      ),
+    ]
+    for (const step of steps) expect((await post(step)).status).toBe(200)
+    expect(state.inserts.conversions.map((row) => [row.type, row.leadId])).toEqual([
+      ['dhanam_payment_failed', null],
+      ['dhanam_payment_succeeded', 'lead_l1'],
+      ['dhanam_payment_failed', null],
+    ])
+    // Health follows the latest outcome: a payment failed.
+    const { deriveCustomerHealth } = await import('@phynd/services/contacts/customer-health')
+    expect(deriveCustomerHealth(state.contactStageById.get('contact_l1'), 'failed')).toBe(
+      'payment_failed',
+    )
+    expect(state.contactStageById.get('contact_l1')).toBe('customer')
+  })
+
+  it('records a second subscription for the same contact', async () => {
+    const sub = (n: number) => ({
+      id: `evt_sub_${String(n)}`,
+      type: 'subscription.created',
+      data: {
+        customer_email: 'cliente@example.test',
+        subscription_id: `sub_${String(n)}`,
+        amount_minor: 19900,
+        currency: 'MXN',
+      },
+    })
+    expect((await post(sub(1))).status).toBe(200)
+    state.leadByContactId.set('contact_l1', {
+      id: 'lead_l1',
+      pipelineId: 'pipe_l1',
+      status: 'converted',
+    })
+    expect((await post(sub(2))).status).toBe(200)
+    expect(state.inserts.conversions.map((row) => [row.type, row.leadId])).toEqual([
+      ['dhanam_subscription_created', 'lead_l1'],
+      ['dhanam_subscription_created', null],
+    ])
+  })
+})
+
+describe('conversion types', () => {
+  // Every event type the route classifies, plus what the billing sender emits.
+  const SENT = [
+    'charge.declined',
+    'charge.dispute.closed',
+    'charge.dispute.created',
+    'charge.dispute.funds_reinstated',
+    'charge.dispute.funds_withdrawn',
+    'charge.dispute.updated',
+    'charge.paid',
+    'charge.refunded',
+    'checkout.session.completed',
+    'checkout.session.expired',
+    'customer.created',
+    'customer.subscription.created',
+    'customer.subscription.deleted',
+    'customer.subscription.updated',
+    'customer.updated',
+    'invoice.paid',
+    'invoice.payment_failed',
+    'invoice.payment_refunded',
+    'invoice.payment_succeeded',
+    'invoice.voided',
+    'payment.failed',
+    'payment.pending',
+    'payment.refunded',
+    'payment.succeeded',
+    'payment_intent.canceled',
+    'payment_intent.payment_failed',
+    'payment_intent.succeeded',
+    'subscription.canceled',
+    'subscription.cancelled',
+    'subscription.created',
+    'subscription.deleted',
+    'subscription.expired',
+    'subscription.paused',
+    'subscription.resumed',
+    'subscription.updated',
+  ]
+
+  it('fit conversions.type for every event type the route handles or the sender emits', async () => {
+    const { CONVERSION_TYPE_MAX_LENGTH, DHANAM_CONVERSION_TYPES, mapEventTypeToConversionType } =
+      await import('../payment-lifecycle')
+    expect(CONVERSION_TYPE_MAX_LENGTH).toBe(30)
+    for (const eventType of new Set([...SENT, ...Object.keys(DHANAM_CONVERSION_TYPES)])) {
+      const type = mapEventTypeToConversionType(eventType)
+      expect(type.length, eventType).toBeLessThanOrEqual(30)
+      expect(type, eventType).toMatch(/^dhanam_[a-z0-9_]+$/)
+    }
+    // Every classified type has an explicit name.
+    const { classifyPaymentLifecycle } = await import('../payment-lifecycle')
+    for (const eventType of SENT) {
+      if (classifyPaymentLifecycle(eventType)) {
+        expect(DHANAM_CONVERSION_TYPES[eventType], eventType).toBeDefined()
+      }
+    }
+  })
+
+  it('keep the names already stored, and give long types short stable names', async () => {
+    const { mapEventTypeToConversionType } = await import('../payment-lifecycle')
+    expect(mapEventTypeToConversionType('checkout.session.completed')).toBe(
+      'dhanam_checkout_completed',
+    )
+    expect(mapEventTypeToConversionType('invoice.payment_failed')).toBe(
+      'dhanam_invoice_payment_failed',
+    )
+    expect(mapEventTypeToConversionType('charge.refunded')).toBe('dhanam_charge_refunded')
+    expect(mapEventTypeToConversionType('customer.subscription.deleted')).toBe(
+      'dhanam_subscription_deleted',
+    )
+    expect(mapEventTypeToConversionType('payment_intent.payment_failed')).toBe(
+      'dhanam_payment_failed',
+    )
+    // An unknown type that fits keeps the generic name; a long one is cut and hashed.
+    expect(mapEventTypeToConversionType('foo.bar')).toBe('dhanam_foo_bar')
+    const long = 'some.future.event_type_with_a_long_name'
+    const first = mapEventTypeToConversionType(long)
+    expect(first.length).toBe(30)
+    expect(first).toMatch(/^dhanam_some_future_ev_[0-9a-f]{8}$/)
+    expect(mapEventTypeToConversionType(long)).toBe(first)
+    expect(mapEventTypeToConversionType(`${long}_2`)).not.toBe(first)
+  })
+
+  it('behind the derived customer health match what the webhook stores', async () => {
     const { mapEventTypeToConversionType } = await import('../payment-lifecycle')
     const { PAID_PAYMENT_CONVERSION_TYPES, FAILED_PAYMENT_CONVERSION_TYPES } = await import(
       '@phynd/services/contacts/customer-health'
     )
-    const paid = [
-      'checkout.session.completed',
-      'customer.subscription.created',
-      'payment.succeeded',
-    ]
+    const paid = ['checkout.session.completed', 'invoice.payment_succeeded', 'payment.succeeded']
     expect(new Set(paid.map(mapEventTypeToConversionType))).toEqual(
       new Set(PAID_PAYMENT_CONVERSION_TYPES),
     )
-    const failed = ['invoice.payment_failed', 'payment.failed']
-    expect(failed.map(mapEventTypeToConversionType)).toEqual([...FAILED_PAYMENT_CONVERSION_TYPES])
-    // Every stored type fits `conversions.type` (varchar 30).
-    for (const type of [...PAID_PAYMENT_CONVERSION_TYPES, ...FAILED_PAYMENT_CONVERSION_TYPES]) {
-      expect(type.length).toBeLessThanOrEqual(30)
-    }
+    const failed = ['invoice.payment_failed', 'payment.failed', 'payment_intent.payment_failed']
+    expect(new Set(failed.map(mapEventTypeToConversionType))).toEqual(
+      new Set(FAILED_PAYMENT_CONVERSION_TYPES),
+    )
   })
 })

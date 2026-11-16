@@ -78,6 +78,18 @@ describe('CrmUserResolver', () => {
     expect(db._qb.limit).toHaveBeenCalledWith(1)
   })
 
+  it('resolves the linked user role together with its id, in the same lookup', async () => {
+    const resolver = new CrmUserResolver()
+    const db = lookupDb([{ id: CRM_USER, role: 'manager' }] as never)
+
+    await expect(resolver.resolveUser(db as never, 'madfam', SUB)).resolves.toEqual({
+      id: CRM_USER,
+      role: 'manager',
+    })
+    await expect(resolver.resolve(db as never, 'madfam', SUB)).resolves.toBe(CRM_USER)
+    expect(db.select).toHaveBeenCalledTimes(1)
+  })
+
   it('returns null for an unlinked subject', async () => {
     const resolver = new CrmUserResolver()
     await expect(resolver.resolve(lookupDb([]) as never, 'madfam', SUB)).resolves.toBeNull()

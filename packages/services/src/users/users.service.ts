@@ -1,7 +1,7 @@
 import { users } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt, isNull } from 'drizzle-orm'
+import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError, NotFoundError } from '../errors'
 import { actorIdOf } from '../identity/actor'
@@ -78,7 +78,58 @@ export class UsersService {
 
   async update(id: string, data: Partial<{ email: string; name: string | null; role: string }>) {
     const [user] = await this.ctx.db.update(users).set(data).where(eq(users.id, id)).returning()
+    // The role is the linked staff session's only role: drop the cached one so
+    // the change applies on the next request in this process.
+    if (user?.externalJanuaId) crmUserResolver.invalidate(this.ctx.tenantId, user.externalJanuaId)
     return user ?? null
+  }
+
+  /**
+   * First-sign-in provisioning for a bootstrap-listed staff account (see
+   * `PHYND_BOOTSTRAP_STAFF` in the web app). Returns the CRM user now linked to
+   * `januaSub`, or null when it is refused (the reason is logged with the
+   * subject and role, never the email).
+   *
+   * - A user already linked to `januaSub` is returned unchanged.
+   * - `linkByEmail` (the entry matched a verified email): a single unlinked CRM
+   *   user with that email (case-insensitive) is linked and given `role`;
+   *   several unlinked ones, or one linked to another subject, refuse.
+   * - Otherwise a CRM user is created with `role`, linked to `januaSub`.
+   */
+  async bootstrapStaff(input: {
+    januaSub: string
+    email: string
+    name?: string | null
+    role: string
+    linkByEmail: boolean
+  }): Promise<UserRow | null> {
+    const existing = await this.getByJanuaId(input.januaSub)
+    if (existing) return existing
+
+    if (input.linkByEmail) {
+      const sameEmail = await this.ctx.db
+        .select()
+        .from(users)
+        .where(sql`lower(${users.email}) = ${input.email.trim().toLowerCase()}`)
+      if (sameEmail.some((u) => u.externalJanuaId && u.externalJanuaId !== input.januaSub)) {
+        this.recordBootstrapRefusal('email_linked_to_another_identity', input)
+        return null
+      }
+      const unlinked = sameEmail.filter((u) => !u.externalJanuaId)
+      if (unlinked.length > 1) {
+        this.recordBootstrapRefusal('several_users_with_this_email', input)
+        return null
+      }
+      const target = unlinked[0]
+      if (target) return this.linkUnlinked(target.id, input.januaSub, input.role)
+    }
+
+    return this.create({
+      email: input.email,
+      name: input.name ?? undefined,
+      role: input.role,
+      externalJanuaId: input.januaSub,
+    })
   }
 
   async delete(id: string) {
@@ -102,26 +153,7 @@ export class UsersService {
         { userId: id },
       )
     }
-    await this.assertJanuaIdFree(januaSub, id)
-
-    let updated: UserRow | undefined
-    try {
-      ;[updated] = await this.ctx.db
-        .update(users)
-        .set({ externalJanuaId: januaSub })
-        .where(and(eq(users.id, id), isNull(users.externalJanuaId)))
-        .returning()
-    } catch (err) {
-      if (isUniqueViolation(err)) throw januaIdTakenError()
-      throw err
-    }
-    if (!updated) {
-      throw new ConflictError('This CRM user was linked concurrently. Reload and try again.', {
-        userId: id,
-      })
-    }
-    this.recordLinkChange('link', id, januaSub)
-    return updated
+    return this.linkUnlinked(id, januaSub)
   }
 
   /** Removes the Janua link of a CRM user. Idempotent when it is not linked. */
@@ -138,6 +170,46 @@ export class UsersService {
       .returning()
     this.recordLinkChange('unlink', id, previous)
     return updated ?? { ...user, externalJanuaId: null }
+  }
+
+  /**
+   * Links a CRM user that is still unlinked to `januaSub` (and sets `role` when
+   * given) in one update guarded on `external_janua_id IS NULL`, so a user
+   * linked meanwhile to another subject is never re-pointed.
+   */
+  private async linkUnlinked(id: string, januaSub: string, role?: string) {
+    await this.assertJanuaIdFree(januaSub, id)
+    let updated: UserRow | undefined
+    try {
+      ;[updated] = await this.ctx.db
+        .update(users)
+        .set(role ? { externalJanuaId: januaSub, role } : { externalJanuaId: januaSub })
+        .where(and(eq(users.id, id), isNull(users.externalJanuaId)))
+        .returning()
+    } catch (err) {
+      if (isUniqueViolation(err)) throw januaIdTakenError()
+      throw err
+    }
+    if (!updated) {
+      throw new ConflictError('This CRM user was linked concurrently. Reload and try again.', {
+        userId: id,
+      })
+    }
+    this.recordLinkChange('link', id, januaSub)
+    return updated
+  }
+
+  private recordBootstrapRefusal(reason: string, input: { januaSub: string; role: string }) {
+    auditLogger.warn(
+      {
+        event: 'users.bootstrap_refused',
+        reason,
+        tenantId: this.ctx.tenantId,
+        januaSub: input.januaSub,
+        role: input.role,
+      },
+      'bootstrap: staff account not provisioned',
+    )
   }
 
   private async assertJanuaIdFree(januaSub: string, exceptUserId?: string) {

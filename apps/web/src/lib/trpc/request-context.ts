@@ -1,5 +1,10 @@
 import crypto from 'node:crypto'
 import { auth } from '@/lib/auth'
+import {
+  type StaffBootstrapMatch,
+  matchStaffBootstrap,
+  staffBootstrapEntries,
+} from '@/lib/auth/staff-bootstrap'
 import { clientAddress } from '@/lib/client-address'
 import { createDemoAuth, getDemoSessionIdFromCookieHeader } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
@@ -13,8 +18,8 @@ import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
 import { UsersService } from '@phynd/services'
 import { createServiceContext } from '@phynd/services/context'
-import { crmUserResolver } from '@phynd/services/identity'
-import type { AuthContext } from '@phynd/types/auth'
+import { type LinkedCrmUser, crmUserResolver } from '@phynd/services/identity'
+import { type AuthContext, isStaffRole } from '@phynd/types/auth'
 
 const serviceAuthLogger = createLogger('web:trpc:service-auth')
 const staffGateLogger = createLogger('web:trpc:staff-gate')
@@ -70,33 +75,25 @@ export function createServiceAuth(tenantId: string): AuthContext {
  * Staff gate. A signed-in Janua account reaches the CRM only when it is linked
  * to a CRM user (`users.external_janua_id`); any other account is treated as
  * signed out. PHYND_ALLOW_UNLINKED_SIGNIN="true" lifts the gate for one
- * deployment, as a break-glass while a staff account is being linked.
+ * deployment, as a break-glass while a staff account is being linked; such an
+ * unlinked session has no roles, so every role-gated action stays closed.
  */
 export function allowUnlinkedSignIn(): boolean {
   return process.env.PHYND_ALLOW_UNLINKED_SIGNIN === 'true'
 }
 
 /**
- * First-admin bootstrap. PHYND_BOOTSTRAP_ADMIN_SUBS lists Janua subjects
- * (comma-separated, exact) that are provisioned as CRM admins on sign-in when
- * they have no CRM user yet, so the first administrator can get in once the
- * staff gate is on. Every other unlinked account still has no access. Take the
- * subject off the list once its account is linked.
+ * First-sign-in provisioning of a bootstrap-listed staff account (see
+ * lib/auth/staff-bootstrap.ts): creates its CRM user with the listed role, or
+ * links the CRM user that already has its verified email. Logs the subject and
+ * role, never the email.
  */
-export function bootstrapAdminSubjects(): Set<string> {
-  return new Set(
-    (process.env.PHYND_BOOTSTRAP_ADMIN_SUBS ?? '')
-      .split(',')
-      .map((subject) => subject.trim())
-      .filter(Boolean),
-  )
-}
-
-async function provisionBootstrapAdmin(
+async function provisionBootstrapStaff(
   tenantId: string,
   januaSub: string,
-  user: { email?: string | null; name?: string | null },
-): Promise<string | null> {
+  user: StaffSessionUser,
+  match: StaffBootstrapMatch,
+): Promise<LinkedCrmUser | null> {
   if (!user.email) return null
   const service = new UsersService(
     createServiceContext(
@@ -107,25 +104,29 @@ async function provisionBootstrapAdmin(
     ),
   )
   try {
-    const created = await service.create({
+    const linked = await service.bootstrapStaff({
+      januaSub,
       email: user.email,
-      name: user.name ?? undefined,
-      role: 'admin',
-      externalJanuaId: januaSub,
+      name: user.name,
+      role: match.role,
+      linkByEmail: match.by === 'email',
     })
+    if (!linked) return null
     staffGateLogger.warn(
-      { tenantId, januaSub, crmUserId: created.id },
-      'bootstrap: provisioned a CRM admin for a listed Janua subject',
+      { tenantId, januaSub, role: linked.role, matchedBy: match.by, crmUserId: linked.id },
+      'bootstrap: provisioned a CRM user for a listed staff account',
     )
-    return created.id
+    crmUserResolver.invalidate(tenantId, januaSub)
+    return { id: linked.id, role: linked.role }
   } catch (err) {
-    // Lost a race, or the subject or email is already taken: resolve again.
+    // Lost a race, or the subject is already taken: resolve again. Only the
+    // error's name is logged: a query error can carry the email as a parameter.
     staffGateLogger.warn(
-      { tenantId, januaSub, err },
+      { tenantId, januaSub, role: match.role, error: (err as Error)?.name },
       'bootstrap: could not provision; resolving again',
     )
     crmUserResolver.invalidate(tenantId, januaSub)
-    return resolveCrmUserId(tenantId, januaSub)
+    return crmUserResolver.resolveUser(getDb(tenantId), tenantId, januaSub)
   }
 }
 
@@ -137,26 +138,48 @@ export const EMPTY_AUTH: AuthContext = {
   accessToken: '',
 }
 
-/**
- * The CRM `users.id` linked to a Janua subject (`users.external_janua_id`), or
- * null. Cached per tenant + subject for a short TTL (see CrmUserResolver).
- * A database failure propagates: the request fails visibly rather than running
- * as an unlinked user.
- */
-async function resolveCrmUserId(tenantId: string, januaSub: string): Promise<string | null> {
-  return crmUserResolver.resolve(getDb(tenantId), tenantId, januaSub)
+interface StaffSessionUser {
+  email?: string | null
+  name?: string | null
+  januaEmailVerified?: boolean
 }
 
-/** The CRM user linked to a Janua subject, provisioning a listed bootstrap admin. */
-async function linkedCrmUserId(
+/**
+ * The CRM user (id and role) linked to a Janua subject through
+ * `users.external_janua_id`, provisioning a bootstrap-listed account; or null.
+ * Cached per tenant + subject for a short TTL (see CrmUserResolver). A
+ * database failure propagates: the request fails visibly rather than running
+ * as an unlinked user.
+ */
+async function linkedCrmUser(
   tenantId: string,
   januaSub: string,
-  user: { email?: string | null; name?: string | null },
-): Promise<string | null> {
+  user: StaffSessionUser,
+): Promise<LinkedCrmUser | null> {
   if (!januaSub) return null
-  const crmUserId = await resolveCrmUserId(tenantId, januaSub)
-  if (crmUserId || !bootstrapAdminSubjects().has(januaSub)) return crmUserId
-  return provisionBootstrapAdmin(tenantId, januaSub, user)
+  const linked = await crmUserResolver.resolveUser(getDb(tenantId), tenantId, januaSub)
+  if (linked) return linked
+  const match = matchStaffBootstrap(staffBootstrapEntries(), {
+    subject: januaSub,
+    email: user.email,
+    emailVerified: user.januaEmailVerified === true,
+  })
+  return match ? provisionBootstrapStaff(tenantId, januaSub, user, match) : null
+}
+
+/**
+ * A staff session's roles: exactly the linked CRM user's role. The roles in
+ * Janua's tokens are not used. No CRM user, or a role outside STAFF_ROLES,
+ * means no roles.
+ */
+export function staffRolesOf(crmUser: LinkedCrmUser | null): string[] {
+  if (!crmUser) return []
+  if (isStaffRole(crmUser.role)) return [crmUser.role]
+  staffGateLogger.warn(
+    { crmUserId: crmUser.id },
+    'linked CRM user has a role outside STAFF_ROLES; no roles granted',
+  )
+  return []
 }
 
 export async function resolveAuthContext(
@@ -169,8 +192,8 @@ export async function resolveAuthContext(
   const session = await auth()
   if (session?.user) {
     const januaSub = session.user.id ?? ''
-    const crmUserId = await linkedCrmUserId(tenantId, januaSub, session.user)
-    if (!crmUserId && !allowUnlinkedSignIn()) {
+    const crmUser = await linkedCrmUser(tenantId, januaSub, session.user)
+    if (!crmUser && !allowUnlinkedSignIn()) {
       staffGateLogger.warn(
         { tenantId, januaSub },
         'signed-in Janua account is not linked to a CRM user; treating the request as signed out',
@@ -180,10 +203,12 @@ export async function resolveAuthContext(
     return {
       userId: januaSub,
       tenantId,
-      roles: session.user.roles ?? [],
+      // The linked CRM user's role, never the token's roles. An unlinked
+      // break-glass session gets no roles: pages, but no role-gated action.
+      roles: staffRolesOf(crmUser),
       scopes: session.user.scopes ?? [],
       accessToken: session.accessToken ?? '',
-      ...(januaSub ? { januaSub, crmUserId } : {}),
+      ...(januaSub ? { januaSub, crmUserId: crmUser?.id ?? null } : {}),
     }
   }
   if (DEV_BYPASS) {

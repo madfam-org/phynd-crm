@@ -65,7 +65,10 @@ public contributor needs for local development:
 | `PHYND_CRM_MCP_ENABLED` | Native MCP switch: `POST /mcp` is 404 unless exactly `true` and machine tokens are configured ([NATIVE_MCP.md](./NATIVE_MCP.md)) | `false` (default) |
 | `PHYND_CRM_MCP_READ_CLIENTS` | Janua clients allowed to read over MCP, `client-id@org-id` comma-separated; empty or malformed = none | empty (default) |
 | `PHYND_CRM_MCP_UNMASKED_CLIENTS` | MCP readers that get personal fields unmasked (owner exception); same format, each must also be a reader; empty, malformed or not a reader = every client masked | empty (default) |
-| `PHYND_CRM_DEFAULT_TASK_OWNER_ID` | CRM user id (`users.id`), or `janua:<subject>` for the CRM user linked to that Janua subject (`users.external_janua_id`), that owns tasks the system opens on a contact without owner (lead-intake follow-up, Dhanam failed payment); unset, empty or no such user = unassigned, warning `DEFAULT_TASK_OWNER_UNAVAILABLE`. Not a secret: plain env on the web deployment | empty (default) |
+| `PHYND_CRM_DEFAULT_TASK_OWNER_ID` | CRM user id (`users.id`), or `janua:<subject>` for the CRM user linked to that Janua subject (`users.external_janua_id`), that owns tasks the system opens on a contact without owner (lead-intake follow-up, Dhanam failed payment); unset, empty or no such user = unassigned, warning `DEFAULT_TASK_OWNER_UNAVAILABLE`. It names a person's account, so production maps it from the dedicated ExternalSecret `phynd-crm-default-task-owner` (`secret/phynd-crm`, property `default_task_owner_id`), mounted optional; never plain env in this public repo | empty (default) |
+| `PHYND_BOOTSTRAP_STAFF` | Staff bootstrap: comma-separated `<role>:sub:<janua-subject>` or `<role>:<email>` entries (role `admin`, `manager`, `sales_rep` or `viewer`); see [Staff access](#staff-access). Production: dedicated ExternalSecret `phynd-crm-staff-bootstrap` (`secret/phynd-crm`, property `bootstrap_staff`), mounted optional | empty (default) |
+| `PHYND_BOOTSTRAP_ADMIN_SUBS` | Legacy form: comma-separated Janua subjects, each read as `admin:sub:<subject>` after `PHYND_BOOTSTRAP_STAFF` | empty (default) |
+| `PHYND_ALLOW_UNLINKED_SIGNIN` | Break-glass: `true` lets a signed-in Janua account without a CRM user see the pages, with no roles (every role-gated action stays closed) | unset (default) |
 | `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks outbound calls to production hosts) | `production` |
 | `WORKER_HEALTH_PORT` | Worker health server port | `3001` |
 | `SENTRY_DSN` | Optional worker Sentry DSN | `https://...` |
@@ -86,6 +89,47 @@ leaking an internal pod host in the currently deployed build. Source now
 normalizes Auth.js route requests to a trusted public origin before handing them
 to Auth.js; keep this as an open production gap until the fix is deployed and
 the public signin/callback URLs are verified.
+
+### Staff access
+
+Signing in at Janua is not enough to use the CRM: the account must be linked to
+a CRM user (`users.external_janua_id`), and that CRM user's `role` is the
+session's only role (`admin`, `manager`, `sales_rep`, `viewer`). Roles in
+Janua's tokens are ignored for authorization. `admin` alone manages users
+(`users.*`) and removes suppressions; `manager` is the highest non-admin role and
+reaches every other procedure. Details: [IDENTITY.md](./IDENTITY.md#staff-roles-come-from-the-crm-user).
+
+Two ways to grant access:
+
+1. **An admin uses the Users screen** (Settings → Users): create the user with
+   a role and link it to the person's Janua subject, or change the role of an
+   existing user. The change applies on the next request in that replica and
+   within 30 seconds in the others.
+2. **Bootstrap on first sign-in** (first admin, or a new environment): list the
+   account in `PHYND_BOOTSTRAP_STAFF`, roll the web Deployment out, and have
+   the person sign in once. Entries:
+   - `<role>:sub:<janua-subject>`: matches the Janua subject exactly. Preferred
+     when the subject is known.
+   - `<role>:<email>`: matches the account's email exactly, ignoring case, and
+     only when Janua's ID token says `email_verified: true`. An unverified
+     email is refused (warning `bootstrap: email entry matched an account whose
+     email Janua does not mark verified`). Sessions started before this release
+     carry no verified flag: sign out and in again.
+
+   On a match for an account with no CRM user: a CRM user with that email that
+   is still unlinked (only one) is linked and given the role; otherwise a CRM
+   user is created with the role. A CRM user already linked to another Janua
+   subject is never re-pointed (refused, warning `users.bootstrap_refused`).
+   Logs carry the subject and role, never the email. An account that already
+   has a CRM user is left as it is: after the first sign-in the Users screen is
+   the source of truth, and the entry can be removed.
+
+In production both bootstrap entries and `PHYND_CRM_DEFAULT_TASK_OWNER_ID` name
+people's accounts, so they come from Vault (`secret/phynd-crm`, properties
+`bootstrap_staff` and `default_task_owner_id`) through the dedicated optional
+ExternalSecrets in `infra/k8s/production/phynd-crm-staff-access.yaml`, never
+from the public manifest. After provisioning, wait for ESO to sync and roll the
+web Deployment out (env is read at container start).
 
 ### Tenant resolution (2026-05-28)
 

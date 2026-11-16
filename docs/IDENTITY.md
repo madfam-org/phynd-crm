@@ -51,18 +51,35 @@ column `users.external_janua_id` (unique index `users_external_janua_id_uniq`)
 links a CRM user row to a Janua subject. Contacts and leads carry their own
 `external_janua_id` for customers who are also Janua users.
 
-CRM users are deliberate: **signing in never creates a CRM user.** An admin
-creates the user and links it to the person's Janua subject.
+CRM users are deliberate: **signing in never creates a CRM user**, except for
+an account listed in the staff bootstrap (`PHYND_BOOTSTRAP_STAFF`, see
+[DEPLOYMENT.md § Staff access](./DEPLOYMENT.md#staff-access)). Otherwise an
+admin creates the user and links it to the person's Janua subject.
+
+### Staff roles come from the CRM user
+
+A staff session's `AuthContext.roles` is exactly `[users.role]` of its linked
+CRM user (`admin`, `manager`, `sales_rep` or `viewer`; any other stored value
+grants no role). The `roles` Janua puts in its tokens are kept in the session
+for display but never authorize anything in the CRM. So the role an admin sets
+on the Users screen is what `requireRole` (`packages/api/src/trpc.ts`), the PII
+masking rule (`packages/services/src/pii/mask.ts`) and every other reader of
+`auth.roles` see. The only role-gated procedures are admin-only (`users.*`,
+`consent.suppressionRemove`); `manager`, `sales_rep` and `viewer` reach every
+other procedure alike. An unlinked break-glass session
+(`PHYND_ALLOW_UNLINKED_SIGNIN=true`) has no roles. Service, machine, MCP,
+webhook, worker, demo and dev principals keep their fixed roles.
 
 ### Resolution per request
 
 `resolveAuthContext()` (`apps/web/src/lib/trpc/request-context.ts`) looks up
-`users.id WHERE external_janua_id = <Janua sub>` once per request, through
+`users.id, users.role WHERE external_janua_id = <Janua sub>` once per request, through
 `crmUserResolver` (`packages/services/src/identity/crm-user-resolver.ts`). The
 result, including "not linked", is cached per tenant and subject for 30 seconds
 (bounded, oldest entries evicted). `users.linkJanua`, `users.unlinkJanua`,
-`users.create` and `users.delete` invalidate the entry in the process that ran
-them; other web replicas pick the change up when their entry expires. A
+`users.create`, `users.update` (a role change) and `users.delete` invalidate the
+entry in the process that ran them; other web replicas pick the change up when
+their entry expires, so a role change takes at most 30 seconds everywhere. A
 database error is not cached and fails the request.
 
 `AuthContext` then carries:
@@ -72,6 +89,7 @@ database error is not cached and fails the request.
 | `userId` | the Janua `sub` (unchanged; used by auth checks and service-actor detection) |
 | `januaSub` | the Janua `sub`; present only for Janua sessions |
 | `crmUserId` | the linked `users.id`, or `null` when the identity is not linked; absent for non-Janua principals |
+| `roles` | `[users.role]` of the linked CRM user; `[]` when not linked |
 
 ### Foreign keys and per-user reads use `crmUserId`
 
@@ -97,7 +115,7 @@ The web client shows it as one toast (`apps/web/src/lib/trpc/provider.tsx`),
 does not retry those queries, and the notifications menu stops polling and
 shows the message with the user's own Janua subject so they can send it to an
 admin. Reads that need no CRM user (lists, detail pages, search, analytics)
-work as before under the existing roles and scopes.
+work as before under the session's roles and scopes.
 
 Non-Janua principals carry no `januaSub` and keep their fixed id in these
 paths, as before: `service:selva`, `system`, `service:email-drip`,

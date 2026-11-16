@@ -19,6 +19,8 @@ export const SESSION_COOKIE = '__Secure-authjs.session-token'
 export interface StubUser {
   sub: string
   email: string
+  /** ID token `email_verified`; omitted from the token when undefined. */
+  emailVerified?: boolean
   roles?: string[]
   scope?: string
 }
@@ -49,6 +51,7 @@ async function tokenResponse(keys: KeyPair, user: StubUser, nonce: string | null
   const now = Math.floor(Date.now() / 1000)
   const idToken = await new SignJWT({
     email: user.email,
+    ...(user.emailVerified !== undefined ? { email_verified: user.emailVerified } : {}),
     name: 'Test User',
     ...(nonce ? { nonce } : {}),
   })
@@ -184,7 +187,13 @@ export async function readSession(handlers: Handlers, jar: CookieJar) {
   const res = await handlers.GET(request('/api/auth/session', jar))
   jar.store(res)
   return (await res.json()) as {
-    user?: { id: string; email?: string; roles: string[]; scopes: string[] }
+    user?: {
+      id: string
+      email?: string
+      roles: string[]
+      scopes: string[]
+      januaEmailVerified?: boolean
+    }
   } | null
 }
 

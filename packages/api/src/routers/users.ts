@@ -1,4 +1,5 @@
 import { UsersService } from '@phynd/services'
+import { STAFF_ROLES } from '@phynd/types/auth'
 import { z } from 'zod'
 import { protectedProcedure, requireRole, router } from '../trpc'
 
@@ -9,6 +10,11 @@ const paginationInput = z
   })
   .optional()
 
+/**
+ * A staff session's roles are its own CRM user's `role` (request-context.ts),
+ * so only a CRM admin reaches these; `update`, `linkJanua`, `unlinkJanua` and
+ * `delete` invalidate the cached role/link of the affected Janua subject.
+ */
 const adminProcedure = protectedProcedure.use(requireRole('admin'))
 
 /** Ids that belong to non-Janua principals and must never be linked as a Janua subject. */
@@ -39,7 +45,7 @@ export const usersRouter = router({
       z.object({
         email: z.string().email(),
         name: z.string().max(255).optional(),
-        role: z.enum(['admin', 'manager', 'sales_rep', 'viewer']).optional(),
+        role: z.enum(STAFF_ROLES).optional(),
         externalJanuaId: januaSubInput.optional(),
       }),
     )
@@ -54,7 +60,7 @@ export const usersRouter = router({
         id: z.string().uuid(),
         email: z.string().email().optional(),
         name: z.string().max(255).nullable().optional(),
-        role: z.enum(['admin', 'manager', 'sales_rep', 'viewer']).optional(),
+        role: z.enum(STAFF_ROLES).optional(),
       }),
     )
     .mutation(({ ctx, input }) => {

@@ -4,4 +4,5 @@ export {
   CrmUserResolver,
   type CrmUserResolverOptions,
   crmUserResolver,
+  type LinkedCrmUser,
 } from './crm-user-resolver'

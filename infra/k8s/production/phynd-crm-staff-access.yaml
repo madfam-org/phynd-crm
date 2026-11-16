@@ -1,0 +1,81 @@
+# Staff-access settings that name people's accounts, kept out of this public
+# repository: they live in phynd's Vault path (secret/phynd-crm) and reach the
+# web Deployment through two DEDICATED ExternalSecrets, one per value.
+#
+#   phynd-crm-staff-bootstrap    PHYND_BOOTSTRAP_STAFF            <- bootstrap_staff
+#   phynd-crm-default-task-owner PHYND_CRM_DEFAULT_TASK_OWNER_ID  <- default_task_owner_id
+#
+# PHYND_BOOTSTRAP_STAFF: comma-separated `<role>:sub:<janua-subject>` or
+# `<role>:<verified-email>` entries, role one of admin|manager|sales_rep|viewer
+# (docs/DEPLOYMENT.md § Staff access). An account listed there gets its CRM
+# user, with that role, on its first sign-in; afterwards the CRM's Users screen
+# is the source of truth and the entry can be removed.
+#
+# PHYND_CRM_DEFAULT_TASK_OWNER_ID: `janua:<subject>` (or a CRM users.id) of
+# the operator who owns system-created tasks on a contact without owner.
+#
+# One target Secret per value: with creationPolicy Owner, ESO parks the whole
+# target Secret while a mapped property is missing from Vault, so the two are
+# independent. Until a property is provisioned its Secret is simply absent; the
+# Deployment references both with optional: true, so the pod starts without
+# them (no bootstrap; system tasks stay unassigned with
+# DEFAULT_TASK_OWNER_UNAVAILABLE, the documented fallback).
+#
+# Activation (operator):
+#   1. provision the property through the platform's secret intake
+#      (secret/phynd-crm, property bootstrap_staff / default_task_owner_id);
+#   2. wait for ESO to sync (refreshInterval 15m) or force a refresh;
+#   3. rollout restart deploy/phynd-crm-web (env is read at container start).
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: phynd-crm-staff-bootstrap
+  namespace: phynd-crm
+  labels:
+    app.kubernetes.io/name: phynd-crm-staff-bootstrap
+    app.kubernetes.io/part-of: phynd-crm
+    app.kubernetes.io/managed-by: enclii
+spec:
+  refreshInterval: 15m
+  secretStoreRef:
+    name: vault-store
+    kind: ClusterSecretStore
+  target:
+    name: phynd-crm-staff-bootstrap
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: PHYND_BOOTSTRAP_STAFF
+      remoteRef:
+        key: secret/phynd-crm
+        property: bootstrap_staff
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: phynd-crm-default-task-owner
+  namespace: phynd-crm
+  labels:
+    app.kubernetes.io/name: phynd-crm-default-task-owner
+    app.kubernetes.io/part-of: phynd-crm
+    app.kubernetes.io/managed-by: enclii
+spec:
+  refreshInterval: 15m
+  secretStoreRef:
+    name: vault-store
+    kind: ClusterSecretStore
+  target:
+    name: phynd-crm-default-task-owner
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: PHYND_CRM_DEFAULT_TASK_OWNER_ID
+      remoteRef:
+        key: secret/phynd-crm
+        property: default_task_owner_id
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None

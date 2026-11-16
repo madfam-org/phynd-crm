@@ -11,6 +11,8 @@ declare module 'next-auth' {
       image?: string | null
       roles: string[]
       scopes: string[]
+      /** Janua's ID token `email_verified` was `true` at sign-in. */
+      januaEmailVerified?: boolean
     }
   }
 
@@ -24,6 +26,8 @@ declare module 'next-auth/jwt' {
   interface JWT {
     /** Janua OIDC subject; the session user id. Absent on pre-fix sessions. */
     januaSub?: string
+    /** ID token `email_verified === true` at sign-in. Absent on older sessions. */
+    januaEmailVerified?: boolean
     accessToken?: string
     roles?: string[]
     scopes?: string[]

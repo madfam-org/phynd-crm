@@ -101,6 +101,10 @@ export const authConfig: NextAuthConfig = {
         const subject = januaSubjectFromSignIn(account, profile)
         token.sub = subject
         token.januaSub = subject
+        // Whether Janua vouches for the email (ID token `email_verified`,
+        // Janua `_generate_id_token`). Only a strict `true` counts; the
+        // staff bootstrap by email refuses anything else.
+        token.januaEmailVerified = profile?.email_verified === true
       } else if (!token.januaSub) {
         // A session minted before the user id was the Janua subject carries a
         // random per-login id. Drop it so the user signs in again and gets the
@@ -111,6 +115,8 @@ export const authConfig: NextAuthConfig = {
         token.accessToken = account.access_token
         // Prefer claims carried in profile (id_token/userinfo); fall back to
         // decoding the access token, where Janua actually places roles/scope.
+        // Token roles are informational only: a staff session's authorization
+        // roles come from its linked CRM user (lib/trpc/request-context.ts).
         const fromToken = claimsFromAccessToken(account.access_token)
         const profileRoles = (profile.roles as string[] | undefined) ?? []
         const profileScopes = (profile.scopes as string[] | undefined) ?? []
@@ -123,6 +129,7 @@ export const authConfig: NextAuthConfig = {
       if (session.user) {
         // The Janua subject (see the jwt callback). Never a random Auth.js id.
         session.user.id = token.januaSub ?? ''
+        session.user.januaEmailVerified = token.januaEmailVerified === true
         session.accessToken = token.accessToken
         session.user.roles = token.roles ?? []
         session.user.scopes = token.scopes ?? []

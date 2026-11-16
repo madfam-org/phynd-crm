@@ -8,7 +8,7 @@ import {
   isCaseOverdue,
 } from '../cases/case-deadlines'
 import { CasesService } from '../cases/cases.service'
-import { NotFoundError } from '../errors'
+import { NotFoundError, ValidationError } from '../errors'
 import { createTestContext } from './helpers'
 
 const dialect = new PgDialect()
@@ -143,6 +143,36 @@ describe('CasesService', () => {
     queue(ctx, [{ id: 'case-1', status: 'open' }], [{ id: 'case-1' }])
     await new CasesService(ctx).update('case-1', { type: 'data_rights' }, NOW)
     expect(ctx.mockDb._qb.set).toHaveBeenLastCalledWith({ updatedAt: NOW, type: 'data_rights' })
+  })
+
+  it('refuses an owner that is not a CRM user with a validation error', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ id: 'contact-1' }], [])
+    await expect(
+      new CasesService(ctx).create(
+        { contactId: 'contact-1', type: 'support', summary: 'x', ownerId: 'nobody' },
+        NOW,
+      ),
+    ).rejects.toBeInstanceOf(ValidationError)
+    expect(ctx.mockDb.insert).not.toHaveBeenCalled()
+
+    queue(ctx, [{ id: 'case-1', status: 'open' }], [])
+    await expect(
+      new CasesService(ctx).update('case-1', { ownerId: 'nobody' }, NOW),
+    ).rejects.toBeInstanceOf(ValidationError)
+    expect(ctx.mockDb.update).not.toHaveBeenCalled()
+  })
+
+  it('accepts an owner that exists', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ id: 'contact-1' }], [{ id: 'user-2' }], [{ id: 'case-1' }])
+    await new CasesService(ctx).create(
+      { contactId: 'contact-1', type: 'support', summary: 'x', ownerId: 'user-2' },
+      NOW,
+    )
+    expect(ctx.mockDb._qb.values).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: 'user-2' }),
+    )
   })
 
   it('refuses to update an unknown case', async () => {

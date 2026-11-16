@@ -1,8 +1,8 @@
-import { type CaseStatus, type CaseType, cases, contacts } from '@phynd/db/schema'
+import { type CaseStatus, type CaseType, cases, contacts, users } from '@phynd/db/schema'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, desc, eq, getTableColumns, isNull, ne, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
-import { NotFoundError } from '../errors'
+import { NotFoundError, ValidationError } from '../errors'
 import { requireCrmUserId } from '../identity/actor'
 import { defaultCaseDueAt } from './case-deadlines'
 
@@ -100,6 +100,7 @@ export class CasesService {
       .limit(1)
     if (!contact) throw new NotFoundError('Contact', input.contactId)
 
+    if (input.ownerId) await this.requireUser(input.ownerId)
     const ownerId = input.ownerId !== undefined ? input.ownerId : requireCrmUserId(this.ctx.auth)
     const [row] = await this.ctx.db
       .insert(cases)
@@ -124,6 +125,7 @@ export class CasesService {
   async update(id: string, input: UpdateCaseInput, now: Date = new Date()): Promise<CaseRow> {
     const current = await this.getById(id)
     if (!current) throw new NotFoundError('Case', id)
+    if (input.ownerId) await this.requireUser(input.ownerId)
 
     const values: Partial<typeof cases.$inferInsert> = { updatedAt: now }
     if (input.type !== undefined) values.type = input.type
@@ -138,5 +140,15 @@ export class CasesService {
     const [row] = await this.ctx.db.update(cases).set(values).where(eq(cases.id, id)).returning()
     if (!row) throw new NotFoundError('Case', id)
     return row
+  }
+
+  /** An owner must be a CRM user: a clean validation error, not a foreign-key failure. */
+  private async requireUser(userId: string): Promise<void> {
+    const [user] = await this.ctx.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    if (!user) throw new ValidationError('The owner is not a CRM user', { ownerId: userId })
   }
 }

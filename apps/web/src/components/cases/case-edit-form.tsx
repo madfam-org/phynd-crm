@@ -16,7 +16,12 @@ import type { CaseStatus, CaseType } from '@phynd/db/schema'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { CASE_STATUS_LABELS, CASE_TYPE_LABELS, toDateTimeLocal } from './case-labels'
+import {
+  CASE_STATUS_LABELS,
+  CASE_TYPE_LABELS,
+  fromMexicoCityLocal,
+  toDateTimeLocal,
+} from './case-labels'
 
 const TYPE_OPTIONS = Object.keys(CASE_TYPE_LABELS) as CaseType[]
 const STATUS_OPTIONS = Object.keys(CASE_STATUS_LABELS) as CaseStatus[]
@@ -59,7 +64,7 @@ export function CaseEditForm({ row }: CaseEditFormProps) {
       type,
       status,
       summary,
-      ...(dueAt ? { dueAt: new Date(dueAt) } : {}),
+      ...(dueAt ? { dueAt: fromMexicoCityLocal(dueAt) } : {}),
     })
   }
 
@@ -98,7 +103,7 @@ export function CaseEditForm({ row }: CaseEditFormProps) {
         </div>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="case-edit-due">Fecha límite</Label>
+        <Label htmlFor="case-edit-due">Fecha límite (hora de la Ciudad de México)</Label>
         <Input
           id="case-edit-due"
           type="datetime-local"

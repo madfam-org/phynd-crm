@@ -26,7 +26,8 @@ import { CASE_DEFAULT_DUE_BUSINESS_DAYS } from '@phynd/services/cases/case-deadl
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { CASE_TYPE_LABELS } from './case-labels'
+import { CASE_TYPE_LABELS, fromMexicoCityLocal } from './case-labels'
+import { ContactPicker, type PickedContact } from './contact-picker'
 
 // Client bundle: the values come from the label map (typed by the schema), not
 // from the schema module itself, which is server-only.
@@ -35,13 +36,10 @@ const CASE_TYPE_OPTIONS = Object.keys(CASE_TYPE_LABELS) as CaseType[]
 export function CreateCaseDialog() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [contactId, setContactId] = useState('')
+  const [contact, setContact] = useState<PickedContact | null>(null)
   const [type, setType] = useState<CaseType>('support')
   const [summary, setSummary] = useState('')
   const [dueAt, setDueAt] = useState('')
-
-  const contactsQuery = trpc.contacts.list.useQuery({ limit: 200 }, { enabled: open })
-  const contacts = contactsQuery.data?.items ?? []
 
   const utils = trpc.useUtils()
   const casesRouter = trpc.cases as NonNullable<typeof trpc.cases>
@@ -59,7 +57,7 @@ export function CreateCaseDialog() {
   })
 
   function resetForm() {
-    setContactId('')
+    setContact(null)
     setType('support')
     setSummary('')
     setDueAt('')
@@ -67,11 +65,12 @@ export function CreateCaseDialog() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!contact) return
     createMutation.mutate({
-      contactId,
+      contactId: contact.id,
       type,
       summary,
-      dueAt: dueAt ? new Date(dueAt) : undefined,
+      dueAt: dueAt ? fromMexicoCityLocal(dueAt) : undefined,
     })
   }
 
@@ -93,21 +92,7 @@ export function CreateCaseDialog() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="case-contact">Contacto *</Label>
-              <Select value={contactId} onValueChange={setContactId}>
-                <SelectTrigger id="case-contact">
-                  <SelectValue
-                    placeholder={contactsQuery.isLoading ? 'Cargando…' : 'Elige un contacto'}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                      {c.email ? ` · ${c.email}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ContactPicker id="case-contact" value={contact} onChange={setContact} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="case-type">Tipo *</Label>
@@ -136,7 +121,7 @@ export function CreateCaseDialog() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="case-due">Fecha límite</Label>
+              <Label htmlFor="case-due">Fecha límite (hora de la Ciudad de México)</Label>
               <Input
                 id="case-due"
                 type="datetime-local"
@@ -154,7 +139,7 @@ export function CreateCaseDialog() {
             </Button>
             <Button
               type="submit"
-              disabled={createMutation.isPending || !contactId || !summary.trim()}
+              disabled={createMutation.isPending || !contact || !summary.trim()}
             >
               {createMutation.isPending ? 'Abriendo…' : 'Abrir caso'}
             </Button>

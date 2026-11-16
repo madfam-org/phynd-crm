@@ -66,12 +66,27 @@ export function CaseOverdueBadge({
   )
 }
 
-/** Value for a `datetime-local` input, in the browser's own time zone. */
+/**
+ * Value for a `datetime-local` input, as Mexico City wall time. The same on the
+ * server and in any browser, so the first paint and the hydrated form agree
+ * and the field reads like the dates shown elsewhere.
+ */
 export function toDateTimeLocal(value: Date | string | null | undefined): string {
   if (!value) return ''
-  const date = new Date(value)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours(),
-  )}:${pad(date.getMinutes())}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(value))
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
+
+/** A `datetime-local` value read as Mexico City wall time (UTC-6 all year since 2022). */
+export function fromMexicoCityLocal(value: string): Date {
+  return new Date(`${value}:00-06:00`)
 }

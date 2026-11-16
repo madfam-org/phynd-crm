@@ -7,6 +7,8 @@ import {
   CaseStatusBadge,
   caseTypeLabel,
   formatCaseDate,
+  fromMexicoCityLocal,
+  toDateTimeLocal,
 } from '../case-labels'
 
 const NOW = new Date('2026-11-20T00:00:00.000Z')
@@ -51,5 +53,13 @@ describe('case labels', () => {
     const shown = formatCaseDate('2026-11-18T05:59:59.999Z')
     expect(shown).toContain('17')
     expect(shown).toContain('23:59')
+  })
+
+  it('fills and reads the date field as Mexico City time, whatever the runtime time zone', () => {
+    // 05:59 UTC on the 18th is 23:59 on the 17th in Mexico City.
+    expect(toDateTimeLocal('2026-11-18T05:59:59.999Z')).toBe('2026-11-17T23:59')
+    expect(fromMexicoCityLocal('2026-11-17T23:59').toISOString()).toBe('2026-11-18T05:59:00.000Z')
+    expect(toDateTimeLocal(fromMexicoCityLocal('2026-01-02T08:30'))).toBe('2026-01-02T08:30')
+    expect(toDateTimeLocal(null)).toBe('')
   })
 })

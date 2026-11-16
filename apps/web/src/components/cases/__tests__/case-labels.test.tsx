@@ -47,6 +47,9 @@ describe('case labels', () => {
 
   it('shows dates in Mexico City time', () => {
     expect(formatCaseDate(null)).toBe('—')
-    expect(formatCaseDate('2026-11-18T05:59:59.999Z')).toContain('23:59')
+    // 05:59 UTC on the 18th is 23:59 on the 17th in Mexico City.
+    const shown = formatCaseDate('2026-11-18T05:59:59.999Z')
+    expect(shown).toContain('17')
+    expect(shown).toContain('23:59')
   })
 })

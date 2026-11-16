@@ -31,13 +31,14 @@ export function caseStatusLabel(status: string): string {
   return CASE_STATUS_LABELS[status as CaseStatus] ?? status
 }
 
-/** Date and time in Mexico City, as staff read it. */
+/** Date and time in Mexico City (24-hour clock), as staff read it. */
 export function formatCaseDate(value: Date | string | null | undefined): string {
   if (!value) return '—'
   return new Date(value).toLocaleString('es-MX', {
     timeZone: 'America/Mexico_City',
     dateStyle: 'medium',
     timeStyle: 'short',
+    hourCycle: 'h23',
   })
 }
 

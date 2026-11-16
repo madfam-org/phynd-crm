@@ -1,22 +1,22 @@
 import type { getDb } from '@phynd/db'
-import { contacts, conversions, orders } from '@phynd/db/schema'
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
-import { STRIPE_PAID_EVENT_TYPES, classifyPaymentLifecycle } from './payment-lifecycle'
+import {
+  SUBSCRIPTION_CANCELLED_EVENT_TYPES,
+  type StageChange,
+  markCustomer,
+  markFormerCustomer,
+} from '@phynd/services/contacts/customer-stage'
+import { classifyPaymentLifecycle } from './payment-lifecycle'
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
-/** Billing events that end a subscription (Stripe-native and the Dhanam relay). */
-export const SUBSCRIPTION_CANCELLED_EVENT_TYPES: ReadonlySet<string> = new Set([
-  'customer.subscription.deleted',
-  'subscription.cancelled',
-  'subscription.canceled',
-  'subscription.deleted',
-])
+export { SUBSCRIPTION_CANCELLED_EVENT_TYPES }
+export type CustomerStageResult = StageChange
 
-/** `conversions.type` of a subscription start, as the route maps it. */
-const SUBSCRIPTION_STARTED_CONVERSION_TYPE = 'dhanam_subscription_created'
-/** Order payment states that mean money was received and not given back. */
-const PAID_ORDER_STATES = ['paid', 'partial'] as const
+/** Event types that mean a payment was collected. */
+const MONEY_RECEIVED_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'invoice.payment_succeeded',
+  'payment.succeeded',
+])
 
 export interface StageEvent {
   eventId: string
@@ -31,23 +31,15 @@ export interface StageReconciliation {
   paymentStatus: string | null
 }
 
-export type CustomerStageResult =
-  | { stage: 'customer' | 'former_customer'; changed: boolean }
-  | { stage: 'customer'; changed: false; kept: 'other_active_paid_relationship' }
-
 /**
- * Moves the contact's lifecycle stage on a billing event. Runs inside the
- * event's transaction, after the conversion and the payment reconciliation
- * are recorded.
+ * Applies the shared stage rule (`@phynd/services` `contacts/customer-stage.ts`)
+ * to a billing event, inside the event's transaction, after the conversion and
+ * the payment reconciliation are recorded.
  *
- * - A successful payment makes the contact a customer (also from former
- *   customer: they paid again).
- * - A subscription cancellation, or a refund that leaves the payment fully
- *   refunded, makes a CUSTOMER a former customer, unless another active paid
- *   relationship is visible: another order still paid (fully or in part), or
- *   another subscription whose start was recorded and whose cancellation was
- *   not. A lead never becomes a former customer, and nothing moves a contact
- *   back to lead.
+ * - Money received makes a customer: a successful payment, or a checkout
+ *   whose payment is already collected (`payment_status: 'paid'`). A
+ *   subscription start and an asynchronous checkout completion are not money.
+ * - A subscription cancellation or a full refund may make a former customer.
  */
 export async function applyCustomerStage(
   tx: Tx,
@@ -55,36 +47,37 @@ export async function applyCustomerStage(
   contactId: string,
   reconciliation: StageReconciliation | null,
 ): Promise<CustomerStageResult | null> {
-  if (STRIPE_PAID_EVENT_TYPES.has(event.eventType)) {
-    const changed = await tx
-      .update(contacts)
-      .set({ lifecycleStage: 'customer' })
-      .where(and(eq(contacts.id, contactId), ne(contacts.lifecycleStage, 'customer')))
-      .returning({ id: contacts.id })
-    return { stage: 'customer', changed: changed.length > 0 }
-  }
+  const at = eventOccurredAt(event.raw)
+  if (isMoneyReceived(event)) return markCustomer(tx, contactId, at)
 
   const cancelled = SUBSCRIPTION_CANCELLED_EVENT_TYPES.has(event.eventType)
   if (!cancelled && !isFullRefund(event, reconciliation)) return null
+  return markFormerCustomer(tx, contactId, at, {
+    orderId: reconciliation?.orderId ?? event.orderId,
+    subscriptionId: cancelled ? event.subscriptionId : null,
+  })
+}
 
-  const [contact] = await tx
-    .select({ stage: contacts.lifecycleStage })
-    .from(contacts)
-    .where(eq(contacts.id, contactId))
-    .limit(1)
-  if (contact?.stage !== 'customer') return null
+export function isMoneyReceived(event: Pick<StageEvent, 'eventType' | 'raw'>): boolean {
+  if (MONEY_RECEIVED_EVENT_TYPES.has(event.eventType)) return true
+  if (event.eventType !== 'checkout.session.completed') return false
+  const data = asRecord(event.raw.data)
+  return asRecord(data.object).payment_status === 'paid' || data.payment_status === 'paid'
+}
 
-  const endedOrderId = reconciliation?.orderId ?? event.orderId
-  const endedSubscriptionId = cancelled ? event.subscriptionId : null
-  if (await hasOtherActivePaidRelationship(tx, contactId, endedOrderId, endedSubscriptionId)) {
-    return { stage: 'customer', changed: false, kept: 'other_active_paid_relationship' }
+/**
+ * When the event happened, as the sender states it: Stripe's `created` (Unix
+ * seconds) or the relay's `timestamp` (ISO 8601); the receipt time otherwise.
+ */
+export function eventOccurredAt(raw: Record<string, unknown>, now: Date = new Date()): Date {
+  if (typeof raw.created === 'number' && Number.isFinite(raw.created)) {
+    return new Date(raw.created * 1000)
   }
-
-  await tx
-    .update(contacts)
-    .set({ lifecycleStage: 'former_customer' })
-    .where(and(eq(contacts.id, contactId), eq(contacts.lifecycleStage, 'customer')))
-  return { stage: 'former_customer', changed: true }
+  if (typeof raw.timestamp === 'string') {
+    const parsed = Date.parse(raw.timestamp)
+    if (!Number.isNaN(parsed)) return new Date(parsed)
+  }
+  return now
 }
 
 /**
@@ -105,54 +98,6 @@ export function isFullRefund(
   const amount = firstNumber(object.amount, object.amount_captured)
   const refunded = firstNumber(object.amount_refunded)
   return amount !== null && refunded !== null && amount > 0 && refunded >= amount
-}
-
-async function hasOtherActivePaidRelationship(
-  tx: Tx,
-  contactId: string,
-  endedOrderId: string | null,
-  endedSubscriptionId: string | null,
-): Promise<boolean> {
-  const orderConditions = [
-    eq(orders.contactId, contactId),
-    isNull(orders.deletedAt),
-    inArray(orders.paymentStatus, [...PAID_ORDER_STATES]),
-  ]
-  if (endedOrderId) orderConditions.push(ne(orders.id, endedOrderId))
-  const [paidOrder] = await tx
-    .select({ id: orders.id })
-    .from(orders)
-    .where(and(...orderConditions))
-    .limit(1)
-  if (paidOrder) return true
-
-  // Subscriptions the CRM saw start, minus those it saw end.
-  const rows = await tx
-    .select({
-      subscriptionId: sql<string | null>`${conversions.metadata} ->> 'subscription_id'`,
-      eventType: sql<string | null>`${conversions.metadata} ->> 'event_type'`,
-      type: conversions.type,
-    })
-    .from(conversions)
-    .where(
-      and(
-        eq(conversions.contactId, contactId),
-        sql`${conversions.metadata} ->> 'provider' = 'dhanam'`,
-        sql`${conversions.metadata} ->> 'subscription_id' is not null`,
-      ),
-    )
-  const started = new Set<string>()
-  const ended = new Set<string>()
-  for (const row of rows) {
-    if (!row.subscriptionId) continue
-    if (row.type === SUBSCRIPTION_STARTED_CONVERSION_TYPE) started.add(row.subscriptionId)
-    if (row.eventType && SUBSCRIPTION_CANCELLED_EVENT_TYPES.has(row.eventType)) {
-      ended.add(row.subscriptionId)
-    }
-  }
-  if (endedSubscriptionId) ended.add(endedSubscriptionId)
-  for (const id of started) if (!ended.has(id)) return true
-  return false
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

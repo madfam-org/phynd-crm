@@ -108,6 +108,12 @@ export {
   PAID_PAYMENT_CONVERSION_TYPES,
   deriveCustomerHealth,
 } from './contacts/customer-health'
+export {
+  ACTIVE_PAID_ORDER_STATES,
+  type StageChange,
+  markCustomer,
+  markFormerCustomer,
+} from './contacts/customer-stage'
 export { ConversionsService } from './conversions/conversions.service'
 export {
   canonicalKarafielMilestone,

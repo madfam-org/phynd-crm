@@ -47,6 +47,10 @@ export const contacts = pgTable(
       .$type<ContactLifecycleStage>()
       .notNull()
       .default('lead'),
+    // When the stage last changed, as the time of the payment, refund or
+    // cancellation that changed it: an older event redelivered late never
+    // overrides a newer one.
+    lifecycleStageChangedAt: timestamp('lifecycle_stage_changed_at', { withTimezone: true }),
     ownerId: text('owner_id').references(() => users.id),
     marketingConsent: boolean('marketing_consent').notNull().default(false),
     consentedAt: timestamp('consented_at', { withTimezone: true }),

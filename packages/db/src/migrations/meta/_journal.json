@@ -155,6 +155,13 @@
       "when": 1794780790520,
       "tag": "0021_boring_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794801530918,
+      "tag": "0022_glossy_prodigy",
+      "breakpoints": true
     }
   ]
 }

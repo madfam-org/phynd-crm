@@ -5,6 +5,7 @@ import { getDb } from '@phynd/db'
 import { campaigns, contacts, conversions, webhookEvents } from '@phynd/db/schema'
 import { validateMadfamSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
+import { markCustomer } from '@phynd/services/contacts/customer-stage'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -185,6 +186,9 @@ async function recordPaymentEvent(
       })
       .returning({ id: conversions.id })
 
+    // A succeeded ecosystem payment is money received: the contact is a customer.
+    if (contactId) await markCustomer(tx, contactId, paymentTime(event.occurred_at))
+
     // biome-ignore lint/style/noNonNullAssertion: Drizzle .returning() always returns the inserted row
     return { status: 'recorded', conversion_id: conversion!.id, contact_id: contactId }
   })
@@ -223,4 +227,10 @@ async function resolveCampaignId(
   } catch {
     return null
   }
+}
+
+/** The payment's own time when the sender gives a valid one, else now. */
+function paymentTime(value: unknown): Date {
+  const parsed = typeof value === 'string' ? Date.parse(value) : Number.NaN
+  return Number.isNaN(parsed) ? new Date() : new Date(parsed)
 }

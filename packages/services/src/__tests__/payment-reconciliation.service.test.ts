@@ -10,9 +10,16 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
+  lte: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lte', col, val })),
+  or: vi.fn((...args: unknown[]) => ({ _tag: 'or', args })),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
+  contacts: {
+    id: 'contacts.id',
+    lifecycleStage: 'contacts.lifecycleStage',
+    lifecycleStageChangedAt: 'contacts.lifecycleStageChangedAt',
+  },
   engagementEvents: {
     createdAt: 'engagementEvents.createdAt',
     dedupKey: 'engagementEvents.dedupKey',
@@ -470,6 +477,52 @@ describe('reconcileDhanamPayment', () => {
     expect(result.paymentStatus).toBe('refunded')
     expect(mockDb._qb.set).not.toHaveBeenCalled()
     expect(mockDb._qb.values).not.toHaveBeenCalled()
+  })
+
+  it('makes the contact of an order that becomes paid a customer, in the same transaction', async () => {
+    const order = makeOrder({
+      id: 'order-002',
+      contactId: 'contact-002',
+      totalAmount: '100.00',
+      currency: 'MXN',
+      status: 'pending',
+    })
+    installAwaitSequence([[order], [], [], [], [], [], []])
+    const occurredAt = new Date('2026-11-10T12:00:00.000Z')
+    await reconcileDhanamPayment(mockDb as never, {
+      amountMinor: 10_000,
+      contactId: 'contact-002',
+      currency: 'MXN',
+      eventId: 'evt-payment-002',
+      eventType: 'payment.succeeded',
+      externalPaymentId: 'pi-002',
+      occurredAt,
+    })
+    expect(mockDb._qb.set).toHaveBeenCalledWith({
+      lifecycleStage: 'customer',
+      lifecycleStageChangedAt: occurredAt,
+    })
+  })
+
+  it('does not touch the stage when the payment leaves the order unpaid', async () => {
+    const order = makeOrder({
+      id: 'order-003',
+      contactId: 'contact-003',
+      totalAmount: '100.00',
+      currency: 'MXN',
+    })
+    installAwaitSequence([[order], [], [], [], [], [], []])
+    await reconcileDhanamPayment(mockDb as never, {
+      amountMinor: 0,
+      contactId: 'contact-003',
+      currency: 'MXN',
+      eventId: 'evt-payment-003',
+      eventType: 'payment.succeeded',
+      externalPaymentId: 'pi-003',
+    })
+    expect(mockDb._qb.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ lifecycleStage: 'customer' }),
+    )
   })
 
   function installAwaitSequence(results: unknown[][]) {

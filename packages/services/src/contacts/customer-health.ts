@@ -17,21 +17,17 @@ export const CUSTOMER_HEALTHS = ['ok', 'payment_failed', 'cancelled'] as const
 export type CustomerHealth = (typeof CUSTOMER_HEALTHS)[number]
 
 /**
- * `conversions.type` of a successful Dhanam payment, as the Dhanam webhook
- * writes it (`mapEventTypeToConversionType` in
- * `apps/web/src/app/api/webhooks/dhanam/route.ts`; its tests pin the match).
+ * `conversions.type` of a collected Dhanam payment, as the Dhanam webhook
+ * writes it (`DHANAM_CONVERSION_TYPES` in
+ * `apps/web/src/app/api/webhooks/dhanam/payment-lifecycle.ts`; its tests pin
+ * the match). A subscription start is not a payment.
  */
 export const PAID_PAYMENT_CONVERSION_TYPES = [
   'dhanam_checkout_completed',
-  'dhanam_subscription_created',
   'dhanam_payment_succeeded',
 ] as const
 
-/**
- * `conversions.type` of a failed Dhanam payment. `payment_intent.payment_failed`
- * would map to a type longer than the column (30 characters) and is therefore
- * never stored under its own type.
- */
+/** `conversions.type` of a failed Dhanam payment (Stripe-native and relay). */
 export const FAILED_PAYMENT_CONVERSION_TYPES = [
   'dhanam_invoice_payment_failed',
   'dhanam_payment_failed',

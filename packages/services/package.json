@@ -8,6 +8,7 @@
     "./cases/case-deadlines": "./src/cases/case-deadlines.ts",
     "./context": "./src/context.ts",
     "./contacts/customer-health": "./src/contacts/customer-health.ts",
+    "./contacts/customer-stage": "./src/contacts/customer-stage.ts",
     "./convergence/convergence-feed": "./src/convergence/convergence-feed.ts",
     "./errors": "./src/errors.ts",
     "./identity": "./src/identity/index.ts",

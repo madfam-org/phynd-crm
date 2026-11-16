@@ -40,7 +40,7 @@ describe('latestPaymentOutcomes', () => {
     const where = ctx.mockDb._qb.where.mock.calls.at(-1)?.[0] as SQL
     const query = dialect.sqlToQuery(where)
     expect(query.sql).toBe(
-      '("conversions"."contact_id" in ($1, $2, $3) and "conversions"."type" in ($4, $5, $6, $7, $8))',
+      '("conversions"."contact_id" in ($1, $2, $3) and "conversions"."type" in ($4, $5, $6, $7))',
     )
     expect(query.params.slice(0, 3)).toEqual(['c-1', 'c-2', 'c-3'])
     expect(ctx.mockDb.select).toHaveBeenCalledTimes(1)

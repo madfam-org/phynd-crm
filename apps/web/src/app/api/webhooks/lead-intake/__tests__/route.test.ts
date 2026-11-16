@@ -119,7 +119,9 @@ class FakeTx {
   })
 
   select = vi.fn(() => ({
-    from: vi.fn((table: unknown) => (table === USERS_TABLE ? this.usersQuery() : this.dedupQuery())),
+    from: vi.fn((table: unknown) =>
+      table === USERS_TABLE ? this.usersQuery() : this.dedupQuery(),
+    ),
   }))
 
   /** `select id from users where id = $1 limit 1` (default task owner check). */

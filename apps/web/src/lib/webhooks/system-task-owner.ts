@@ -76,7 +76,9 @@ function warnUnassigned(
   logger.warn(
     { ...logContext, code: DEFAULT_TASK_OWNER_UNAVAILABLE, reason, env: DEFAULT_TASK_OWNER_ENV },
     `${DEFAULT_TASK_OWNER_UNAVAILABLE}: system task on a contact without owner left unassigned (${
-      reason === 'unset' ? `${DEFAULT_TASK_OWNER_ENV} is not set` : `${DEFAULT_TASK_OWNER_ENV} names no CRM user`
+      reason === 'unset'
+        ? `${DEFAULT_TASK_OWNER_ENV} is not set`
+        : `${DEFAULT_TASK_OWNER_ENV} names no CRM user`
     })`,
   )
 }

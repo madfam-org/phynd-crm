@@ -2,7 +2,8 @@
  * The process's MCP server, wired to the app's own parts: the Janua machine
  * verifier, the Redis rate limiter every API route uses (fail closed, in
  * namespaces of its own), the
- * tenant database and the structured logger.
+ * tenant database (tools and the `mcp_call_audit` record) and the structured
+ * logger.
  *
  * `mcpServerFor()` is null while the MCP is off, and the route then answers
  * 404 as if it did not exist. "Off" is: `PHYND_CRM_MCP_ENABLED` not exactly
@@ -13,6 +14,7 @@ import { getCacheManager } from '@/lib/federation/clients'
 import { type RateLimitResult, checkApiRateLimit } from '@/lib/rate-limiter'
 import type { MachineAuthConfig } from '@/lib/trpc/machine-auth'
 import { getDb } from '@phynd/db'
+import { mcpCallAudit } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
 import { createServiceContext } from '@phynd/services/context'
 
@@ -21,6 +23,7 @@ import {
   type McpAuditRecord,
   type McpRateDecision,
   type McpServer,
+  type McpStoredCall,
   createMcpServer,
 } from './server'
 import {
@@ -39,6 +42,21 @@ function writeAudit(record: McpAuditRecord): void {
   } else {
     logger.info(record, 'MCP call')
   }
+}
+
+/** One `mcp_call_audit` row in the caller's tenant database; a failure propagates. */
+async function storeCall(call: McpStoredCall): Promise<void> {
+  await getDb(call.tenantId)
+    .insert(mcpCallAudit)
+    .values({
+      clientId: call.clientId,
+      tenantId: call.tenantId,
+      tool: call.tool,
+      args: call.args ? { ...call.args } : null,
+      outcome: call.outcome,
+      resultCount: call.resultCount,
+      masked: call.masked,
+    })
 }
 
 function rateDecision(result: RateLimitResult): McpRateDecision {
@@ -75,6 +93,7 @@ function serverFor(config: MachineAuthConfig): McpServer {
       createServiceContext(getDb(auth.tenantId), getCacheManager(), auth, auth.tenantId),
     tools: MCP_TOOLS,
     audit: writeAudit,
+    record: storeCall,
     now: () => performance.now(),
   })
 }

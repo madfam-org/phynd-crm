@@ -87,7 +87,33 @@ export {
 export { RedditBotService, type BotCampaignPayload } from './campaigns/reddit-bot'
 export { RedditClient, createRedditClientFromEnv, type RedditPost } from './campaigns/reddit-client'
 export { postRedditComment, extractPostId } from './campaigns/reddit-poster'
-export { ContactsService } from './contacts/contacts.service'
+export {
+  type CaseListFilters,
+  type CaseWithContact,
+  CasesService,
+  type CreateCaseInput,
+  type UpdateCaseInput,
+} from './cases/cases.service'
+export {
+  CASE_DEFAULT_DUE_BUSINESS_DAYS,
+  addBusinessDaysEndOfDay,
+  defaultCaseDueAt,
+  isCaseOverdue,
+} from './cases/case-deadlines'
+export { ContactsService, type ContactWithHealth } from './contacts/contacts.service'
+export {
+  CUSTOMER_HEALTHS,
+  type CustomerHealth,
+  FAILED_PAYMENT_CONVERSION_TYPES,
+  PAID_PAYMENT_CONVERSION_TYPES,
+  deriveCustomerHealth,
+} from './contacts/customer-health'
+export {
+  ACTIVE_PAID_ORDER_STATES,
+  type StageChange,
+  markCustomer,
+  markFormerCustomer,
+} from './contacts/customer-stage'
 export { ConversionsService } from './conversions/conversions.service'
 export {
   canonicalKarafielMilestone,
@@ -181,10 +207,12 @@ export {
 export { OpportunitiesService } from './opportunities/opportunities.service'
 export { OpsEventsService, type OpsEventIngestResult } from './ops-events/ops-events.service'
 export {
+  MASKED_VALUE,
   maskEmail,
   maskFreeText,
   maskPersonName,
   maskPhone,
+  maskWholeValue,
   shouldMaskPiiForAgent,
 } from './pii/mask'
 export { OrdersService } from './orders/orders.service'

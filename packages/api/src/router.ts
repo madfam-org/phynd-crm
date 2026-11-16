@@ -3,6 +3,7 @@ import { aiKanbanRouter } from './routers/ai-kanban'
 import { analyticsRouter } from './routers/analytics'
 import { campaignAuthorizationsRouter } from './routers/campaign-authorizations'
 import { campaignsRouter } from './routers/campaigns'
+import { casesRouter } from './routers/cases'
 import { consentRouter } from './routers/consent'
 import { contactsRouter } from './routers/contacts'
 import { conversionsRouter } from './routers/conversions'
@@ -32,6 +33,7 @@ import { router } from './trpc'
 
 export const appRouter = router({
   activities: activitiesRouter,
+  cases: casesRouter,
   aiKanban: aiKanbanRouter,
   analytics: analyticsRouter,
   campaignAuthorizations: campaignAuthorizationsRouter,

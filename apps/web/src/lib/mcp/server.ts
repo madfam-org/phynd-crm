@@ -101,6 +101,21 @@ export interface McpAuditRecord {
   masked: boolean | null
 }
 
+/**
+ * The stored record of one `tools/call` by an admitted caller (table
+ * `mcp_call_audit`): the audit record's identifiers, without latency or HTTP
+ * details. `args` is the same summary the log line carries: no personal data.
+ */
+export interface McpStoredCall {
+  clientId: string
+  tenantId: string
+  tool: string | null
+  args: Readonly<Record<string, string | number | boolean>> | null
+  outcome: string
+  resultCount: number | null
+  masked: boolean
+}
+
 /** A rate limiter's answer: allowed, or refused with when to retry. */
 export type McpRateDecision =
   | { readonly allowed: true }
@@ -121,6 +136,11 @@ export interface McpServerDeps {
   readonly contextFor: (auth: AuthContext) => ServiceContext
   readonly tools: readonly McpTool[]
   readonly audit: (record: McpAuditRecord) => void
+  /**
+   * Stores one row per `tools/call`. Awaited before the answer is sent; when it
+   * throws, the call fails and nothing is returned.
+   */
+  readonly record: (call: McpStoredCall) => Promise<void>
   /** Milliseconds, monotonic enough for latency. */
   readonly now: () => number
 }
@@ -244,7 +264,42 @@ export function createMcpServer(deps: McpServerDeps) {
     return { tool, args: rawArgs }
   }
 
+  /**
+   * Runs a `tools/call`, then stores its record. The record is written before
+   * the answer leaves: if it cannot be written, the caller gets a tool error
+   * and none of the rows read (a call that already failed keeps its failure).
+   */
   async function callTool(
+    audit: Audit,
+    id: RpcId,
+    params: unknown,
+    caller: McpCaller,
+  ): Promise<Response> {
+    const response = await runToolCall(audit, id, params, caller)
+    try {
+      await deps.record({
+        clientId: caller.clientId,
+        tenantId: caller.auth.tenantId,
+        tool: audit.tool,
+        args: audit.args,
+        outcome: audit.outcome,
+        resultCount: audit.resultCount,
+        masked: caller.masked,
+      })
+      return response
+    } catch (error) {
+      if (response.status >= 500) return response
+      audit.outcome = 'audit_failed'
+      audit.resultCount = null
+      audit.detail = error instanceof Error ? error.name : 'unknown'
+      return toolError(
+        id,
+        'audit_unavailable: the call could not be recorded; nothing was returned',
+      )
+    }
+  }
+
+  async function runToolCall(
     audit: Audit,
     id: RpcId,
     params: unknown,

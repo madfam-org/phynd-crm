@@ -25,14 +25,17 @@ import {
   logOrphanEvent,
   resolveContactId,
 } from './buyer-contact'
+import { type CustomerStageResult, applyCustomerStage } from './customer-stage'
 import { type DhanamWebhookPayload, type NormalizedEvent, normalizeEvent } from './envelope'
 import { type FailedPaymentTaskResult, maybeOpenFailedPaymentTask } from './failed-payment-task'
+import { conversionLeadId } from './lead-conversion'
 import {
   STRIPE_PAID_EVENT_TYPES,
   buildEngagementMessage,
   classifyPaymentLifecycle,
   conversionValue,
   engagementEventStatus,
+  mapEventTypeToConversionType,
 } from './payment-lifecycle'
 
 const logger = createLogger('web:webhook:dhanam')
@@ -67,18 +70,22 @@ const logger = createLogger('web:webhook:dhanam')
  *      webhook_events row so reconciliation can backfill it — never 5xx.
  *   6. Inside a single tx:
  *        a) Insert webhook_events audit row.
- *        b) Insert a `conversions` row (type=`dhanam_<event-suffix>`).
+ *        b) Insert a `conversions` row (type from `mapEventTypeToConversionType`).
+ *           Its `lead_id` is set only on the event that converts the lead
+ *           (see lead-conversion.ts); `metadata.contact_lead_id` always names it.
  *        c) If a referral_code is in metadata, mark the matching referral
  *           row as `converted` + populate `revenue_cents`.
- *        d) Mark the contact's most recent active lead as `converted` +
- *           move it to its pipeline's "Closed Won" stage (no-op if the
- *           pipeline has no such stage).
+ *        d) On that converting event, mark the lead `converted` and move it to
+ *           its pipeline's "Closed Won" stage (no-op if there is none).
  *        e) Append an `engagement_event` (source='dhanam',
  *           eventType='dhanam:payment_succeeded' for paid events,
  *           or `dhanam:<envelope.type>` for others) to the contact's
  *           first active engagement, if one exists.
  *        f) On a failed payment, open one follow-up task on the contact unless
  *           one is still open (see failed-payment-task.ts).
+ *        g) Move the contact's lifecycle stage: paid → customer; subscription
+ *           cancelled or fully refunded → former customer when no other
+ *           active paid relationship is visible (see customer-stage.ts).
  *   7. Invalidate federation cache (preserve the prior route's behavior).
  *   8. Return 200.
  *
@@ -180,6 +187,7 @@ interface PersistResult {
   quote_id?: string | null
   engagement_id?: string | null
   failed_payment_task?: FailedPaymentTaskResult
+  customer_stage?: CustomerStageResult
 }
 
 /** Whether a `webhook_events` row already exists for this Dhanam event id. */
@@ -245,16 +253,31 @@ async function persistEventInTransaction(
   const leadInfo =
     matchedContactId || buyer.created ? matchedLeadInfo : await resolveLeadAndStage(contactId)
 
-  const conversionId = await recordConversion(tx, event, buyer, leadInfo, webhookEventId)
+  // Only the event that converts the lead is attributed to it.
+  const convertedLeadId = await conversionLeadId(
+    tx,
+    event.eventType,
+    mapEventTypeToConversionType(event.eventType),
+    leadInfo,
+  )
+  const conversionId = await recordConversion(
+    tx,
+    event,
+    buyer,
+    leadInfo,
+    convertedLeadId,
+    webhookEventId,
+  )
   const referralId = await maybeMarkReferralConverted(tx, event, contactId, leadInfo, conversionId)
-  await maybePromoteLead(tx, event, leadInfo)
+  if (convertedLeadId && leadInfo) await promoteLead(tx, leadInfo)
 
   const engagementId = await maybeRecordEngagementEvent(tx, contactId, event)
   const refundedEarlier = buyer.created ? await hasEarlierRefund(tx, event) : false
   const paymentReconciliation = refundedEarlier
     ? null
     : await maybeReconcilePayment(tx, event, contactId, engagementId)
-  const failedPaymentTask = await maybeOpenFailedPaymentTask(tx, event, contactId)
+  const failedPaymentTask = await maybeOpenFailedPaymentTask(tx, event, contactId, logger)
+  const customerStage = await applyCustomerStage(tx, event, contactId, paymentReconciliation)
 
   return {
     status: 'recorded',
@@ -268,6 +291,7 @@ async function persistEventInTransaction(
     quote_id: paymentReconciliation?.quoteId ?? null,
     engagement_id: paymentReconciliation?.engagementId ?? engagementId ?? null,
     ...(failedPaymentTask ? { failed_payment_task: failedPaymentTask } : {}),
+    ...(customerStage ? { customer_stage: customerStage } : {}),
   }
 }
 
@@ -324,6 +348,7 @@ async function recordConversion(
   event: NormalizedEvent,
   buyer: BuyerContact,
   leadInfo: LeadStageInfo | null,
+  convertedLeadId: string | null,
   webhookEventId: string | null,
 ): Promise<string | undefined> {
   const [conversion] = await tx
@@ -331,10 +356,12 @@ async function recordConversion(
     .values({
       type: mapEventTypeToConversionType(event.eventType),
       contactId: buyer.contactId,
-      leadId: leadInfo?.leadId ?? null,
+      leadId: convertedLeadId,
       value: conversionValue(event),
       metadata: {
         ...buildConversionMetadata(event, webhookEventId),
+        // The contact's lead at the time, also when this event does not convert it.
+        contact_lead_id: leadInfo?.leadId ?? null,
         // Provenance: this event is what created the contact.
         ...(buyer.created ? { contact_created: true } : {}),
       },
@@ -389,8 +416,8 @@ async function maybeMarkReferralConverted(
   )
 }
 
-async function maybePromoteLead(tx: Tx, event: NormalizedEvent, leadInfo: LeadStageInfo | null) {
-  if (!leadInfo || !STRIPE_PAID_EVENT_TYPES.has(event.eventType)) return
+/** Marks the lead converted and moves it to its pipeline's Closed Won stage, if any. */
+async function promoteLead(tx: Tx, leadInfo: LeadStageInfo) {
   const updateValues: { status: string; stageId?: string } = { status: 'converted' }
   if (leadInfo.closedWonStageId) {
     updateValues.stageId = leadInfo.closedWonStageId
@@ -456,6 +483,7 @@ async function maybeReconcilePayment(
 
 interface LeadStageInfo {
   leadId: string
+  status: string
   pipelineId: string
   closedWonStageId: string | null
 }
@@ -463,7 +491,7 @@ interface LeadStageInfo {
 async function resolveLeadAndStage(contactId: string): Promise<LeadStageInfo | null> {
   const db = getDb()
   const [lead] = await db
-    .select({ id: leads.id, pipelineId: leads.pipelineId })
+    .select({ id: leads.id, status: leads.status, pipelineId: leads.pipelineId })
     .from(leads)
     .where(and(eq(leads.contactId, contactId), isNull(leads.deletedAt)))
     .orderBy(desc(leads.createdAt))
@@ -482,6 +510,7 @@ async function resolveLeadAndStage(contactId: string): Promise<LeadStageInfo | n
   const closedWon = stageRows.find((s: StageRow) => s.name.toLowerCase() === 'closed won')
   return {
     leadId: lead.id,
+    status: lead.status,
     pipelineId: lead.pipelineId,
     closedWonStageId: closedWon?.id ?? null,
   }
@@ -598,18 +627,4 @@ async function maybeRecordEngagementEvent(
   })
 
   return eng.id
-}
-
-function mapEventTypeToConversionType(eventType: string): string {
-  // Keep these tight + stable; analytics queries filter on `conversions.type`.
-  // Use a `dhanam_` prefix to disambiguate from `ecosystem_payment_succeeded`
-  // (routecraft) and the existing visitor_to_lead / lead_to_opportunity etc.
-  if (eventType === 'checkout.session.completed') return 'dhanam_checkout_completed'
-  if (eventType === 'customer.subscription.created' || eventType === 'subscription.created') {
-    return 'dhanam_subscription_created'
-  }
-  if (eventType === 'invoice.payment_succeeded' || eventType === 'payment.succeeded') {
-    return 'dhanam_payment_succeeded'
-  }
-  return `dhanam_${eventType.replace(/[^a-z0-9_]+/gi, '_')}`
 }

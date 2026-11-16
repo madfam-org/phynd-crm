@@ -61,7 +61,8 @@ describe('Owner-scoped queries', () => {
       const service = new ContactsService(ctx)
       const result = await service.list()
 
-      expect(result.items).toEqual([contact])
+      // The list adds the derived payment health (none for a contact without payments).
+      expect(result.items).toEqual([{ ...contact, health: null }])
     })
 
     it('filters by ownerId when provided', async () => {
@@ -71,7 +72,8 @@ describe('Owner-scoped queries', () => {
       const service = new ContactsService(ctx)
       const result = await service.list(undefined, { ownerId: 'user-a' })
 
-      expect(result.items).toEqual([contact])
+      // The list adds the derived payment health (none for a contact without payments).
+      expect(result.items).toEqual([{ ...contact, health: null }])
       expect(ctx.mockDb._qb.where).toHaveBeenCalled()
     })
   })

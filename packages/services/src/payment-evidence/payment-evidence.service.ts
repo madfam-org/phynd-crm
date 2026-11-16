@@ -9,6 +9,7 @@ import {
   quotes,
 } from '@phynd/db/schema'
 import { and, desc, eq, isNull, ne } from 'drizzle-orm'
+import { PAID_ORDER_STATES, markCustomer } from '../contacts/customer-stage'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
 import { actorIdOf, requireCrmUserId } from '../identity/actor'
@@ -173,6 +174,8 @@ export class PaymentEvidenceService {
         .returning()
       if (!row) throw new ValidationError('Only a recorded payment can be verified')
       const order = row.orderId ? await applyToOrder(tx, row, +1) : null
+      // A verified payment is money received: its contact is a customer.
+      await markCustomer(tx, row.contactId, row.paidAt)
       await this.event(
         tx,
         row,
@@ -419,6 +422,10 @@ async function applyToOrder(tx: Tx, e: PaymentEvidence, sign: 1 | -1) {
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id))
+  // An order that becomes (partly) paid makes its contact a customer.
+  if (sign > 0 && PAID_ORDER_STATES.has(paymentStatus) && order.contactId) {
+    await markCustomer(tx, order.contactId, e.paidAt)
+  }
   return {
     orderId: order.id,
     applied: true as const,

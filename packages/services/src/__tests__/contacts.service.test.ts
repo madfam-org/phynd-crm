@@ -5,6 +5,8 @@ import { type MockDatabase, createTestContext, makeContact } from './helpers'
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
   asc: vi.fn((col: unknown) => ({ _tag: 'asc', col })),
+  desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
+  inArray: vi.fn((col: unknown, values: unknown) => ({ _tag: 'inArray', col, values })),
   sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
     _tag: 'sql',
     text: strings.join('?'),
@@ -24,6 +26,12 @@ vi.mock('@phynd/db/schema', () => ({
     id: 'contacts.id',
     name: 'contacts.name',
     ownerId: 'contacts.ownerId',
+  },
+  conversions: {
+    contactId: 'conversions.contactId',
+    convertedAt: 'conversions.convertedAt',
+    id: 'conversions.id',
+    type: 'conversions.type',
   },
 }))
 
@@ -62,6 +70,26 @@ describe('ContactsService', () => {
       const result = await service.list({ limit: 2 })
       expect(result.items).toHaveLength(2)
       expect(result.hasMore).toBe(true)
+    })
+
+    it('adds the payment health derived from the stage and the latest payment outcome', async () => {
+      mockDb._qb.then
+        .mockImplementationOnce((resolve: (value: unknown) => unknown) =>
+          Promise.resolve([
+            makeContact({ id: 'c1', lifecycleStage: 'customer' }),
+            makeContact({ id: 'c2', lifecycleStage: 'lead' }),
+          ]).then(resolve),
+        )
+        .mockImplementationOnce((resolve: (value: unknown) => unknown) =>
+          Promise.resolve([
+            { contactId: 'c1', type: 'dhanam_payment_failed', convertedAt: new Date(2) },
+          ]).then(resolve),
+        )
+      const result = await service.list()
+      expect(result.items.map((row) => [row.id, row.health])).toEqual([
+        ['c1', 'payment_failed'],
+        ['c2', null],
+      ])
     })
 
     it('returns empty when no contacts', async () => {

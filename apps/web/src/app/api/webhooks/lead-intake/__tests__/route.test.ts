@@ -35,7 +35,21 @@ function emptyTables(): Record<TableName, Row[]> {
   return { webhook_events: [], contacts: [], leads: [], notes: [], activities: [] }
 }
 
+const USERS_TABLE = vi.hoisted(() => ({ id: 'users.id' }))
+
+const mockLogger = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+}))
+vi.mock('@phynd/logging', () => ({
+  createLogger: () => mockLogger,
+}))
+
 const store = {
+  /** Existing CRM `users.id` values. */
+  userIds: new Set<string>(),
   committed: emptyTables(),
   heldLocks: new Map<string, Promise<void>>(),
   /** Every operation in order, e.g. `lock:<key>`, `select:webhook_events`. */
@@ -105,7 +119,24 @@ class FakeTx {
   })
 
   select = vi.fn(() => ({
-    from: vi.fn(() => ({
+    from: vi.fn((table: unknown) =>
+      table === USERS_TABLE ? this.usersQuery() : this.dedupQuery(),
+    ),
+  }))
+
+  /** `select id from users where id = $1 limit 1` (default task owner check). */
+  private usersQuery() {
+    return {
+      where: vi.fn((condition: { __eq: [unknown, string] }) => {
+        store.ops.push('select:users')
+        const id = condition.__eq[1]
+        return { limit: vi.fn(async () => (store.userIds.has(id) ? [{ id }] : [])) }
+      }),
+    }
+  }
+
+  private dedupQuery() {
+    return {
       where: vi.fn((condition: { __and: [{ __eq: [unknown, string] }, { values: unknown[] }] }) => {
         store.dedupLookups.push(condition)
         store.ops.push('select:webhook_events')
@@ -121,8 +152,8 @@ class FakeTx {
           ),
         }
       }),
-    })),
-  }))
+    }
+  }
 
   insert = vi.fn(() => ({
     values: vi.fn(async (value: Row) => {
@@ -160,6 +191,7 @@ vi.mock('@phynd/db', () => ({
 }))
 
 vi.mock('@phynd/db/schema', () => ({
+  users: USERS_TABLE,
   webhookEvents: {
     id: 'webhook_events.id',
     provider: 'webhook_events.provider',
@@ -410,6 +442,9 @@ beforeEach(() => {
   process.env.LEADS_NOTIFY_EMAIL = 'ventas@example.test'
   delete process.env.NAUTA_LEADS_NOTIFY_EMAIL
   store.committed = emptyTables()
+  store.userIds.clear()
+  delete process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID
+  mockLogger.warn.mockReset()
   store.heldLocks.clear()
   store.ops = []
   store.dedupLookups = []
@@ -436,6 +471,7 @@ function restoreEnv(name: string, value: string | undefined): void {
 }
 
 afterEach(() => {
+  delete process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID
   delete process.env.LEADS_NOTIFY_EMAIL
   delete process.env.NAUTA_LEADS_NOTIFY_EMAIL
   restoreEnv('PHYND_CRM_LEAD_INTAKE_SECRET', ORIGINAL_SECRET)
@@ -763,6 +799,61 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
     expect([1, 2, 3, 4, 5]).toContain(task.dueAt.getUTCDay())
     expect(task.dueAt.getUTCHours()).toBe(15)
     expect(sentEmail().html).toContain('Tarea de seguimiento en el CRM')
+  })
+
+  it('warns with a stable code when the unowned task stays unassigned', async () => {
+    await post(makeBookingEvent())
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'DEFAULT_TASK_OWNER_UNAVAILABLE',
+        reason: 'unset',
+        lead_id: 'lead-1',
+      }),
+      expect.stringMatching(/^DEFAULT_TASK_OWNER_UNAVAILABLE: /),
+    )
+  })
+
+  it('assigns the configured default task owner when the contact has none', async () => {
+    store.userIds.add('user-default')
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = 'user-default'
+    await post(makeBookingEvent())
+    const task = committed('activities')[0] as { ownerId: string | null }
+    expect(task.ownerId).toBe('user-default')
+    expect(store.ops).toContain('select:users')
+    expect(mockLogger.warn).not.toHaveBeenCalled()
+  })
+
+  it("assigns an existing contact's owner before the default", async () => {
+    store.userIds.add('user-default')
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = 'user-default'
+    store.committed.contacts.push({
+      id: 'contact-existing',
+      email: 'prospecto@example.test',
+      ownerId: 'user-owner',
+    })
+    await post(makeBookingEvent())
+    const task = committed('activities')[0] as { ownerId: string | null }
+    expect(task.ownerId).toBe('user-owner')
+    expect(store.ops).not.toContain('select:users')
+  })
+
+  it('leaves the task unassigned when the default names no user, empty counts as unset', async () => {
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = 'user-gone'
+    await post(makeBookingEvent())
+    expect((committed('activities')[0] as { ownerId: string | null }).ownerId).toBeNull()
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'DEFAULT_TASK_OWNER_UNAVAILABLE', reason: 'unknown_user' }),
+      expect.any(String),
+    )
+
+    mockLogger.warn.mockReset()
+    process.env.PHYND_CRM_DEFAULT_TASK_OWNER_ID = '   '
+    await post(makeSiteEvent())
+    expect((committed('activities')[1] as { ownerId: string | null }).ownerId).toBeNull()
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'DEFAULT_TASK_OWNER_UNAVAILABLE', reason: 'unset' }),
+      expect.any(String),
+    )
   })
 
   it('still returns 200 when the follow-up task cannot be created: only its savepoint rolls back', async () => {

@@ -1,3 +1,7 @@
+import {
+  CustomerHealthBadge,
+  CustomerStageBadge,
+} from '@/components/contacts/customer-stage-badges'
 import { ContactEngagementsPanel } from '@/components/engagements/contact-engagements-panel'
 import { FederationHealthBanner } from '@/components/federation/federation-health-banner'
 import { KarafielCompliancePanel } from '@/components/federation/karafiel-compliance-panel'
@@ -150,6 +154,8 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
   } catch (err) {
     profileError = err instanceof Error ? err.message : 'Failed to load profile'
   }
+  // Stage and payment health: from the CRM's own records, not the federation.
+  const standing = profile?.contact ? await caller.contacts.getById({ id }).catch(() => null) : null
 
   const contact = profile?.contact
   const panels = buildFederationPanels(profile)
@@ -171,9 +177,13 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{addressLine(contact)}</p>
             </div>
-            <Badge variant={contact.status === 'active' ? 'success' : 'secondary'}>
-              {contact.status}
-            </Badge>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {standing ? <CustomerStageBadge stage={standing.lifecycleStage} /> : null}
+              <CustomerHealthBadge health={standing?.health} />
+              <Badge variant={contact.status === 'active' ? 'success' : 'secondary'}>
+                {contact.status}
+              </Badge>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">{profileError ?? `Contact ID: ${id}`}</p>

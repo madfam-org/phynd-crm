@@ -134,6 +134,34 @@
       "when": 1794637068975,
       "tag": "0018_cold_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794780774235,
+      "tag": "0019_majestic_serpent_society",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794780780435,
+      "tag": "0020_redundant_lightspeed",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794780790520,
+      "tag": "0021_boring_greymalkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794801530918,
+      "tag": "0022_glossy_prodigy",
+      "breakpoints": true
     }
   ]
 }

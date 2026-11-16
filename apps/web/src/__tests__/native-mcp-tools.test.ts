@@ -8,7 +8,11 @@
 import { setFeatureFlags } from '@phynd/config/features'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type FakeQuery, createFakeTenantDb } from '@/lib/mcp/__tests__/fake-tenant-db'
+import {
+  type FakeInsert,
+  type FakeQuery,
+  createFakeTenantDb,
+} from '@/lib/mcp/__tests__/fake-tenant-db'
 import {
   DELETED_CONTACT_ID,
   DELETED_DEAL_ID,
@@ -75,12 +79,19 @@ let stub: Awaited<ReturnType<typeof createMachineTokenStub>>
 let token: string
 let queries: FakeQuery[]
 let otherTenantQueries: FakeQuery[]
+let stored: FakeInsert[]
+let otherTenantStored: FakeInsert[]
 
-function useTables(tables = TENANT_A_TABLES) {
-  const bound = createFakeTenantDb(tables)
+function useTables(
+  tables = TENANT_A_TABLES,
+  options: Parameters<typeof createFakeTenantDb>[1] = {},
+) {
+  const bound = createFakeTenantDb(tables, options)
   const other = createFakeTenantDb(TENANT_B_TABLES)
   queries = bound.queries
   otherTenantQueries = other.queries
+  stored = bound.inserts
+  otherTenantStored = other.inserts
   getDb.mockReset()
   getDb.mockImplementation((tenantId: string) => {
     if (tenantId === TENANT_ID) return bound.db
@@ -169,6 +180,8 @@ describe('contacts_search', () => {
       company: 'Taller Ejemplo',
       preferred_name: null,
       status: 'active',
+      lifecycle_stage: 'customer',
+      health: 'ok',
       owner_id: OWNER_A,
       created_at: '2026-11-01T12:00:00.000Z',
       updated_at: '2026-11-01T12:00:00.000Z',
@@ -197,6 +210,31 @@ describe('contacts_search', () => {
   it('filters by owner', async () => {
     const answer = await callTool('contacts_search', { owner_id: OWNER_B })
     expect(answer.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(2)])
+  })
+
+  it('carries each contact stage and the health derived from its billing outcomes', async () => {
+    const answer = await callTool('contacts_search')
+    const view = answer.data.contacts.map(
+      (row: { id: string; lifecycle_stage: string; health: string | null }) => [
+        row.id,
+        row.lifecycle_stage,
+        row.health,
+      ],
+    )
+    expect(view).toEqual([
+      [uuid(1), 'customer', 'ok'],
+      // Paid, then a later payment failed.
+      [uuid(2), 'customer', 'payment_failed'],
+      // A lead with no payment outcome: no health.
+      [uuid(4), 'lead', null],
+    ])
+    // One read of the billing outcomes for the whole page.
+    expect(queries.filter((query) => query.table === 'conversions')).toHaveLength(1)
+    const detail = await callTool('contacts_get', { contact_id: uuid(2) })
+    expect(detail.data.contact).toMatchObject({
+      lifecycle_stage: 'customer',
+      health: 'payment_failed',
+    })
   })
 })
 
@@ -525,11 +563,15 @@ describe('deleted rows never leave', () => {
       expect(answer.isError).toBe(false)
       expect(answer.raw).not.toContain(DELETED_MARK)
     }
-    // Every read of a soft-deletable table carried the predicate.
-    for (const query of queries) {
+    // Every read of a soft-deletable table carried the predicate. The other
+    // reads are the billing outcomes behind the contacts' health
+    // (`conversions` has no soft delete), one per non-empty contact page.
+    const softDeletable = queries.filter((query) => query.table !== 'conversions')
+    for (const query of softDeletable) {
       expect(query.sql).toContain(`"${query.table}"."deleted_at" is null`)
     }
-    expect(queries.length).toBe(answers.length)
+    expect(softDeletable.length).toBe(answers.length)
+    expect(queries.filter((query) => query.table === 'conversions')).toHaveLength(2)
   })
 
   it('a deleted contact is not found, and its activities are never read', async () => {
@@ -671,7 +713,9 @@ describe('masking (every MCP client masked by default)', () => {
   const FULL_CONTACT = { name: 'Ana Ejemplo', email: 'ana@example.test', phone: '+52 55 0000 0000' }
 
   async function contactViews() {
-    const search = (await callTool('contacts_search', { query: 'ana@' })).data.contacts[0]
+    // A whole address in another letter case: allowed masked and unmasked.
+    const search = (await callTool('contacts_search', { query: 'ANA@Example.test' })).data
+      .contacts[0]
     const detail = (await callTool('contacts_get', { contact_id: uuid(1) })).data
     return { search, detail }
   }
@@ -690,10 +734,71 @@ describe('masking (every MCP client masked by default)', () => {
     expect(audits().at(-1)).toMatchObject({ masked: true })
   })
 
+  it('a masked client reads companies and lead sources as [redacted]', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    const { search, detail } = await contactViews()
+    expect(search.company).toBe('[redacted]')
+    expect(detail.contact.company).toBe('[redacted]')
+    const leads = (await callTool('leads_list')).data.leads
+    expect(leads.map((row: { source: string | null }) => row.source)).toEqual([
+      '[redacted]',
+      '[redacted]',
+      '[redacted]',
+    ])
+    expect(
+      schemaViolations({ leads, next_cursor: null, has_more: false }, outputSchemaOf('leads_list')),
+    ).toEqual([])
+    const raw = (await callTool('leads_list')).raw
+    expect(raw).not.toContain('tezca')
+    expect(raw).not.toMatch(/\bweb\b/)
+  })
+
+  it('a masked client can still filter leads by source, and reads back only the source it named', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    const tezca = await callTool('leads_list', { source: 'tezca' })
+    expect(tezca.data.leads.map((row: { id: string }) => row.id)).toEqual([uuid(12), uuid(13)])
+    expect(tezca.data.leads.map((row: { source: string }) => row.source)).toEqual([
+      'tezca',
+      'tezca',
+    ])
+    expect(tezca.raw).not.toMatch(/\bweb\b/)
+  })
+
+  it('a masked client may search contacts only by a whole email address, matched exactly', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    for (const query of ['taller', 'ana', 'ana@', '@example.test', 'Ana Ejemplo']) {
+      const refused = await callTool('contacts_search', { query })
+      expect(refused.isError, query).toBe(true)
+      expect(refused.text).toBe(
+        'query_not_allowed: this client may search contacts only by a whole email address',
+      )
+      expect(refused.raw).not.toMatch(/Ana Ejemplo|ana@example|Taller/)
+      expect(audits().at(-1)).toMatchObject({ outcome: 'query_not_allowed', resultCount: null })
+    }
+    // No contact was read for a refused query.
+    expect(queries.filter((query) => query.table === 'contacts')).toEqual([])
+
+    const exact = await callTool('contacts_search', { query: 'ANA@EXAMPLE.TEST' })
+    expect(exact.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(1)])
+    expect(exact.data.contacts[0]).toMatchObject({
+      email: 'a***@example.test',
+      company: '[redacted]',
+    })
+    // A partial address is not a match, it is refused; another full address finds nothing.
+    const none = await callTool('contacts_search', { query: 'nadie@example.test' })
+    expect(none.data.contacts).toEqual([])
+  })
+
+  it('an unmasked client keeps the substring search', async () => {
+    const byCompany = await callTool('contacts_search', { query: 'taller' })
+    expect(byCompany.data.contacts.map((row: { id: string }) => row.id)).toEqual([uuid(1)])
+  })
+
   it('a client on the unmasked list reads full values, and the audit says so', async () => {
     const { search, detail } = await contactViews()
-    expect(search).toMatchObject(FULL_CONTACT)
+    expect(search).toMatchObject({ ...FULL_CONTACT, company: 'Taller Ejemplo' })
     expect(detail.contact).toMatchObject(FULL_CONTACT)
+    expect((await callTool('leads_list')).data.leads[0].source).toBe('web')
     expect(audits().at(-1)).toMatchObject({ masked: false })
   })
 
@@ -791,5 +896,74 @@ describe('audit (one record per call)', () => {
   it('logs protocol calls without a tool', async () => {
     await POST(mcpRequest(rpc('tools/list'), { bearer: token }))
     expect(audits().at(-1)).toMatchObject({ rpcMethod: 'tools/list', tool: null, args: null })
+  })
+})
+
+describe('stored audit (mcp_call_audit, one row per tools/call)', () => {
+  it('stores one row per call in the caller tenant, with the log summary and no personal data', async () => {
+    vi.stubEnv('PHYND_CRM_MCP_UNMASKED_CLIENTS', '')
+    await callTool('contacts_search', { query: 'ana@example.test', owner_id: OWNER_A, limit: 10 })
+    expect(stored).toHaveLength(1)
+    expect(stored[0]?.table).toBe('mcp_call_audit')
+    const row = stored[0]?.row ?? {}
+    expect(row).toMatchObject({
+      client_id: CLIENT_ID,
+      tenant_id: TENANT_ID,
+      tool: 'contacts_search',
+      outcome: 'ok',
+      result_count: 1,
+      masked: true,
+    })
+    expect(JSON.parse(String(row.args))).toEqual({
+      has_query: true,
+      owner_id: OWNER_A,
+      has_cursor: false,
+      limit: 10,
+    })
+    // The time is the database default (`called_at`), never caller-supplied.
+    expect(row).not.toHaveProperty('called_at')
+    expect(typeof row.id).toBe('string')
+    expect(JSON.stringify(stored)).not.toMatch(/ana@example|Ana Ejemplo|Taller/)
+    expect(otherTenantStored).toEqual([])
+    // The log line is still written.
+    expect(audits().at(-1)).toMatchObject({ tool: 'contacts_search', outcome: 'ok' })
+  })
+
+  it('stores refusals and unknown tools too, and nothing for protocol methods or refused callers', async () => {
+    await callTool('contacts_get', { contact_id: DELETED_CONTACT_ID })
+    await callTool('leads_list', { source: 'x'.repeat(101) })
+    await POST(mcpRequest(toolCall('contacts_delete'), { bearer: token }))
+    await POST(mcpRequest(rpc('tools/list'), { bearer: token }))
+    await POST(mcpRequest(toolCall('leads_list'), { bearer: 'not-a-token' }))
+    expect(
+      stored.map((entry) => [entry.row.tool, entry.row.outcome, entry.row.result_count]),
+    ).toEqual([
+      ['contacts_get', 'not_found', null],
+      ['leads_list', 'invalid_arguments', null],
+      [null, 'unknown_tool', null],
+    ])
+    expect(stored[1]?.row.args).toBeNull()
+    expect(JSON.stringify(stored)).not.toContain('xxxx')
+  })
+
+  it('a call whose row cannot be stored fails with a tool error and returns nothing', async () => {
+    useTables(TENANT_A_TABLES, { failInsertsInto: new Set(['mcp_call_audit']) })
+    const answer = await callTool('contacts_search', { query: 'ana' })
+    expect(answer.status).toBe(200)
+    expect(answer.isError).toBe(true)
+    expect(answer.text).toBe(
+      'audit_unavailable: the call could not be recorded; nothing was returned',
+    )
+    expect(answer.data).toEqual({})
+    expect(answer.raw).not.toMatch(/Ana|ana@example|Taller/)
+    // The read ran, but nothing of it left; the log line says why.
+    expect(queries.length).toBeGreaterThan(0)
+    expect(stored).toEqual([])
+    expect(audits().at(-1)).toMatchObject({
+      tool: 'contacts_search',
+      outcome: 'audit_failed',
+      resultCount: null,
+      detail: 'Error',
+    })
   })
 })

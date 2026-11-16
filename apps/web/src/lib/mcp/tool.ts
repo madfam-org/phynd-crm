@@ -20,7 +20,7 @@ export type McpArgsSummary = Readonly<Record<string, string | number | boolean>>
 
 export type McpToolResult =
   | { ok: true; body: Record<string, unknown>; count: number }
-  | { ok: false; error: 'not_found'; message: string }
+  | { ok: false; error: 'not_found' | 'query_not_allowed'; message: string }
 
 /** How the caller sees personal fields: decided by `lib/mcp/auth.ts`, masked by default. */
 export interface McpView {

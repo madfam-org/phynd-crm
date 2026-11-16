@@ -36,7 +36,7 @@ export const contactsRouter = router({
 
   getById: protectedProcedure.input(z.object({ id: z.string().uuid() })).query(({ ctx, input }) => {
     const service = new ContactsService(ctx)
-    return service.getById(input.id)
+    return service.getDetail(input.id)
   }),
 
   create: protectedProcedure

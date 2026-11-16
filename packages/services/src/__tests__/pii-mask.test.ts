@@ -1,6 +1,13 @@
 import { resetFeatureFlags, setFeatureFlags } from '@phynd/config/features'
 import { afterEach, describe, expect, it } from 'vitest'
-import { maskEmail, maskPersonName, maskPhone, shouldMaskPiiForAgent } from '../pii/mask'
+import {
+  MASKED_VALUE,
+  maskEmail,
+  maskPersonName,
+  maskPhone,
+  maskWholeValue,
+  shouldMaskPiiForAgent,
+} from '../pii/mask'
 
 describe('pii mask', () => {
   afterEach(() => {
@@ -13,6 +20,15 @@ describe('pii mask', () => {
 
   it('masks phone tail only', () => {
     expect(maskPhone('+52 55 1234 5678')).toBe('***5678')
+  })
+
+  it('masks a whole value to a fixed marker that keeps nothing of it', () => {
+    expect(maskWholeValue('Empresa Ejemplo S.A.')).toBe(MASKED_VALUE)
+    expect(maskWholeValue('x')).toBe(MASKED_VALUE)
+    expect(MASKED_VALUE).toBe('[redacted]')
+    expect(maskWholeValue('')).toBeNull()
+    expect(maskWholeValue(null)).toBeNull()
+    expect(maskWholeValue(undefined)).toBeNull()
   })
 
   it('masks person name to first token', () => {

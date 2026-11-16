@@ -3,11 +3,18 @@ import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
 import { and, asc, eq, gt, ilike, isNull, or, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { containsPattern } from '../search/like-pattern'
+import { type CustomerHealth, withCustomerHealth } from './customer-health'
+
+type ContactRow = typeof contacts.$inferSelect
+/** A contact with its payment health, derived on read (`customer-health.ts`). */
+export type ContactWithHealth = ContactRow & { health: CustomerHealth | null }
 
 export interface ContactListFilters {
   ownerId?: string
   /** Case-insensitive substring of the name, email or company (taken literally). */
   query?: string
+  /** A whole email address, matched exactly regardless of letter case. */
+  email?: string
 }
 
 export class ContactsService {
@@ -16,7 +23,7 @@ export class ContactsService {
   async list(
     pagination?: PaginationInput,
     filters?: ContactListFilters,
-  ): Promise<PaginatedResult<typeof contacts.$inferSelect>> {
+  ): Promise<PaginatedResult<ContactWithHealth>> {
     const limit = pagination?.limit ?? 50
     const conditions = [isNull(contacts.deletedAt)]
     if (pagination?.cursor) {
@@ -24,6 +31,9 @@ export class ContactsService {
     }
     if (filters?.ownerId) {
       conditions.push(eq(contacts.ownerId, filters.ownerId))
+    }
+    if (filters?.email) {
+      conditions.push(sql`lower(${contacts.email}) = lower(${filters.email})`)
     }
     if (filters?.query) {
       const pattern = containsPattern(filters.query)
@@ -43,7 +53,7 @@ export class ContactsService {
       .limit(limit + 1)
 
     const hasMore = rows.length > limit
-    const items = hasMore ? rows.slice(0, limit) : rows
+    const items = await withCustomerHealth(this.ctx, hasMore ? rows.slice(0, limit) : rows)
     return {
       items,
       nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
@@ -57,6 +67,14 @@ export class ContactsService {
       .from(contacts)
       .where(and(eq(contacts.id, id), isNull(contacts.deletedAt)))
     return contact ?? null
+  }
+
+  /** `getById` plus the contact's derived payment health. */
+  async getDetail(id: string): Promise<ContactWithHealth | null> {
+    const contact = await this.getById(id)
+    if (!contact) return null
+    const [detail] = await withCustomerHealth(this.ctx, [contact])
+    return detail ?? null
   }
 
   async getByJanuaId(januaId: string) {

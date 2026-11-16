@@ -1,7 +1,12 @@
+import { resolveSystemTaskOwner } from '@/lib/webhooks/system-task-owner'
 import type { getDb } from '@phynd/db'
 import { activities, contacts } from '@phynd/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { classifyPaymentLifecycle } from './payment-lifecycle'
+
+interface WarnLogger {
+  warn(fields: Record<string, unknown>, message: string): void
+}
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
@@ -44,13 +49,15 @@ export function isFailedPaymentEvent(eventType: string): boolean {
  * arrive as new events: a per-contact lock and the look-up for an open task
  * carrying {@link FAILED_PAYMENT_TASK_MARKER} keep it to one open task.
  *
- * The task goes to the contact's owner; with no owner it stays unassigned
- * (`owner_id` null), as other system-created activities do.
+ * The task goes to the contact's owner; with no owner, to the configured
+ * default task owner (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`); with neither it
+ * stays unassigned (`owner_id` null) and a warning is logged.
  */
 export async function maybeOpenFailedPaymentTask(
   tx: Tx,
   event: FailedPaymentEvent,
   contactId: string,
+  logger: WarnLogger,
   now: Date = new Date(),
 ): Promise<FailedPaymentTaskResult | null> {
   if (!isFailedPaymentEvent(event.eventType)) return null
@@ -79,6 +86,10 @@ export async function maybeOpenFailedPaymentTask(
     .from(contacts)
     .where(eq(contacts.id, contactId))
     .limit(1)
+  const ownerId = await resolveSystemTaskOwner(tx, logger, {
+    contactOwnerId: contact?.ownerId,
+    logContext: { task: 'dhanam_failed_payment', event_id: event.eventId, contact_id: contactId },
+  })
 
   const [task] = await tx
     .insert(activities)
@@ -90,7 +101,7 @@ export async function maybeOpenFailedPaymentTask(
       dueAt: new Date(now.getTime() + DUE_IN_MS),
       entityType: 'contact',
       entityId: contactId,
-      ownerId: contact?.ownerId ?? null,
+      ownerId,
     })
     .returning({ id: activities.id })
   if (!task?.id) throw new Error('failed-payment task insert returned no row')

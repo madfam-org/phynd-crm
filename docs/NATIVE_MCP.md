@@ -106,7 +106,7 @@ first `X-Forwarded-For` entry is whatever the caller wrote and is never used.
 
 | Tool (wire name) | Catalog name | Runs | Input |
 | --- | --- | --- | --- |
-| `contacts_search` | `contacts.search` | `ContactsService.list` | `query?` (1–100 chars: name, email or company, literal), `owner_id?`, `cursor?`, `limit?` |
+| `contacts_search` | `contacts.search` | `ContactsService.list` | `query?` (1–100 chars; unmasked client: substring of name, email or company, literal; masked client: a whole email address, exact, case-insensitive), `owner_id?`, `cursor?`, `limit?` |
 | `contacts_get` | `contacts.get` | `ContactsService.getById` + `ActivitiesService.listRecentForEntity` | `contact_id`, `activity_limit?` |
 | `leads_list` | `leads.list` | `LeadsService.list` | `status?`, `source?` (exact), `owner_id?`, `cursor?`, `limit?` |
 | `tasks_list_open` | `tasks.list_open` | `ActivitiesService.listRecent` (type `task`, status `pending`, `excludeDeletedParents`) | `owner_id?`, `due_from?`, `due_before?`, `cursor?`, `limit?` |
@@ -144,7 +144,8 @@ was deleted after it (`contacts_get` answers `not_found` for it).
 ### Data boundary
 
 Returned: what an operator sees in the lists and on the contact page (names,
-emails, phones, companies, lead source/status/score, task title/description/due
+emails, phones, companies, the contact's lifecycle stage and derived payment
+health, lead source/status/score, task title/description/due
 date, deal name/value/stage, pipeline and stage names, owner ids).
 
 Never returned, by construction (each record is projected field by field in
@@ -161,8 +162,27 @@ Never returned, by construction (each record is projected field by field in
 the global `piiMasking` flag says: contact names (`Ana ***`), emails
 (`a***@example.com`), phones (`***1234`), preferred names, and the free text of
 task titles and descriptions and deal names (`[redacted]`, or the first 12
-characters then `…[redacted]`). Company, lead source, pipeline and stage names,
-ids, amounts and dates are not masked. The server instructions and the tool
+characters then `…[redacted]`), and companies and lead sources as a whole
+(`[redacted]`: nothing of the value is kept, not its first letters nor its
+length; an absent value stays `null`). Pipeline and stage names, ids,
+statuses, amounts and dates are not masked.
+
+**Stage and health are returned unmasked, by decision.** A contact's
+`lifecycle_stage` (lead, customer, former customer) and derived payment
+`health` (ok, payment failed, cancelled) reach every MCP client in clear,
+masked or not: they are statuses, not identifiers, and every field that
+identifies the person (name, preferred name, email, phone, company) stays
+masked.
+
+Filtering by a masked field still works. `leads_list` with `source` matches the
+stored value exactly, and each returned lead whose stored source equals the
+named one carries it as named (the caller already knows it); the projection
+checks that equality itself, so no other source is ever returned in clear.
+`contacts_search` is narrower for a masked client: a substring search would let
+it recover masked names, emails and companies one guess at a time, so its
+`query` must be a whole email address, matched exactly regardless of letter
+case; any other query is refused with the tool error `query_not_allowed` and no
+contact is read. Unmasked clients keep the substring search. The server instructions and the tool
 descriptions say what a masked value looks like, so an agent never takes a
 masked email for an address. Why: an agent's conversation may leave the
 company's infrastructure (a hosted model, a transcript), so full personal data
@@ -204,6 +224,31 @@ and no argument hash is kept (a hash of a short search term can be reversed by
 guessing). `contacts_get` records which contact was read. The token is never
 logged. `detail` is a reason code or an error class name.
 
+### Stored record (`mcp_call_audit`, migration `0019`)
+
+Besides the log line, every `tools/call` from an admitted caller (verified
+token, allowed client, within its rate) writes one row to `mcp_call_audit` in
+the caller's tenant database: `called_at` (database time), `client_id`,
+`tenant_id`, `tool` (null when the call named no tool of the catalog),
+`args` (the same summary as the log line, so no personal data), `outcome`,
+`result_count` (rows returned by a successful call, else null) and `masked`.
+Protocol methods (`initialize`, `ping`, `tools/list`) and refused callers
+(401, 403, 429, 503) are not stored; their log line remains.
+
+The row is written after the tool ran and before the answer is sent, and the
+write cannot be skipped: if the insert fails, the call answers the tool error
+`audit_unavailable` and none of the rows read leave (the log line records
+`outcome: audit_failed` with the error class). A call that already failed with
+an internal error keeps its 500. So the migration must be applied before the
+switch is turned on, or every tool call fails.
+
+**Retention.** Rows are kept until deleted; there is no deletion job yet. The
+table holds no personal data (client ids, tool names, identifiers, counts).
+The owner decides a retention period before the MCP is enabled for a
+consumer; a scheduled deletion of rows older than that period is follow-up
+work, and until it exists rows are deleted by hand
+(`delete from mcp_call_audit where called_at < now() - interval '<period>'`).
+
 ## Enabling it (owner steps; agents never do these)
 
 Prerequisite: Janua machine tokens are already on for this deployment
@@ -227,6 +272,8 @@ Prerequisite: Janua machine tokens are already on for this deployment
    ```
 
 3. **Promote this code** as usual (`promote-to-prod.yml`); the route ships off.
+   The PreSync migration job applies `0019` (`mcp_call_audit`); without that
+   table every tool call answers `audit_unavailable`.
 4. **Allowlist the client and turn the switch on.** Both values are plain
    configuration (identifiers, not secrets), declared like the deployment's
    other non-secret env: add them under `containers[web].env` in

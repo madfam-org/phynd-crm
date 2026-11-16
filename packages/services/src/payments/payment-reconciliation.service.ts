@@ -1,6 +1,7 @@
 import type { getDb } from '@phynd/db'
 import { engagementEvents, engagements, externalReferences, orders } from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
+import { PAID_ORDER_STATES, markCustomer } from '../contacts/customer-stage'
 import { recordProductionDispatchIntent } from '../production/production-dispatch.service'
 
 type PaymentTx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
@@ -103,6 +104,10 @@ export async function reconcileDhanamPayment(
   if (engagementId) {
     await recordReconciledPaymentEvent(tx, engagementId, order, input, paidAmount, paymentStatus)
     await maybeRecordPaidProductionDispatch(tx, engagementId, order, input, paymentStatus)
+  }
+  // An order that becomes (partly) paid makes its contact a customer.
+  if (PAID_ORDER_STATES.has(paymentStatus)) {
+    await markCustomer(tx, order.contactId ?? input.contactId, occurredAt)
   }
 
   return {

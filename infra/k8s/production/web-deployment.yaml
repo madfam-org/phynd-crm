@@ -50,10 +50,27 @@ spec:
               value: "aldo@madfam.io"
             # Owner of tasks the system opens on a contact without owner
             # (lead-intake follow-up, Dhanam failed payment): the operator's
-            # account, as janua:<subject>. Until that account has a CRM user
-            # those tasks stay unassigned with DEFAULT_TASK_OWNER_UNAVAILABLE.
+            # account, as janua:<subject>. It names a person's account, so it
+            # comes from the dedicated ExternalSecret phynd-crm-default-task-owner
+            # (phynd-crm-staff-access.yaml). Optional: absent, or no such CRM
+            # user, those tasks stay unassigned with DEFAULT_TASK_OWNER_UNAVAILABLE.
             - name: PHYND_CRM_DEFAULT_TASK_OWNER_ID
-              value: "janua:854c6d44-6885-41d6-a1ca-18d70bc72a38"
+              valueFrom:
+                secretKeyRef:
+                  name: phynd-crm-default-task-owner
+                  key: PHYND_CRM_DEFAULT_TASK_OWNER_ID
+                  optional: true
+            # Staff bootstrap: <role>:sub:<subject> entries whose account gets
+            # its CRM user, with that role, on first sign-in (docs/DEPLOYMENT.md § Staff access). Names people's
+            # accounts, so it comes from the dedicated ExternalSecret
+            # phynd-crm-staff-bootstrap (phynd-crm-staff-access.yaml). Optional:
+            # absent = no bootstrap; access is granted in the CRM's Users screen.
+            - name: PHYND_BOOTSTRAP_STAFF
+              valueFrom:
+                secretKeyRef:
+                  name: phynd-crm-staff-bootstrap
+                  key: PHYND_BOOTSTRAP_STAFF
+                  optional: true
             - name: TULANA_API_BASE_URL
               value: "https://tulana-api.madfam.io/api/v1"
             - name: TULANA_COMMERCIAL_GA_ENVIRONMENT

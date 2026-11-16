@@ -6,8 +6,14 @@ import { eq } from 'drizzle-orm'
 export const CRM_USER_CACHE_TTL_MS = 30_000
 const DEFAULT_MAX_ENTRIES = 1_000
 
+/** The CRM user linked to a Janua subject: its id and its role (`users.role`). */
+export interface LinkedCrmUser {
+  id: string
+  role: string
+}
+
 interface CacheEntry {
-  crmUserId: string | null
+  user: LinkedCrmUser | null
   expiresAt: number
 }
 
@@ -20,12 +26,14 @@ export interface CrmUserResolverOptions {
 type UsersLookupDb = Pick<Database, 'select'>
 
 /**
- * Resolves a Janua subject to the CRM `users.id` linked through
- * `users.external_janua_id`. Results, including "not linked", are cached per
+ * Resolves a Janua subject to the CRM user linked through
+ * `users.external_janua_id`: its `users.id` and its `users.role`, which is the
+ * staff session's only role. Results, including "not linked", are cached per
  * tenant and subject for a short TTL so a request costs at most one lookup.
  *
- * `users.linkJanua` / `unlinkJanua` invalidate the entry in this process; other
- * replicas pick the change up when their entry expires.
+ * `users.linkJanua` / `unlinkJanua` / `update` / `delete` invalidate the entry
+ * in this process; other replicas pick the change up when their entry expires
+ * (at most {@link CRM_USER_CACHE_TTL_MS}).
  */
 export class CrmUserResolver {
   private readonly cache = new Map<string, CacheEntry>()
@@ -39,20 +47,30 @@ export class CrmUserResolver {
     this.now = options.now ?? Date.now
   }
 
+  /** The linked CRM user's id, or null. */
   async resolve(db: UsersLookupDb, tenantId: string, januaSub: string): Promise<string | null> {
+    return (await this.resolveUser(db, tenantId, januaSub))?.id ?? null
+  }
+
+  /** The linked CRM user (id and role), or null. */
+  async resolveUser(
+    db: UsersLookupDb,
+    tenantId: string,
+    januaSub: string,
+  ): Promise<LinkedCrmUser | null> {
     if (!januaSub) return null
     const key = cacheKey(tenantId, januaSub)
     const hit = this.cache.get(key)
-    if (hit && hit.expiresAt > this.now()) return hit.crmUserId
+    if (hit && hit.expiresAt > this.now()) return hit.user
 
     const [row] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, role: users.role })
       .from(users)
       .where(eq(users.externalJanuaId, januaSub))
       .limit(1)
-    const crmUserId = row?.id ?? null
-    this.store(key, crmUserId)
-    return crmUserId
+    const user = row ? { id: row.id, role: row.role } : null
+    this.store(key, user)
+    return user
   }
 
   invalidate(tenantId: string, januaSub: string) {
@@ -67,13 +85,13 @@ export class CrmUserResolver {
     return this.cache.size
   }
 
-  private store(key: string, crmUserId: string | null) {
+  private store(key: string, user: LinkedCrmUser | null) {
     this.cache.delete(key)
     if (this.cache.size >= this.maxEntries) {
       const oldest = this.cache.keys().next().value
       if (oldest !== undefined) this.cache.delete(oldest)
     }
-    this.cache.set(key, { crmUserId, expiresAt: this.now() + this.ttlMs })
+    this.cache.set(key, { user, expiresAt: this.now() + this.ttlMs })
   }
 }
 

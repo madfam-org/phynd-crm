@@ -7,8 +7,6 @@
  * the real Drizzle where-clause); the real tRPC router then runs FK writes.
  */
 import { CRM_USER_NOT_LINKED_MESSAGE } from '@phynd/types/auth'
-import type { SQL } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -16,74 +14,17 @@ import {
   createJanuaSignInHarness,
   readSession,
 } from '@/lib/auth/__tests__/janua-stub'
+import { type FakeUsersDb, createFakeUsersDb } from './fake-users-db'
 
-const { authMock, fakeDb } = vi.hoisted(() => {
-  /** users.external_janua_id → users.id */
-  const links = new Map<string, string>()
-  const inserted: Array<Record<string, unknown>> = []
-  let lookups = 0
-  let dialect: { sqlToQuery: (s: unknown) => { params: unknown[] } } | null = null
-
-  function chain(result: () => unknown[]) {
-    const q: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'limit', 'orderBy', 'returning']) {
-      q[m] = (arg?: unknown) => {
-        if (m === 'where') q._where = arg
-        return q
-      }
-    }
-    Object.defineProperty(q, 'then', {
-      value: (resolve: (v: unknown) => void, reject: (e: unknown) => void) => {
-        try {
-          resolve(result.call(q))
-        } catch (e) {
-          reject(e)
-        }
-      },
-    })
-    return q
-  }
-
-  const fakeDb = {
-    links,
-    inserted,
-    get lookups() {
-      return lookups
-    },
-    setDialect(d: typeof dialect) {
-      dialect = d
-    },
-    reset() {
-      links.clear()
-      inserted.length = 0
-      lookups = 0
-    },
-    select() {
-      return chain(function (this: { _where?: unknown }) {
-        lookups++
-        const sub = dialect?.sqlToQuery(this._where).params[0] as string
-        const id = links.get(sub)
-        return id ? [{ id }] : []
-      })
-    },
-    insert() {
-      let row: Record<string, unknown> = {}
-      const q = chain(() => [{ id: `row-${inserted.length}`, ...row }])
-      q.values = (v: Record<string, unknown>) => {
-        row = v
-        inserted.push(v)
-        return q
-      }
-      return q
-    },
-  }
-  return { authMock: vi.fn(), fakeDb }
-})
+const { authMock, db } = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  db: { current: null as FakeUsersDb | null },
+}))
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
 vi.mock('@phynd/db', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@phynd/db')>()),
-  getDb: () => fakeDb,
+  getDb: () => db.current,
 }))
 vi.mock('@/lib/federation/clients', () => ({
   getCacheManager: () => ({}),
@@ -115,9 +56,10 @@ const activity = {
 
 let harness: Awaited<ReturnType<typeof createJanuaSignInHarness>>
 
+const fakeDb = createFakeUsersDb()
+db.current = fakeDb
+
 beforeAll(async () => {
-  const dialect = new PgDialect()
-  fakeDb.setDialect({ sqlToQuery: (where: unknown) => dialect.sqlToQuery(where as SQL) })
   harness = await createJanuaSignInHarness()
 })
 
@@ -135,7 +77,7 @@ afterEach(() => {
 
 describe('linked Janua user', () => {
   beforeEach(() => {
-    fakeDb.links.set(alice.sub, ALICE_CRM_ID)
+    fakeDb.link(alice.sub, ALICE_CRM_ID)
   })
 
   it('exposes the Janua subject and the linked CRM user id', async () => {
@@ -187,7 +129,7 @@ describe('unlinked Janua user (staff gate)', () => {
     const before = await resolveAuthContext(new Headers())
     expect(before.userId).toBe('')
 
-    fakeDb.links.set(alice.sub, ALICE_CRM_ID)
+    fakeDb.link(alice.sub, ALICE_CRM_ID)
     crmUserResolver.invalidate('madfam', alice.sub) // what users.linkJanua does
 
     const after = await resolveAuthContext(new Headers())
@@ -251,7 +193,7 @@ describe('first-admin bootstrap (PHYND_BOOTSTRAP_ADMIN_SUBS)', () => {
 
   it('does nothing for a listed subject that is already linked', async () => {
     vi.stubEnv('PHYND_BOOTSTRAP_ADMIN_SUBS', alice.sub)
-    fakeDb.links.set(alice.sub, ALICE_CRM_ID)
+    fakeDb.link(alice.sub, ALICE_CRM_ID)
 
     const auth = await resolveAuthContext(new Headers())
 

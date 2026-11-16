@@ -1,7 +1,7 @@
 import { users } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
 import type { PaginatedResult, PaginationInput } from '@phynd/types/crm'
-import { and, eq, gt, isNull } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, isNull } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 import { ConflictError, NotFoundError } from '../errors'
 import { actorIdOf } from '../identity/actor'
@@ -77,11 +77,43 @@ export class UsersService {
   }
 
   async update(id: string, data: Partial<{ email: string; name: string | null; role: string }>) {
+    if (data.role !== undefined && data.role !== 'admin') {
+      const current = await this.getById(id)
+      if (current) await this.assertNotLastAdmin(current)
+    }
     const [user] = await this.ctx.db.update(users).set(data).where(eq(users.id, id)).returning()
+    // The role is the linked staff session's only role: drop the cached one so
+    // the change applies on the next request in this process.
+    if (user?.externalJanuaId) crmUserResolver.invalidate(this.ctx.tenantId, user.externalJanuaId)
     return user ?? null
   }
 
+  /**
+   * First-sign-in provisioning for a bootstrap-listed staff subject (see
+   * `PHYND_BOOTSTRAP_STAFF` in the web app): the CRM user already linked to
+   * `januaSub` unchanged, or a new CRM user with `role`, linked to it. Matching
+   * is by subject only, never by email, so an existing CRM user is never
+   * re-pointed or re-roled here.
+   */
+  async bootstrapStaff(input: {
+    januaSub: string
+    email: string
+    name?: string | null
+    role: string
+  }): Promise<UserRow> {
+    const existing = await this.getByJanuaId(input.januaSub)
+    if (existing) return existing
+    return this.create({
+      email: input.email,
+      name: input.name ?? undefined,
+      role: input.role,
+      externalJanuaId: input.januaSub,
+    })
+  }
+
   async delete(id: string) {
+    const current = await this.getById(id)
+    if (current) await this.assertNotLastAdmin(current)
     const [user] = await this.ctx.db.delete(users).where(eq(users.id, id)).returning()
     if (user?.externalJanuaId) crmUserResolver.invalidate(this.ctx.tenantId, user.externalJanuaId)
     return user ?? null
@@ -102,8 +134,33 @@ export class UsersService {
         { userId: id },
       )
     }
-    await this.assertJanuaIdFree(januaSub, id)
+    return this.linkUnlinked(id, januaSub)
+  }
 
+  /** Removes the Janua link of a CRM user. Idempotent when it is not linked. */
+  async unlinkJanua(id: string) {
+    const user = await this.getById(id)
+    if (!user) throw new NotFoundError('User', id)
+    const previous = user.externalJanuaId
+    if (!previous) return user
+    await this.assertNotLastAdmin(user)
+
+    const [updated] = await this.ctx.db
+      .update(users)
+      .set({ externalJanuaId: null })
+      .where(eq(users.id, id))
+      .returning()
+    this.recordLinkChange('unlink', id, previous)
+    return updated ?? { ...user, externalJanuaId: null }
+  }
+
+  /**
+   * Links a CRM user that is still unlinked to `januaSub` in one update guarded
+   * on `external_janua_id IS NULL`, so a user linked meanwhile to another
+   * subject is never re-pointed.
+   */
+  private async linkUnlinked(id: string, januaSub: string) {
+    await this.assertJanuaIdFree(januaSub, id)
     let updated: UserRow | undefined
     try {
       ;[updated] = await this.ctx.db
@@ -124,20 +181,22 @@ export class UsersService {
     return updated
   }
 
-  /** Removes the Janua link of a CRM user. Idempotent when it is not linked. */
-  async unlinkJanua(id: string) {
-    const user = await this.getById(id)
-    if (!user) throw new NotFoundError('User', id)
-    const previous = user.externalJanuaId
-    if (!previous) return user
-
-    const [updated] = await this.ctx.db
-      .update(users)
-      .set({ externalJanuaId: null })
-      .where(eq(users.id, id))
-      .returning()
-    this.recordLinkChange('unlink', id, previous)
-    return updated ?? { ...user, externalJanuaId: null }
+  /**
+   * Refuses to demote, delete or unlink the last CRM admin linked to a Janua
+   * identity: without one nobody can manage users any more. A user that is not
+   * a linked admin is never blocked.
+   */
+  private async assertNotLastAdmin(user: UserRow) {
+    if (user.role !== 'admin' || !user.externalJanuaId) return
+    const admins = await this.ctx.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, 'admin'), isNotNull(users.externalJanuaId)))
+    if (admins.some((admin) => admin.id !== user.id)) return
+    throw new ConflictError(
+      'This is the last administrator who can sign in to the CRM. Make another user an admin first.',
+      { userId: user.id },
+    )
   }
 
   private async assertJanuaIdFree(januaSub: string, exceptUserId?: string) {

@@ -1,6 +1,12 @@
 import { isFeatureEnabled } from '@phynd/config/features'
 import type { AuthContext } from '@phynd/types/auth'
 
+/**
+ * Masking applies to service principals. For a staff session `auth.roles` is
+ * its linked CRM user's role (never a role from the identity service's tokens),
+ * so the admin bypass follows the CRM role and a staff session never carries
+ * `service`.
+ */
 export function shouldMaskPiiForAgent(auth: AuthContext): boolean {
   if (!isFeatureEnabled('piiMasking')) return false
   if (auth.roles.includes('admin')) return false

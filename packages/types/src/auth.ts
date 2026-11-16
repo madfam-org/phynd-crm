@@ -21,6 +21,11 @@ export interface AuthContext {
    */
   userId: string
   tenantId: string
+  /**
+   * For a signed-in staff user: `[users.role]` of the linked CRM user, or `[]`
+   * when unlinked (break-glass). For other principals: their fixed roles
+   * (`['service']`, `['system']`, …).
+   */
   roles: string[]
   scopes: string[]
   accessToken: string
@@ -35,6 +40,19 @@ export interface AuthContext {
    * to any CRM user. Resolved once per request. Absent for non-Janua principals.
    */
   crmUserId?: string | null
+}
+
+/**
+ * The roles a CRM user (`users.role`) can hold. A signed-in staff session's
+ * `AuthContext.roles` is exactly `[role]` of its linked CRM user; the roles in
+ * the identity service's tokens are not used for staff authorization.
+ */
+export const STAFF_ROLES = ['admin', 'manager', 'sales_rep', 'viewer'] as const
+
+export type StaffRole = (typeof STAFF_ROLES)[number]
+
+export function isStaffRole(value: unknown): value is StaffRole {
+  return typeof value === 'string' && (STAFF_ROLES as readonly string[]).includes(value)
 }
 
 /** Error code for a Janua identity that has no linked CRM user. */

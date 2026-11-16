@@ -29,7 +29,7 @@ vi.mock('@phynd/db/schema', () => ({
   },
   conversions: {
     contactId: 'conversions.contactId',
-    createdAt: 'conversions.createdAt',
+    convertedAt: 'conversions.convertedAt',
     id: 'conversions.id',
     type: 'conversions.type',
   },
@@ -82,7 +82,7 @@ describe('ContactsService', () => {
         )
         .mockImplementationOnce((resolve: (value: unknown) => unknown) =>
           Promise.resolve([
-            { contactId: 'c1', type: 'dhanam_payment_failed', createdAt: new Date(2) },
+            { contactId: 'c1', type: 'dhanam_payment_failed', convertedAt: new Date(2) },
           ]).then(resolve),
         )
       const result = await service.list()

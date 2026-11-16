@@ -29,10 +29,10 @@ describe('deriveCustomerHealth', () => {
 describe('latestPaymentOutcomes', () => {
   it('reads the payment conversions of the whole page in one query, newest first', async () => {
     const ctx = createTestContext([
-      { contactId: 'c-1', type: 'dhanam_invoice_payment_failed', createdAt: new Date(3) },
-      { contactId: 'c-2', type: 'dhanam_payment_succeeded', createdAt: new Date(3) },
-      { contactId: 'c-1', type: 'dhanam_checkout_completed', createdAt: new Date(2) },
-      { contactId: 'c-2', type: 'dhanam_payment_failed', createdAt: new Date(1) },
+      { contactId: 'c-1', type: 'dhanam_invoice_payment_failed', convertedAt: new Date(3) },
+      { contactId: 'c-2', type: 'dhanam_payment_succeeded', convertedAt: new Date(3) },
+      { contactId: 'c-1', type: 'dhanam_checkout_completed', convertedAt: new Date(2) },
+      { contactId: 'c-2', type: 'dhanam_payment_failed', convertedAt: new Date(1) },
     ])
     const outcomes = await latestPaymentOutcomes(ctx, ['c-1', 'c-2', 'c-3'])
     expect(Object.fromEntries(outcomes)).toEqual({ 'c-1': 'failed', 'c-2': 'paid' })
@@ -56,7 +56,7 @@ describe('latestPaymentOutcomes', () => {
 describe('withCustomerHealth', () => {
   it('adds the derived health to each contact', async () => {
     const ctx = createTestContext([
-      { contactId: 'c-1', type: 'dhanam_payment_failed', createdAt: new Date(1) },
+      { contactId: 'c-1', type: 'dhanam_payment_failed', convertedAt: new Date(1) },
     ])
     const rows = await withCustomerHealth(ctx, [
       { id: 'c-1', lifecycleStage: 'customer' },

@@ -65,11 +65,7 @@ export async function latestPaymentOutcomes(
   const outcomes = new Map<string, PaymentOutcome>()
   if (contactIds.length === 0) return outcomes
   const rows = await ctx.db
-    .select({
-      contactId: conversions.contactId,
-      type: conversions.type,
-      createdAt: conversions.createdAt,
-    })
+    .select({ contactId: conversions.contactId, type: conversions.type })
     .from(conversions)
     .where(
       and(
@@ -77,7 +73,7 @@ export async function latestPaymentOutcomes(
         inArray(conversions.type, OUTCOME_TYPES),
       ),
     )
-    .orderBy(desc(conversions.createdAt), desc(conversions.id))
+    .orderBy(desc(conversions.convertedAt), desc(conversions.id))
   for (const row of rows) {
     if (!row.contactId || outcomes.has(row.contactId)) continue
     if (PAID_TYPES.has(row.type)) outcomes.set(row.contactId, 'paid')

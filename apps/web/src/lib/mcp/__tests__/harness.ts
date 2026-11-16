@@ -127,8 +127,8 @@ function activity(n: number, fields: Record<string, string | number | boolean | 
   }
 }
 
-function conversion(n: number, contactN: number, type: string, createdAt: string): FakeRow {
-  return { id: uuid(n), contact_id: uuid(contactN), type, created_at: createdAt }
+function conversion(n: number, contactN: number, type: string, convertedAt: string): FakeRow {
+  return { id: uuid(n), contact_id: uuid(contactN), type, converted_at: convertedAt }
 }
 
 export const DELETED_CONTACT_ID = uuid(3)

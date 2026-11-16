@@ -52,9 +52,13 @@ links a CRM user row to a Janua subject. Contacts and leads carry their own
 `external_janua_id` for customers who are also Janua users.
 
 CRM users are deliberate: **signing in never creates a CRM user**, except for
-an account listed in the staff bootstrap (`PHYND_BOOTSTRAP_STAFF`, see
-[DEPLOYMENT.md § Staff access](./DEPLOYMENT.md#staff-access)). Otherwise an
-admin creates the user and links it to the person's Janua subject.
+a Janua subject listed in the staff bootstrap (`PHYND_BOOTSTRAP_STAFF`, subjects
+only, see [DEPLOYMENT.md § Staff access](./DEPLOYMENT.md#staff-access)).
+Otherwise an admin creates the user and links it to the person's Janua subject.
+A listed subject must be removed from the bootstrap after its first sign-in:
+while it stays listed, unlinking or deleting its CRM user does not revoke
+access, because the next request provisions it again. The last CRM admin linked
+to a Janua identity cannot be demoted, unlinked or deleted.
 
 ### Staff roles come from the CRM user
 

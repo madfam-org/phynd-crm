@@ -60,9 +60,8 @@ spec:
                   name: phynd-crm-default-task-owner
                   key: PHYND_CRM_DEFAULT_TASK_OWNER_ID
                   optional: true
-            # Staff bootstrap: <role>:sub:<subject> / <role>:<verified email>
-            # entries whose account gets its CRM user, with that role, on first
-            # sign-in (docs/DEPLOYMENT.md § Staff access). Names people's
+            # Staff bootstrap: <role>:sub:<subject> entries whose account gets
+            # its CRM user, with that role, on first sign-in (docs/DEPLOYMENT.md § Staff access). Names people's
             # accounts, so it comes from the dedicated ExternalSecret
             # phynd-crm-staff-bootstrap (phynd-crm-staff-access.yaml). Optional:
             # absent = no bootstrap; access is granted in the CRM's Users screen.

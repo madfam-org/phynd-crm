@@ -55,7 +55,9 @@ export function createFakeUsersDb() {
     if (!where) return [...users]
     const { sql, params } = dialect.sqlToQuery(where as SQL)
     const param = params[0]
-    if (sql.includes('lower(')) return users.filter((u) => u.email.toLowerCase() === param)
+    if (sql.includes('"role" =') && sql.includes('"external_janua_id" is not null')) {
+      return users.filter((u) => u.role === param && u.externalJanuaId)
+    }
     if (sql.includes('"external_janua_id" =')) {
       return users.filter((u) => u.externalJanuaId === param)
     }
@@ -113,6 +115,14 @@ export function createFakeUsersDb() {
           })
         }
         return [{ id, ...values }]
+      })
+    },
+    delete(table: unknown) {
+      return chain((q) => {
+        if (tableName(table) !== 'users') return []
+        const rows = matching(q._where)
+        for (const row of rows) users.splice(users.indexOf(row), 1)
+        return rows.map((u) => ({ ...u }))
       })
     },
     update(table: unknown) {

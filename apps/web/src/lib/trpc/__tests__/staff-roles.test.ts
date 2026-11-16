@@ -5,7 +5,7 @@
  * session (with whatever roles Janua puts in its token); `resolveAuthContext`
  * resolves the CRM user and its role from an in-memory users table; the real
  * tRPC router enforces `requireRole`. Also covers the staff bootstrap
- * (`PHYND_BOOTSTRAP_STAFF`) by subject and by verified email.
+ * (`PHYND_BOOTSTRAP_STAFF`, subjects only) and the last-admin guard.
  */
 import { resetFeatureFlags, setFeatureFlags } from '@phynd/config/features'
 import { shouldMaskPiiForAgent } from '@phynd/services'
@@ -37,6 +37,7 @@ vi.mock('@/lib/federation/clients', () => ({
 import { crmUserResolver } from '@phynd/services/identity'
 import {
   SERVICE_AUTH_SCOPES,
+  clearBootstrapRefusals,
   createAppContext,
   createAppContextFromRequest,
   createCaller,
@@ -51,14 +52,12 @@ db.current = fakeDb
 const ana: StubUser = {
   sub: '11111111-aaaa-4aaa-8aaa-000000000001',
   email: 'ana.ejemplo@example.test',
-  emailVerified: true,
   roles: ['admin'],
   scope: 'openid',
 }
 const beto: StubUser = {
   sub: '22222222-bbbb-4bbb-8bbb-000000000002',
   email: 'beto.ejemplo@example.test',
-  emailVerified: true,
   roles: ['admin', 'service'],
   scope: 'openid',
 }
@@ -97,6 +96,7 @@ beforeAll(async () => {
 beforeEach(() => {
   fakeDb.reset()
   crmUserResolver.clear()
+  clearBootstrapRefusals()
 })
 
 afterEach(() => {
@@ -224,9 +224,9 @@ describe('service principals are unchanged', () => {
   })
 })
 
-describe('staff bootstrap (PHYND_BOOTSTRAP_STAFF)', () => {
-  it('creates a linked CRM user with the listed role for a verified email', async () => {
-    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:${ana.email.toUpperCase()},manager:${beto.email}`)
+describe('staff bootstrap (PHYND_BOOTSTRAP_STAFF, subjects only)', () => {
+  it('creates a linked CRM user with the listed role for a listed subject', async () => {
+    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:sub:${ana.sub},manager:sub:${beto.sub}`)
 
     const { auth } = await callerFor(beto)
 
@@ -237,78 +237,82 @@ describe('staff bootstrap (PHYND_BOOTSTRAP_STAFF)', () => {
     expect(auth.crmUserId).toBe(fakeDb.users[0]?.id)
   })
 
-  it('links the existing unlinked CRM user with that email and sets the role', async () => {
-    fakeDb.users.push({
-      id: ANA_ID,
-      email: 'Ana.Ejemplo@Example.test',
-      role: 'viewer',
-      externalJanuaId: null,
-    })
+  it('ignores an email entry, even for the account with that email', async () => {
     vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:${ana.email}`)
+    fakeDb.users.push({ id: ANA_ID, email: ana.email, role: 'viewer', externalJanuaId: null })
 
     const { auth } = await callerFor(ana)
 
-    expect(auth.crmUserId).toBe(ANA_ID)
-    expect(auth.roles).toEqual(['admin'])
-    expect(fakeDb.byId(ANA_ID)).toMatchObject({ role: 'admin', externalJanuaId: ana.sub })
+    expect(auth.userId).toBe('')
+    expect(fakeDb.byId(ANA_ID)).toMatchObject({ role: 'viewer', externalJanuaId: null })
     expect(fakeDb.inserted).toHaveLength(0)
   })
 
-  it('refuses an email that Janua does not mark verified', async () => {
-    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:${ana.email}`)
-
-    for (const emailVerified of [false, undefined]) {
-      crmUserResolver.clear()
-      const { auth } = await callerFor({ ...ana, emailVerified })
-      expect(auth.userId).toBe('')
-    }
-    expect(fakeDb.users).toHaveLength(0)
-  })
-
-  it('never re-points a CRM user already linked to another identity', async () => {
-    fakeDb.link('33333333-cccc-4ccc-8ccc-000000000003', ANA_ID, 'viewer', ana.email)
-    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:${ana.email}`)
-
-    const { auth } = await callerFor(ana)
-
-    expect(auth.userId).toBe('')
-    expect(fakeDb.users).toHaveLength(1)
-    expect(fakeDb.byId(ANA_ID)).toMatchObject({
-      role: 'viewer',
-      externalJanuaId: '33333333-cccc-4ccc-8ccc-000000000003',
-    })
-  })
-
-  it('refuses when several unlinked CRM users share the email', async () => {
-    for (const id of [ANA_ID, BETO_ID]) {
-      fakeDb.users.push({ id, email: ana.email, role: 'viewer', externalJanuaId: null })
-    }
-    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:${ana.email}`)
-
-    const { auth } = await callerFor(ana)
-
-    expect(auth.userId).toBe('')
-    expect(fakeDb.users.every((u) => u.externalJanuaId === null)).toBe(true)
-  })
-
-  it('provisions a subject entry with its role, without needing a verified email', async () => {
-    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `manager:sub:${ana.sub}`)
-
-    const { auth } = await callerFor({ ...ana, emailVerified: false })
-
-    expect(auth.roles).toEqual(['manager'])
-    expect(fakeDb.users).toEqual([
-      expect.objectContaining({ role: 'manager', externalJanuaId: ana.sub }),
-    ])
-  })
-
-  it('leaves an already linked account as it is (the Users screen is the source of truth)', async () => {
+  it('leaves an already linked subject as it is (the Users screen is the source of truth)', async () => {
     fakeDb.link(ana.sub, ANA_ID, 'viewer', ana.email)
-    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:${ana.email}`)
+    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:sub:${ana.sub}`)
 
     const { auth } = await callerFor(ana)
 
     expect(auth.roles).toEqual(['viewer'])
     expect(fakeDb.inserted).toHaveLength(0)
+  })
+
+  it('while the entry stays listed, unlinking the user does not revoke access: the next request bootstraps again', async () => {
+    fakeDb.link(beto.sub, BETO_ID, 'admin')
+    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `manager:sub:${ana.sub}`)
+    expect((await callerFor(ana)).auth.roles).toEqual(['manager'])
+    const firstId = fakeDb.users.find((u) => u.externalJanuaId === ana.sub)?.id ?? ''
+
+    const { caller: admin } = await callerFor(beto)
+    await admin.users.unlinkJanua({ id: firstId })
+
+    const again = await callerFor(ana)
+    expect(again.auth.roles).toEqual(['manager'])
+    expect(again.auth.crmUserId).not.toBe(firstId)
+  })
+
+  it('a refused entry (no email in the session) is remembered, not retried on every request', async () => {
+    vi.stubEnv('PHYND_BOOTSTRAP_STAFF', `admin:sub:${ana.sub}`)
+    const session = { user: { id: ana.sub, roles: [], scopes: [] }, accessToken: 't' }
+    authMock.mockResolvedValue(session)
+
+    await resolveAuthContext(new Headers())
+    crmUserResolver.clear() // even with a fresh CRM-user lookup
+    const lookups = fakeDb.lookups
+    const auth = await resolveAuthContext(new Headers())
+
+    expect(auth.userId).toBe('')
+    expect(fakeDb.inserted).toHaveLength(0)
+    expect(fakeDb.lookups).toBe(lookups + 1) // the link lookup only, no provisioning
+  })
+})
+
+describe('the last linked admin is protected', () => {
+  beforeEach(() => {
+    fakeDb.link(ana.sub, ANA_ID, 'admin')
+    fakeDb.link(beto.sub, BETO_ID, 'manager')
+  })
+
+  it('cannot be demoted, unlinked or deleted', async () => {
+    const { caller } = await callerFor(ana)
+
+    await expect(caller.users.update({ id: ANA_ID, role: 'manager' })).rejects.toMatchObject({
+      code: 'CONFLICT',
+    })
+    await expect(caller.users.unlinkJanua({ id: ANA_ID })).rejects.toMatchObject({
+      code: 'CONFLICT',
+    })
+    await expect(caller.users.delete({ id: ANA_ID })).rejects.toMatchObject({ code: 'CONFLICT' })
+    expect(fakeDb.byId(ANA_ID)).toMatchObject({ role: 'admin', externalJanuaId: ana.sub })
+  })
+
+  it('can be demoted once another linked admin exists', async () => {
+    const { caller } = await callerFor(ana)
+    await caller.users.update({ id: BETO_ID, role: 'admin' })
+
+    await caller.users.update({ id: ANA_ID, role: 'manager' })
+
+    expect(fakeDb.byId(ANA_ID)?.role).toBe('manager')
   })
 })

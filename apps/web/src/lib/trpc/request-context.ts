@@ -1,10 +1,6 @@
 import crypto from 'node:crypto'
 import { auth } from '@/lib/auth'
-import {
-  type StaffBootstrapMatch,
-  matchStaffBootstrap,
-  staffBootstrapEntries,
-} from '@/lib/auth/staff-bootstrap'
+import { matchStaffBootstrap, staffBootstrapEntries } from '@/lib/auth/staff-bootstrap'
 import { clientAddress } from '@/lib/client-address'
 import { createDemoAuth, getDemoSessionIdFromCookieHeader } from '@/lib/demo'
 import { getCacheManager, getFederationClients, getHealthChecker } from '@/lib/federation/clients'
@@ -18,8 +14,12 @@ import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
 import { UsersService } from '@phynd/services'
 import { createServiceContext } from '@phynd/services/context'
-import { type LinkedCrmUser, crmUserResolver } from '@phynd/services/identity'
-import { type AuthContext, isStaffRole } from '@phynd/types/auth'
+import {
+  CRM_USER_CACHE_TTL_MS,
+  type LinkedCrmUser,
+  crmUserResolver,
+} from '@phynd/services/identity'
+import { type AuthContext, type StaffRole, isStaffRole } from '@phynd/types/auth'
 
 const serviceAuthLogger = createLogger('web:trpc:service-auth')
 const staffGateLogger = createLogger('web:trpc:staff-gate')
@@ -82,19 +82,71 @@ export function allowUnlinkedSignIn(): boolean {
   return process.env.PHYND_ALLOW_UNLINKED_SIGNIN === 'true'
 }
 
+export const EMPTY_AUTH: AuthContext = {
+  userId: '',
+  tenantId: DEFAULT_TENANT_ID,
+  roles: [],
+  scopes: [],
+  accessToken: '',
+}
+
+interface StaffSessionUser {
+  email?: string | null
+  name?: string | null
+}
+
 /**
- * First-sign-in provisioning of a bootstrap-listed staff account (see
- * lib/auth/staff-bootstrap.ts): creates its CRM user with the listed role, or
- * links the CRM user that already has its verified email. Logs the subject and
- * role, never the email.
+ * Bootstrap-listed subjects whose provisioning was refused recently, so a
+ * refused entry is logged once and does not hit the database on every request
+ * within the cache window. Keyed like the CRM-user cache (tenant + subject).
+ */
+const refusedBootstrap = new Map<string, number>()
+const REFUSED_BOOTSTRAP_MAX = 1_000
+
+function bootstrapRefusedRecently(key: string): boolean {
+  const until = refusedBootstrap.get(key)
+  if (until === undefined) return false
+  if (until > Date.now()) return true
+  refusedBootstrap.delete(key)
+  return false
+}
+
+function rememberBootstrapRefusal(key: string) {
+  if (refusedBootstrap.size >= REFUSED_BOOTSTRAP_MAX) {
+    const oldest = refusedBootstrap.keys().next().value
+    if (oldest !== undefined) refusedBootstrap.delete(oldest)
+  }
+  refusedBootstrap.set(key, Date.now() + CRM_USER_CACHE_TTL_MS)
+}
+
+/** Forget remembered bootstrap refusals (tests). */
+export function clearBootstrapRefusals() {
+  refusedBootstrap.clear()
+}
+
+/**
+ * First-sign-in provisioning of a bootstrap-listed staff subject (see
+ * lib/auth/staff-bootstrap.ts): creates its CRM user with the listed role,
+ * linked to the subject. Logs the subject and role, never the email. A refusal
+ * is logged once and remembered for the cache window.
  */
 async function provisionBootstrapStaff(
   tenantId: string,
   januaSub: string,
   user: StaffSessionUser,
-  match: StaffBootstrapMatch,
+  role: StaffRole,
 ): Promise<LinkedCrmUser | null> {
-  if (!user.email) return null
+  const key = `${tenantId}\u0000${januaSub}`
+  if (bootstrapRefusedRecently(key)) return null
+  if (!user.email) {
+    staffGateLogger.debug({ tenantId, januaSub }, 'bootstrap: the session carries no email')
+    staffGateLogger.warn(
+      { tenantId, januaSub, role, reason: 'no_email' },
+      'bootstrap: listed subject not provisioned (a CRM user needs an email)',
+    )
+    rememberBootstrapRefusal(key)
+    return null
+  }
   const service = new UsersService(
     createServiceContext(
       getDb(tenantId),
@@ -108,45 +160,33 @@ async function provisionBootstrapStaff(
       januaSub,
       email: user.email,
       name: user.name,
-      role: match.role,
-      linkByEmail: match.by === 'email',
+      role,
     })
-    if (!linked) return null
     staffGateLogger.warn(
-      { tenantId, januaSub, role: linked.role, matchedBy: match.by, crmUserId: linked.id },
-      'bootstrap: provisioned a CRM user for a listed staff account',
+      { tenantId, januaSub, role: linked.role, crmUserId: linked.id },
+      'bootstrap: provisioned a CRM user for a listed staff subject',
     )
     crmUserResolver.invalidate(tenantId, januaSub)
     return { id: linked.id, role: linked.role }
   } catch (err) {
-    // Lost a race, or the subject is already taken: resolve again. Only the
-    // error's name is logged: a query error can carry the email as a parameter.
-    staffGateLogger.warn(
-      { tenantId, januaSub, role: match.role, error: (err as Error)?.name },
-      'bootstrap: could not provision; resolving again',
-    )
+    // Lost a race (the subject is linked now) or refused: resolve again. Only
+    // the error's name is logged: a query error can carry the email.
     crmUserResolver.invalidate(tenantId, januaSub)
-    return crmUserResolver.resolveUser(getDb(tenantId), tenantId, januaSub)
+    const linked = await crmUserResolver.resolveUser(getDb(tenantId), tenantId, januaSub)
+    if (!linked) {
+      staffGateLogger.warn(
+        { tenantId, januaSub, role, reason: (err as Error)?.name ?? 'error' },
+        'bootstrap: listed subject not provisioned',
+      )
+      rememberBootstrapRefusal(key)
+    }
+    return linked
   }
-}
-
-export const EMPTY_AUTH: AuthContext = {
-  userId: '',
-  tenantId: DEFAULT_TENANT_ID,
-  roles: [],
-  scopes: [],
-  accessToken: '',
-}
-
-interface StaffSessionUser {
-  email?: string | null
-  name?: string | null
-  januaEmailVerified?: boolean
 }
 
 /**
  * The CRM user (id and role) linked to a Janua subject through
- * `users.external_janua_id`, provisioning a bootstrap-listed account; or null.
+ * `users.external_janua_id`, provisioning a bootstrap-listed subject; or null.
  * Cached per tenant + subject for a short TTL (see CrmUserResolver). A
  * database failure propagates: the request fails visibly rather than running
  * as an unlinked user.
@@ -159,12 +199,8 @@ async function linkedCrmUser(
   if (!januaSub) return null
   const linked = await crmUserResolver.resolveUser(getDb(tenantId), tenantId, januaSub)
   if (linked) return linked
-  const match = matchStaffBootstrap(staffBootstrapEntries(), {
-    subject: januaSub,
-    email: user.email,
-    emailVerified: user.januaEmailVerified === true,
-  })
-  return match ? provisionBootstrapStaff(tenantId, januaSub, user, match) : null
+  const role = matchStaffBootstrap(staffBootstrapEntries(), januaSub)
+  return role ? provisionBootstrapStaff(tenantId, januaSub, user, role) : null
 }
 
 /**

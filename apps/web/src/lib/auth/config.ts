@@ -101,10 +101,6 @@ export const authConfig: NextAuthConfig = {
         const subject = januaSubjectFromSignIn(account, profile)
         token.sub = subject
         token.januaSub = subject
-        // Whether Janua vouches for the email (ID token `email_verified`,
-        // Janua `_generate_id_token`). Only a strict `true` counts; the
-        // staff bootstrap by email refuses anything else.
-        token.januaEmailVerified = profile?.email_verified === true
       } else if (!token.januaSub) {
         // A session minted before the user id was the Janua subject carries a
         // random per-login id. Drop it so the user signs in again and gets the
@@ -129,7 +125,6 @@ export const authConfig: NextAuthConfig = {
       if (session.user) {
         // The Janua subject (see the jwt callback). Never a random Auth.js id.
         session.user.id = token.januaSub ?? ''
-        session.user.januaEmailVerified = token.januaEmailVerified === true
         session.accessToken = token.accessToken
         session.user.roles = token.roles ?? []
         session.user.scopes = token.scopes ?? []

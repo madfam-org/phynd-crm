@@ -13,11 +13,7 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   gt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'gt', col, val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
-  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
-    _tag: 'sql',
-    strings: [...strings],
-    values,
-  })),
+  isNotNull: vi.fn((col: unknown) => ({ _tag: 'isNotNull', col })),
 }))
 
 vi.mock('@phynd/db/schema', () => ({
@@ -382,16 +378,10 @@ describe('UsersService', () => {
   // bootstrapStaff()
   // -------------------------------------------------------------------------
   describe('bootstrapStaff()', () => {
-    const input = {
-      januaSub: 'sub-new',
-      email: 'Someone@Example.test',
-      name: 'Someone',
-      role: 'manager',
-      linkByEmail: true,
-    }
+    const input = { januaSub: 'sub-new', email: 'someone@example.test', name: 'X', role: 'manager' }
 
     it('returns the user already linked to the subject, unchanged', async () => {
-      const linked = makeUser({ id: 'user-001', externalJanuaId: 'sub-new' })
+      const linked = makeUser({ id: 'user-001', role: 'viewer', externalJanuaId: 'sub-new' })
       queueResults([linked])
 
       await expect(service.bootstrapStaff(input)).resolves.toEqual(linked)
@@ -399,54 +389,58 @@ describe('UsersService', () => {
       expect(mockDb.insert).not.toHaveBeenCalled()
     })
 
-    it('matches the email case-insensitively and links the single unlinked user with the role', async () => {
-      const invalidate = vi.spyOn(crmUserResolver, 'invalidate')
-      const linked = makeUser({ id: 'user-001', role: 'manager', externalJanuaId: 'sub-new' })
-      // no user on the subject; one user with the email; subject free; the update
-      queueResults([], [makeUser({ id: 'user-001', externalJanuaId: null })], [], [linked])
-
-      await expect(service.bootstrapStaff(input)).resolves.toEqual(linked)
-      const where = mockDb._qb.where.mock.calls[1]?.[0] as { values: unknown[] }
-      expect(where.values).toContain('someone@example.test')
-      expect(mockDb._qb.set).toHaveBeenCalledWith({ externalJanuaId: 'sub-new', role: 'manager' })
-      expect(invalidate).toHaveBeenCalledWith('madfam', 'sub-new')
-      expect(mockDb.insert).not.toHaveBeenCalled()
-    })
-
-    it('refuses when a user with the email is linked to another subject', async () => {
-      queueResults([], [makeUser({ id: 'user-001', externalJanuaId: 'sub-other' })])
-
-      await expect(service.bootstrapStaff(input)).resolves.toBeNull()
-      expect(mockDb.update).not.toHaveBeenCalled()
-      expect(mockDb.insert).not.toHaveBeenCalled()
-    })
-
-    it('refuses when several unlinked users have the email', async () => {
-      queueResults([], [makeUser({ id: 'user-001' }), makeUser({ id: 'user-002' })])
-
-      await expect(service.bootstrapStaff(input)).resolves.toBeNull()
-      expect(mockDb.update).not.toHaveBeenCalled()
-      expect(mockDb.insert).not.toHaveBeenCalled()
-    })
-
-    it('creates a linked user with the role when no user has the email', async () => {
+    it('creates a user with the role, linked to the subject, without looking at the email', async () => {
       const created = makeUser({ id: 'user-new', role: 'manager', externalJanuaId: 'sub-new' })
-      queueResults([], [], [], [created])
+      queueResults([], [], [created]) // subject lookup, subject-free check, insert
 
       await expect(service.bootstrapStaff(input)).resolves.toEqual(created)
+      expect(mockDb.select).toHaveBeenCalledTimes(2)
       expect(mockDb._qb.values).toHaveBeenCalledWith(
         expect.objectContaining({ role: 'manager', externalJanuaId: 'sub-new' }),
       )
     })
+  })
 
-    it('does not look the email up for a subject entry', async () => {
-      const created = makeUser({ id: 'user-new', role: 'admin', externalJanuaId: 'sub-new' })
-      queueResults([], [], [created])
+  // -------------------------------------------------------------------------
+  // last linked admin guard
+  // -------------------------------------------------------------------------
+  describe('last linked admin', () => {
+    const lastAdmin = makeUser({ id: 'user-001', role: 'admin', externalJanuaId: 'sub-1' })
 
-      await service.bootstrapStaff({ ...input, role: 'admin', linkByEmail: false })
+    it('update refuses to demote the last linked admin', async () => {
+      queueResults([lastAdmin], [{ id: 'user-001' }])
 
-      expect(mockDb.select).toHaveBeenCalledTimes(2) // subject lookup + subject-free check
-      expect(mockDb._qb.values).toHaveBeenCalledWith(expect.objectContaining({ role: 'admin' }))
+      await expect(service.update('user-001', { role: 'manager' })).rejects.toThrow(ConflictError)
+      expect(mockDb.update).not.toHaveBeenCalled()
+    })
+
+    it('update demotes an admin when another linked admin exists', async () => {
+      const demoted = { ...lastAdmin, role: 'manager' }
+      queueResults([lastAdmin], [{ id: 'user-001' }, { id: 'user-002' }], [demoted])
+
+      await expect(service.update('user-001', { role: 'manager' })).resolves.toEqual(demoted)
+    })
+
+    it('delete refuses to remove the last linked admin', async () => {
+      queueResults([lastAdmin], [{ id: 'user-001' }])
+
+      await expect(service.delete('user-001')).rejects.toThrow(ConflictError)
+      expect(mockDb.delete).not.toHaveBeenCalled()
+    })
+
+    it('unlinkJanua refuses to unlink the last linked admin', async () => {
+      queueResults([lastAdmin], [{ id: 'user-001' }])
+
+      await expect(service.unlinkJanua('user-001')).rejects.toThrow(ConflictError)
+      expect(mockDb.update).not.toHaveBeenCalled()
+    })
+
+    it('never blocks an unlinked admin or a non-admin', async () => {
+      queueResults([makeUser({ id: 'user-009', role: 'admin', externalJanuaId: null })], [])
+
+      await service.delete('user-009')
+
+      expect(mockDb.select).toHaveBeenCalledTimes(1) // no admin count
     })
   })
 

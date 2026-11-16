@@ -65,16 +65,6 @@ describe('Janua sign-in → session user id', () => {
     expect(session?.user?.email).toBe(alice.email)
   })
 
-  it("records Janua's email_verified only when the ID token says true", async () => {
-    const verified = await readSession(await signIn({ ...alice, emailVerified: true }))
-    const unverified = await readSession(await signIn({ ...alice, emailVerified: false }))
-    const absent = await readSession(await signIn(alice))
-
-    expect(verified?.user?.januaEmailVerified).toBe(true)
-    expect(unverified?.user?.januaEmailVerified).toBe(false)
-    expect(absent?.user?.januaEmailVerified).toBe(false)
-  })
-
   it('drops a session minted before the fix (random id, no Janua subject)', async () => {
     const jar = new CookieJar()
     const legacy = await encode({

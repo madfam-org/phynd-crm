@@ -66,7 +66,7 @@ public contributor needs for local development:
 | `PHYND_CRM_MCP_READ_CLIENTS` | Janua clients allowed to read over MCP, `client-id@org-id` comma-separated; empty or malformed = none | empty (default) |
 | `PHYND_CRM_MCP_UNMASKED_CLIENTS` | MCP readers that get personal fields unmasked (owner exception); same format, each must also be a reader; empty, malformed or not a reader = every client masked | empty (default) |
 | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` | CRM user id (`users.id`), or `janua:<subject>` for the CRM user linked to that Janua subject (`users.external_janua_id`), that owns tasks the system opens on a contact without owner (lead-intake follow-up, Dhanam failed payment); unset, empty or no such user = unassigned, warning `DEFAULT_TASK_OWNER_UNAVAILABLE`. It names a person's account, so production maps it from the dedicated ExternalSecret `phynd-crm-default-task-owner` (`secret/phynd-crm`, property `default_task_owner_id`), mounted optional; never plain env in this public repo | empty (default) |
-| `PHYND_BOOTSTRAP_STAFF` | Staff bootstrap: comma-separated `<role>:sub:<janua-subject>` or `<role>:<email>` entries (role `admin`, `manager`, `sales_rep` or `viewer`); see [Staff access](#staff-access). Production: dedicated ExternalSecret `phynd-crm-staff-bootstrap` (`secret/phynd-crm`, property `bootstrap_staff`), mounted optional | empty (default) |
+| `PHYND_BOOTSTRAP_STAFF` | Staff bootstrap: comma-separated `<role>:sub:<janua-subject>` entries, subjects only (role `admin`, `manager`, `sales_rep` or `viewer`); remove an entry after its first sign-in; see [Staff access](#staff-access). Production: dedicated ExternalSecret `phynd-crm-staff-bootstrap` (`secret/phynd-crm`, property `bootstrap_staff`), mounted optional | empty (default) |
 | `PHYND_BOOTSTRAP_ADMIN_SUBS` | Legacy form: comma-separated Janua subjects, each read as `admin:sub:<subject>` after `PHYND_BOOTSTRAP_STAFF` | empty (default) |
 | `PHYND_ALLOW_UNLINKED_SIGNIN` | Break-glass: `true` lets a signed-in Janua account without a CRM user see the pages, with no roles (every role-gated action stays closed) | unset (default) |
 | `PHYND_DEPLOYMENT_TIER` | Outbound guard tier (`staging` blocks outbound calls to production hosts) | `production` |
@@ -106,25 +106,24 @@ Two ways to grant access:
    existing user. The change applies on the next request in that replica and
    within 30 seconds in the others.
 2. **Bootstrap on first sign-in** (first admin, or a new environment): list the
-   account in `PHYND_BOOTSTRAP_STAFF`, roll the web Deployment out, and have
-   the person sign in once. Entries:
-   - `<role>:sub:<janua-subject>`: matches the Janua subject exactly. Preferred
-     when the subject is known.
-   - `<role>:<email>`: matches the account's email exactly, ignoring case, and
-     only when Janua's ID token says `email_verified: true`. An unverified
-     email is refused (warning `bootstrap: email entry matched an account whose
-     email Janua does not mark verified`). Sessions started before this release
-     carry no verified flag: sign out and in again.
+   account's Janua subject in `PHYND_BOOTSTRAP_STAFF` as `<role>:sub:<subject>`,
+   roll the web Deployment out, and have the person sign in once. Only subjects
+   are accepted; an email entry is skipped with a warning, because Janua marks
+   emails verified for SSO, SCIM and social sign-ups that an organization
+   administrator controls. On a match for a subject with no CRM user, a CRM user
+   is created with the role and linked to it (the session must carry an email;
+   otherwise the refusal is logged once per 30 s). Logs carry the subject and
+   role, never the email. A subject that already has a CRM user is left as it
+   is: the Users screen is the source of truth.
 
-   On a match for an account with no CRM user: a CRM user with that email that
-   is still unlinked (only one) is linked and given the role; otherwise a CRM
-   user is created with the role. A CRM user already linked to another Janua
-   subject is never re-pointed (refused, warning `users.bootstrap_refused`).
-   Logs carry the subject and role, never the email. An account that already
-   has a CRM user is left as it is: after the first sign-in the Users screen is
-   the source of truth, and the entry can be removed.
+   **Remove the entry after that first sign-in.** While it stays listed,
+   unlinking or deleting that CRM user does not revoke access: the next request
+   provisions it again.
 
-In production both bootstrap entries and `PHYND_CRM_DEFAULT_TASK_OWNER_ID` name
+The last CRM admin linked to a Janua identity cannot be demoted, unlinked or
+deleted (conflict: make another user an admin first).
+
+In production the bootstrap entries and `PHYND_CRM_DEFAULT_TASK_OWNER_ID` name
 people's accounts, so they come from Vault (`secret/phynd-crm`, properties
 `bootstrap_staff` and `default_task_owner_id`) through the dedicated optional
 ExternalSecrets in `infra/k8s/production/phynd-crm-staff-access.yaml`, never

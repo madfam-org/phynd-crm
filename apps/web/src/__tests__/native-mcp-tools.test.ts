@@ -701,7 +701,9 @@ describe('masking (every MCP client masked by default)', () => {
       '[redacted]',
       '[redacted]',
     ])
-    expect(schemaViolations({ leads, next_cursor: null, has_more: false }, outputSchemaOf('leads_list'))).toEqual([])
+    expect(
+      schemaViolations({ leads, next_cursor: null, has_more: false }, outputSchemaOf('leads_list')),
+    ).toEqual([])
     const raw = (await callTool('leads_list')).raw
     expect(raw).not.toContain('tezca')
     expect(raw).not.toMatch(/\bweb\b/)

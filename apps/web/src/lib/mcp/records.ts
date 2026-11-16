@@ -196,7 +196,8 @@ export function toLead(row: Row, mask: boolean, namedSource: string | null = nul
   return {
     id: text(row.id) ?? '',
     contact_id: text(row.contactId),
-    source: !mask || (namedSource !== null && source === namedSource) ? source : maskWholeValue(source),
+    source:
+      !mask || (namedSource !== null && source === namedSource) ? source : maskWholeValue(source),
     status: text(row.status) ?? '',
     score: integer(row.score),
     pipeline_id: text(row.pipelineId) ?? '',

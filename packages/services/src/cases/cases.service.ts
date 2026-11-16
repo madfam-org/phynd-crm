@@ -100,8 +100,7 @@ export class CasesService {
       .limit(1)
     if (!contact) throw new NotFoundError('Contact', input.contactId)
 
-    const ownerId =
-      input.ownerId !== undefined ? input.ownerId : requireCrmUserId(this.ctx.auth)
+    const ownerId = input.ownerId !== undefined ? input.ownerId : requireCrmUserId(this.ctx.auth)
     const [row] = await this.ctx.db
       .insert(cases)
       .values({

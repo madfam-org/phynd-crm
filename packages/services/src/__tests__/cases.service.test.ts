@@ -61,9 +61,7 @@ describe('case deadlines', () => {
     })
     const monday = new Date('2026-11-16T16:00:00.000Z')
     // Four full weeks of business days later: Monday 2026-12-14.
-    expect(defaultCaseDueAt('data_rights', monday).toISOString()).toBe(
-      '2026-12-15T05:59:59.999Z',
-    )
+    expect(defaultCaseDueAt('data_rights', monday).toISOString()).toBe('2026-12-15T05:59:59.999Z')
   })
 
   it('is overdue only while unresolved past its due date', () => {
@@ -158,9 +156,7 @@ describe('CasesService', () => {
   it('lists unresolved cases of one contact, newest opened first', async () => {
     const ctx = createTestContext([])
     await new CasesService(ctx).list({ limit: 10 }, { unresolved: true, contactId: 'contact-1' })
-    expect(lastWhereSql(ctx)).toBe(
-      '("cases"."status" <> $1 and "cases"."contact_id" = $2)',
-    )
+    expect(lastWhereSql(ctx)).toBe('("cases"."status" <> $1 and "cases"."contact_id" = $2)')
     expect(ctx.mockDb._qb.limit).toHaveBeenCalledWith(11)
     expect(ctx.mockDb._qb.leftJoin).toHaveBeenCalledTimes(1)
   })

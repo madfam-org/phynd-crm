@@ -51,9 +51,7 @@ const MEXICO_CITY_UTC_OFFSET_HOURS = -6
  */
 export function addBusinessDaysEndOfDay(from: Date, businessDays: number): Date {
   const local = new Date(from.getTime() + MEXICO_CITY_UTC_OFFSET_HOURS * 3_600_000)
-  const cursor = new Date(
-    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()),
-  )
+  const cursor = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()))
   let remaining = businessDays
   while (remaining > 0) {
     cursor.setUTCDate(cursor.getUTCDate() + 1)

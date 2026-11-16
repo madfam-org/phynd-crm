@@ -8,12 +8,7 @@ import { isCaseOverdue } from '@phynd/services/cases/case-deadlines'
 import type { inferRouterOutputs } from '@trpc/server'
 import Link from 'next/link'
 import { useState } from 'react'
-import {
-  CaseOverdueBadge,
-  CaseStatusBadge,
-  caseTypeLabel,
-  formatCaseDate,
-} from './case-labels'
+import { CaseOverdueBadge, CaseStatusBadge, caseTypeLabel, formatCaseDate } from './case-labels'
 import { CreateCaseDialog } from './create-case-dialog'
 
 type CasesListOutput = inferRouterOutputs<AppRouter>['cases']['list']

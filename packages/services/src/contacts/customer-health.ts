@@ -71,7 +71,12 @@ export async function latestPaymentOutcomes(
       createdAt: conversions.createdAt,
     })
     .from(conversions)
-    .where(and(inArray(conversions.contactId, [...contactIds]), inArray(conversions.type, OUTCOME_TYPES)))
+    .where(
+      and(
+        inArray(conversions.contactId, [...contactIds]),
+        inArray(conversions.type, OUTCOME_TYPES),
+      ),
+    )
     .orderBy(desc(conversions.createdAt), desc(conversions.id))
   for (const row of rows) {
     if (!row.contactId || outcomes.has(row.contactId)) continue

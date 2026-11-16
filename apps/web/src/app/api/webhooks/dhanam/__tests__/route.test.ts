@@ -436,8 +436,7 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
       const id = String(terms.find((t) => t.col === 'contacts.id')?.val)
       const current = state.contactStageById.get(id) ?? 'lead'
       const guard = terms.find((t) => t.col === 'contacts.lifecycleStage')
-      applied =
-        !guard || (guard._tag === 'ne' ? current !== guard.val : current === guard.val)
+      applied = !guard || (guard._tag === 'ne' ? current !== guard.val : current === guard.val)
       if (applied) {
         state.contactStageById.set(id, String(values.lifecycleStage))
         state.updates.contacts.push({ id, values })
@@ -1997,7 +1996,11 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
     state.seededConversions.push({
       contactId: 'contact_c1',
       type: 'dhanam_subscription_created',
-      metadata: { provider: 'dhanam', subscription_id: 'sub_c1', event_type: 'subscription.created' },
+      metadata: {
+        provider: 'dhanam',
+        subscription_id: 'sub_c1',
+        event_type: 'subscription.created',
+      },
     })
     const json = await post(cancellation())
     expect(json.customer_stage).toEqual({ stage: 'former_customer', changed: true })
@@ -2038,7 +2041,11 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
       {
         contactId: 'contact_c1',
         type: 'dhanam_subscription_canceled',
-        metadata: { provider: 'dhanam', subscription_id: 'sub_old', event_type: 'subscription.canceled' },
+        metadata: {
+          provider: 'dhanam',
+          subscription_id: 'sub_old',
+          event_type: 'subscription.canceled',
+        },
       },
     )
     const json = await post(cancellation())
@@ -2087,7 +2094,11 @@ describe('conversion types behind the derived customer health', () => {
     const { PAID_PAYMENT_CONVERSION_TYPES, FAILED_PAYMENT_CONVERSION_TYPES } = await import(
       '@phynd/services/contacts/customer-health'
     )
-    const paid = ['checkout.session.completed', 'customer.subscription.created', 'payment.succeeded']
+    const paid = [
+      'checkout.session.completed',
+      'customer.subscription.created',
+      'payment.succeeded',
+    ]
     expect(new Set(paid.map(mapEventTypeToConversionType))).toEqual(
       new Set(PAID_PAYMENT_CONVERSION_TYPES),
     )

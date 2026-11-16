@@ -155,9 +155,7 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
     profileError = err instanceof Error ? err.message : 'Failed to load profile'
   }
   // Stage and payment health: from the CRM's own records, not the federation.
-  const standing = profile?.contact
-    ? await caller.contacts.getById({ id }).catch(() => null)
-    : null
+  const standing = profile?.contact ? await caller.contacts.getById({ id }).catch(() => null) : null
 
   const contact = profile?.contact
   const panels = buildFederationPanels(profile)

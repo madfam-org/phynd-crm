@@ -563,11 +563,15 @@ describe('deleted rows never leave', () => {
       expect(answer.isError).toBe(false)
       expect(answer.raw).not.toContain(DELETED_MARK)
     }
-    // Every read of a soft-deletable table carried the predicate.
-    for (const query of queries) {
+    // Every read of a soft-deletable table carried the predicate. The other
+    // reads are the billing outcomes behind the contacts' health
+    // (`conversions` has no soft delete), one per non-empty contact page.
+    const softDeletable = queries.filter((query) => query.table !== 'conversions')
+    for (const query of softDeletable) {
       expect(query.sql).toContain(`"${query.table}"."deleted_at" is null`)
     }
-    expect(queries.length).toBe(answers.length)
+    expect(softDeletable.length).toBe(answers.length)
+    expect(queries.filter((query) => query.table === 'conversions')).toHaveLength(2)
   })
 
   it('a deleted contact is not found, and its activities are never read', async () => {

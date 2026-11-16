@@ -876,7 +876,9 @@ describe('stored audit (mcp_call_audit, one row per tools/call)', () => {
     await POST(mcpRequest(toolCall('contacts_delete'), { bearer: token }))
     await POST(mcpRequest(rpc('tools/list'), { bearer: token }))
     await POST(mcpRequest(toolCall('leads_list'), { bearer: 'not-a-token' }))
-    expect(stored.map((entry) => [entry.row.tool, entry.row.outcome, entry.row.result_count])).toEqual([
+    expect(
+      stored.map((entry) => [entry.row.tool, entry.row.outcome, entry.row.result_count]),
+    ).toEqual([
       ['contacts_get', 'not_found', null],
       ['leads_list', 'invalid_arguments', null],
       [null, 'unknown_tool', null],

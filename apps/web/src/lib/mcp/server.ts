@@ -292,7 +292,10 @@ export function createMcpServer(deps: McpServerDeps) {
       audit.outcome = 'audit_failed'
       audit.resultCount = null
       audit.detail = error instanceof Error ? error.name : 'unknown'
-      return toolError(id, 'audit_unavailable: the call could not be recorded; nothing was returned')
+      return toolError(
+        id,
+        'audit_unavailable: the call could not be recorded; nothing was returned',
+      )
     }
   }
 

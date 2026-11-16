@@ -48,6 +48,12 @@ spec:
             # and still stores the lead — notification is best-effort by design.
             - name: NAUTA_LEADS_NOTIFY_EMAIL
               value: "aldo@madfam.io"
+            # Owner of tasks the system opens on a contact without owner
+            # (lead-intake follow-up, Dhanam failed payment): the operator's
+            # account, as janua:<subject>. Until that account has a CRM user
+            # those tasks stay unassigned with DEFAULT_TASK_OWNER_UNAVAILABLE.
+            - name: PHYND_CRM_DEFAULT_TASK_OWNER_ID
+              value: "janua:854c6d44-6885-41d6-a1ca-18d70bc72a38"
             - name: TULANA_API_BASE_URL
               value: "https://tulana-api.madfam.io/api/v1"
             - name: TULANA_COMMERCIAL_GA_ENVIRONMENT

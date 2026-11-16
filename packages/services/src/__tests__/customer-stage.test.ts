@@ -1,7 +1,7 @@
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
-import { markCustomer, markFormerCustomer } from '../contacts/customer-stage'
+import { isMoneyReceivedEvent, markCustomer, markFormerCustomer } from '../contacts/customer-stage'
 import { createTestContext } from './helpers'
 
 const dialect = new PgDialect()
@@ -36,10 +36,31 @@ describe('customer stage rule', () => {
     )
   })
 
-  it('reports no change when the guard matches no row', async () => {
+  it('reports no change of stage when the guard matches no row', async () => {
     const ctx = createTestContext([])
-    queue(ctx, [])
+    queue(ctx, [], [])
     expect(await markCustomer(ctx.db, 'c-1', AT)).toEqual({ stage: 'customer', changed: false })
+  })
+
+  it("moves a customer's change time forward to a later payment, without changing the stage", async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [], [])
+    await markCustomer(ctx.db, 'c-1', AT)
+    expect(ctx.mockDb.update).toHaveBeenCalledTimes(2)
+    expect(ctx.mockDb._qb.set).toHaveBeenLastCalledWith({ lifecycleStageChangedAt: AT })
+    const query = dialect.sqlToQuery(ctx.mockDb._qb.where.mock.calls.at(-1)?.[0] as SQL)
+    // Only a customer, and only forward: an older payment never moves it back.
+    expect(query.sql).toBe(
+      '("contacts"."id" = $1 and "contacts"."lifecycle_stage" = $2 and ("contacts"."lifecycle_stage_changed_at" is null or "contacts"."lifecycle_stage_changed_at" < $3))',
+    )
+    expect(query.params.slice(0, 2)).toEqual(['c-1', 'customer'])
+  })
+
+  it('does not run the second update when the stage changed', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ id: 'c-1' }])
+    await markCustomer(ctx.db, 'c-1', AT)
+    expect(ctx.mockDb.update).toHaveBeenCalledTimes(1)
   })
 
   it('ends a customer with nothing else active, as of the event', async () => {
@@ -78,5 +99,20 @@ describe('customer stage rule', () => {
     queue(ctx, [{ stage: 'lead', changedAt: null }])
     expect(await markFormerCustomer(ctx.db, 'c-1', AT, {})).toBeNull()
     expect(ctx.mockDb.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('money received', () => {
+  it('is a successful payment, or a checkout whose payment is collected', () => {
+    expect(isMoneyReceivedEvent('invoice.payment_succeeded', null)).toBe(true)
+    expect(isMoneyReceivedEvent('payment.succeeded', undefined)).toBe(true)
+    expect(isMoneyReceivedEvent('checkout.session.completed', 'paid')).toBe(true)
+  })
+
+  it('is not a subscription start nor a checkout completed before its payment', () => {
+    expect(isMoneyReceivedEvent('customer.subscription.created', null)).toBe(false)
+    expect(isMoneyReceivedEvent('subscription.created', 'paid')).toBe(false)
+    expect(isMoneyReceivedEvent('checkout.session.completed', 'unpaid')).toBe(false)
+    expect(isMoneyReceivedEvent('checkout.session.completed', null)).toBe(false)
   })
 })

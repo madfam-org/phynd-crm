@@ -1,7 +1,7 @@
 import type { getDb } from '@phynd/db'
 import { engagementEvents, engagements, externalReferences, orders } from '@phynd/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { PAID_ORDER_STATES, markCustomer } from '../contacts/customer-stage'
+import { PAID_ORDER_STATES, isMoneyReceivedEvent, markCustomer } from '../contacts/customer-stage'
 import { recordProductionDispatchIntent } from '../production/production-dispatch.service'
 
 type PaymentTx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
@@ -24,6 +24,8 @@ export type DhanamPaymentLifecycle = 'paid' | 'failed' | 'refunded' | 'disputed'
 
 export interface DhanamPaymentLifecycleInput extends DhanamPaymentReconciliationInput {
   lifecycle: DhanamPaymentLifecycle
+  /** A checkout's `payment_status` as the sender states it (`paid` = collected). */
+  checkoutPaymentStatus?: string | null
 }
 
 export interface PaymentReconciliationResult {
@@ -124,7 +126,14 @@ export async function reconcileDhanamPaymentLifecycle(
   tx: PaymentTx,
   input: DhanamPaymentLifecycleInput,
 ): Promise<PaymentReconciliationResult> {
-  if (input.lifecycle === 'paid') return reconcileDhanamPayment(tx, input)
+  if (input.lifecycle === 'paid') {
+    // Only money received pays an order: a subscription start or a checkout
+    // completed before its payment is collected leaves the order as it is.
+    if (!isMoneyReceivedEvent(input.eventType, input.checkoutPaymentStatus)) {
+      return emptyResult('ignored')
+    }
+    return reconcileDhanamPayment(tx, input)
+  }
 
   const order = await resolveOrder(tx, input)
   const engagementId = input.engagementId ?? (await findEngagementId(tx, input, order))

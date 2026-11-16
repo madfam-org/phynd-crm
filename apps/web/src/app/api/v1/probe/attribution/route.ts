@@ -10,12 +10,18 @@
  *   - On success: `{ credited: true, source_agent, credit_amount_mxn_cents, attribution_id }`.
  *   - If no matching conversion: `{ credited: false, reason }` (200 OK;
  *     the probe polls until `credited: true` or its timeout fires).
+ *
+ * The lead: `conversions.lead_id` is set only on the event that converts the
+ * lead; every later billing event of the contact (a renewal) names it in
+ * `metadata.contact_lead_id` instead. Both are matched, so a renewal's billing
+ * id is credited too. One billing event is one conversion row, and the answer
+ * is always that single row (never a sum), so nothing is counted twice.
  */
 
 import { getDb } from '@phynd/db'
 import { conversions } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, or, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('api:v1:probe:attribution')
@@ -61,7 +67,10 @@ export async function GET(request: Request) {
     .from(conversions)
     .where(
       and(
-        eq(conversions.leadId, leadId),
+        or(
+          eq(conversions.leadId, leadId),
+          sql`${conversions.metadata}->>'contact_lead_id' = ${leadId}`,
+        ),
         sql`(${conversions.metadata}->>'event_id' = ${billingId}
              OR ${conversions.metadata}->>'webhook_event_id' = ${billingId}
              OR ${conversions.metadata}->>'billing_id' = ${billingId})`,

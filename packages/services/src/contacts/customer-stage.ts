@@ -10,13 +10,16 @@
  *   - Nothing moves a contact back to lead.
  *   - Each change records the time of the event behind it
  *     (`lifecycle_stage_changed_at`); an event older than the last change (a
- *     late redelivery) changes nothing.
+ *     late redelivery) changes nothing. Later money from a customer moves that
+ *     time forward without changing the stage, so an end is compared with the
+ *     latest money received, not the first.
  *
  * Called inside the transaction that records the payment, so the stage moves
- * with it or not at all. Migration 0022 applies the same rule to past data.
+ * with it or not at all. Migrations 0022 and 0023 apply the same rule to past
+ * data.
  */
 import { contacts, conversions, orders } from '@phynd/db/schema'
-import { and, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 type Db = Pick<ServiceContext['db'], 'select' | 'update'>
@@ -38,13 +41,37 @@ export const SUBSCRIPTION_CANCELLED_EVENT_TYPES: ReadonlySet<string> = new Set([
 /** `conversions.type` of a subscription start. */
 const SUBSCRIPTION_STARTED_CONVERSION_TYPE = 'dhanam_subscription_created'
 
+/** Billing event types that always mean a payment was collected. */
+export const MONEY_RECEIVED_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'invoice.payment_succeeded',
+  'payment.succeeded',
+])
+
+/** A checkout completion is money only when its payment is already collected. */
+export const CHECKOUT_COMPLETED_EVENT_TYPE = 'checkout.session.completed'
+
+/**
+ * Whether a billing event means money was received: a successful payment, or
+ * a completed checkout whose `payment_status` is `paid`. A subscription start
+ * and an asynchronous checkout completion (paid later, or never) are not.
+ */
+export function isMoneyReceivedEvent(
+  eventType: string,
+  checkoutPaymentStatus: string | null | undefined,
+): boolean {
+  if (MONEY_RECEIVED_EVENT_TYPES.has(eventType)) return true
+  return eventType === CHECKOUT_COMPLETED_EVENT_TYPE && checkoutPaymentStatus === 'paid'
+}
+
 export type StageChange =
   | { stage: 'customer' | 'former_customer'; changed: boolean }
   | { stage: 'customer'; changed: false; kept: 'other_active_paid_relationship' }
 
 /**
  * Money from this contact was received at `at`: lead → customer, and former
- * customer → customer unless the change to former customer came later.
+ * customer → customer unless the change to former customer came later. For a
+ * contact already a customer, a later payment only moves
+ * `lifecycle_stage_changed_at` forward (reported as no change of stage).
  */
 export async function markCustomer(db: Db, contactId: string, at: Date): Promise<StageChange> {
   const changed = await db
@@ -63,7 +90,20 @@ export async function markCustomer(db: Db, contactId: string, at: Date): Promise
       ),
     )
     .returning({ id: contacts.id })
-  return { stage: 'customer', changed: changed.length > 0 }
+  if (changed.length > 0) return { stage: 'customer', changed: true }
+
+  // Already a customer: the latest money received is what an end is compared with.
+  await db
+    .update(contacts)
+    .set({ lifecycleStageChangedAt: at })
+    .where(
+      and(
+        eq(contacts.id, contactId),
+        eq(contacts.lifecycleStage, 'customer'),
+        or(isNull(contacts.lifecycleStageChangedAt), lt(contacts.lifecycleStageChangedAt, at)),
+      ),
+    )
+  return { stage: 'customer', changed: false }
 }
 
 export interface EndedRelationship {

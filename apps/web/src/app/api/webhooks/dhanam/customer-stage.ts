@@ -2,6 +2,7 @@ import type { getDb } from '@phynd/db'
 import {
   SUBSCRIPTION_CANCELLED_EVENT_TYPES,
   type StageChange,
+  isMoneyReceivedEvent,
   markCustomer,
   markFormerCustomer,
 } from '@phynd/services/contacts/customer-stage'
@@ -11,12 +12,6 @@ type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
 export { SUBSCRIPTION_CANCELLED_EVENT_TYPES }
 export type CustomerStageResult = StageChange
-
-/** Event types that mean a payment was collected. */
-const MONEY_RECEIVED_EVENT_TYPES: ReadonlySet<string> = new Set([
-  'invoice.payment_succeeded',
-  'payment.succeeded',
-])
 
 export interface StageEvent {
   eventId: string
@@ -59,10 +54,19 @@ export async function applyCustomerStage(
 }
 
 export function isMoneyReceived(event: Pick<StageEvent, 'eventType' | 'raw'>): boolean {
-  if (MONEY_RECEIVED_EVENT_TYPES.has(event.eventType)) return true
-  if (event.eventType !== 'checkout.session.completed') return false
-  const data = asRecord(event.raw.data)
-  return asRecord(data.object).payment_status === 'paid' || data.payment_status === 'paid'
+  return isMoneyReceivedEvent(event.eventType, checkoutPaymentStatus(event.raw))
+}
+
+/**
+ * The checkout's `payment_status` as the sender states it: Stripe-native
+ * (`data.object.payment_status`) or the relay (`data.payment_status`).
+ */
+export function checkoutPaymentStatus(raw: Record<string, unknown>): string | null {
+  const data = asRecord(raw.data)
+  const stated = [asRecord(data.object).payment_status, data.payment_status].filter(
+    (status): status is string => typeof status === 'string',
+  )
+  return stated.includes('paid') ? 'paid' : (stated[0] ?? null)
 }
 
 /**

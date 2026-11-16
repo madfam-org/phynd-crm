@@ -8,7 +8,12 @@
  *   - 400 when lead_id or billing_id query params missing
  *   - 200 `{ credited: false, ... }` when no matching conversion
  *   - 200 `{ credited: true, ... }` when a conversion matches by
- *     metadata.event_id OR metadata.webhook_event_id OR metadata.billing_id
+ *     metadata.event_id OR metadata.webhook_event_id OR metadata.billing_id,
+ *     for the lead in `lead_id` (the converting event) or in
+ *     `metadata.contact_lead_id` (every later event, e.g. a renewal)
+ *
+ * The db mock evaluates the route's where clause against the rows, so a row
+ * of another lead or another billing id is not returned.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,12 +21,43 @@ const db = {
   conversions: [] as Array<Record<string, unknown>>,
 }
 
+type Cond = { _tag: string; args?: Cond[]; col?: unknown; val?: unknown; raw?: string }
+type ConversionRow = Record<string, unknown> & { metadata?: Record<string, unknown> }
+
+/** Evaluates the mocked where tree (and / or / eq / sql) against one row. */
+function holds(cond: Cond, row: ConversionRow): boolean {
+  const meta = row.metadata ?? {}
+  switch (cond._tag) {
+    case 'and':
+      return (cond.args ?? []).every((inner) => holds(inner, row))
+    case 'or':
+      return (cond.args ?? []).some((inner) => holds(inner, row))
+    case 'eq':
+      return cond.col === 'conversions.leadId' && row.leadId === cond.val
+    case 'sql':
+      if (cond.raw?.includes("'contact_lead_id'")) return meta.contact_lead_id === cond.val
+      return [meta.event_id, meta.webhook_event_id, meta.billing_id].includes(cond.val)
+    default:
+      throw new Error(`unsupported condition ${cond._tag}`)
+  }
+}
+
 const mockDb = {
   select: vi.fn(() => ({
     from: () => ({
-      where: () => ({
+      where: (cond: Cond) => ({
         orderBy: () => ({
-          limit: () => Promise.resolve(db.conversions),
+          limit: (n: number) =>
+            Promise.resolve(
+              db.conversions
+                .filter((row) => holds(cond, row))
+                .sort(
+                  (a, b) =>
+                    new Date(String(b.recordedAt)).getTime() -
+                    new Date(String(a.recordedAt)).getTime(),
+                )
+                .slice(0, n),
+            ),
         }),
       }),
     }),
@@ -30,7 +66,7 @@ const mockDb = {
 
 vi.mock('@phynd/db', () => ({
   getDb: () => mockDb,
-  conversions: 'conversions-table',
+  conversions: { leadId: 'conversions.leadId', metadata: 'conversions.metadata' },
   contacts: 'contacts-table',
   leads: 'leads-table',
   pipelines: 'pipelines-table',
@@ -39,10 +75,14 @@ vi.mock('@phynd/db', () => ({
 }))
 
 vi.mock('drizzle-orm', () => ({
-  and: (...args: unknown[]) => ({ __and: args }),
-  eq: (col: unknown, val: unknown) => ({ __eq: [col, val] }),
-  sql: (strings: TemplateStringsArray, ..._values: unknown[]) => ({
-    __sql: strings.join(''),
+  and: (...args: unknown[]) => ({ _tag: 'and', args }),
+  or: (...args: unknown[]) => ({ _tag: 'or', args }),
+  eq: (col: unknown, val: unknown) => ({ _tag: 'eq', col, val }),
+  // The bound parameter is the last interpolated value.
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    _tag: 'sql',
+    raw: strings.join(''),
+    val: values.at(-1),
   }),
 }))
 
@@ -112,6 +152,7 @@ describe('GET /api/v1/probe/attribution — lookups', () => {
     db.conversions = [
       {
         id: 'conv-1',
+        leadId: 'l1',
         value: '1500.00',
         metadata: {
           event_id: 'b1',
@@ -142,6 +183,7 @@ describe('GET /api/v1/probe/attribution — lookups', () => {
     db.conversions = [
       {
         id: 'conv-2',
+        leadId: 'l2',
         value: '42.50',
         metadata: { event_id: 'b2' },
         createdAt: new Date(),
@@ -151,5 +193,55 @@ describe('GET /api/v1/probe/attribution — lookups', () => {
     const body = (await res.json()) as { credit_amount_mxn_cents: number }
     // 42.50 * 100 = 4250 (rounded)
     expect(body.credit_amount_mxn_cents).toBe(4250)
+  })
+})
+
+describe('GET /api/v1/probe/attribution — renewals', () => {
+  // A contact's lead converted on the first payment; the renewal row carries
+  // no lead id, only metadata.contact_lead_id (as the Dhanam webhook writes it).
+  const firstPayment = {
+    id: 'conv-first',
+    leadId: 'lead-r',
+    value: '199.00',
+    metadata: { event_id: 'evt-first', contact_lead_id: 'lead-r', amount_minor: 19_900 },
+    recordedAt: new Date('2026-10-01T12:00:00.000Z'),
+  }
+  const renewal = {
+    id: 'conv-renewal',
+    leadId: null,
+    value: '199.00',
+    metadata: { event_id: 'evt-renewal', contact_lead_id: 'lead-r', amount_minor: 19_900 },
+    recordedAt: new Date('2026-11-01T12:00:00.000Z'),
+  }
+
+  beforeEach(() => {
+    db.conversions = [firstPayment, renewal]
+  })
+
+  it("credits a renewal's billing id through metadata.contact_lead_id", async () => {
+    const res = await GET(probeRequest({ lead_id: 'lead-r', billing_id: 'evt-renewal' }))
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body).toMatchObject({
+      credited: true,
+      attribution_id: 'conv-renewal',
+      credit_amount_mxn_cents: 19_900,
+    })
+  })
+
+  it('still credits the converting event, once, with its own amount', async () => {
+    const res = await GET(probeRequest({ lead_id: 'lead-r', billing_id: 'evt-first' }))
+    const body = (await res.json()) as Record<string, unknown>
+    // The row matches by lead_id and by contact_lead_id: still one row, one amount.
+    expect(body).toMatchObject({
+      credited: true,
+      attribution_id: 'conv-first',
+      credit_amount_mxn_cents: 19_900,
+    })
+  })
+
+  it('does not credit a billing id to another lead', async () => {
+    const res = await GET(probeRequest({ lead_id: 'lead-other', billing_id: 'evt-renewal' }))
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.credited).toBe(false)
   })
 })

@@ -10,6 +10,7 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col, val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col })),
+  lt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lt', col, val })),
   lte: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lte', col, val })),
   or: vi.fn((...args: unknown[]) => ({ _tag: 'or', args })),
 }))
@@ -523,6 +524,67 @@ describe('reconcileDhanamPayment', () => {
     expect(mockDb._qb.set).not.toHaveBeenCalledWith(
       expect.objectContaining({ lifecycleStage: 'customer' }),
     )
+  })
+
+  it.each([
+    ['customer.subscription.created', undefined],
+    ['subscription.created', undefined],
+    ['checkout.session.completed', 'unpaid'],
+    ['checkout.session.completed', null],
+  ])(
+    'leaves the order and the stage alone for %s (payment status %s): not money received',
+    async (eventType, checkoutPaymentStatus) => {
+      const order = makeOrder({
+        id: 'order-004',
+        contactId: 'contact-004',
+        totalAmount: '100.00',
+        currency: 'MXN',
+        status: 'pending',
+      })
+      installAwaitSequence([[order], [], [], [], [], [], []])
+      const result = await reconcileDhanamPaymentLifecycle(mockDb as never, {
+        amountMinor: 10_000,
+        contactId: 'contact-004',
+        currency: 'MXN',
+        eventId: 'evt-start-004',
+        eventType,
+        externalPaymentId: 'sub-004',
+        lifecycle: 'paid',
+        checkoutPaymentStatus,
+      })
+      expect(result.status).toBe('ignored')
+      expect(result.paymentStatus).toBeNull()
+      expect(mockDb.update).not.toHaveBeenCalled()
+      expect(mockDb._qb.values).not.toHaveBeenCalled()
+    },
+  )
+
+  it('reconciles a checkout whose payment is collected and makes its contact a customer', async () => {
+    const order = makeOrder({
+      id: 'order-005',
+      contactId: 'contact-005',
+      totalAmount: '100.00',
+      currency: 'MXN',
+      status: 'pending',
+    })
+    installAwaitSequence([[order], [], [], [], [], [], []])
+    const occurredAt = new Date('2026-11-10T12:00:00.000Z')
+    const result = await reconcileDhanamPaymentLifecycle(mockDb as never, {
+      amountMinor: 10_000,
+      contactId: 'contact-005',
+      currency: 'MXN',
+      eventId: 'evt-checkout-005',
+      eventType: 'checkout.session.completed',
+      externalPaymentId: 'cs-005',
+      lifecycle: 'paid',
+      checkoutPaymentStatus: 'paid',
+      occurredAt,
+    })
+    expect(result).toMatchObject({ status: 'reconciled', paymentStatus: 'paid' })
+    expect(mockDb._qb.set).toHaveBeenCalledWith({
+      lifecycleStage: 'customer',
+      lifecycleStageChangedAt: occurredAt,
+    })
   })
 
   function installAwaitSequence(results: unknown[][]) {

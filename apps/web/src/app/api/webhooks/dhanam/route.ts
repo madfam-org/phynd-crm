@@ -25,7 +25,12 @@ import {
   logOrphanEvent,
   resolveContactId,
 } from './buyer-contact'
-import { type CustomerStageResult, applyCustomerStage } from './customer-stage'
+import {
+  type CustomerStageResult,
+  applyCustomerStage,
+  checkoutPaymentStatus,
+  eventOccurredAt,
+} from './customer-stage'
 import { type DhanamWebhookPayload, type NormalizedEvent, normalizeEvent } from './envelope'
 import { type FailedPaymentTaskResult, maybeOpenFailedPaymentTask } from './failed-payment-task'
 import { conversionLeadId } from './lead-conversion'
@@ -476,6 +481,10 @@ async function maybeReconcilePayment(
     eventType: event.eventType,
     externalPaymentId: event.paymentId ?? event.invoiceId ?? event.eventId,
     lifecycle,
+    checkoutPaymentStatus: checkoutPaymentStatus(event.raw),
+    // When the money moved, as the sender states it: the order's paid date and
+    // the time the stage rule compares with.
+    occurredAt: eventOccurredAt(event.raw),
     orderId: event.orderId,
     quoteId: event.quoteId,
   })

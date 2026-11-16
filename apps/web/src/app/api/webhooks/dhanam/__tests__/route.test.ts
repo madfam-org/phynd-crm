@@ -464,6 +464,8 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
         return value === null || value === undefined
       case 'lte':
         return value instanceof Date && (cond.val as Date).getTime() >= value.getTime()
+      case 'lt':
+        return value instanceof Date && (cond.val as Date).getTime() > value.getTime()
       default:
         throw new Error(`contacts update mock: unsupported ${String(cond._tag)}`)
     }
@@ -486,8 +488,13 @@ const { mockCheckRateLimit, mockValidateWebhookSignature, state, mockDb } = vi.h
       const id = find(cond) ?? ''
       applied = holds(cond, contactRow(id))
       if (applied) {
-        state.contactStageById.set(id, String(values.lifecycleStage))
-        state.contactStageChangedAt.set(id, values.lifecycleStageChangedAt as Date)
+        // Only the columns the statement sets.
+        if ('lifecycleStage' in values) {
+          state.contactStageById.set(id, String(values.lifecycleStage))
+        }
+        if ('lifecycleStageChangedAt' in values) {
+          state.contactStageChangedAt.set(id, values.lifecycleStageChangedAt as Date)
+        }
         state.updates.contacts.push({ id, values })
       }
       return qb
@@ -708,6 +715,7 @@ vi.mock('drizzle-orm', () => ({
   ne: vi.fn((col: unknown, val: unknown) => ({ _tag: 'ne', col: String(col), val })),
   or: vi.fn((...args: unknown[]) => ({ _tag: 'or', args })),
   lte: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lte', col: String(col), val })),
+  lt: vi.fn((col: unknown, val: unknown) => ({ _tag: 'lt', col: String(col), val })),
   inArray: vi.fn((col: unknown, vals: unknown) => ({ _tag: 'inArray', col: String(col), vals })),
   sql: Object.assign(
     (strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -769,6 +777,8 @@ function checkoutCompletedEvent(overrides: Record<string, unknown> = {}) {
         customer: 'cus_test_1',
         customer_email: 'tablaco@example.com',
         subscription: 'sub_test_1',
+        // Collected at completion (card); an asynchronous method says 'unpaid'.
+        payment_status: 'paid',
         metadata: {
           janua_user_id: 'janua_tablaco_001',
           plan: 'pro',
@@ -2192,6 +2202,116 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
       ),
     )
     expect(fresh.customer_stage).toEqual({ stage: 'customer', changed: true })
+  })
+
+  it('compares a cancellation with the latest payment, not the first', async () => {
+    const pay = (id: string, timestamp: string) =>
+      paymentSucceededEvent(
+        { customer_email: 'cliente@example.test', payment_id: `pi_${id}` },
+        { id: `evt_${id}`, timestamp },
+      )
+    expect((await post(pay('first', '2026-11-01T12:00:00.000Z'))).customer_stage).toEqual({
+      stage: 'customer',
+      changed: true,
+    })
+    // A later payment keeps the stage and moves its time forward.
+    expect((await post(pay('latest', '2026-11-12T12:00:00.000Z'))).customer_stage).toEqual({
+      stage: 'customer',
+      changed: false,
+    })
+    expect(state.contactStageChangedAt.get('contact_c1')).toEqual(
+      new Date('2026-11-12T12:00:00.000Z'),
+    )
+    // A late redelivery of an older payment never moves it back.
+    await post(pay('older', '2026-11-05T12:00:00.000Z'))
+    expect(state.contactStageChangedAt.get('contact_c1')).toEqual(
+      new Date('2026-11-12T12:00:00.000Z'),
+    )
+
+    // A cancellation dated between the first and the latest payment changes nothing.
+    const between = await post(cancellation({}, '2026-11-10T12:00:00.000Z'))
+    expect(between.customer_stage).toBeUndefined()
+    expect(state.contactStageById.get('contact_c1')).toBe('customer')
+
+    // One after the latest payment still ends the customer.
+    const after = await post({
+      ...cancellation({}, '2026-11-14T12:00:00.000Z'),
+      id: 'evt_cancel_2',
+    })
+    expect(after.customer_stage).toEqual({ stage: 'former_customer', changed: true })
+  })
+
+  it('leaves a matching order unpaid for a subscription start or an unpaid checkout', async () => {
+    const order = orderRow({
+      id: 'order_c1',
+      contactId: 'contact_c1',
+      opportunityId: null,
+      quoteId: null,
+    })
+    state.ordersByContactId.set('contact_c1', [order])
+    state.ordersById.set('order_c1', order)
+    const checkout = (id: string, paymentStatus: string) =>
+      checkoutCompletedEvent({
+        id,
+        data: {
+          object: {
+            id: `cs_${id}`,
+            customer_email: 'cliente@example.test',
+            payment_status: paymentStatus,
+            amount_total: 19900,
+            currency: 'mxn',
+          },
+        },
+      })
+
+    const started = await post({
+      id: 'evt_start_order',
+      type: 'subscription.created',
+      data: {
+        customer_email: 'cliente@example.test',
+        subscription_id: 'sub_c1',
+        amount_minor: 19900,
+        currency: 'MXN',
+      },
+    })
+    const unpaid = await post(checkout('evt_checkout_unpaid', 'unpaid'))
+    for (const json of [started, unpaid]) {
+      expect(json.payment_reconciliation_status).toBe('ignored')
+      expect(json.order_id).toBeNull()
+      expect(json.customer_stage).toBeUndefined()
+    }
+    await new Promise((r) => setTimeout(r, 0))
+    expect(state.updates.orders).toEqual([])
+    expect(state.inserts.externalReferences).toEqual([])
+    expect(state.contactStageById.get('contact_c1')).toBeUndefined()
+
+    // The checkout whose payment is collected pays the order and makes the customer.
+    const paid = await post(checkout('evt_checkout_collected', 'paid'))
+    expect(paid).toMatchObject({
+      payment_reconciliation_status: 'reconciled',
+      order_id: 'order_c1',
+      // The order becoming paid made the customer, inside reconciliation.
+      customer_stage: { stage: 'customer' },
+    })
+    expect(state.contactStageById.get('contact_c1')).toBe('customer')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(state.updates.orders).toHaveLength(1)
+    expect(state.updates.orders[0]?.values).toMatchObject({ paymentStatus: 'paid' })
+  })
+
+  it('dates an order payment and the stage change by the event, not by its receipt', async () => {
+    const order = orderRow({ id: 'order_t1', contactId: 'contact_c1', opportunityId: null })
+    state.ordersByContactId.set('contact_c1', [order])
+    await post(
+      paymentSucceededEvent(
+        { customer_email: 'cliente@example.test', amount_minor: 19900 },
+        { id: 'evt_pay_dated', timestamp: '2026-11-02T12:00:00.000Z' },
+      ),
+    )
+    await new Promise((r) => setTimeout(r, 0))
+    const at = new Date('2026-11-02T12:00:00.000Z')
+    expect(state.updates.orders[0]?.values).toMatchObject({ paymentStatus: 'paid', paidAt: at })
+    expect(state.contactStageChangedAt.get('contact_c1')).toEqual(at)
   })
 
   it('keeps a customer whose other order is partly refunded', async () => {

@@ -1,10 +1,14 @@
-import { CASE_STATUSES, CASE_TYPES } from '@phynd/db/schema'
+import type { CaseStatus, CaseType } from '@phynd/db/schema'
 import { CasesService } from '@phynd/services'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
-const caseType = z.enum(CASE_TYPES)
-const caseStatus = z.enum(CASE_STATUSES)
+// Literal lists, as the other routers write their enums (router tests mock the
+// schema module); `satisfies` checks each value against the schema's types.
+const CASE_TYPE_VALUES = ['support', 'refund', 'data_rights', 'invoice_correction'] as const
+const CASE_STATUS_VALUES = ['open', 'in_progress', 'resolved'] as const
+const caseType = z.enum(CASE_TYPE_VALUES satisfies readonly CaseType[])
+const caseStatus = z.enum(CASE_STATUS_VALUES satisfies readonly CaseStatus[])
 
 export const casesRouter = router({
   list: protectedProcedure

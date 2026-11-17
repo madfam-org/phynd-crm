@@ -10,6 +10,11 @@ vi.mock('@/lib/federation/clients', () => ({
   getCacheManager: () => ({}),
 }))
 
+const mockFinishIntakeLead = vi.fn().mockResolvedValue({ ownerId: 'user-default', dueAt: null })
+vi.mock('@/lib/webhooks/intake-lead', () => ({
+  finishIntakeLead: (...args: unknown[]) => mockFinishIntakeLead(...args),
+}))
+
 vi.mock('@phynd/config/constants', () => ({
   DEFAULT_TENANT_ID: 'madfam',
 }))
@@ -76,6 +81,7 @@ const mockCreateLead = vi.fn().mockResolvedValue(mockLead)
 const mockRecordConversion = vi.fn().mockResolvedValue({ id: 'conversion-1' })
 const mockUpsertSession = vi.fn().mockResolvedValue(mockVisitorSession)
 const mockRecordPageView = vi.fn().mockResolvedValue({ id: 'page-view-1' })
+const mockCreateNote = vi.fn().mockResolvedValue({ id: 'note-1' })
 
 vi.mock('@phynd/services', () => ({
   createServiceContext: (db: unknown) => ({ db }),
@@ -96,6 +102,9 @@ vi.mock('@phynd/services', () => ({
   VisitorTrackingService: vi.fn().mockImplementation(() => ({
     upsertFromWebhook: mockUpsertSession,
     recordPageView: mockRecordPageView,
+  })),
+  NotesService: vi.fn().mockImplementation(() => ({
+    create: mockCreateNote,
   })),
 }))
 
@@ -162,6 +171,8 @@ beforeEach(() => {
   mockRecordConversion.mockClear().mockResolvedValue({ id: 'conversion-1' })
   mockUpsertSession.mockClear().mockResolvedValue(mockVisitorSession)
   mockRecordPageView.mockClear().mockResolvedValue({ id: 'page-view-1' })
+  mockCreateNote.mockClear().mockResolvedValue({ id: 'note-1' })
+  mockFinishIntakeLead.mockClear().mockResolvedValue({ ownerId: 'user-default', dueAt: null })
 })
 
 afterEach(() => {
@@ -210,6 +221,111 @@ describe('POST /api/webhooks/avala', () => {
     expect(state.insertedWebhookEvents[0]).toMatchObject({
       provider: 'avala',
       eventType: 'avala.lead.captured',
+    })
+  })
+
+  describe('first-party context, owner and test traffic (G1, G2, G5)', () => {
+    const company = {
+      id: 'lead-2',
+      email: 'persona@empresa-ficticia.mx',
+      name: 'Persona Ficticia',
+      source: 'producto-comply',
+      leadType: 'COMPANY',
+      ecCode: 'EC0000',
+      interests: ['dc3', 'compliance'],
+      message: 'Necesitamos certificar a 20 personas.',
+    }
+    const companyEvent = () =>
+      makeLeadEvent({
+        event_id: 'avala:lead.captured:lead:lead-2:v1',
+        payload: {
+          lead: company,
+          attribution: {
+            sessionId: 'avala-session-2',
+            sourcePage: '/comply',
+            intent: 'request-access',
+          },
+        },
+      })
+
+    it('keeps message, lead type, EC code, intent and interests', async () => {
+      mockCreateContact.mockResolvedValueOnce({
+        ...mockContact,
+        email: company.email,
+        ownerId: null,
+      })
+      const res = await POST(signedRequest(JSON.stringify(companyEvent())))
+      expect(res.status).toBe(200)
+
+      expect(mockCreateLead).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: 'producto-comply',
+          isTest: false,
+          attribution: expect.objectContaining({
+            lead_type: 'COMPANY',
+            ec_code: 'EC0000',
+            intent: 'request-access',
+            interests: ['dc3', 'compliance'],
+            landing_page: '/comply',
+          }),
+        }),
+      )
+      expect(mockCreateNote).toHaveBeenCalledTimes(1)
+      expect(mockCreateNote).toHaveBeenCalledWith({
+        content: 'Message from the Avala form\n\nNecesitamos certificar a 20 personas.',
+        entityType: 'contact',
+        entityId: 'contact-1',
+      })
+    })
+
+    it('gives the new lead its owner and first-contact task', async () => {
+      mockCreateContact.mockResolvedValueOnce({
+        ...mockContact,
+        email: company.email,
+        ownerId: null,
+      })
+      await POST(signedRequest(JSON.stringify(companyEvent())))
+      expect(mockFinishIntakeLead).toHaveBeenCalledWith(
+        mockDb,
+        expect.anything(),
+        expect.objectContaining({
+          leadId: 'lead-1',
+          contactOwnerId: null,
+          isTest: false,
+          displayName: 'Persona Ficticia',
+          feed: 'avala',
+        }),
+      )
+    })
+
+    it('a redelivery of the same event creates no second note', async () => {
+      mockDb.select.mockImplementationOnce(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({ limit: vi.fn().mockResolvedValue([{ id: 'seen' }]) })),
+        })),
+      }))
+      const res = await POST(signedRequest(JSON.stringify(companyEvent())))
+      expect(((await res.json()) as { status: string }).status).toBe('duplicate')
+      expect(mockCreateNote).not.toHaveBeenCalled()
+      expect(mockCreateLead).not.toHaveBeenCalled()
+    })
+
+    it('writes no note without a message', async () => {
+      await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+      expect(mockCreateNote).not.toHaveBeenCalled()
+    })
+
+    it('marks a smoke lead as test traffic and opens no task for it', async () => {
+      const event = makeLeadEvent({
+        payload: { lead: { ...company, source: 'provisioning_smoke' }, attribution: {} },
+      })
+      await POST(signedRequest(JSON.stringify(event)))
+      expect(mockCreateLead).toHaveBeenCalledWith(expect.objectContaining({ isTest: true }))
+      expect(mockFinishIntakeLead).toHaveBeenCalledWith(
+        mockDb,
+        expect.anything(),
+        expect.objectContaining({ isTest: true }),
+      )
     })
   })
 })

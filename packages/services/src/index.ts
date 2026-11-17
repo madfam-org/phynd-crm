@@ -193,7 +193,25 @@ export {
   LEAD_ATTRIBUTION_URL_MAX_LENGTH,
   sanitizeLeadAttribution,
 } from './leads/lead-attribution'
-export { LeadsService } from './leads/leads.service'
+export {
+  LEAD_ASSIGNABLE_ROLES,
+  type LeadAssignee,
+  type LeadListFilters,
+  LeadsService,
+} from './leads/leads.service'
+export {
+  FIRST_CONTACT_TASK_KIND,
+  applyLeadIntakeDefaults,
+  firstContactTitle,
+  nextBusinessDayDueAt,
+} from './leads/lead-intake-defaults'
+export {
+  isFreeMailAddress,
+  isTestLead,
+  tierForScore,
+  WAITLIST_INTENT,
+} from './leads/lead-qualification'
+export { findDefaultOwner, resolveSystemTaskOwner } from './leads/default-owner'
 export { NotesService } from './notes/notes.service'
 export { NotificationsService } from './notifications/notifications.service'
 export { OffersService } from './offers/offers.service'

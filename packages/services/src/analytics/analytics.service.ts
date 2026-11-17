@@ -402,7 +402,13 @@ export class AnalyticsService {
         period: sql<string>`date_trunc(${sql.raw(`'${bucket}'`)}, ${leads.createdAt})::text`,
       })
       .from(leads)
-      .where(and(gte(leads.createdAt, dateRange.from), lte(leads.createdAt, dateRange.to)))
+      .where(
+        and(
+          gte(leads.createdAt, dateRange.from),
+          lte(leads.createdAt, dateRange.to),
+          eq(leads.isTest, false),
+        ),
+      )
       .groupBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${leads.createdAt})`)
       .orderBy(sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${leads.createdAt})`)
   }
@@ -463,7 +469,8 @@ export class AnalyticsService {
   }
 
   async getDashboardSummary(dateRange?: DateRange) {
-    const leadConditions: SQL[] = []
+    // Synthetic/test leads never count.
+    const leadConditions: SQL[] = [eq(leads.isTest, false)]
     if (dateRange?.from) {
       leadConditions.push(gte(leads.createdAt, dateRange.from))
     }

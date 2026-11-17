@@ -12,6 +12,7 @@ import { processEmailDrip } from './processors/email-drip'
 import { processFederationSync } from './processors/federation-sync'
 import { processGrantComplianceCheck } from './processors/grant-compliance-check'
 import { processHealthCheck } from './processors/health-check'
+import { runLeadIntakeBackfill } from './processors/lead-intake-backfill'
 import { processLeadScoring } from './processors/lead-scoring'
 import { processProductionDispatch } from './processors/production-dispatch'
 import { processRedditBot } from './processors/reddit-bot'
@@ -118,6 +119,15 @@ async function main() {
   await queues.taskReminders.add('check-due-tasks', {}, { repeat: { pattern: '0 */4 * * *' } })
   await queues.demoCleanup.add('cleanup-expired-demos', {}, { repeat: { pattern: '0 * * * *' } })
   await queues.productionDispatch.add('scan', {}, { repeat: { pattern: '* * * * *' } })
+  // Daily rescore of every lead: the recency rules decay a score with age, so
+  // tiers move without a new event. 12:00 UTC = 06:00 Mexico City.
+  await queues.leadScoring.add('rescore-all', { all: true }, { repeat: { pattern: '0 12 * * *' } })
+
+  // One-off lead-intake backfill (owners, first-contact tasks, scores, Avala
+  // context). Idempotent and recorded once done; never blocks the worker.
+  runLeadIntakeBackfill().catch((err) => {
+    logger.error({ err }, 'lead-intake backfill failed; it will retry on next start')
+  })
 
   // Reddit bot: poll every 15 minutes
   const redditSubreddits = (

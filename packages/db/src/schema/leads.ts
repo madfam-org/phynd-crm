@@ -27,6 +27,11 @@ export type LeadAttribution = {
   utm_term?: string
   referrer?: string
   landing_page?: string
+  tenant?: string
+  quote_id?: string
+  quote_number?: string
+  quote_total?: string
+  quote_currency?: string
   booking?: {
     id?: string
     starts_at?: string
@@ -34,6 +39,16 @@ export type LeadAttribution = {
     host_name?: string
     timezone?: string
   }
+  /** The sender's lead kind (Avala: `INDIVIDUAL` | `COMPANY`). */
+  lead_type?: string
+  /** Competency standard the lead asked about (Avala). */
+  ec_code?: string
+  /** What the lead asked for (Avala: `sales-request`, `request-access`, `waitlist`). */
+  intent?: string
+  /** Availability of what was asked for, as the sender reported it. */
+  availability_status?: string
+  /** Topics the lead picked on the sender's form. */
+  interests?: string[]
 }
 
 export const leads = pgTable(
@@ -46,6 +61,16 @@ export const leads = pgTable(
     attribution: jsonb('attribution').$type<LeadAttribution>(),
     status: varchar('status', { length: 20 }).notNull().default('new'),
     score: integer('score'),
+    /**
+     * A | B | C, derived from `score` when it is computed (lead-qualification.ts):
+     * A >= 7, B 4-6, C <= 3; a `waitlist` lead is always C. Null until scored.
+     */
+    tier: varchar('tier', { length: 1 }),
+    /**
+     * Synthetic or test traffic (smoke tests, probes, reserved addresses), set at
+     * intake by rule. Left out of lead lists and metrics by default.
+     */
+    isTest: boolean('is_test').notNull().default(false),
     unsubscribed: boolean('unsubscribed').notNull().default(false),
     unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
     pipelineId: text('pipeline_id')
@@ -65,5 +90,6 @@ export const leads = pgTable(
   (table) => [
     index('leads_contact_id_idx').on(table.contactId),
     index('leads_pipeline_stage_idx').on(table.pipelineId, table.stageId),
+    index('leads_owner_tier_idx').on(table.ownerId, table.tier),
   ],
 )

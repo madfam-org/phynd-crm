@@ -55,6 +55,7 @@ const CAMPAIGN_SEND =
 const MONEY =
   'commercial and payment records (amounts, receipts, bank details): not a pipeline read'
 const STAFF_DIRECTORY = 'staff directory and access administration (admin-gated): names staff'
+const ASSIGNEES = 'names the staff who can own leads, for the UI assign menus; not for agents'
 const CASES =
   'cases (requests with a deadline): no MCP tool yet by owner ruling; a later slice decides'
 const ANALYTICS = 'aggregates for the dashboard; a later slice can add them as their own tools'
@@ -89,6 +90,8 @@ export const MCP_COVERAGE: Readonly<Record<string, ProcedureCoverage>> = {
   'leads.moveToStage': { exempt: WRITE },
   'leads.bulkUpdateStatus': { exempt: WRITE },
   'leads.delete': { exempt: WRITE },
+  'leads.assign': { exempt: WRITE },
+  'leads.assignees': { exempt: ASSIGNEES },
 
   // ── activities (tasks) ────────────────────────────────────────────────────
   // tasks_list_open calls the same listRecent, narrowed to open tasks (type

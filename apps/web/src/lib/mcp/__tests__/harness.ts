@@ -78,6 +78,8 @@ function lead(n: number, fields: Record<string, string | number | boolean | null
     source: 'web',
     status: 'new',
     score: 40,
+    tier: 'B',
+    is_test: false,
     unsubscribed: true,
     unsubscribed_at: T0,
     pipeline_id: 'pipeline_default_sales',

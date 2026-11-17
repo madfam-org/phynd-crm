@@ -222,6 +222,41 @@ const serviceContexts: Array<{ auth: { userId: string } }> = []
 
 type FakeCtx = { db: FakeTx; auth: { userId: string } }
 
+// Intake marks synthetic traffic by rule; these fixtures use reserved test
+// addresses, so the rule is stubbed here and exercised in its own tests.
+const mockIsTestLead = vi.fn(() => false)
+vi.mock('@phynd/services/leads/lead-qualification', () => ({
+  isTestLead: (...args: unknown[]) => mockIsTestLead(...(args as [])),
+}))
+
+// The owner + first-contact step writes through the delivery's transaction;
+// here it stages the task row like the real insert, then lets a test fail it.
+vi.mock('@phynd/services/leads/lead-intake-defaults', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@phynd/services/leads/lead-intake-defaults')>()
+  return {
+    ...actual,
+    applyLeadIntakeDefaults: async (
+      ctx: { db: FakeTx },
+      input: { leadId: string; ownerId: string | null; title?: string; description?: string },
+    ) => {
+      const row = {
+        id: nextId('activity'),
+        type: 'task',
+        kind: actual.FIRST_CONTACT_TASK_KIND,
+        title: input.title,
+        description: input.description,
+        dueAt: actual.nextBusinessDayDueAt(),
+        entityType: 'lead',
+        entityId: input.leadId,
+        ownerId: input.ownerId,
+      }
+      ctx.db.stage('activities', row)
+      await mockCreateActivity(row)
+      return { ownerId: input.ownerId, taskId: row.id, dueAt: row.dueAt }
+    },
+  }
+})
+
 vi.mock('@phynd/services', () => ({
   createServiceContext: (db: unknown, _cache: unknown, auth: { userId: string }) => {
     const ctx = { db, auth }
@@ -462,6 +497,7 @@ beforeEach(() => {
   mockCreateLead.mockReset()
   mockCreateNote.mockReset()
   mockCreateActivity.mockReset()
+  mockIsTestLead.mockReset().mockReturnValue(false)
   mockSendEmail.mockReset().mockResolvedValue({ id: 'resend-msg-1' })
 })
 
@@ -715,6 +751,7 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
           timezone: 'America/Mexico_City',
         },
       },
+      isTest: false,
       pipelineId: 'pipeline-1',
       stageId: 'stage-1',
     })
@@ -870,6 +907,22 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
   })
 })
 
+describe('POST /api/webhooks/lead-intake — test traffic', () => {
+  it('stores a synthetic lead marked as test, with no first-contact task', async () => {
+    mockIsTestLead.mockReturnValue(true)
+    const res = await post(makeBookingEvent())
+    expect(res.status).toBe(200)
+    expect(mockCreateLead).toHaveBeenCalledWith(expect.objectContaining({ isTest: true }))
+    expect(committed('activities')).toHaveLength(0)
+  })
+
+  it('marks a real lead as not test and gives its task the first-contact kind', async () => {
+    await post(makeBookingEvent())
+    expect(mockCreateLead).toHaveBeenCalledWith(expect.objectContaining({ isTest: false }))
+    expect(committed('activities')[0]).toEqual(expect.objectContaining({ kind: 'first_contact' }))
+  })
+})
+
 describe('POST /api/webhooks/lead-intake — site lead', () => {
   it('creates the contact and a lead with source madfam-site and the UTM parameters', async () => {
     const res = await post(makeSiteEvent())
@@ -893,6 +946,7 @@ describe('POST /api/webhooks/lead-intake — site lead', () => {
         referrer: 'https://search.example.test/',
         landing_page: 'https://sitio.example.test/contacto',
       },
+      isTest: false,
       pipelineId: 'pipeline-1',
       stageId: 'stage-1',
     })

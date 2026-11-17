@@ -52,7 +52,20 @@ export interface LeadAttribution {
   quote_total?: string
   quote_currency?: string
   booking?: LeadBookingAttribution
+  /** The sender's lead kind (Avala: `INDIVIDUAL` | `COMPANY`). */
+  lead_type?: string
+  /** Competency standard the lead asked about (Avala). */
+  ec_code?: string
+  /** What the lead asked for (Avala: `sales-request`, `request-access`, `waitlist`). */
+  intent?: string
+  /** Availability of what was asked for, as the sender reported it. */
+  availability_status?: string
+  /** Topics the lead picked on the sender's form. */
+  interests?: string[]
 }
+
+export const LEAD_TIERS = ['A', 'B', 'C'] as const
+export type LeadTier = (typeof LEAD_TIERS)[number]
 
 export interface Lead {
   id: string
@@ -62,6 +75,10 @@ export interface Lead {
   attribution?: LeadAttribution | null
   status: LeadStatus
   score: number | null
+  /** A | B | C from the score; null until scored. */
+  tier?: LeadTier | null
+  /** Synthetic or test traffic, left out of lists and metrics. */
+  isTest?: boolean
   pipelineId: string
   stageId: string
   ownerId: string | null
@@ -261,8 +278,11 @@ export interface WebhookEvent {
 
 export interface ScoringCondition {
   field: string
-  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'exists'
+  /** `in`: the value is one of `value` (an array). */
+  operator: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'exists' | 'in'
   value?: unknown
+  /** Further conditions that must all hold too (one level deep). */
+  all?: ScoringCondition[]
 }
 
 export interface PaginationInput {

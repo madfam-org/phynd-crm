@@ -1,5 +1,6 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
 import {
   BOOKING_EVENT_TYPE,
   LEAD_INTAKE_ORIGIN_LABEL,
@@ -11,21 +12,18 @@ import {
   formatBookingStart,
   isLeadIntakeSource,
   leadEventSource,
-  nextBusinessDayDueAt,
   notifyNewLead,
   quoteLabel,
   quoteSummary,
   readLeadQuote,
 } from '@/lib/webhooks/lead-intake'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
-import { resolveSystemTaskOwner } from '@/lib/webhooks/system-task-owner'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { webhookEvents } from '@phynd/db/schema'
 import { validateMadfamSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import {
-  ActivitiesService,
   ContactsService,
   LeadsService,
   NotesService,
@@ -35,6 +33,7 @@ import {
   withTransaction,
 } from '@phynd/services'
 import { sanitizeLeadAttribution } from '@phynd/services/leads/lead-attribution'
+import { isTestLead } from '@phynd/services/leads/lead-qualification'
 import type { AuthContext } from '@phynd/types/auth'
 import type { LeadAttribution } from '@phynd/types/crm'
 import { and, eq, sql } from 'drizzle-orm'
@@ -436,7 +435,13 @@ async function storeLead(
       company: lead.company,
     }))
 
-  const crmLead = await createDefaultLead(ctx, contact.id, source, attribution)
+  const isTest = isTestLead({
+    source,
+    email: lead.email,
+    name: lead.name,
+    message: lead.message,
+  })
+  const crmLead = await createDefaultLead(ctx, contact.id, source, attribution, isTest)
 
   // The prospect's own words go on the contact, followed by where they came
   // from, so the first person to open the record reads both.
@@ -451,6 +456,7 @@ async function storeLead(
     ? await openFollowUp(ctx, {
         leadId: crmLead.id,
         contactOwnerId: contact.ownerId,
+        isTest,
         source,
         name: displayName,
         attribution,
@@ -513,57 +519,47 @@ function bookingSummary(attribution: LeadAttribution | null): string | undefined
 }
 
 /**
- * One follow-up task on the lead, due the next business day. It goes to the
- * contact's owner (a reused contact may have one), else to the configured
- * default task owner (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`); with neither it is
- * unassigned, a warning is logged, and whoever takes it sets its owner. It
- * shows on the lead's timeline and in the activities list. Best effort: it runs
- * in a savepoint, so a failure rolls back only the task, is logged, and the
- * lead is still stored.
+ * The lead's owner and its one follow-up task (the "First contact" task, kind
+ * `first_contact`), due the next business day. Both go to the contact's owner
+ * (a reused contact may have one), else to the configured default owner
+ * (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`); with neither the task is unassigned, a
+ * warning is logged, and whoever takes it sets its owner. A test lead gets
+ * neither. It shows on the lead's timeline and in the activities list. Best
+ * effort: it runs in a savepoint, so a failure rolls back only these writes,
+ * is logged, and the lead is still stored.
  */
 async function openFollowUp(
   ctx: PhyndServiceContext,
   input: {
     leadId: string
     contactOwnerId: string | null
+    isTest: boolean
     source: LeadIntakeSource
     name: string
     attribution: LeadAttribution | null
     quote: LeadQuote | null
   },
 ): Promise<Date | null> {
-  const dueAt = nextBusinessDayDueAt()
   const meeting = bookingSummary(input.attribution)
   // The quote label goes first so a long name cannot cut it off.
   const subject = input.quote ? `cotización ${quoteLabel(input.quote)} · ${input.name}` : input.name
-  try {
-    await ctx.db.transaction(async (savepoint) => {
-      const ownerId = await resolveSystemTaskOwner(savepoint, logger, {
-        contactOwnerId: input.contactOwnerId,
-        logContext: { task: 'lead_intake_follow_up', lead_id: input.leadId },
-      })
-      return new ActivitiesService(withTransaction(ctx, savepoint)).create({
-        type: 'task',
-        // `activities.title` is varchar(255).
-        title: cut(`Dar seguimiento: ${subject}`, CONTACT_TEXT_MAX) ?? 'Dar seguimiento',
-        description: [
-          `Lead por ${LEAD_INTAKE_ORIGIN_LABEL[input.source]}.`,
-          meeting ? `Reunión: ${meeting}` : undefined,
-          input.quote ? `Solicitud de ${quoteSummary(input.quote)}.` : undefined,
-        ]
-          .filter((part): part is string => part !== undefined)
-          .join(' '),
-        dueAt,
-        entityType: 'lead',
-        entityId: input.leadId,
-        ownerId,
-      })
-    })
-    return dueAt
-  } catch (error) {
-    logger.warn({ err: error, leadId: input.leadId }, 'lead follow-up task not created')
-    return null
-  }
+  const result = await finishIntakeLead(ctx.db, logger, {
+    leadId: input.leadId,
+    contactOwnerId: input.contactOwnerId,
+    isTest: input.isTest,
+    displayName: input.name,
+    // `activities.title` is varchar(255).
+    title: cut(`Dar seguimiento: ${subject}`, CONTACT_TEXT_MAX) ?? 'Dar seguimiento',
+    description: [
+      `Lead por ${LEAD_INTAKE_ORIGIN_LABEL[input.source]}.`,
+      meeting ? `Reunión: ${meeting}` : undefined,
+      input.quote ? `Solicitud de ${quoteSummary(input.quote)}.` : undefined,
+    ]
+      .filter((part): part is string => part !== undefined)
+      .join(' '),
+    feed: input.source,
+  })
+  return result?.dueAt ?? null
 }
 
 async function createDefaultLead(
@@ -571,6 +567,7 @@ async function createDefaultLead(
   contactId: string,
   source: LeadIntakeSource,
   attribution: LeadAttribution | null,
+  isTest: boolean,
 ) {
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -585,6 +582,7 @@ async function createDefaultLead(
     contactId,
     source,
     attribution,
+    isTest,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
   })

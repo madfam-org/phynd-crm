@@ -169,6 +169,13 @@
       "when": 1794820448521,
       "tag": "0023_customer_stage_money_received",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794900175807,
+      "tag": "0024_lead_owner_score_tier",
+      "breakpoints": true
     }
   ]
 }

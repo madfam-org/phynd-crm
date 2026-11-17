@@ -13,6 +13,11 @@ vi.mock('@/lib/webhooks/handler', () => ({
   handleWebhook: (...args: unknown[]) => mockHandleWebhook(...args),
 }))
 
+const mockFinishIntakeLead = vi.fn().mockResolvedValue(null)
+vi.mock('@/lib/webhooks/intake-lead', () => ({
+  finishIntakeLead: (...args: unknown[]) => mockFinishIntakeLead(...args),
+}))
+
 vi.mock('@/lib/federation/clients', () => ({
   getCacheManager: vi.fn(() => ({
     get: vi.fn(),

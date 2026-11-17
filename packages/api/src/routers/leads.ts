@@ -1,10 +1,10 @@
-import { LeadsService, requireCrmUserId } from '@phynd/services'
+import { LEAD_ASSIGNABLE_ROLES, LeadsService, requireCrmUserId } from '@phynd/services'
 import {
   LEAD_ATTRIBUTION_MAX_LENGTH,
   LEAD_ATTRIBUTION_URL_MAX_LENGTH,
 } from '@phynd/services/leads/lead-attribution'
 import { z } from 'zod'
-import { protectedProcedure, router } from '../trpc'
+import { protectedProcedure, requireRole, router } from '../trpc'
 import { entityId } from '../validation'
 
 const attributionValue = z.string().trim().min(1).max(LEAD_ATTRIBUTION_MAX_LENGTH)
@@ -24,6 +24,11 @@ const leadAttributionInput = z.object({
   quote_number: attributionValue.optional(),
   quote_total: attributionValue.optional(),
   quote_currency: attributionValue.optional(),
+  lead_type: attributionValue.optional(),
+  ec_code: attributionValue.optional(),
+  intent: attributionValue.optional(),
+  availability_status: attributionValue.optional(),
+  interests: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
   booking: z
     .object({
       id: attributionValue.optional(),
@@ -35,20 +40,56 @@ const leadAttributionInput = z.object({
     .optional(),
 })
 
+/**
+ * Whose leads: `me` (the signed-in CRM user), `unassigned`, or a CRM user id.
+ * The `/leads?owner=` link passes it through as is.
+ */
+export const leadOwnerFilter = z.union([z.enum(['me', 'unassigned']), z.string().uuid()])
+
 const paginationInput = z
   .object({
     cursor: z.string().optional(),
     limit: z.number().int().min(1).max(200).optional(),
     ownerId: z.string().uuid().optional(),
+    owner: leadOwnerFilter.optional(),
+    tier: z.enum(['A', 'B', 'C']).optional(),
   })
   .optional()
 
+/** Staff who work leads may assign them; a viewer may not. */
+const assignProcedure = protectedProcedure.use(requireRole(...LEAD_ASSIGNABLE_ROLES))
+
 export const leadsRouter = router({
   list: protectedProcedure.input(paginationInput).query(({ ctx, input }) => {
-    const { ownerId, ...pagination } = input ?? {}
+    const { ownerId, owner, tier, ...pagination } = input ?? {}
     const service = new LeadsService(ctx)
-    return service.list(pagination, ownerId ? { ownerId } : undefined)
+    const ownerFilter =
+      owner === 'me'
+        ? { ownerId: requireCrmUserId(ctx.auth) }
+        : owner === 'unassigned'
+          ? { unassigned: true }
+          : owner || ownerId
+            ? { ownerId: owner ?? ownerId }
+            : {}
+    return service.list(pagination, { ...ownerFilter, ...(tier ? { tier } : {}) })
   }),
+
+  /** CRM users a lead can be assigned to (for the "Assign to…" menus). */
+  assignees: protectedProcedure.query(({ ctx }) => {
+    const service = new LeadsService(ctx)
+    return service.listAssignees()
+  }),
+
+  /**
+   * Reassigns a lead: owner, its open "First contact" task, a timeline entry,
+   * and an in-app notification to the new owner.
+   */
+  assign: assignProcedure
+    .input(z.object({ id: z.string().uuid(), ownerId: z.string().uuid() }))
+    .mutation(({ ctx, input }) => {
+      const service = new LeadsService(ctx)
+      return service.assign(input.id, input.ownerId)
+    }),
 
   listMine: protectedProcedure
     .input(
@@ -109,9 +150,19 @@ export const leadsRouter = router({
         ownerId: z.string().uuid().optional(),
       }),
     )
-    .mutation(({ ctx, input }) => {
-      const { id, ...data } = input
+    .mutation(async ({ ctx, input }) => {
+      const { id, ownerId, ...data } = input
       const service = new LeadsService(ctx)
+      // An owner change goes through the same path as "Assign to…", so the
+      // first-contact task and the timeline follow it.
+      if (ownerId) {
+        const current = await service.getById(id)
+        if (current && current.ownerId !== ownerId) {
+          const assigned = await service.assign(id, ownerId)
+          if (Object.keys(data).length === 0) return assigned
+        }
+      }
+      if (Object.keys(data).length === 0) return service.getById(id)
       return service.update(id, data)
     }),
 

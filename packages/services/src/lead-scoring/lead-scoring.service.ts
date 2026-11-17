@@ -201,8 +201,8 @@ export class LeadScoringService {
             sql`${leads.id} <> ${lead.id}`,
             sql`${leads.deletedAt} is null`,
             eq(leads.isTest, false),
-            sql`${leads.createdAt} >= ${since}`,
-            sql`${leads.createdAt} <= ${createdAt}`,
+            sql`${leads.createdAt} >= ${since.toISOString()}::timestamptz`,
+            sql`${leads.createdAt} <= ${createdAt.toISOString()}::timestamptz`,
           ),
         )
       facts.repeatSubmissions7d = row?.count ?? 0

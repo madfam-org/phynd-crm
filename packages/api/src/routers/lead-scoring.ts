@@ -14,10 +14,17 @@ function assertLeadScoring() {
   }
 }
 
-const scoringConditionSchema = z.object({
+const conditionOperator = z.enum(['eq', 'gt', 'lt', 'gte', 'lte', 'contains', 'exists', 'in'])
+
+const baseConditionSchema = z.object({
   field: z.string(),
-  operator: z.enum(['eq', 'gt', 'lt', 'gte', 'lte', 'contains', 'exists']),
+  operator: conditionOperator,
   value: z.unknown().optional(),
+})
+
+// `all`: further conditions that must hold too, one level deep.
+const scoringConditionSchema = baseConditionSchema.extend({
+  all: z.array(baseConditionSchema).max(5).optional(),
 })
 
 const paginationInput = z

@@ -4,6 +4,7 @@ import { leads } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
 import { LeadScoringService } from '@phynd/services'
 import type { Job } from 'bullmq'
+import { isNull } from 'drizzle-orm'
 import { getCacheManager } from '../lib/federation'
 
 const logger = createLogger('worker:lead-scoring')
@@ -39,7 +40,7 @@ export async function processLeadScoring(job: Job<LeadScoringData>): Promise<voi
 
   let targetIds: string[]
   if (all) {
-    const allLeads = await db.select({ id: leads.id }).from(leads)
+    const allLeads = await db.select({ id: leads.id }).from(leads).where(isNull(leads.deletedAt))
     targetIds = allLeads.map((l) => l.id)
   } else {
     targetIds = leadIds ?? []

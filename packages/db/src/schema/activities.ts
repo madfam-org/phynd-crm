@@ -15,6 +15,12 @@ export const activities = pgTable(
     entityType: varchar('entity_type', { length: 20 }).notNull(),
     entityId: text('entity_id').notNull(),
     ownerId: text('owner_id').references(() => users.id),
+    /**
+     * Stable marker of a task the system manages, so it can be found again
+     * without matching on its title: `first_contact` = the lead's first-contact
+     * task. Null for every activity a person creates.
+     */
+    kind: varchar('kind', { length: 40 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()

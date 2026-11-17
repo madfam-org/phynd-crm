@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
+import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -11,6 +12,7 @@ import {
   RedditBotService,
   createServiceContext,
 } from '@phynd/services'
+import { isTestLead } from '@phynd/services/leads/lead-qualification'
 import type { AuthContext } from '@phynd/types/auth'
 import { Queue } from 'bullmq'
 import { NextResponse } from 'next/server'
@@ -129,7 +131,12 @@ async function ensureContact(ctx: TezcaServiceContext, email: string, externalJa
   return contact
 }
 
-async function createDefaultLead(ctx: TezcaServiceContext, contactId: string, source: string) {
+async function createDefaultLead(
+  ctx: TezcaServiceContext,
+  contact: { id: string; email: string | null; ownerId: string | null },
+  source: string,
+) {
+  const contactId = contact.id
   const leadsService = new LeadsService(ctx)
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -139,11 +146,20 @@ async function createDefaultLead(ctx: TezcaServiceContext, contactId: string, so
   const firstStage = stages[0]
   if (!firstStage) return null
 
+  const isTest = isTestLead({ source, email: contact.email })
   const lead = await leadsService.create({
     contactId,
     source,
+    isTest,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
+  })
+  await finishIntakeLead(getDb(), logger, {
+    leadId: lead.id,
+    contactOwnerId: contact.ownerId,
+    isTest,
+    displayName: contact.email ?? source,
+    feed: 'tezca',
   })
   await enqueueDrip(lead.id)
   return lead
@@ -152,7 +168,7 @@ async function createDefaultLead(ctx: TezcaServiceContext, contactId: string, so
 async function handleNewsletter(data: TezcaNewsletterPayload, ctx: TezcaServiceContext) {
   logger.info({ email: data.email }, 'Processing Tezca newsletter subscription')
   const contact = await ensureContact(ctx, data.email)
-  const lead = await createDefaultLead(ctx, contact.id, 'tezca_newsletter')
+  const lead = await createDefaultLead(ctx, contact, 'tezca_newsletter')
   if (lead) {
     logger.info(
       { contactId: contact.id, source: 'tezca_newsletter' },
@@ -168,7 +184,7 @@ async function handleInterest(data: TezcaInterestPayload, ctx: TezcaServiceConte
   )
   const contact = await ensureContact(ctx, data.email, data.janua_user_id)
   const source = `tezca_interest:${data.feature_key}`
-  const lead = await createDefaultLead(ctx, contact.id, source)
+  const lead = await createDefaultLead(ctx, contact, source)
   if (lead) {
     logger.info({ contactId: contact.id, source }, 'Created lead from Tezca interest event')
   }

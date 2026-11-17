@@ -1,5 +1,6 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -14,6 +15,7 @@ import {
   PipelinesService,
   createServiceContext,
 } from '@phynd/services'
+import { isTestLead } from '@phynd/services/leads/lead-qualification'
 import type { AuthContext } from '@phynd/types/auth'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -212,12 +214,13 @@ async function handleLeadCaptured(
       company: readString(lead.company),
     }))
 
-  const crmLead = await createDefaultLead(ctx, contact.id, 'nauta')
+  const message = readString(lead.message)
+  const isTest = isTestLead({ source: 'nauta', email, name: readString(lead.name), message })
+  const crmLead = await createDefaultLead(ctx, contact.id, 'nauta', isTest)
 
   // The prospect's own words are the highest-signal artifact of the whole
   // submission; they land as a note on the contact so the first human to open
   // the record reads what the prospect actually asked for.
-  const message = readString(lead.message)
   const planInterest = readString(context.plan_interest)
   const page = readString(context.page)
   const noteLines = [
@@ -231,6 +234,16 @@ async function handleLeadCaptured(
     entityType: 'contact',
     entityId: contact.id,
   })
+
+  if (crmLead?.id) {
+    await finishIntakeLead(getDb(), logger, {
+      leadId: crmLead.id,
+      contactOwnerId: contact.ownerId,
+      isTest,
+      displayName: readString(lead.name) ?? email,
+      feed: 'nauta',
+    })
+  }
 
   logger.info(
     { contactId: contact.id, leadId: crmLead?.id ?? null, hasMessage: message !== undefined },
@@ -340,7 +353,12 @@ async function notifyNewNautaLead(lead: {
   }
 }
 
-async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, source: string) {
+async function createDefaultLead(
+  ctx: PhyndServiceContext,
+  contactId: string,
+  source: string,
+  isTest: boolean,
+) {
   const leadsService = new LeadsService(ctx)
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -353,6 +371,7 @@ async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, so
   return leadsService.create({
     contactId,
     source,
+    isTest,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
   })

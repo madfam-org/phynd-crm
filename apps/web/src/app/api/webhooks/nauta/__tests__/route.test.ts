@@ -9,6 +9,11 @@ vi.mock('@/lib/webhooks/rate-limiter', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
 }))
 
+const mockFinishIntakeLead = vi.fn().mockResolvedValue(null)
+vi.mock('@/lib/webhooks/intake-lead', () => ({
+  finishIntakeLead: (...args: unknown[]) => mockFinishIntakeLead(...args),
+}))
+
 vi.mock('@/lib/federation/clients', () => ({
   getCacheManager: () => ({}),
 }))
@@ -198,6 +203,7 @@ describe('POST /api/webhooks/nauta', () => {
     expect(mockCreateLead).toHaveBeenCalledWith({
       contactId: 'contact-1',
       source: 'nauta',
+      isTest: false,
       pipelineId: 'pipeline-1',
       stageId: 'stage-1',
     })

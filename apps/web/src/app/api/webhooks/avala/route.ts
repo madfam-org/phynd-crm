@@ -1,5 +1,6 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -10,11 +11,19 @@ import {
   ContactsService,
   ConversionsService,
   LeadsService,
+  NotesService,
   PipelinesService,
   VisitorTrackingService,
   createServiceContext,
 } from '@phynd/services'
+import {
+  avalaLeadAttribution,
+  avalaLeadMessage,
+  avalaMessageNote,
+} from '@phynd/services/leads/avala-lead-context'
+import { isTestLead } from '@phynd/services/leads/lead-qualification'
 import type { AuthContext } from '@phynd/types/auth'
+import type { LeadAttribution } from '@phynd/types/crm'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -192,14 +201,40 @@ async function handleLeadCaptured(
   const email = readString(lead.email)
   if (!email) return
 
+  const name = readString(lead.name) ?? email.split('@')[0] ?? email
   const contact = await ensureContact(ctx, {
     email,
-    name: readString(lead.name) ?? email.split('@')[0] ?? email,
+    name,
     phone: readString(lead.phone),
     company: readString(lead.company),
   })
 
-  const crmLead = await createDefaultLead(ctx, contact.id, readString(lead.source) ?? 'avala')
+  const source = readString(lead.source) ?? 'avala'
+  const message = avalaLeadMessage(payload)
+  const isTest = isTestLead({ source, email, name: readString(lead.name), message })
+  const crmLead = await createDefaultLead(ctx, contact.id, source, {
+    attribution: avalaLeadAttribution(payload),
+    isTest,
+  })
+
+  // The prospect's own words, on the contact, so whoever calls reads them.
+  if (message) {
+    await new NotesService(ctx).create({
+      content: avalaMessageNote(message),
+      entityType: 'contact',
+      entityId: contact.id,
+    })
+  }
+
+  if (crmLead?.id) {
+    await finishIntakeLead(getDb(), logger, {
+      leadId: crmLead.id,
+      contactOwnerId: contact.ownerId,
+      isTest,
+      displayName: name,
+      feed: 'avala',
+    })
+  }
   const visitorSession = await upsertVisitorSession(ctx, {
     externalSessionId: readString(attribution.sessionId),
     contactId: contact.id,
@@ -426,7 +461,12 @@ async function ensureContact(
   })
 }
 
-async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, source: string) {
+async function createDefaultLead(
+  ctx: PhyndServiceContext,
+  contactId: string,
+  source: string,
+  extra: { attribution: LeadAttribution | null; isTest: boolean },
+) {
   const leadsService = new LeadsService(ctx)
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -438,7 +478,10 @@ async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, so
 
   return leadsService.create({
     contactId,
-    source,
+    // `leads.source` is varchar(100).
+    source: source.slice(0, 100),
+    attribution: extra.attribution,
+    isTest: extra.isTest,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
   })

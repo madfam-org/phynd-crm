@@ -398,7 +398,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation URLs        | `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `SELVA_API_URL`, `FORJ_API_URL` |
 | Federation API Keys    | `PRAVARA_API_KEY`, `SELVA_API_KEY`, `FEDERATION_API_TOKEN` |
 | Machine auth (Janua)   | `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — see [docs/MACHINE_AUTH.md](docs/MACHINE_AUTH.md) |
-| System task owner      | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` — CRM user (`users.id`, or `janua:<subject>` of a linked user) who owns system-created tasks on a contact without owner; unset = unassigned + warning |
+| System task owner      | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` — CRM user (`users.id`, or `janua:<subject>` of a linked user) who owns system-created tasks on a contact without owner, and new leads no rule assigns (web intake and the worker's lead backfill); unset = unassigned + warning |
 | Native MCP (read-only) | `PHYND_CRM_MCP_ENABLED`, `PHYND_CRM_MCP_READ_CLIENTS`, `PHYND_CRM_MCP_UNMASKED_CLIENTS` — off by default, see [docs/NATIVE_MCP.md](docs/NATIVE_MCP.md) |
 | Production dispatch    | `PRAVARA_DISPATCH_URL`, `SELVA_DISPATCH_URL`, `PRAVARA_DISPATCH_SECRET`, `SELVA_DISPATCH_SECRET`, `PRODUCTION_DISPATCH_SCAN_LIMIT`, `PRODUCTION_DISPATCH_TIMEOUT_MS` |
 | Webhook secrets        | `JANUA_WEBHOOK_SECRET`, `JANUA_TELEMETRY_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, `CEQ_WEBHOOK_SECRET`, `COFORMA_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_CRM_LEAD_INTAKE_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` |

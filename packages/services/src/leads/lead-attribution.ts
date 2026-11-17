@@ -18,7 +18,15 @@ const FIELD_LIMITS = {
   quote_number: LEAD_ATTRIBUTION_MAX_LENGTH,
   quote_total: LEAD_ATTRIBUTION_MAX_LENGTH,
   quote_currency: LEAD_ATTRIBUTION_MAX_LENGTH,
-} as const satisfies Record<Exclude<keyof LeadAttribution, 'booking'>, number>
+  lead_type: LEAD_ATTRIBUTION_MAX_LENGTH,
+  ec_code: LEAD_ATTRIBUTION_MAX_LENGTH,
+  intent: LEAD_ATTRIBUTION_MAX_LENGTH,
+  availability_status: LEAD_ATTRIBUTION_MAX_LENGTH,
+} as const satisfies Record<Exclude<keyof LeadAttribution, 'booking' | 'interests'>, number>
+
+/** Most interests kept, and the longest one. */
+export const LEAD_ATTRIBUTION_MAX_INTERESTS = 20
+export const LEAD_ATTRIBUTION_INTEREST_MAX_LENGTH = 100
 
 const BOOKING_FIELDS = [
   'id',
@@ -39,6 +47,17 @@ function cleanString(value: unknown, maxLength: number): string | undefined {
   return trimmed.slice(0, maxLength)
 }
 
+function sanitizeInterests(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const interests: string[] = []
+  for (const item of value) {
+    const cleaned = cleanString(item, LEAD_ATTRIBUTION_INTEREST_MAX_LENGTH)
+    if (cleaned !== undefined && !interests.includes(cleaned)) interests.push(cleaned)
+    if (interests.length >= LEAD_ATTRIBUTION_MAX_INTERESTS) break
+  }
+  return interests.length > 0 ? interests : undefined
+}
+
 function sanitizeBooking(value: unknown): LeadBookingAttribution | undefined {
   if (!isRecord(value)) return undefined
   const booking: LeadBookingAttribution = {}
@@ -51,7 +70,7 @@ function sanitizeBooking(value: unknown): LeadBookingAttribution | undefined {
 
 /**
  * The only shape `leads.attribution` ever holds. Keeps the known keys, string
- * values only, trimmed and cut to their maximum length; everything else is
+ * values only (`interests`: a list of strings, at most 20, de-duplicated), trimmed and cut to their maximum length; everything else is
  * left out. Returns `null` when nothing remains, so an empty object is never
  * stored.
  */
@@ -69,6 +88,9 @@ export function sanitizeLeadAttribution(input: unknown): LeadAttribution | null 
 
   const booking = sanitizeBooking(input.booking)
   if (booking) attribution.booking = booking
+
+  const interests = sanitizeInterests(input.interests)
+  if (interests) attribution.interests = interests
 
   return Object.keys(attribution).length > 0 ? attribution : null
 }

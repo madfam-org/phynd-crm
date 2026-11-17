@@ -93,6 +93,7 @@ describe('LeadScoringService — CRUD & Batch', () => {
             totalScore: 10,
           },
         ],
+        [], // score and tier written on the lead row
         [lead2],
         [rule],
         [],

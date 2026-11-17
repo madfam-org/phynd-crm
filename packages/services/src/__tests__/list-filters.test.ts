@@ -67,21 +67,45 @@ describe('ContactsService.list filters', () => {
 })
 
 describe('LeadsService.list filters', () => {
-  it('filters by status and source, exactly, and still excludes deleted leads', async () => {
+  it('filters by status and source, exactly, and still excludes deleted and test leads', async () => {
     const ctx = createTestContext([])
     await new LeadsService(ctx).list(undefined, { status: 'qualified', source: 'web' })
 
     const { sql, params } = lastWhere(ctx)
     expect(sql).toBe(
-      '("leads"."deleted_at" is null and "leads"."status" = $1 and "leads"."source" = $2)',
+      '("leads"."deleted_at" is null and "leads"."is_test" = $1 and "leads"."status" = $2 and "leads"."source" = $3)',
     )
-    expect(params).toEqual(['qualified', 'web'])
+    expect(params).toEqual([false, 'qualified', 'web'])
   })
 
-  it('adds nothing without filters', async () => {
+  it('without filters, leaves out only deleted and test leads', async () => {
     const ctx = createTestContext([])
     await new LeadsService(ctx).list()
-    expect(lastWhere(ctx).sql).toBe('"leads"."deleted_at" is null')
+    const { sql, params } = lastWhere(ctx)
+    expect(sql).toBe('("leads"."deleted_at" is null and "leads"."is_test" = $1)')
+    expect(params).toEqual([false])
+  })
+
+  it('filters unassigned leads of one tier (the owner link)', async () => {
+    const ctx = createTestContext([])
+    await new LeadsService(ctx).list(undefined, { unassigned: true, tier: 'A' })
+    const { sql, params } = lastWhere(ctx)
+    expect(sql).toBe(
+      '("leads"."deleted_at" is null and "leads"."owner_id" is null and "leads"."tier" = $1 and "leads"."is_test" = $2)',
+    )
+    expect(params).toEqual(['A', false])
+  })
+
+  it('an owner wins over unassigned; test leads only when asked', async () => {
+    const ctx = createTestContext([])
+    await new LeadsService(ctx).list(undefined, {
+      ownerId: 'user-1',
+      unassigned: true,
+      includeTest: true,
+    })
+    const { sql, params } = lastWhere(ctx)
+    expect(sql).toBe('("leads"."deleted_at" is null and "leads"."owner_id" = $1)')
+    expect(params).toEqual(['user-1'])
   })
 })
 

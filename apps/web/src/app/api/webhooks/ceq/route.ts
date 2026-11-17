@@ -1,5 +1,6 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
+import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -12,6 +13,7 @@ import {
   PipelinesService,
   createServiceContext,
 } from '@phynd/services'
+import { isTestLead } from '@phynd/services/leads/lead-qualification'
 import { Queue } from 'bullmq'
 import { NextResponse } from 'next/server'
 
@@ -221,11 +223,20 @@ async function handleCeqInterestEvent(raw: unknown) {
   // Source string carries the feature_key so the funnel report can segment by
   // which premium template drove the conversion.
   const source = `ceq_interest:${data.feature_key}`
+  const isTest = isTestLead({ source, email: data.email })
   const lead = await leadsService.create({
     contactId: contact.id,
     source,
+    isTest,
     pipelineId: stageConfig.pipeline.id,
     stageId: stageConfig.firstStage.id,
+  })
+  await finishIntakeLead(getDb(), logger, {
+    leadId: lead.id,
+    contactOwnerId: contact.ownerId,
+    isTest,
+    displayName: data.email,
+    feed: 'ceq',
   })
 
   logger.info(

@@ -31,6 +31,7 @@ import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { parseConditionValue } from './condition-value'
 import { DeleteScoringRuleDialog } from './delete-scoring-rule-dialog'
 import { EditScoringRuleDialog } from './edit-scoring-rule-dialog'
 
@@ -159,8 +160,9 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
                       | 'gte'
                       | 'lte'
                       | 'contains'
-                      | 'exists',
-                    value: fd.get('conditionValue') as string,
+                      | 'exists'
+                      | 'in',
+                    value: parseConditionValue(String(fd.get('conditionValue') ?? ''), operator),
                   },
                 })
               }}
@@ -205,6 +207,7 @@ export function ScoringRulesTable({ initialData }: ScoringRulesTableProps) {
                     <SelectItem value="lte">Less or equal</SelectItem>
                     <SelectItem value="contains">Contains</SelectItem>
                     <SelectItem value="exists">Exists</SelectItem>
+                    <SelectItem value="in">One of (comma list)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

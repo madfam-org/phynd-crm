@@ -50,6 +50,17 @@ spec:
               value: "production"
             - name: TULANA_COMMERCIAL_GA_PERIOD
               value: "2026-06"
+            # Default owner of leads no rule assigns, read by the one-off lead
+            # backfill (owners + first-contact tasks of existing leads). Same
+            # optional ExternalSecret as the web deployment (it names a person's
+            # account, so never plain env). Absent: the backfill skips owners
+            # and tasks and retries on the next start.
+            - name: PHYND_CRM_DEFAULT_TASK_OWNER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: phynd-crm-default-task-owner
+                  key: PHYND_CRM_DEFAULT_TASK_OWNER_ID
+                  optional: true
           envFrom:
             - secretRef:
                 name: phynd-crm-secrets

@@ -159,6 +159,8 @@ export async function POST(request: Request) {
       contactId,
       source: PROBE_SOURCE,
       status: 'new',
+      // Synthetic: left out of lead lists and metrics.
+      isTest: true,
       score: Math.round(
         Number((body.lead as Record<string, unknown> | undefined)?.score ?? 0.95) * 100,
       ),

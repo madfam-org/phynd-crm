@@ -28,6 +28,11 @@ export function leadAttributionRows(
   if (!attribution) return []
   const booking = attribution.booking
   const rows: [string, string | undefined][] = [
+    ['Intent', attribution.intent],
+    ['Lead type', attribution.lead_type],
+    ['EC code', attribution.ec_code],
+    ['Availability', attribution.availability_status],
+    ['Interests', attribution.interests?.length ? attribution.interests.join(', ') : undefined],
     ['UTM source', attribution.utm_source],
     ['UTM medium', attribution.utm_medium],
     ['UTM campaign', attribution.utm_campaign],

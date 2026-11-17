@@ -1,9 +1,12 @@
+import { LeadAssignControl } from '@/components/leads/assign-lead'
 import { LeadAttributionCard } from '@/components/leads/lead-attribution'
+import { LeadTierBadge, WaitlistBadge } from '@/components/leads/lead-tier-badge'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { TagsPanel } from '@/components/tags/tags-panel'
 import { EntityTimeline } from '@/components/timeline/entity-timeline'
 import { Badge } from '@/components/ui/badge'
 import { getServerCaller } from '@/lib/trpc/server'
+import type { LeadAttribution } from '@phynd/types/crm'
 import { notFound } from 'next/navigation'
 
 interface LeadDetailPageProps {
@@ -58,8 +61,21 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             </div>
           </div>
           <div>
+            <span className="text-sm text-muted-foreground">Tier</span>
+            <div className="mt-1 flex items-center gap-2">
+              <LeadTierBadge tier={lead.tier} />
+              <WaitlistBadge intent={(lead.attribution as LeadAttribution | null)?.intent} />
+            </div>
+          </div>
+          <div>
             <span className="text-sm text-muted-foreground">Score</span>
             <p className="font-medium">{lead.score ?? '—'}</p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Owner</span>
+            <div className="mt-1">
+              <LeadAssignControl leadId={lead.id} ownerId={lead.ownerId} />
+            </div>
           </div>
           <div>
             <span className="text-sm text-muted-foreground">Stage</span>

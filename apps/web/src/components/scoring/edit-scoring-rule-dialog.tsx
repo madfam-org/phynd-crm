@@ -22,6 +22,7 @@ import {
 import { trpc } from '@/lib/trpc/client'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { formatConditionValue, parseConditionValue } from './condition-value'
 
 interface EditScoringRuleDialogProps {
   rule: {
@@ -50,19 +51,34 @@ function getConditionOperator(condition: unknown): string {
   return 'eq'
 }
 
-function getConditionValue(condition: unknown): string {
+function getConditionRawValue(condition: unknown): unknown {
   if (condition && typeof condition === 'object' && 'value' in condition) {
-    return String((condition as { value: unknown }).value ?? '')
+    return (condition as { value: unknown }).value
   }
-  return ''
+  return undefined
 }
+
+/** Further conditions (`all`) are not edited here; they are kept as they are. */
+function getConditionAll(condition: unknown) {
+  if (condition && typeof condition === 'object' && 'all' in condition) {
+    const all = (condition as { all: unknown }).all
+    return Array.isArray(all)
+      ? (all as { field: string; operator: ScoringOperator; value?: unknown }[])
+      : undefined
+  }
+  return undefined
+}
+
+type ScoringOperator = 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'exists' | 'in'
 
 export function EditScoringRuleDialog({ rule, open, onOpenChange }: EditScoringRuleDialogProps) {
   const [name, setName] = useState(rule.name)
   const [category, setCategory] = useState(rule.category)
   const [field, setField] = useState(getConditionField(rule.condition))
   const [operator, setOperator] = useState(getConditionOperator(rule.condition))
-  const [conditionValue, setConditionValue] = useState(getConditionValue(rule.condition))
+  const [conditionValue, setConditionValue] = useState(
+    formatConditionValue(getConditionRawValue(rule.condition)),
+  )
   const [points, setPoints] = useState(String(rule.points))
   const [isActive, setIsActive] = useState(rule.isActive)
 
@@ -91,8 +107,9 @@ export function EditScoringRuleDialog({ rule, open, onOpenChange }: EditScoringR
       category: category as 'demographic' | 'behavior' | 'engagement',
       condition: {
         field,
-        operator: operator as 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'exists',
-        value: conditionValue || undefined,
+        operator: operator as ScoringOperator,
+        value: parseConditionValue(conditionValue, operator, getConditionRawValue(rule.condition)),
+        ...(getConditionAll(rule.condition) ? { all: getConditionAll(rule.condition) } : {}),
       },
       points: Number(points),
       isActive,
@@ -153,6 +170,7 @@ export function EditScoringRuleDialog({ rule, open, onOpenChange }: EditScoringR
                   <SelectItem value="lte">Less or equal</SelectItem>
                   <SelectItem value="contains">Contains</SelectItem>
                   <SelectItem value="exists">Exists</SelectItem>
+                  <SelectItem value="in">One of (comma list)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

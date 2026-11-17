@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -21,13 +22,17 @@ import {
 import { exportToCsv } from '@/lib/csv-export'
 import { trpc } from '@/lib/trpc/client'
 import type { AppRouter } from '@phynd/api'
+import type { LeadAttribution } from '@phynd/types/crm'
 import type { inferRouterOutputs } from '@trpc/server'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { AssignLeadSubmenu, assigneeLabel, useAssignLead, useLeadAssignees } from './assign-lead'
 import { CreateLeadDialog } from './create-lead-dialog'
 import { DeleteLeadDialog } from './delete-lead-dialog'
 import { EditLeadDialog } from './edit-lead-dialog'
+import { LEAD_TIER_FILTERS, type LeadsFilters, leadsHref } from './lead-filters'
+import { LeadTierBadge, WaitlistBadge } from './lead-tier-badge'
 
 type LeadsListOutput = inferRouterOutputs<AppRouter>['leads']['list']
 type LeadRow = LeadsListOutput['items'][number]
@@ -37,6 +42,8 @@ type PipelineStagesOutput = inferRouterOutputs<AppRouter>['pipelines']['getStage
 
 interface LeadsDataTableProps {
   initialData: LeadsListOutput
+  /** From the URL (`?owner=`, `?tier=`); the chips below change the URL. */
+  filters?: LeadsFilters
 }
 
 const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'secondary'> = {
@@ -49,16 +56,25 @@ const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'seconda
 
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted'] as const
 
-type ViewMode = 'all' | 'mine'
+function FilterChip({
+  href,
+  active,
+  children,
+}: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Button asChild variant={active ? 'default' : 'outline'} size="sm" aria-pressed={active}>
+      <Link href={href} scroll={false}>
+        {children}
+      </Link>
+    </Button>
+  )
+}
 
-export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('all')
-
+export function LeadsDataTable({ initialData, filters = {} }: LeadsDataTableProps) {
   const leadsRouter = trpc.leads as NonNullable<typeof trpc.leads>
   const usersRouter = trpc.users as NonNullable<typeof trpc.users>
   const pipelinesRouter = trpc.pipelines as NonNullable<typeof trpc.pipelines>
   const listLeads = leadsRouter.list as NonNullable<typeof leadsRouter.list>
-  const listMineLeads = leadsRouter.listMine as NonNullable<typeof leadsRouter.listMine>
   const bulkUpdateLeadStatus = leadsRouter.bulkUpdateStatus as NonNullable<
     typeof leadsRouter.bulkUpdateStatus
   >
@@ -68,18 +84,20 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   >
   const getStages = pipelinesRouter.getStages as NonNullable<typeof pipelinesRouter.getStages>
 
-  const { data: allLeadsData } = listLeads.useQuery(undefined, {
-    initialData,
-    refetchInterval: 60_000,
-    enabled: viewMode === 'all',
-  })
-  const { data: myLeadsData } = listMineLeads.useQuery(undefined, {
-    refetchInterval: 60_000,
-    enabled: viewMode === 'mine',
-  })
-
-  const leadsData = viewMode === 'mine' ? myLeadsData : allLeadsData
+  const query = {
+    ...(filters.owner ? { owner: filters.owner } : {}),
+    ...(filters.tier ? { tier: filters.tier } : {}),
+  }
+  const { data: leadsData } = listLeads.useQuery(
+    Object.keys(query).length > 0 ? query : undefined,
+    {
+      initialData,
+      refetchInterval: 60_000,
+    },
+  )
   const leads = (leadsData as LeadsListOutput | undefined)?.items ?? []
+  const assignees = useLeadAssignees()
+  const assignMutation = useAssignLead()
   const { data: usersData } = listUsers.useQuery(undefined, {
     retry: false,
   })
@@ -97,13 +115,17 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
   const [bulkStatus, setBulkStatus] = useState<string>('')
 
+  // Assignees are readable by all staff; the full user list only by admins.
   const userMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const u of users) {
       map.set(u.id, u.name ?? u.email)
     }
+    for (const a of assignees) {
+      map.set(a.id, assigneeLabel(a))
+    }
     return map
-  }, [users])
+  }, [users, assignees])
 
   const stageMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -116,10 +138,8 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
   const utils = trpc.useUtils()
   const leadsUtils = utils.leads as NonNullable<typeof utils.leads>
   const listLeadsUtils = leadsUtils.list as NonNullable<typeof leadsUtils.list>
-  const listMineLeadsUtils = leadsUtils.listMine as NonNullable<typeof leadsUtils.listMine>
   const invalidateLeads = () => {
     listLeadsUtils.invalidate()
-    listMineLeadsUtils.invalidate()
   }
   const bulkUpdateMutation = bulkUpdateLeadStatus.useMutation({
     onSuccess: () => {
@@ -146,6 +166,16 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
       id: 'status',
       header: 'Status',
       cell: (row) => <Badge variant={statusVariant[row.status] ?? 'default'}>{row.status}</Badge>,
+    },
+    {
+      id: 'tier',
+      header: 'Tier',
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <LeadTierBadge tier={row.tier} />
+          <WaitlistBadge intent={(row.attribution as LeadAttribution | null)?.intent} />
+        </div>
+      ),
     },
     {
       id: 'score',
@@ -177,7 +207,14 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
             <DropdownMenuItem asChild>
               <Link href={`/leads/${row.id}`}>View</Link>
             </DropdownMenuItem>
+            <AssignLeadSubmenu
+              leadId={row.id}
+              ownerId={row.ownerId}
+              assignees={assignees}
+              onAssign={(input) => assignMutation.mutate(input)}
+            />
             <DropdownMenuItem onClick={() => setEditLead(row)}>Edit</DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={() => setLeadToDelete(row)}>
               Delete
             </DropdownMenuItem>
@@ -206,6 +243,7 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
         { key: 'id', header: 'ID' },
         { key: 'source', header: 'Source' },
         { key: 'status', header: 'Status' },
+        { key: 'tier', header: 'Tier' },
         { key: 'score', header: 'Score' },
       ],
       'leads',
@@ -214,26 +252,43 @@ export function LeadsDataTable({ initialData }: LeadsDataTableProps) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterChip href={leadsHref({ tier: filters.tier })} active={!filters.owner}>
+          All leads
+        </FilterChip>
+        <FilterChip
+          href={leadsHref({ owner: 'me', tier: filters.tier })}
+          active={filters.owner === 'me'}
+        >
+          My leads
+        </FilterChip>
+        <FilterChip
+          href={leadsHref({ owner: 'unassigned', tier: filters.tier })}
+          active={filters.owner === 'unassigned'}
+        >
+          Unassigned
+        </FilterChip>
+        {filters.owner && filters.owner !== 'me' && filters.owner !== 'unassigned' && (
+          <FilterChip href={leadsHref(filters)} active>
+            Owner: {userMap.get(filters.owner) ?? filters.owner.slice(0, 8)}
+          </FilterChip>
+        )}
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <FilterChip href={leadsHref({ owner: filters.owner })} active={!filters.tier}>
+          Any tier
+        </FilterChip>
+        {LEAD_TIER_FILTERS.map((tier) => (
+          <FilterChip
+            key={tier}
+            href={leadsHref({ owner: filters.owner, tier })}
+            active={filters.tier === tier}
+          >
+            Tier {tier}
+          </FilterChip>
+        ))}
+      </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <fieldset className="inline-flex rounded-md border">
-            <Button
-              variant={viewMode === 'mine' ? 'default' : 'ghost'}
-              size="sm"
-              className="rounded-r-none"
-              onClick={() => setViewMode('mine')}
-            >
-              My Deals
-            </Button>
-            <Button
-              variant={viewMode === 'all' ? 'default' : 'ghost'}
-              size="sm"
-              className="rounded-l-none"
-              onClick={() => setViewMode('all')}
-            >
-              All Deals
-            </Button>
-          </fieldset>
           <BulkActionsToolbar
             selectedCount={selectedKeys.size}
             onChangeStatus={handleBulkStatusChange}

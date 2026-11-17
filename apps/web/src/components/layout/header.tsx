@@ -2,8 +2,8 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { NotificationBell } from '../notifications/notification-bell'
 import { GlobalSearch } from './global-search'
+import { AccountMenu } from './account-menu'
 import { MobileSidebar } from './mobile-sidebar'
-import { SignOutButton } from './sign-out-button'
 import { ThemeToggle } from './theme-toggle'
 
 interface HeaderProps {
@@ -27,17 +27,18 @@ export function Header({ user, isDemo }: HeaderProps) {
       </div>
       <div className="flex items-center gap-4">
         <NotificationBell />
-        <div className="hidden text-sm sm:block">
-          <span className="font-medium">{user?.name ?? 'User'}</span>
-          {!isDemo && <span className="ml-2 text-muted-foreground">{user?.email}</span>}
-        </div>
+        {isDemo ? (
+          <div className="hidden text-sm sm:block">
+            <span className="font-medium">{user?.name ?? 'User'}</span>
+          </div>
+        ) : null}
         <ThemeToggle />
         {isDemo ? (
           <Button variant="ghost" size="sm" asChild>
             <Link href="/demo/exit">Exit Demo</Link>
           </Button>
         ) : (
-          <SignOutButton />
+          <AccountMenu name={user?.name} email={user?.email} />
         )}
       </div>
     </header>

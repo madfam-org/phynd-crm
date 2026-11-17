@@ -9,7 +9,8 @@ afterEach(() => vi.unstubAllEnvs())
 describe('Janua end-session URL', () => {
   it('names the client and returns to the CRM origin root', () => {
     const url = new URL(
-      januaLogoutUrl({ issuer: ISSUER, clientId: CLIENT, origin: 'https://crm.example.test' }) ?? '',
+      januaLogoutUrl({ issuer: ISSUER, clientId: CLIENT, origin: 'https://crm.example.test' }) ??
+        '',
     )
     expect(`${url.origin}${url.pathname}`).toBe('https://auth.example.test/logout')
     expect(url.searchParams.get('client_id')).toBe(CLIENT)
@@ -30,7 +31,11 @@ describe('Janua end-session URL', () => {
     { issuer: ISSUER, clientId: '', origin: 'https://crm.example.test' },
     { issuer: ISSUER, clientId: CLIENT, origin: '' },
     { issuer: 'http://auth.example.test', clientId: CLIENT, origin: 'https://crm.example.test' },
-    { issuer: 'https://user:pw@auth.example.test', clientId: CLIENT, origin: 'https://crm.example.test' },
+    {
+      issuer: 'https://user:pw@auth.example.test',
+      clientId: CLIENT,
+      origin: 'https://crm.example.test',
+    },
     { issuer: 'not a url', clientId: CLIENT, origin: 'https://crm.example.test' },
   ])('returns null when configuration is missing or unsafe (%o)', (input) => {
     expect(januaLogoutUrl(input)).toBeNull()
@@ -39,7 +44,9 @@ describe('Janua end-session URL', () => {
   it('reads the issuer and client id from the environment', () => {
     vi.stubEnv('AUTH_JANUA_ISSUER', ISSUER)
     vi.stubEnv('AUTH_JANUA_CLIENT_ID', CLIENT)
-    expect(januaLogoutUrlFromEnv('https://crm.example.test')).toContain('client_id=synthetic-client-id')
+    expect(januaLogoutUrlFromEnv('https://crm.example.test')).toContain(
+      'client_id=synthetic-client-id',
+    )
     vi.stubEnv('AUTH_JANUA_CLIENT_ID', '')
     expect(januaLogoutUrlFromEnv('https://crm.example.test')).toBeNull()
   })

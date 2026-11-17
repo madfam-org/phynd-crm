@@ -28,7 +28,12 @@ export function AccountMenu({ name, email }: AccountMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="max-w-[16rem] gap-1" aria-label={`Account: ${label}`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="max-w-[16rem] gap-1"
+          aria-label={`Account: ${label}`}
+        >
           <span className="truncate">{label}</span>
           <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
         </Button>

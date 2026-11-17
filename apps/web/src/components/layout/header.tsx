@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { NotificationBell } from '../notifications/notification-bell'
-import { GlobalSearch } from './global-search'
 import { AccountMenu } from './account-menu'
+import { GlobalSearch } from './global-search'
 import { MobileSidebar } from './mobile-sidebar'
 import { ThemeToggle } from './theme-toggle'
 

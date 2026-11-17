@@ -1,6 +1,6 @@
+import { GET } from '@/app/api/auth/end-session/route'
 import { NextRequest } from 'next/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GET } from '@/app/api/auth/end-session/route'
 
 afterEach(() => vi.unstubAllEnvs())
 

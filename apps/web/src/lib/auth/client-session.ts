@@ -8,7 +8,9 @@ import { SWITCH_ACCOUNT_PROMPT } from './janua-logout'
  * browser visits Janua's end-session endpoint (or /login if Janua is not
  * configured), so the next «Sign in with Janua» asks which account to use.
  */
-export async function endSession(navigate: (url: string) => void = (url) => window.location.assign(url)) {
+export async function endSession(
+  navigate: (url: string) => void = (url) => window.location.assign(url),
+) {
   await signOut({ redirect: false })
   let target = '/login'
   try {

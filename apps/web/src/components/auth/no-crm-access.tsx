@@ -1,4 +1,5 @@
-import { Button } from '@/components/ui/button'
+import { SignOutButton } from '@/components/layout/sign-out-button'
+import { UseAnotherAccountButton } from './use-another-account-button'
 
 /**
  * Shown to a signed-in Janua account that is not linked to a CRM user. The CRM
@@ -20,9 +21,10 @@ export function NoCrmAccess({ email }: { email: string | null }) {
           )}{' '}
           Ask a CRM administrator to link it, then sign in again.
         </p>
-        <Button variant="outline" asChild>
-          <a href="/api/auth/signout">Sign out</a>
-        </Button>
+        <div className="flex flex-wrap justify-center gap-3">
+          <UseAnotherAccountButton />
+          <SignOutButton variant="outline" />
+        </div>
       </div>
     </main>
   )

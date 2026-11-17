@@ -1,7 +1,7 @@
-import { signIn } from '@/lib/auth'
 import { getBrandForHost } from '@/lib/branding/tenant-brand'
 import { safeNextPath } from '@/lib/http/safe-next'
 import { headers } from 'next/headers'
+import { signInWithAnotherAccount, signInWithJanua } from './actions'
 
 /**
  * Human-readable copy for Auth.js error codes surfaced as `/login?error=…`.
@@ -52,17 +52,20 @@ export default async function LoginPage({
             {errorCopy(errorCode)}
           </div>
         ) : null}
-        <form
-          action={async () => {
-            'use server'
-            await signIn('janua', { redirectTo })
-          }}
-        >
+        <form action={signInWithJanua.bind(null, redirectTo)}>
           <button
             type="submit"
             className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
           >
             Sign in with Janua
+          </button>
+        </form>
+        <form action={signInWithAnotherAccount.bind(null, redirectTo)}>
+          <button
+            type="submit"
+            className="w-full rounded-md px-4 py-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Use another account
           </button>
         </form>
       </div>

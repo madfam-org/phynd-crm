@@ -14,12 +14,20 @@ import { toast } from 'sonner'
 
 interface DeleteLeadDialogProps {
   leadId: string
+  /** Called after the lead is deleted (the lead page navigates back to the queue). */
+  onDeleted?: () => void
   leadLabel: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function DeleteLeadDialog({ leadId, leadLabel, open, onOpenChange }: DeleteLeadDialogProps) {
+export function DeleteLeadDialog({
+  leadId,
+  leadLabel,
+  open,
+  onOpenChange,
+  onDeleted,
+}: DeleteLeadDialogProps) {
   const utils = trpc.useUtils()
   const leadsRouter = trpc.leads as NonNullable<typeof trpc.leads>
   const deleteLead = leadsRouter.delete as NonNullable<typeof leadsRouter.delete>
@@ -32,6 +40,7 @@ export function DeleteLeadDialog({ leadId, leadLabel, open, onOpenChange }: Dele
       listLeadsUtils.invalidate()
       listMineLeadsUtils.invalidate()
       onOpenChange(false)
+      onDeleted?.()
     },
     onError: (err) => toast.error('Failed to delete lead', { description: err.message }),
   })

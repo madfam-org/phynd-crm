@@ -72,7 +72,7 @@ describe('applyLeadIntakeDefaults', () => {
       expect.objectContaining({
         type: 'task',
         kind: 'first_contact',
-        title: 'First contact: Persona Ficticia',
+        title: 'Primer contacto: Persona Ficticia',
         entityType: 'lead',
         entityId: 'lead-1',
         ownerId: 'user-default',
@@ -94,6 +94,6 @@ describe('applyLeadIntakeDefaults', () => {
 
   it('cuts a long title to the column', () => {
     expect(Array.from(firstContactTitle('x'.repeat(400)))).toHaveLength(255)
-    expect(firstContactTitle(null)).toBe('First contact')
+    expect(firstContactTitle(null)).toBe('Primer contacto')
   })
 })

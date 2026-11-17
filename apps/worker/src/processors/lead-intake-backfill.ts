@@ -236,7 +236,8 @@ async function applyOwnersAndTasks(tx: Handle, plan: BackfillPlan): Promise<void
       type: 'task',
       kind: FIRST_CONTACT_TASK_KIND,
       title: firstContactTitle(task.name),
-      description: 'Opened by the lead backfill: this lead had no first-contact task.',
+      description:
+        'Abierta por la migración de leads: este lead no tenía tarea de primer contacto.',
       dueAt,
       entityType: 'lead',
       entityId: task.leadId,

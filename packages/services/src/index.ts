@@ -212,6 +212,17 @@ export {
   WAITLIST_INTENT,
 } from './leads/lead-qualification'
 export { findDefaultOwner, resolveSystemTaskOwner } from './leads/default-owner'
+export {
+  LEAD_QUEUE_PAGE_SIZE,
+  LEAD_QUEUE_VIEWS,
+  type LeadQueueCounts,
+  type LeadQueuePage,
+  type LeadQueueRow,
+  LeadQueueService,
+  type LeadQueueView,
+  type LeadScorePart,
+} from './leads/lead-queue.service'
+export { type LeadWorkspace, LeadWorkspaceService } from './leads/lead-workspace.service'
 export { NotesService } from './notes/notes.service'
 export { NotificationsService } from './notifications/notifications.service'
 export { OffersService } from './offers/offers.service'

@@ -91,6 +91,11 @@ export const MCP_COVERAGE: Readonly<Record<string, ProcedureCoverage>> = {
   'leads.bulkUpdateStatus': { exempt: WRITE },
   'leads.delete': { exempt: WRITE },
   'leads.assign': { exempt: WRITE },
+  'leads.bulkAssign': { exempt: WRITE },
+  'leads.queue': { exempt: NEXT_SLICE },
+  'leads.queueCounts': { exempt: NEXT_SLICE },
+  'leads.workspace': { exempt: NEXT_SLICE },
+  'leads.permissions': { exempt: PER_USER },
   'leads.assignees': { exempt: ASSIGNEES },
 
   // ── activities (tasks) ────────────────────────────────────────────────────

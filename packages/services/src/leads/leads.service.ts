@@ -245,6 +245,18 @@ export class LeadsService {
       .orderBy(asc(users.name), asc(users.email))
   }
 
+  /** Assigns up to 100 leads to one owner, each through {@link assign}. Returns how many changed. */
+  async bulkAssign(ids: string[], ownerId: string): Promise<number> {
+    let changed = 0
+    for (const id of ids) {
+      const before = await this.getById(id)
+      if (!before || before.ownerId === ownerId) continue
+      await this.assign(id, ownerId)
+      changed += 1
+    }
+    return changed
+  }
+
   /**
    * Reassigns a lead. The new owner must be an assignee (`listAssignees`). In
    * one transaction: the lead's owner, its open "First contact" task (moved to
@@ -272,14 +284,14 @@ export class LeadsService {
     }
     if (lead.ownerId === owner.id) return lead
 
-    let previousLabel = 'unassigned'
+    let previousLabel = 'sin asignar'
     if (lead.ownerId) {
       const [previous] = await this.ctx.db
         .select({ name: users.name, email: users.email })
         .from(users)
         .where(eq(users.id, lead.ownerId))
         .limit(1)
-      previousLabel = previous ? (previous.name ?? previous.email) : 'a former user'
+      previousLabel = previous ? (previous.name ?? previous.email) : 'un usuario anterior'
     }
     const ownerLabel = owner.name ?? owner.email
     const actorUserId = this.ctx.auth.crmUserId ?? null
@@ -303,8 +315,8 @@ export class LeadsService {
         )
       await tx.insert(activities).values({
         type: 'note',
-        title: `Lead assigned to ${ownerLabel}`.slice(0, 255),
-        description: `Previous owner: ${previousLabel}.`,
+        title: `Lead asignado a ${ownerLabel}`.slice(0, 255),
+        description: `Responsable anterior: ${previousLabel}.`,
         status: 'completed',
         completedAt: new Date(),
         entityType: 'lead',
@@ -331,8 +343,11 @@ export class LeadsService {
       await notificationsService.create({
         userId,
         type: 'owner_assignment',
-        title: `New ${entityType} assigned to you`,
-        message: `You have been assigned ${entityType}: ${entityName}`,
+        title: entityType === 'lead' ? 'Te asignaron un lead' : `New ${entityType} assigned to you`,
+        message:
+          entityType === 'lead'
+            ? `Lead de ${entityName}`
+            : `You have been assigned ${entityType}: ${entityName}`,
         entityType,
         entityId,
       })

@@ -1,118 +1,63 @@
-import { LeadAssignControl } from '@/components/leads/assign-lead'
-import { LeadAttributionCard } from '@/components/leads/lead-attribution'
-import { LeadTierBadge, WaitlistBadge } from '@/components/leads/lead-tier-badge'
+import { LeadDetailHeader } from '@/components/leads/detail/lead-detail-header'
+import {
+  CompanyPanel,
+  ConsentPanel,
+  ContactPanel,
+  DuplicatesHint,
+  EngagementPanel,
+  MessagePanel,
+  Panel,
+  ScorePanel,
+  TasksPanel,
+} from '@/components/leads/detail/lead-detail-panels'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { TagsPanel } from '@/components/tags/tags-panel'
 import { EntityTimeline } from '@/components/timeline/entity-timeline'
-import { Badge } from '@/components/ui/badge'
 import { getServerCaller } from '@/lib/trpc/server'
-import type { LeadAttribution } from '@phynd/types/crm'
 import { notFound } from 'next/navigation'
 
 interface LeadDetailPageProps {
   params: Promise<{ id: string }>
 }
 
-const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'secondary'> = {
-  new: 'default',
-  contacted: 'warning',
-  qualified: 'success',
-  unqualified: 'secondary',
-  converted: 'success',
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { id } = await params
+  if (!UUID.test(id)) notFound()
   const caller = await getServerCaller()
-
-  const lead = await caller.leads.getById({ id })
-  if (!lead) notFound()
-
-  const contact = lead.contactId ? await caller.contacts.getById({ id: lead.contactId }) : null
-
-  // Resolve stage name from pipeline stages
-  let stageName: string | null = null
-  if (lead.pipelineId) {
-    const stages = await caller.pipelines.getStages({ pipelineId: lead.pipelineId })
-    type PipelineStage = (typeof stages)[number]
-    const stage = stages.find((s: PipelineStage) => s.id === lead.stageId)
-    stageName = stage?.name ?? null
-  }
+  const [workspace, permissions] = await Promise.all([
+    caller.leads.workspace({ id }),
+    caller.leads.permissions(),
+  ])
+  if (!workspace) notFound()
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Lead Detail</h1>
-        <p className="text-muted-foreground">
-          {contact ? contact.name : `Lead ${lead.id.slice(0, 8)}`}
-        </p>
-      </div>
+      <LeadDetailHeader workspace={workspace} canAssign={permissions.canAssign} />
 
-      <div className="rounded-lg border bg-card p-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <span className="text-sm text-muted-foreground">Source</span>
-            <p className="font-medium">{lead.source ?? '—'}</p>
-          </div>
-          <div>
-            <span className="text-sm text-muted-foreground">Status</span>
-            <div className="mt-1">
-              <Badge variant={statusVariant[lead.status] ?? 'default'}>{lead.status}</Badge>
-            </div>
-          </div>
-          <div>
-            <span className="text-sm text-muted-foreground">Tier</span>
-            <div className="mt-1 flex items-center gap-2">
-              <LeadTierBadge tier={lead.tier} />
-              <WaitlistBadge intent={(lead.attribution as LeadAttribution | null)?.intent} />
-            </div>
-          </div>
-          <div>
-            <span className="text-sm text-muted-foreground">Score</span>
-            <p className="font-medium">{lead.score ?? '—'}</p>
-          </div>
-          <div>
-            <span className="text-sm text-muted-foreground">Owner</span>
-            <div className="mt-1">
-              <LeadAssignControl leadId={lead.id} ownerId={lead.ownerId} />
-            </div>
-          </div>
-          <div>
-            <span className="text-sm text-muted-foreground">Stage</span>
-            <p className="font-medium">{stageName ?? '—'}</p>
-          </div>
-          {contact && (
-            <div>
-              <span className="text-sm text-muted-foreground">Contact</span>
-              <p className="font-medium">{contact.name}</p>
-            </div>
-          )}
-          <div>
-            <span className="text-sm text-muted-foreground">Created</span>
-            <p className="font-medium">{new Date(lead.createdAt).toLocaleDateString()}</p>
-          </div>
-        </div>
-      </div>
-
-      <LeadAttributionCard attribution={lead.attribution} />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-6">
-          <div className="rounded-lg border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Timeline</h3>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <MessagePanel workspace={workspace} />
+          <Panel title="Actividad">
             <EntityTimeline entityType="lead" entityId={id} />
-          </div>
-        </div>
-        <div className="space-y-6">
-          <div className="rounded-lg border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Notes</h3>
+          </Panel>
+          <Panel title="Notas">
             <NotesPanel entityType="lead" entityId={id} />
-          </div>
-          <div className="rounded-lg border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Tags</h3>
-            <TagsPanel entityType="lead" entityId={id} />
-          </div>
+          </Panel>
         </div>
+        <aside className="space-y-6" aria-label="Detalles del lead">
+          <ContactPanel workspace={workspace} />
+          <TasksPanel workspace={workspace} />
+          <ScorePanel workspace={workspace} />
+          <ConsentPanel workspace={workspace} />
+          <EngagementPanel workspace={workspace} />
+          <CompanyPanel workspace={workspace} />
+          <DuplicatesHint workspace={workspace} />
+          <Panel title="Etiquetas">
+            <TagsPanel entityType="lead" entityId={id} />
+          </Panel>
+        </aside>
       </div>
     </div>
   )

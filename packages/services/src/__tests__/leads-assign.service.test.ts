@@ -92,8 +92,8 @@ describe('LeadsService.assign', () => {
       expect.objectContaining({
         type: 'note',
         status: 'completed',
-        title: 'Lead assigned to Persona Nueva',
-        description: 'Previous owner: Persona Anterior.',
+        title: 'Lead asignado a Persona Nueva',
+        description: 'Responsable anterior: Persona Anterior.',
         entityType: 'lead',
         entityId: 'lead-001',
         ownerId: 'user-actor',
@@ -136,7 +136,7 @@ describe('LeadsService.assign', () => {
     const inserted = db._qb.values.mock.calls.map((call) => call[0] as Record<string, unknown>)
     expect(inserted).toHaveLength(1)
     expect(inserted[0]).toEqual(
-      expect.objectContaining({ description: 'Previous owner: unassigned.' }),
+      expect.objectContaining({ description: 'Responsable anterior: sin asignar.' }),
     )
   })
 })

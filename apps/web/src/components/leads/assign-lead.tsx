@@ -1,12 +1,6 @@
 'use client'
 
 import {
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -18,6 +12,7 @@ import type { AppRouter } from '@phynd/api'
 import type { inferRouterOutputs } from '@trpc/server'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { COPY } from './copy'
 
 type AssigneesOutput = inferRouterOutputs<AppRouter>['leads']['assignees']
 export type LeadAssigneeOption = AssigneesOutput[number]
@@ -37,54 +32,21 @@ export function useAssignLead() {
   const assign = leadsRouter.assign as NonNullable<typeof leadsRouter.assign>
   const utils = trpc.useUtils()
   const leadsUtils = utils.leads as NonNullable<typeof utils.leads>
-  const listUtils = leadsUtils.list as NonNullable<typeof leadsUtils.list>
+  const queueUtils = leadsUtils.queue as NonNullable<typeof leadsUtils.queue>
+  const countsUtils = leadsUtils.queueCounts as NonNullable<typeof leadsUtils.queueCounts>
   return assign.useMutation({
     onSuccess: () => {
-      void listUtils.invalidate()
+      void queueUtils.invalidate()
+      void countsUtils.invalidate()
       router.refresh()
-      toast.success('Lead reassigned')
+      toast.success(COPY.reassigned)
     },
-    onError: (err) => toast.error('Could not reassign the lead', { description: err.message }),
+    onError: (err) => toast.error(COPY.reassignFailed, { description: err.message }),
   })
 }
 
 export function assigneeLabel(user: { name: string | null; email: string }): string {
   return user.name ?? user.email
-}
-
-/** "Assign to…" submenu for a row's actions menu. */
-export function AssignLeadSubmenu({
-  leadId,
-  ownerId,
-  assignees,
-  onAssign,
-}: {
-  leadId: string
-  ownerId: string | null
-  assignees: LeadAssigneeOption[]
-  onAssign: (input: { id: string; ownerId: string }) => void
-}) {
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>Assign to…</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        {assignees.length === 0 ? (
-          <DropdownMenuItem disabled>No staff to assign</DropdownMenuItem>
-        ) : (
-          assignees.map((user) => (
-            <DropdownMenuItem
-              key={user.id}
-              disabled={user.id === ownerId}
-              onClick={() => onAssign({ id: leadId, ownerId: user.id })}
-            >
-              {assigneeLabel(user)}
-              {user.id === ownerId ? ' (owner)' : ''}
-            </DropdownMenuItem>
-          ))
-        )}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  )
 }
 
 /** Owner picker on the lead page: choosing someone reassigns the lead at once. */
@@ -105,8 +67,8 @@ export function LeadAssignControl({
       }}
       disabled={mutation.isPending}
     >
-      <SelectTrigger className="w-[220px]" aria-label="Assign to">
-        <SelectValue placeholder="Assign to…" />
+      <SelectTrigger className="w-full max-w-[240px]" aria-label={COPY.assignTo}>
+        <SelectValue placeholder={COPY.assignTo} />
       </SelectTrigger>
       <SelectContent>
         {assignees.map((user) => (

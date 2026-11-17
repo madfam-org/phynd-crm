@@ -36,6 +36,26 @@
 	--color-accent-amber: #f59e0b;
 	--color-accent-violet: #8b5cf6;
 	--color-accent-rose: #f43f5e;
+
+	/* MADFAM identity + state tokens (DESIGN.md). Named by job, not hue. */
+	--color-brand: #2c8136;
+	--color-brand-foreground: #ffffff;
+	--color-brand-soft: #e8f3ea;
+	--color-brand-ink: #1f5e27;
+	--color-selection: #ede4f3;
+	--color-selection-foreground: #2a1636;
+	--color-meta: #666666;
+	--color-tier-a-soft: #e8f3ea;
+	--color-tier-a-ink: #1f5e27;
+	--color-tier-b-soft: #fdf3d0;
+	--color-tier-b-ink: #6e5200;
+	--color-tier-c-soft: #f1f1f1;
+	--color-tier-c-ink: #525252;
+	--color-danger-soft: #fdecec;
+	--color-danger-ink: #a4161a;
+	--color-danger-row: #fef6f6;
+	--color-warning-soft: #fdf3d0;
+	--color-warning-ink: #6e5200;
 }
 
 .dark {
@@ -69,6 +89,25 @@
 	--color-accent-amber: #fbbf24;
 	--color-accent-violet: #a78bfa;
 	--color-accent-rose: #fb7185;
+
+	--color-brand: #5cb868;
+	--color-brand-foreground: #0a0a0a;
+	--color-brand-soft: #15301a;
+	--color-brand-ink: #9bdba4;
+	--color-selection: #3a2449;
+	--color-selection-foreground: #f4eaf9;
+	--color-meta: #a3a3a3;
+	--color-tier-a-soft: #15301a;
+	--color-tier-a-ink: #9bdba4;
+	--color-tier-b-soft: #3a2e08;
+	--color-tier-b-ink: #f2cf5b;
+	--color-tier-c-soft: #262626;
+	--color-tier-c-ink: #d4d4d4;
+	--color-danger-soft: #3b1214;
+	--color-danger-ink: #ffa3a3;
+	--color-danger-row: #1d0b0c;
+	--color-warning-soft: #3a2e08;
+	--color-warning-ink: #f2cf5b;
 }
 
 @layer base {
@@ -77,6 +116,10 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+	::selection {
+		background-color: var(--color-selection);
+		color: var(--color-selection-foreground);
 	}
 }
 

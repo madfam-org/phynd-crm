@@ -1,4 +1,11 @@
-import { LEAD_ASSIGNABLE_ROLES, LeadsService, requireCrmUserId } from '@phynd/services'
+import {
+  LEAD_ASSIGNABLE_ROLES,
+  LEAD_QUEUE_VIEWS,
+  LeadQueueService,
+  LeadWorkspaceService,
+  LeadsService,
+  requireCrmUserId,
+} from '@phynd/services'
 import {
   LEAD_ATTRIBUTION_MAX_LENGTH,
   LEAD_ATTRIBUTION_URL_MAX_LENGTH,
@@ -73,6 +80,48 @@ export const leadsRouter = router({
             : {}
     return service.list(pagination, { ...ownerFilter, ...(tier ? { tier } : {}) })
   }),
+
+  /**
+   * The work queue behind `/leads`: enriched rows ordered by urgency (overdue
+   * first contact, tier, newest), one page at a time.
+   */
+  queue: protectedProcedure
+    .input(
+      z
+        .object({
+          view: z.enum(LEAD_QUEUE_VIEWS).optional(),
+          owner: leadOwnerFilter.optional(),
+          tier: z.enum(['A', 'B', 'C']).optional(),
+          page: z.number().int().min(1).max(10_000).optional(),
+          pageSize: z.number().int().min(1).max(200).optional(),
+        })
+        .optional(),
+    )
+    .query(({ ctx, input }) => new LeadQueueService(ctx).list(input ?? {})),
+
+  /** How many leads each saved view holds, for the view tabs. */
+  queueCounts: protectedProcedure
+    .input(z.object({ tier: z.enum(['A', 'B', 'C']).optional() }).optional())
+    .query(({ ctx, input }) => new LeadQueueService(ctx).counts(input ?? {})),
+
+  /** What the signed-in user may do on lead surfaces (hides controls the server would refuse). */
+  permissions: protectedProcedure.query(({ ctx }) => ({
+    canAssign: ctx.auth.roles.some((role) =>
+      (LEAD_ASSIGNABLE_ROLES as readonly string[]).includes(role),
+    ),
+  })),
+
+  /** Everything the lead page shows, in one read. */
+  workspace: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(({ ctx, input }) => new LeadWorkspaceService(ctx).get(input.id)),
+
+  /** Assigns several leads to one owner (each like `assign`). */
+  bulkAssign: assignProcedure
+    .input(
+      z.object({ ids: z.array(z.string().uuid()).min(1).max(100), ownerId: z.string().uuid() }),
+    )
+    .mutation(({ ctx, input }) => new LeadsService(ctx).bulkAssign(input.ids, input.ownerId)),
 
   /** CRM users a lead can be assigned to (for the "Assign to…" menus). */
   assignees: protectedProcedure.query(({ ctx }) => {

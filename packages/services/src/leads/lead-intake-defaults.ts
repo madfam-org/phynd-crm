@@ -10,7 +10,7 @@ import type { ServiceContext } from '../context'
 export const FIRST_CONTACT_TASK_KIND = 'first_contact'
 
 /** Title prefix of the first-contact task; the lead's name follows. */
-export const FIRST_CONTACT_TASK_TITLE = 'First contact'
+export const FIRST_CONTACT_TASK_TITLE = 'Primer contacto'
 
 /** `activities.title` is varchar(255). */
 const TITLE_MAX = 255
@@ -44,7 +44,7 @@ export function nextBusinessDayDueAt(now: Date = new Date()): Date {
   return cursor
 }
 
-/** «First contact: <name>», cut to the column. */
+/** «Primer contacto: <name>», cut to the column. */
 export function firstContactTitle(name: string | null | undefined): string {
   const label = name?.trim()
     ? `${FIRST_CONTACT_TASK_TITLE}: ${name.trim()}`
@@ -58,7 +58,7 @@ export interface LeadIntakeDefaultsInput {
   ownerId: string | null
   /** Shown in the task title. */
   displayName?: string | null
-  /** A feed's own title for the task (kept as the feed wrote it); default «First contact: <name>». */
+  /** A feed's own title for the task (kept as the feed wrote it); default «Primer contacto: <name>». */
   title?: string
   description?: string
   now?: Date

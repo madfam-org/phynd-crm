@@ -18,6 +18,12 @@ vi.mock('@/lib/webhooks/intake-lead', () => ({
   finishIntakeLead: (...args: unknown[]) => mockFinishIntakeLead(...args),
 }))
 
+const mockSendLeadAlert = vi.fn().mockResolvedValue(true)
+vi.mock('@/lib/webhooks/lead-alert', () => ({
+  sendLeadAlert: (...args: unknown[]) => mockSendLeadAlert(...args),
+  leadTierOf: vi.fn().mockResolvedValue('C'),
+}))
+
 vi.mock('@/lib/federation/clients', () => ({
   getCacheManager: vi.fn(() => ({
     get: vi.fn(),
@@ -123,6 +129,43 @@ function primeHappyPath() {
   mockGetByUtmCampaign.mockResolvedValueOnce({ id: 'campaign-1' })
   mockRecordConversion.mockResolvedValueOnce({ id: 'conv-1' })
 }
+
+describe('POST /api/webhooks/ceq — new-lead alert', () => {
+  beforeEach(() => {
+    vi.stubEnv('CEQ_WEBHOOK_SECRET', 'test-secret-abc')
+    mockSendLeadAlert.mockClear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('alerts once for a real lead, with source and tier', async () => {
+    mockGetByEmail.mockResolvedValueOnce(null)
+    mockContactCreate.mockResolvedValueOnce({
+      id: 'contact-1',
+      email: 'compras@empresa-ficticia.mx',
+    })
+    mockGetDefault.mockResolvedValueOnce({ id: 'pipeline-1' })
+    mockGetStages.mockResolvedValueOnce([{ id: 'stage-1', position: 0 }])
+    mockLeadCreate.mockResolvedValueOnce({ id: 'lead-1' })
+
+    await drive({
+      type: 'interest.created',
+      data: { email: 'compras@empresa-ficticia.mx', feature_key: 'render_3d' },
+    })
+
+    expect(mockSendLeadAlert).toHaveBeenCalledTimes(1)
+    expect(mockSendLeadAlert).toHaveBeenCalledWith({
+      feed: 'ceq',
+      sourceLabel: 'ceq · ceq_interest:render_3d',
+      leadId: 'lead-1',
+      contactId: 'contact-1',
+      tier: 'C',
+      isTest: false,
+    })
+  })
+})
 
 describe('POST /api/webhooks/ceq — conversion attribution read path', () => {
   beforeEach(() => {

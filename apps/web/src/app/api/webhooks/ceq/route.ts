@@ -1,6 +1,7 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
 import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
+import { leadTierOf, sendLeadAlert } from '@/lib/webhooks/lead-alert'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -237,6 +238,14 @@ async function handleCeqInterestEvent(raw: unknown) {
     isTest,
     displayName: data.email,
     feed: 'ceq',
+  })
+  await sendLeadAlert({
+    feed: 'ceq',
+    sourceLabel: `ceq · ${source}`,
+    leadId: lead.id,
+    contactId: contact.id,
+    tier: await leadTierOf(ctx, lead.id),
+    isTest,
   })
 
   logger.info(

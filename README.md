@@ -470,9 +470,20 @@ The receiver:
 
 - verifies `x-madfam-signature` with `PHYND_CRM_EVENTS_SECRET`;
 - rate-limits inbound requests;
-- deduplicates by Avala `event_id` in `webhook_events`;
-- maps `avala.lead.captured` into contacts, leads, visitor sessions, and `visitor_to_lead` conversions;
+- processes each delivery exactly once: all of an event's rows and its `webhook_events` record are written in one transaction, serialized per `event_id` with a transaction-scoped advisory lock, so a failure anywhere rolls the whole delivery back (500) and Avala's retry starts clean, while a retry of a committed delivery is answered `status: 'duplicate'` and writes nothing;
+- creates at most one CRM lead per Avala lead id (`payload.lead.id`, kept as `avala_lead_id` on the lead's `visitor_to_lead` conversion), also when Avala re-emits the lead under a new `event_id`;
+- maps `avala.lead.captured` into contacts, leads, visitor sessions, and `visitor_to_lead` conversions; the lead keeps the form's `leadType`, `ecCode`, `intent`, `availabilityStatus`, `interests`, `certifierId` (`certifier_id`), `centerId` (`center_id`) and `consent.commercialContact` (`consent_commercial_contact`: `granted` | `not_granted`, with `consent_captured_at`) in `leads.attribution`;
+- after commit, sends one new-lead alert for a real (non-test) lead (see § New-lead alert);
 - maps Avala search/page/conversion/user/tenant/billing events into CRM activity and conversion records.
+
+## New-lead alert
+
+Every intake feed (Avala, Nauta, Kalya, the public site, Cotiza, ceq, tezca) sends one email per new real lead through `sendLeadAlert` (`apps/web/src/lib/webhooks/lead-alert.ts`) and the CRM's `EmailService` (Resend):
+
+- to `LEADS_NOTIFY_EMAIL` (comma-separated), default `hola@madfam.io` (ruling V8: `hola@` is for conversation and sales); `NAUTA_LEADS_NOTIFY_EMAIL` is no longer read;
+- subject and inbox preview carry the source and the tier only (`Nuevo lead · Avala · producto-comply · Tier A`), never the prospect's name, address, company or words; `[staging]` is prefixed when `PHYND_DEPLOYMENT_TIER=staging`;
+- the body has the source, the tier and «Abrir en el CRM» (`https://crm.madfam.io/leads/<id>`); the lead-intake and Nauta feeds keep their detailed body below that;
+- none for a test lead (`leads.is_test`), none for a duplicate delivery, and always after the lead is stored; a provider error is logged and never fails the webhook.
 
 Avala producers must send the shared event envelope documented in Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md`.
 
@@ -522,7 +533,7 @@ For a lead event the receiver:
 - creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, `tenant` from `context.tenant`, the booking for a Kalya event, and `quote_id`/`quote_number`/`quote_total`/`quote_currency` for a quote request; known keys only, length-capped). Leads have no amount column, so the quote total is kept in the attribution only;
 - writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent, and for a quote request its number or id, total with currency or «sin precio aún», and item count);
 - opens a follow-up task on the lead, due the next business day, owned by the contact's owner, else by `PHYND_CRM_DEFAULT_TASK_OWNER_ID` when it names a CRM user, else unassigned with a `DEFAULT_TASK_OWNER_UNAVAILABLE` warning (`activities.update` with `ownerId` assigns it);
-- after the transaction commits, emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
+- after the transaction commits, sends the new-lead alert (§ New-lead alert: `LEADS_NOTIFY_EMAIL`, default `hola@madfam.io`; none for a test lead). A notification problem never fails the request.
 
 ## Production domain truth
 

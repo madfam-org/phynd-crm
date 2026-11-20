@@ -42,10 +42,17 @@ spec:
             # revisit both sender + templates per the launch-product (G3) call.
             - name: EMAIL_FROM
               value: "MADFAM <noreply@madfam.io>"
-            # Who hears about a new nauta-landing lead. Comma-separated.
-            # Configuration, not code: the person on point changes more often
-            # than a release ships. Unset ⇒ the webhook logs a loud warning
-            # and still stores the lead — notification is best-effort by design.
+            # Who hears about every new real lead (Avala, Nauta, Kalya, the
+            # site, Cotiza, ceq, tezca): one alert per lead, never for test
+            # leads. Comma-separated. Ruling V8 (2026-11-15): hola@ is the
+            # conversation and sales inbox; it is also the code default
+            # (apps/web/src/lib/webhooks/lead-alert.ts), so this line only
+            # makes it explicit. Best effort by design.
+            - name: LEADS_NOTIFY_EMAIL
+              value: "hola@madfam.io"
+            # DEPRECATED: read only by images built before the shared lead
+            # alert (they sent nauta leads here). Images with lead-alert.ts
+            # ignore it. Delete this entry once such an image is promoted.
             - name: NAUTA_LEADS_NOTIFY_EMAIL
               value: "aldo@madfam.io"
             # Owner of tasks the system opens on a contact without owner

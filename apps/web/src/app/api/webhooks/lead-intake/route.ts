@@ -1,6 +1,7 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
+import { leadTierOf } from '@/lib/webhooks/lead-alert'
 import {
   BOOKING_EVENT_TYPE,
   LEAD_INTAKE_ORIGIN_LABEL,
@@ -44,7 +45,8 @@ import { NextResponse } from 'next/server'
 // (`site.lead.captured`) and a quote requested on the quoting platform
 // (`cotiza.quote.requested`). Each becomes a contact + a lead in the default
 // pipeline with its source and attribution, a note with the prospect's words,
-// a follow-up task and one notification email.
+// a follow-up task and one new-lead alert (`lead-alert.ts`; none for a test
+// lead).
 //
 // Same doctrine as the nauta webhook one directory over:
 //   - `x-madfam-signature` (t=<unix>,v1=<hmac of "t.body">) verified with
@@ -463,6 +465,8 @@ async function storeLead(
         quote: lead.quote,
       })
     : null
+  // Scored by `LeadsService.create`; read on the same transaction for the alert.
+  const tier = crmLead ? await leadTierOf(ctx, crmLead.id) : null
 
   return {
     source,
@@ -478,6 +482,8 @@ async function storeLead(
     page: attribution?.landing_page,
     attribution,
     followUpDueAt,
+    tier,
+    isTest,
   }
 }
 

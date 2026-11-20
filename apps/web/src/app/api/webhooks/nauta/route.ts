@@ -1,6 +1,7 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
+import { escapeHtml, leadTierOf, sendLeadAlert } from '@/lib/webhooks/lead-alert'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -9,7 +10,6 @@ import { validateMadfamSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import {
   ContactsService,
-  EmailService,
   LeadsService,
   NotesService,
   PipelinesService,
@@ -251,35 +251,33 @@ async function handleLeadCaptured(
   )
 
   // Best-effort, AFTER the rows are safe. The lead is already delivered; a
-  // Resend outage or an unset recipient must never bounce the webhook into
-  // nauta's retry path (its dedup would swallow the retry and the lead would
-  // exist with no error anywhere). Failure here is a loud log, not a 500.
-  await notifyNewNautaLead({
-    contactId: contact.id,
+  // Resend outage must never bounce the webhook into nauta's retry path (its
+  // dedup would swallow the retry and the lead would exist with no error
+  // anywhere). Failure here is a loud log, not a 500. A test lead gets none.
+  await sendLeadAlert({
+    feed: 'nauta',
+    sourceLabel: 'Nauta · landing',
     leadId: crmLead?.id ?? null,
-    name: readString(lead.name) ?? email,
-    email,
-    company: readString(lead.company),
-    phone: readString(lead.phone),
-    message,
-    planInterest,
-    page,
+    contactId: contact.id,
+    tier: crmLead?.id ? await leadTierOf(ctx, crmLead.id) : null,
+    isTest,
+    detailsHtml: nautaLeadDetails({
+      name: readString(lead.name) ?? email,
+      email,
+      company: readString(lead.company),
+      phone: readString(lead.phone),
+      message,
+      planInterest,
+      page,
+    }),
   })
 }
 
 /**
- * One email per captured lead to the humans who follow up. Recipient comes
- * from NAUTA_LEADS_NOTIFY_EMAIL (comma-separated allowed), set next to
- * EMAIL_FROM in the web deployment — configuration, not code, because the
- * person on point changes more often than a release ships.
- *
- * EmailService already fail-opens with a warning when RESEND_API_KEY is
- * absent; this adds the same posture for the recipient. Tags carry the lead
- * and contact ids so Resend's open/click webhooks can be attributed later.
+ * The detailed body the nauta alert has always carried, below the shared
+ * feed and tier rows (`lead-alert.ts`). Already escaped.
  */
-async function notifyNewNautaLead(lead: {
-  contactId: string
-  leadId: string | null
+function nautaLeadDetails(lead: {
   name: string
   email: string
   company?: string
@@ -287,33 +285,9 @@ async function notifyNewNautaLead(lead: {
   message?: string
   planInterest?: string
   page?: string
-}): Promise<void> {
-  const recipients = (process.env.NAUTA_LEADS_NOTIFY_EMAIL ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value) => value !== '')
-  if (recipients.length === 0) {
-    logger.warn(
-      { leadId: lead.leadId },
-      'NAUTA_LEADS_NOTIFY_EMAIL not configured — nauta lead captured with no notification',
-    )
-    return
-  }
-
-  // Deliberately NOT NEXT_PUBLIC_APP_URL: that var is baked at image build
-  // time and still says crm.phynd.app, which routed a lead email into the
-  // legacy domain's broken SSO loop (2026-08-12). Deriving from the request
-  // host would propagate whichever alias the webhook arrived on into the
-  // email — same failure class. Email links always target the canonical host.
-  const crmBase = 'https://crm.madfam.io'
-  const leadUrl = lead.leadId ? `${crmBase}/leads/${lead.leadId}` : `${crmBase}/leads`
-  const esc = (value: string | undefined): string =>
-    (value ?? '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-  const html = [
-    '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#1a232e">',
-    '<h2 style="margin:0 0 4px">Nuevo lead — Nauta</h2>',
-    `<p style="margin:0 0 16px;color:#5a6a7a">Vía el formulario de ${esc(lead.page ?? 'app.nauta.quest')}</p>`,
+}): string {
+  return [
+    `<p style="margin:0 0 16px;color:#5a6a7a">Vía el formulario de ${escapeHtml(lead.page ?? 'app.nauta.quest')}</p>`,
     '<table style="border-collapse:collapse;width:100%;font-size:14px">',
     ...[
       ['Nombre', lead.name],
@@ -323,34 +297,14 @@ async function notifyNewNautaLead(lead: {
       ['Plan de interés', lead.planInterest],
     ].map(
       ([label, value]) =>
-        `<tr><td style="padding:6px 12px 6px 0;color:#5a6a7a;white-space:nowrap;vertical-align:top">${label}</td><td style="padding:6px 0">${esc(value)}</td></tr>`,
+        `<tr><td style="padding:6px 12px 6px 0;color:#5a6a7a;white-space:nowrap;vertical-align:top">${label}</td><td style="padding:6px 0">${escapeHtml(value)}</td></tr>`,
     ),
     '</table>',
     lead.message
-      ? `<blockquote style="margin:16px 0;padding:12px 16px;background:#f2f6fa;border-left:3px solid #2e6db4;white-space:pre-wrap">${esc(lead.message)}</blockquote>`
+      ? `<blockquote style="margin:16px 0;padding:12px 16px;background:#f2f6fa;border-left:3px solid #2e6db4;white-space:pre-wrap">${escapeHtml(lead.message)}</blockquote>`
       : '',
-    `<p style="margin:20px 0"><a href="${leadUrl}" style="background:#2e6db4;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Abrir en el CRM</a></p>`,
     '<p style="color:#8a97a5;font-size:12px">Compromiso de la landing: respuesta en 1 día hábil.</p>',
-    '</div>',
   ].join('')
-
-  try {
-    const emailService = new EmailService()
-    const sent = await emailService.send({
-      to: recipients.join(','),
-      subject: `Nuevo lead Nauta: ${lead.name}${lead.company ? ` (${lead.company})` : ''}`,
-      html,
-      preheader: lead.message?.slice(0, 120) ?? `Plan: ${lead.planInterest ?? 'sin definir'}`,
-      tags: [
-        { name: 'source', value: 'nauta' },
-        ...(lead.leadId ? [{ name: 'lead_id', value: lead.leadId }] : []),
-        { name: 'contact_id', value: lead.contactId },
-      ],
-    })
-    logger.info({ leadId: lead.leadId, resendId: sent?.id ?? null }, 'nauta lead notification sent')
-  } catch (error) {
-    logger.error({ err: error, leadId: lead.leadId }, 'nauta lead notification failed')
-  }
 }
 
 async function createDefaultLead(

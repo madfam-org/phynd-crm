@@ -35,6 +35,12 @@ export interface PaymentReconciliationResult {
   paymentStatus: string | null
   quoteId: string | null
   status: 'ignored' | 'lifecycle_adjusted' | 'reconciled' | 'unmatched'
+  /**
+   * The order's payment status before this lifecycle event changed it (set
+   * when the event adjusted an order): tells a voided paid order apart from a
+   * voided invoice that was never paid.
+   */
+  previousPaymentStatus?: string | null
 }
 
 export async function reconcileDhanamPayment(
@@ -192,6 +198,7 @@ export async function reconcileDhanamPaymentLifecycle(
     orderId: order.id,
     paidAmount: patch.paidAmount ?? order.paidAmount,
     paymentStatus: patch.paymentStatus ?? order.paymentStatus,
+    previousPaymentStatus: order.paymentStatus,
     quoteId: order.quoteId ?? input.quoteId ?? null,
     status: 'lifecycle_adjusted',
   }

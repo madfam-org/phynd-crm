@@ -642,6 +642,7 @@ vi.mock('@phynd/db/schema', () => ({
     leadId: 'conversions.leadId',
     type: 'conversions.type',
     metadata: 'conversions.metadata',
+    convertedAt: 'conversions.convertedAt',
   }),
   engagementEvents: tableMock('engagement_events', {
     id: 'engagementEvents.id',
@@ -709,6 +710,7 @@ vi.mock('@phynd/db/schema', () => ({
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => ({ _tag: 'and', args })),
+  asc: vi.fn((col: unknown) => ({ _tag: 'asc', col })),
   desc: vi.fn((col: unknown) => ({ _tag: 'desc', col })),
   eq: vi.fn((col: unknown, val: unknown) => ({ _tag: 'eq', col: String(col), val })),
   isNull: vi.fn((col: unknown) => ({ _tag: 'isNull', col: String(col) })),
@@ -2321,6 +2323,96 @@ describe('POST /api/webhooks/dhanam — customer lifecycle stage', () => {
     ])
     const json = await post(cancellation())
     expect(json.customer_stage).toMatchObject({ kept: 'other_active_paid_relationship' })
+  })
+
+  function subscriptionStarted(id: string) {
+    return {
+      contactId: 'contact_c1',
+      type: 'dhanam_subscription_created',
+      metadata: { provider: 'dhanam', subscription_id: id, event_type: 'subscription.created' },
+    }
+  }
+
+  it.each([['subscription.expired'], ['subscription.paused'], ['customer.subscription.paused']])(
+    'a subscription that ends by %s makes a customer with nothing else active a former customer',
+    async (type) => {
+      state.contactStageById.set('contact_c1', 'customer')
+      state.seededConversions.push(subscriptionStarted('sub_c1'))
+      const json = await post({ ...cancellation(), id: `evt_${type}`, type })
+      expect(json.customer_stage).toEqual({ stage: 'former_customer', changed: true })
+      expect(state.contactStageById.get('contact_c1')).toBe('former_customer')
+    },
+  )
+
+  it('a paused subscription does not keep a customer; a resumed one does again', async () => {
+    state.contactStageById.set('contact_c1', 'customer')
+    const paused = {
+      contactId: 'contact_c1',
+      type: 'dhanam_subscription_paused',
+      metadata: {
+        provider: 'dhanam',
+        subscription_id: 'sub_other',
+        event_type: 'subscription.paused',
+      },
+    }
+    state.seededConversions.push(
+      subscriptionStarted('sub_c1'),
+      subscriptionStarted('sub_other'),
+      paused,
+    )
+    const whilePaused = await post(cancellation())
+    expect(whilePaused.customer_stage).toEqual({ stage: 'former_customer', changed: true })
+
+    state.contactStageById.set('contact_c1', 'customer')
+    state.contactStageChangedAt.delete('contact_c1')
+    state.seededConversions.push({
+      contactId: 'contact_c1',
+      type: 'dhanam_subscription_resumed',
+      metadata: {
+        provider: 'dhanam',
+        subscription_id: 'sub_other',
+        event_type: 'subscription.resumed',
+      },
+    })
+    const afterResume = await post({ ...cancellation(), id: 'evt_cancel_after_resume' })
+    expect(afterResume.customer_stage).toMatchObject({ kept: 'other_active_paid_relationship' })
+  })
+
+  it('a cancelled payment that voids a paid order makes a former customer; voiding an unpaid one does not', async () => {
+    state.contactStageById.set('contact_c1', 'customer')
+    const unpaid = orderRow({
+      id: 'order_open',
+      contactId: 'contact_c1',
+      opportunityId: null,
+      quoteId: null,
+    })
+    state.ordersById.set('order_open', unpaid)
+    const voidedUnpaid = await post({
+      id: 'evt_void_unpaid',
+      type: 'invoice.voided',
+      data: { customer_email: 'cliente@example.test', order_id: 'order_open' },
+    })
+    expect(voidedUnpaid.customer_stage).toBeUndefined()
+    expect(state.contactStageById.get('contact_c1')).toBe('customer')
+
+    const paid = orderRow({
+      id: 'order_paid',
+      contactId: 'contact_c1',
+      opportunityId: null,
+      quoteId: null,
+      paymentStatus: 'paid',
+      paidAmount: '199.00',
+    })
+    state.ordersById.set('order_paid', paid)
+    state.ordersByContactId.set('contact_c1', [paid])
+    const voidedPaid = await post({
+      id: 'evt_void_paid',
+      type: 'payment.cancelled',
+      data: { customer_email: 'cliente@example.test', order_id: 'order_paid' },
+    })
+    expect(voidedPaid.payment_reconciliation_status).toBe('lifecycle_adjusted')
+    expect(voidedPaid.customer_stage).toEqual({ stage: 'former_customer', changed: true })
+    expect(state.contactStageById.get('contact_c1')).toBe('former_customer')
   })
 
   it('a full refund makes a customer a former customer; a partial refund does not', async () => {

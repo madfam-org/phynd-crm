@@ -9,7 +9,7 @@ import {
   quotes,
 } from '@phynd/db/schema'
 import { and, desc, eq, isNull, ne } from 'drizzle-orm'
-import { PAID_ORDER_STATES, markCustomer } from '../contacts/customer-stage'
+import { PAID_ORDER_STATES, markCustomer, markFormerCustomer } from '../contacts/customer-stage'
 import type { ServiceContext } from '../context'
 import { NotFoundError, ValidationError } from '../errors'
 import { actorIdOf, requireCrmUserId } from '../identity/actor'
@@ -187,7 +187,10 @@ export class PaymentEvidenceService {
     })
   }
 
-  /** recorded|verified -> voided. Never deleted; a verified amount is taken back off the order. */
+  /**
+   * recorded|verified -> voided. Never deleted; a verified amount is taken back
+   * off the order, and the contact may stop being a customer (customer-stage).
+   */
   async void(id: string, reason: string) {
     const voiderId = requireCrmUserId(this.ctx.auth)
     if (!reason.trim()) throw new ValidationError('A reason is required to void a payment')
@@ -214,6 +217,16 @@ export class PaymentEvidenceService {
       if (!row) throw new ValidationError('The payment changed while it was being voided')
       const order =
         before.status === 'verified' && row.orderId ? await applyToOrder(tx, row, -1) : null
+      // Voiding a verified payment takes the money back: its contact stops
+      // being a customer unless another paid relationship remains (an order
+      // still paid, a paying subscription, another verified payment). The
+      // order was recomputed above, so it counts only if it still holds money.
+      const stage =
+        before.status === 'verified'
+          ? await markFormerCustomer(tx, row.contactId, row.voidedAt ?? new Date(), {
+              paymentEvidenceId: row.id,
+            })
+          : null
       // The client no longer sees "payment received" for a voided payment.
       await tx
         .update(engagementEvents)
@@ -225,7 +238,7 @@ export class PaymentEvidenceService {
           ),
         )
       await this.event(tx, row, 'system:payment_voided', 'internal', 'Pago anulado')
-      return { evidence: row, order }
+      return { evidence: row, order, stage }
     })
   }
 

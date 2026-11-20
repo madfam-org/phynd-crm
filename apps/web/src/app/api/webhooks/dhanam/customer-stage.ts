@@ -1,6 +1,8 @@
 import type { getDb } from '@phynd/db'
 import {
+  ACTIVE_PAID_ORDER_STATES,
   SUBSCRIPTION_CANCELLED_EVENT_TYPES,
+  SUBSCRIPTION_ENDED_EVENT_TYPES,
   type StageChange,
   isMoneyReceivedEvent,
   markCustomer,
@@ -10,7 +12,7 @@ import { classifyPaymentLifecycle } from './payment-lifecycle'
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
-export { SUBSCRIPTION_CANCELLED_EVENT_TYPES }
+export { SUBSCRIPTION_CANCELLED_EVENT_TYPES, SUBSCRIPTION_ENDED_EVENT_TYPES }
 export type CustomerStageResult = StageChange
 
 export interface StageEvent {
@@ -24,6 +26,8 @@ export interface StageEvent {
 export interface StageReconciliation {
   orderId: string | null
   paymentStatus: string | null
+  /** The order's payment status before this event adjusted it, when it did. */
+  previousPaymentStatus?: string | null
 }
 
 /**
@@ -34,7 +38,9 @@ export interface StageReconciliation {
  * - Money received makes a customer: a successful payment, or a checkout
  *   whose payment is already collected (`payment_status: 'paid'`). A
  *   subscription start and an asynchronous checkout completion are not money.
- * - A subscription cancellation or a full refund may make a former customer.
+ * - A subscription that ends (cancelled, expired or paused), a full refund,
+ *   or a cancellation event that voids an order which held money may make a
+ *   former customer.
  */
 export async function applyCustomerStage(
   tx: Tx,
@@ -45,12 +51,36 @@ export async function applyCustomerStage(
   const at = eventOccurredAt(event.raw)
   if (isMoneyReceived(event)) return markCustomer(tx, contactId, at)
 
-  const cancelled = SUBSCRIPTION_CANCELLED_EVENT_TYPES.has(event.eventType)
-  if (!cancelled && !isFullRefund(event, reconciliation)) return null
+  const subscriptionEnded = SUBSCRIPTION_ENDED_EVENT_TYPES.has(event.eventType)
+  if (
+    !subscriptionEnded &&
+    !isFullRefund(event, reconciliation) &&
+    !isVoidedPaidOrder(event, reconciliation)
+  ) {
+    return null
+  }
   return markFormerCustomer(tx, contactId, at, {
     orderId: reconciliation?.orderId ?? event.orderId,
-    subscriptionId: cancelled ? event.subscriptionId : null,
+    subscriptionId: subscriptionEnded ? event.subscriptionId : null,
   })
+}
+
+const MONEY_HOLDING_ORDER_STATES: ReadonlySet<string> = new Set(ACTIVE_PAID_ORDER_STATES)
+
+/**
+ * Whether a payment-cancellation event (`invoice.voided`, `payment.cancelled`,
+ * …) voided money the CRM had counted: it adjusted an order that was paid,
+ * partly paid or partly refunded, and left it cancelled. Voiding an invoice
+ * that was never paid is not.
+ */
+export function isVoidedPaidOrder(
+  event: Pick<StageEvent, 'eventType'>,
+  reconciliation: StageReconciliation | null,
+): boolean {
+  if (classifyPaymentLifecycle(event.eventType) !== 'cancelled') return false
+  if (reconciliation?.paymentStatus !== 'cancelled') return false
+  const before = reconciliation.previousPaymentStatus
+  return typeof before === 'string' && MONEY_HOLDING_ORDER_STATES.has(before)
 }
 
 export function isMoneyReceived(event: Pick<StageEvent, 'eventType' | 'raw'>): boolean {

@@ -1,4 +1,10 @@
-import { type PaymentEvidence, engagementEvents, orders, paymentEvidence } from '@phynd/db/schema'
+import {
+  type PaymentEvidence,
+  contacts,
+  engagementEvents,
+  orders,
+  paymentEvidence,
+} from '@phynd/db/schema'
 import { describe, expect, it } from 'vitest'
 import { defaultEventVisibility } from '../engagements/event-visibility'
 import { ValidationError } from '../errors'
@@ -84,7 +90,13 @@ function fakeDb(opts: { selects?: unknown[][]; updates?: unknown[][] } = {}) {
     update: (table: unknown) => ({
       set: (values: Record<string, unknown>) => {
         writes.push({ op: 'update', table, values })
-        const result = () => (table === paymentEvidence ? (updates.shift() ?? []) : [])
+        // A guarded contact-stage update matches the contact.
+        const result = () =>
+          table === paymentEvidence
+            ? (updates.shift() ?? [])
+            : table === contacts
+              ? [{ id: 'contact-1' }]
+              : []
         return {
           where: () => ({
             returning: async () => result(),
@@ -250,6 +262,67 @@ describe('PaymentEvidenceService.void', () => {
       eventType: 'system:payment_voided',
       visibility: 'internal',
     })
+  })
+
+  const paidOrder = {
+    id: 'order-1',
+    currency: 'MXN',
+    paidAmount: '11603.56',
+    totalAmount: '11600.00',
+  }
+
+  it('ends a customer whose only money was the voided payment', async () => {
+    const before = evidence({ status: 'verified' })
+    const db = fakeDb({
+      selects: [
+        [before],
+        [paidOrder],
+        [{ stage: 'customer', changedAt: new Date('2026-10-15T16:30:15Z') }],
+        [], // no other order still paid
+        [], // no other verified payment
+        [], // no paying subscription
+      ],
+      updates: [[{ ...before, status: 'voided', voidedAt: new Date('2026-11-20T10:00:00Z') }]],
+    })
+    const result = await service(db).void('pe-1', 'Transferencia devuelta')
+    expect(result.stage).toEqual({ stage: 'former_customer', changed: true })
+    expect(db.writes.find((w) => w.table === contacts)?.values).toEqual({
+      lifecycleStage: 'former_customer',
+      lifecycleStageChangedAt: new Date('2026-11-20T10:00:00Z'),
+    })
+  })
+
+  it('keeps a customer who has another verified payment', async () => {
+    const before = evidence({ status: 'verified' })
+    const db = fakeDb({
+      selects: [
+        [before],
+        [paidOrder],
+        [{ stage: 'customer', changedAt: null }],
+        [],
+        [{ id: 'pe-2' }],
+      ],
+      updates: [[{ ...before, status: 'voided', voidedAt: new Date() }]],
+    })
+    const result = await service(db).void('pe-1', 'Pago duplicado')
+    expect(result.stage).toEqual({
+      stage: 'customer',
+      changed: false,
+      kept: 'other_active_paid_relationship',
+    })
+    expect(db.writes.some((w) => w.table === contacts)).toBe(false)
+  })
+
+  it('leaves the stage alone when the voided payment was never verified', async () => {
+    const before = evidence({ status: 'recorded' })
+    const db = fakeDb({
+      selects: [[before]],
+      updates: [[{ ...before, status: 'voided', voidedAt: new Date() }]],
+    })
+    const result = await service(db).void('pe-1', 'Captura equivocada')
+    expect(result.stage).toBeNull()
+    expect(result.order).toBeNull()
+    expect(db.writes.some((w) => w.table === contacts)).toBe(false)
   })
 
   it('needs a reason, refuses account numbers in it, and never voids twice', async () => {

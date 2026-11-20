@@ -397,6 +397,8 @@ describe('reconcileDhanamPayment', () => {
       orderId: 'order-001',
       paidAmount: null,
       paymentStatus: 'failed',
+      // What the order was before the event: tells a voided paid order apart.
+      previousPaymentStatus: 'unpaid',
       quoteId: 'quote-001',
       status: 'lifecycle_adjusted',
     })

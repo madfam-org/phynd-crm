@@ -1,7 +1,13 @@
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
-import { isMoneyReceivedEvent, markCustomer, markFormerCustomer } from '../contacts/customer-stage'
+import {
+  SUBSCRIPTION_ENDED_EVENT_TYPES,
+  activeSubscriptionIds,
+  isMoneyReceivedEvent,
+  markCustomer,
+  markFormerCustomer,
+} from '../contacts/customer-stage'
 import { createTestContext } from './helpers'
 
 const dialect = new PgDialect()
@@ -114,5 +120,105 @@ describe('money received', () => {
     expect(isMoneyReceivedEvent('subscription.created', 'paid')).toBe(false)
     expect(isMoneyReceivedEvent('checkout.session.completed', 'unpaid')).toBe(false)
     expect(isMoneyReceivedEvent('checkout.session.completed', null)).toBe(false)
+  })
+})
+
+describe('subscriptions still paying', () => {
+  const start = (id: string) => ({
+    subscriptionId: id,
+    eventType: null,
+    type: 'dhanam_subscription_created',
+  })
+  const event = (id: string, eventType: string) => ({
+    subscriptionId: id,
+    eventType,
+    type: 'dhanam_x',
+  })
+
+  it('ends a subscription on cancellation, expiry or pause', () => {
+    for (const type of [
+      'subscription.cancelled',
+      'subscription.expired',
+      'subscription.paused',
+      'customer.subscription.paused',
+    ]) {
+      expect(SUBSCRIPTION_ENDED_EVENT_TYPES.has(type)).toBe(true)
+      expect(activeSubscriptionIds([start('s1'), event('s1', type)]).size).toBe(0)
+    }
+  })
+
+  it('counts a paused subscription again once resumed; a cancelled or expired one stays ended', () => {
+    expect(
+      activeSubscriptionIds([
+        start('s1'),
+        event('s1', 'subscription.paused'),
+        event('s1', 'subscription.resumed'),
+      ]),
+    ).toEqual(new Set(['s1']))
+    expect(
+      activeSubscriptionIds([
+        start('s1'),
+        event('s1', 'subscription.expired'),
+        event('s1', 'subscription.resumed'),
+      ]).size,
+    ).toBe(0)
+    expect(
+      activeSubscriptionIds([
+        start('s1'),
+        event('s1', 'subscription.cancelled'),
+        event('s1', 'subscription.resumed'),
+      ]).size,
+    ).toBe(0)
+  })
+
+  it('ignores a subscription never seen to start and the one the current event ends', () => {
+    expect(activeSubscriptionIds([event('s9', 'subscription.resumed')]).size).toBe(0)
+    expect(activeSubscriptionIds([start('s1'), start('s2')], 's1')).toEqual(new Set(['s2']))
+  })
+
+  it('reads the lifecycle rows oldest first', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ stage: 'customer', changedAt: null }], [], [], [{ id: 'c-1' }])
+    await markFormerCustomer(ctx.db, 'c-1', AT, { subscriptionId: 's1' })
+    const order = ctx.mockDb._qb.orderBy.mock.calls.at(-1) as SQL[]
+    expect(order.map((part) => dialect.sqlToQuery(part).sql)).toEqual([
+      '"conversions"."converted_at" asc',
+      '"conversions"."id" asc',
+    ])
+  })
+})
+
+describe('voided payment evidence', () => {
+  it('keeps a customer with another verified payment', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ stage: 'customer', changedAt: null }], [], [{ id: 'pe-2' }])
+    expect(await markFormerCustomer(ctx.db, 'c-1', AT, { paymentEvidenceId: 'pe-1' })).toEqual({
+      stage: 'customer',
+      changed: false,
+      kept: 'other_active_paid_relationship',
+    })
+    const query = dialect.sqlToQuery(ctx.mockDb._qb.where.mock.calls.at(2)?.[0] as SQL)
+    expect(query.sql).toContain('"payment_evidence"."status" = $2')
+    expect(query.sql).toContain('"payment_evidence"."id" <> $3')
+    expect(query.params).toEqual(['c-1', 'verified', 'pe-1'])
+  })
+
+  it('ends a customer whose only money was the voided payment', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ stage: 'customer', changedAt: null }], [], [], [], [{ id: 'c-1' }])
+    expect(await markFormerCustomer(ctx.db, 'c-1', AT, { paymentEvidenceId: 'pe-1' })).toEqual({
+      stage: 'former_customer',
+      changed: true,
+    })
+  })
+
+  it('does not look at payment evidence for other ends', async () => {
+    const ctx = createTestContext([])
+    queue(ctx, [{ stage: 'customer', changedAt: null }], [], [], [{ id: 'c-1' }])
+    await markFormerCustomer(ctx.db, 'c-1', AT, { orderId: 'o-1' })
+    const sqls = ctx.mockDb._qb.where.mock.calls.map(
+      (call) => dialect.sqlToQuery(call[0] as SQL).sql,
+    )
+    expect(sqls.some((text) => text.includes('payment_evidence'))).toBe(false)
   })
 })

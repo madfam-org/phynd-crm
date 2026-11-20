@@ -733,6 +733,23 @@ vi.mock('@phynd/logging', () => ({
   createLogger: vi.fn(() => mockLogger),
 }))
 
+// The reward dispatch (claim + BullMQ enqueue) has its own tests
+// (src/lib/referrals/__tests__/reward-dispatch.test.ts); here the route's use
+// of it is pinned.
+const mockQueueReferralReward = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/referrals/reward-dispatch', () => ({
+  queueReferralRewardDispatch: (...args: unknown[]) => mockQueueReferralReward(...args),
+}))
+
+const mockFindReferralByEvent = vi.hoisted(() => vi.fn())
+vi.mock('@phynd/services', () => ({
+  CONVERTIBLE_REFERRAL_STATUSES: ['pending', 'applied'],
+  createServiceContext: vi.fn(() => ({ ctx: 'dhanam-webhook' })),
+  ReferralService: vi.fn().mockImplementation(() => ({
+    findReferralConvertedByDhanamEvent: mockFindReferralByEvent,
+  })),
+}))
+
 import { POST } from '../route'
 
 // ---------------------------------------------------------------------------
@@ -844,6 +861,8 @@ function orderRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   process.env.DHANAM_WEBHOOK_SECRET = SECRET
+  mockQueueReferralReward.mockReset().mockResolvedValue('queued')
+  mockFindReferralByEvent.mockReset().mockResolvedValue(null)
   // Reset state.
   state.priorEventIds.clear()
   state.contactByJanuaId.clear()
@@ -1543,6 +1562,78 @@ describe('POST /api/webhooks/dhanam — referral attribution', () => {
       leadId: 'lead_tablaco',
     })
     expect(update.values.convertedAt).toBeInstanceOf(Date)
+  })
+
+  it('matches an open referral whether `applied` (apply API) or legacy `pending`', async () => {
+    state.contactByJanuaId.set('janua_tablaco_001', 'contact_tablaco')
+    state.referralCodeByCode.set('KRF-12345678', 'rc_001')
+    state.referralByCodeIdAndEmail.set('rc_001|tablaco@example.com', 'ref_001')
+
+    await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+
+    const { inArray } = await import('drizzle-orm')
+    expect(vi.mocked(inArray)).toHaveBeenCalledWith(expect.anything(), ['pending', 'applied'])
+  })
+
+  it('queues the reward dispatch once, after the conversion is stored', async () => {
+    state.contactByJanuaId.set('janua_tablaco_001', 'contact_tablaco')
+    state.referralCodeByCode.set('KRF-12345678', 'rc_001')
+    state.referralByCodeIdAndEmail.set('rc_001|tablaco@example.com', 'ref_001')
+
+    const res = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as { referral_id: string; referral_reward: string }
+    expect(json.referral_reward).toBe('queued')
+    expect(mockQueueReferralReward).toHaveBeenCalledTimes(1)
+    expect(mockQueueReferralReward).toHaveBeenCalledWith({ ctx: 'dhanam-webhook' }, 'ref_001')
+    expect(state.updates.referrals).toHaveLength(1)
+  })
+
+  it('reports an already-queued reward (convert API came first) without failing', async () => {
+    mockQueueReferralReward.mockResolvedValueOnce('already_queued')
+    state.contactByJanuaId.set('janua_tablaco_001', 'contact_tablaco')
+    state.referralCodeByCode.set('KRF-12345678', 'rc_001')
+    state.referralByCodeIdAndEmail.set('rc_001|tablaco@example.com', 'ref_001')
+
+    const res = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { referral_reward: string }).referral_reward).toBe(
+      'already_queued',
+    )
+  })
+
+  it('answers 500 when the reward cannot be queued, and the redelivery queues it', async () => {
+    state.contactByJanuaId.set('janua_tablaco_001', 'contact_tablaco')
+    state.referralCodeByCode.set('KRF-12345678', 'rc_001')
+    state.referralByCodeIdAndEmail.set('rc_001|tablaco@example.com', 'ref_001')
+    mockQueueReferralReward.mockResolvedValueOnce('failed')
+
+    const first = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+    expect(first.status).toBe(500)
+    expect(((await first.json()) as { referral_id: string }).referral_id).toBe('ref_001')
+
+    // The conversion committed, so the redelivery is a duplicate; it finds the
+    // referral the event converted and queues its reward.
+    state.priorEventIds.add('evt_checkout_1')
+    mockFindReferralByEvent.mockResolvedValueOnce('ref_001')
+    const retry = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+    expect(retry.status).toBe(200)
+    const json = (await retry.json()) as { status: string; referral_reward: string }
+    expect(json.status).toBe('duplicate')
+    expect(json.referral_reward).toBe('queued')
+    expect(mockFindReferralByEvent).toHaveBeenCalledWith('evt_checkout_1')
+    expect(mockQueueReferralReward).toHaveBeenCalledTimes(2)
+    expect(mockQueueReferralReward).toHaveBeenLastCalledWith({ ctx: 'dhanam-webhook' }, 'ref_001')
+    // No second conversion or referral write.
+    expect(state.inserts.conversions).toHaveLength(1)
+    expect(state.updates.referrals).toHaveLength(1)
+  })
+
+  it('queues nothing when the event converts no referral', async () => {
+    state.contactByJanuaId.set('janua_tablaco_001', 'contact_tablaco')
+    const res = await POST(signedRequest(JSON.stringify(checkoutCompletedEvent())))
+    expect(res.status).toBe(200)
+    expect(mockQueueReferralReward).not.toHaveBeenCalled()
   })
 
   it('does nothing when the referral_code does not match any code', async () => {

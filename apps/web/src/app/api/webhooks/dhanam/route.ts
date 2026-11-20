@@ -1,6 +1,11 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import {
+  type RewardDispatchOutcome,
+  queueReferralRewardDispatch,
+} from '@/lib/referrals/reward-dispatch'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
+import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import {
   conversions,
@@ -15,9 +20,15 @@ import {
 } from '@phynd/db/schema'
 import { CacheInvalidator, validateWebhookSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
+import {
+  CONVERTIBLE_REFERRAL_STATUSES,
+  ReferralService,
+  createServiceContext,
+} from '@phynd/services'
 import { defaultEventVisibility } from '@phynd/services/engagements/event-visibility'
 import { reconcileDhanamPaymentLifecycle } from '@phynd/services/payments/payment-reconciliation'
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import type { AuthContext } from '@phynd/types/auth'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import {
   type BuyerContact,
@@ -78,8 +89,10 @@ const logger = createLogger('web:webhook:dhanam')
  *        b) Insert a `conversions` row (type from `mapEventTypeToConversionType`).
  *           Its `lead_id` is set only on the event that converts the lead
  *           (see lead-conversion.ts); `metadata.contact_lead_id` always names it.
- *        c) If a referral_code is in metadata, mark the matching referral
- *           row as `converted` + populate `revenue_cents`.
+ *        c) If a referral_code is in metadata, mark the matching open
+ *           (`applied` or legacy `pending`) referral row as `converted` +
+ *           populate `revenue_cents`; after commit its reward dispatch is
+ *           queued, once (step h).
  *        d) On that converting event, mark the lead `converted` and move it to
  *           its pipeline's "Closed Won" stage (no-op if there is none).
  *        e) Append an `engagement_event` (source='dhanam',
@@ -91,6 +104,9 @@ const logger = createLogger('web:webhook:dhanam')
  *        g) Move the contact's lifecycle stage: paid → customer; subscription
  *           cancelled or fully refunded → former customer when no other
  *           active paid relationship is visible (see customer-stage.ts).
+ *        h) After commit, queue the converted referral's reward
+ *           (`queueReferralRewardDispatch`, once per referral; a failed
+ *           enqueue answers 500 and the duplicate redelivery retries it).
  *   7. Invalidate federation cache (preserve the prior route's behavior).
  *   8. Return 200.
  *
@@ -166,14 +182,68 @@ export async function POST(req: Request): Promise<NextResponse> {
   // 4–6. Persist the conversion.
   try {
     const result = await persistEvent(normalized)
+    // 6h. After commit: the referral this event converted gets its reward
+    //     queued, exactly once. A failed enqueue answers 500 so the sender
+    //     redelivers; the redelivery is a duplicate and retries the queue.
+    const referralReward = await maybeQueueReferralReward(normalized, result)
+    if (referralReward === 'failed') {
+      return NextResponse.json(
+        { error: 'Referral reward not queued', referral_id: result.referral_id ?? null },
+        { status: 500 },
+      )
+    }
     return NextResponse.json(
-      { received: true, ...result },
+      { received: true, ...result, ...(referralReward ? { referral_reward: referralReward } : {}) },
       { headers: { 'X-RateLimit-Remaining': String(remaining) } },
     )
   } catch (err) {
     logger.error({ err, event_id: normalized.eventId }, 'dhanam webhook processing failed')
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
+}
+
+// ---------------------------------------------------------------------------
+// Referral reward (after commit)
+// ---------------------------------------------------------------------------
+
+const DHANAM_SERVICE_AUTH: AuthContext = {
+  userId: 'service:dhanam-webhook',
+  tenantId: DEFAULT_TENANT_ID,
+  roles: ['service'],
+  scopes: [],
+  accessToken: 'internal:dhanam-webhook',
+}
+
+/**
+ * Queues the reward for the referral this event converted inline (the same
+ * dispatch `/api/referrals/convert` queues; `queueReferralRewardDispatch`
+ * makes it once per referral whichever path comes first). On a duplicate
+ * delivery of a paid event with a referral code it looks the referral up
+ * again, so a reward whose enqueue failed on the first delivery is queued by
+ * the redelivery. `null` when the event converted no referral.
+ */
+async function maybeQueueReferralReward(
+  event: NormalizedEvent,
+  result: PersistResult,
+): Promise<RewardDispatchOutcome | null> {
+  const ctx = createServiceContext(getDb(), getCacheManager(), DHANAM_SERVICE_AUTH)
+  let referralId = result.status === 'recorded' ? (result.referral_id ?? null) : null
+  if (
+    result.status === 'duplicate' &&
+    event.referralCode &&
+    STRIPE_PAID_EVENT_TYPES.has(event.eventType)
+  ) {
+    try {
+      referralId = await new ReferralService(ctx).findReferralConvertedByDhanamEvent(event.eventId)
+    } catch (err) {
+      logger.error({ err, event_id: event.eventId }, 'referral lookup on redelivery failed')
+      return 'failed'
+    }
+  }
+  if (!referralId) return null
+  const outcome = await queueReferralRewardDispatch(ctx, referralId)
+  logger.info({ event_id: event.eventId, referral_id: referralId, outcome }, 'referral reward')
+  return outcome
 }
 
 // ---------------------------------------------------------------------------
@@ -546,9 +616,13 @@ async function markReferralConverted(
   if (!codeRow?.id) return null
 
   // Match the referral row that was applied for this code+email.
-  // Falls back to any pending referral for this code if email is absent
+  // Falls back to any open referral for this code if email is absent
   // (legacy referrals applied without a recorded email).
-  const conditions = [eq(referrals.referralCodeId, codeRow.id), eq(referrals.status, 'pending')]
+  // `applied` is what the apply API writes; `pending` is the legacy default.
+  const conditions = [
+    eq(referrals.referralCodeId, codeRow.id),
+    inArray(referrals.status, [...CONVERTIBLE_REFERRAL_STATUSES]),
+  ]
   if (referredEmail) {
     conditions.push(eq(referrals.referredEmail, referredEmail))
   }

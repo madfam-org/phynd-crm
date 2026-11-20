@@ -11,10 +11,32 @@ import {
   referrals,
 } from '@phynd/db/schema'
 import { createLogger } from '@phynd/logging'
-import { and, eq, gt, isNull, lt, sql } from 'drizzle-orm'
+import { and, eq, gt, isNull, lt, ne, sql } from 'drizzle-orm'
 import type { ServiceContext } from '../context'
 
 const logger = createLogger('services:referrals')
+
+/** `referrals.metadata` key set once the reward dispatch job is queued. */
+export const REWARD_DISPATCH_MARKER = 'reward_dispatch_queued_at'
+
+/** Statuses a referral can still convert from: `applied` (apply API) or legacy `pending`. */
+export const CONVERTIBLE_REFERRAL_STATUSES = ['pending', 'applied'] as const
+
+/**
+ * The `referral-reward-dispatch` job payload; the worker sends it to Dhanam as
+ * `referral.converted` (apps/worker/src/processors/referral-reward-dispatch.ts).
+ */
+export interface ReferralRewardDispatch {
+  referralId: string
+  referralCode: string
+  referrerUserId: string
+  referredUserId: string
+  referredEmail: string
+  sourceProduct: string
+  targetProduct: string
+  planId: string
+  revenueCents: number
+}
 
 const PRODUCT_PREFIXES: Record<string, string> = {
   karafiel: 'KRF',
@@ -254,6 +276,9 @@ export class ReferralService {
   /**
    * Convert a referral: transitions status to 'converted', records plan and revenue.
    * Returns the full referral data (with code info) for webhook dispatch.
+   * A referral that is already converted (for example inline by the Dhanam
+   * webhook) is returned as it is, with `alreadyConverted: true`: its plan,
+   * revenue and conversion time are not overwritten.
    */
   async convertReferral(referralId: string, planId: string, revenueCents: number) {
     const [updated] = await this.ctx.db
@@ -264,10 +289,14 @@ export class ReferralService {
         revenueCents,
         convertedAt: new Date(),
       })
-      .where(eq(referrals.id, referralId))
+      .where(and(eq(referrals.id, referralId), ne(referrals.status, 'converted')))
       .returning()
 
-    if (!updated) {
+    const row =
+      updated ??
+      (await this.ctx.db.select().from(referrals).where(eq(referrals.id, referralId)).limit(1))[0]
+
+    if (!row) {
       throw new Error('Referral not found')
     }
 
@@ -275,15 +304,93 @@ export class ReferralService {
     const [codeRow] = await this.ctx.db
       .select()
       .from(referralCodes)
-      .where(eq(referralCodes.id, updated.referralCodeId))
+      .where(eq(referralCodes.id, row.referralCodeId))
       .limit(1)
 
-    logger.info({ referralId, planId, revenueCents }, 'Referral converted')
+    if (updated) {
+      logger.info({ referralId, planId, revenueCents }, 'Referral converted')
+    } else {
+      logger.info({ referralId }, 'Referral already converted; left as it was')
+    }
 
     return {
-      ...updated,
+      ...row,
       code: codeRow ?? null,
+      alreadyConverted: !updated,
     }
+  }
+
+  /**
+   * Claims the one reward dispatch a converted referral gets. Atomic: a single
+   * conditional UPDATE stamps `metadata.reward_dispatch_queued_at` only while
+   * the referral is converted and not yet claimed, so of any number of callers
+   * (the Dhanam webhook's inline conversion, `/api/referrals/convert`, a retry
+   * of either) exactly one gets the job payload; every other gets `null`.
+   * A caller that then fails to enqueue gives the claim back with
+   * `releaseRewardDispatch` so a retry can claim it again.
+   */
+  async claimRewardDispatch(referralId: string): Promise<ReferralRewardDispatch | null> {
+    const [claimed] = await this.ctx.db
+      .update(referrals)
+      .set({
+        metadata: sql`coalesce(${referrals.metadata}, '{}'::jsonb) || jsonb_build_object(${REWARD_DISPATCH_MARKER}::text, now()::text)`,
+      })
+      .where(
+        and(
+          eq(referrals.id, referralId),
+          eq(referrals.status, 'converted'),
+          sql`(${referrals.metadata} ->> ${REWARD_DISPATCH_MARKER}) is null`,
+        ),
+      )
+      .returning()
+    if (!claimed) return null
+
+    const [codeRow] = await this.ctx.db
+      .select({ code: referralCodes.code })
+      .from(referralCodes)
+      .where(eq(referralCodes.id, claimed.referralCodeId))
+      .limit(1)
+
+    return {
+      referralId: claimed.id,
+      referralCode: codeRow?.code ?? '',
+      referrerUserId: claimed.referrerJanuaId,
+      referredUserId: claimed.referredJanuaId ?? '',
+      referredEmail: claimed.referredEmail ?? '',
+      sourceProduct: claimed.sourceProduct,
+      targetProduct: claimed.targetProduct,
+      planId: claimed.planId ?? '',
+      revenueCents: claimed.revenueCents ?? 0,
+    }
+  }
+
+  /** Gives back a claim whose job could not be enqueued (see `claimRewardDispatch`). */
+  async releaseRewardDispatch(referralId: string): Promise<void> {
+    await this.ctx.db
+      .update(referrals)
+      .set({ metadata: sql`${referrals.metadata} - ${REWARD_DISPATCH_MARKER}::text` })
+      .where(eq(referrals.id, referralId))
+  }
+
+  /**
+   * The referral a Dhanam billing event converted inline: the one whose
+   * conversion row carries that event id. Used to retry the reward dispatch
+   * when a redelivery of the event is a duplicate.
+   */
+  async findReferralConvertedByDhanamEvent(eventId: string): Promise<string | null> {
+    const [row] = await this.ctx.db
+      .select({ id: referrals.id })
+      .from(referrals)
+      .innerJoin(conversions, eq(conversions.id, referrals.conversionId))
+      .where(
+        and(
+          eq(referrals.status, 'converted'),
+          sql`${conversions.metadata} ->> 'provider' = 'dhanam'`,
+          sql`${conversions.metadata} ->> 'event_id' = ${eventId}`,
+        ),
+      )
+      .limit(1)
+    return row?.id ?? null
   }
 
   /**

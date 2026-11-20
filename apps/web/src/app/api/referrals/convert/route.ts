@@ -3,17 +3,20 @@
  *
  * Federation-authenticated endpoint for converting a referral.
  * External products call this when a referred user completes a paid conversion.
- * Enqueues a BullMQ job to dispatch a webhook to Dhanam for reward application.
+ * Enqueues a BullMQ job to dispatch a webhook to Dhanam for reward application,
+ * exactly once per referral (`queueReferralRewardDispatch`): a referral the
+ * Dhanam webhook already converted and queued is answered without a second
+ * reward. A failed enqueue answers 500 with the claim given back, so the
+ * caller's retry queues it.
  */
 
 import { getCacheManager } from '@/lib/federation/clients'
-import { resolveRedisUrl } from '@phynd/config/connections'
+import { queueReferralRewardDispatch } from '@/lib/referrals/reward-dispatch'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { createLogger } from '@phynd/logging'
 import { ReferralService, createServiceContext } from '@phynd/services'
 import type { AuthContext } from '@phynd/types/auth'
-import { Queue } from 'bullmq'
 import { NextResponse } from 'next/server'
 import { validateFederationAuth } from '../_lib/auth'
 
@@ -25,15 +28,6 @@ const SERVICE_AUTH: AuthContext = {
   roles: ['service'],
   scopes: [],
   accessToken: '',
-}
-
-function createRedisConnection(redisUrl: string) {
-  const url = new URL(redisUrl)
-  return {
-    host: url.hostname,
-    port: Number(url.port) || 6379,
-    password: url.password || undefined,
-  }
 }
 
 type ConvertReferralBody = {
@@ -64,32 +58,6 @@ function validateConvertReferralBody(body: ConvertReferralBody) {
   }
 
   return { referral_id, plan_id, revenue_cents }
-}
-
-async function enqueueRewardDispatch(
-  result: Awaited<ReturnType<ReferralService['convertReferral']>>,
-  planId: string,
-  revenueCents: number,
-) {
-  const redisUrl = resolveRedisUrl()
-  const connection = createRedisConnection(redisUrl)
-  const queue = new Queue('referral-reward-dispatch', { connection })
-
-  try {
-    await queue.add('dispatch', {
-      referralId: result.id,
-      referralCode: result.code?.code ?? '',
-      referrerUserId: result.referrerJanuaId,
-      referredUserId: result.referredJanuaId ?? '',
-      referredEmail: result.referredEmail ?? '',
-      sourceProduct: result.sourceProduct,
-      targetProduct: result.targetProduct,
-      planId,
-      revenueCents,
-    })
-  } finally {
-    await queue.close()
-  }
 }
 
 function convertReferralErrorResponse(err: unknown) {
@@ -130,20 +98,29 @@ export async function POST(req: Request) {
       validated.plan_id,
       validated.revenue_cents,
     )
-    await enqueueRewardDispatch(result, validated.plan_id, validated.revenue_cents)
+    const reward = await queueReferralRewardDispatch(ctx, result.id)
+    if (reward === 'failed') {
+      return NextResponse.json(
+        { error: 'Reward dispatch not queued; retry', referral_id: result.id },
+        { status: 500 },
+      )
+    }
 
     logger.info(
       {
         referralId: validated.referral_id,
         planId: validated.plan_id,
         revenueCents: validated.revenue_cents,
+        alreadyConverted: result.alreadyConverted,
+        reward,
       },
-      'Referral converted and reward dispatch enqueued',
+      'Referral converted; reward dispatch handled',
     )
 
     return NextResponse.json({
       referral_id: result.id,
       status: 'converted',
+      reward_dispatch: reward,
     })
   } catch (err) {
     return convertReferralErrorResponse(err)

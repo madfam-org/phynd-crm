@@ -274,7 +274,12 @@ export {
   cotizaQuoteLifecycleState,
   isCotizaQuoteLifecycleEvent,
 } from './quotes/cotiza-quote-lifecycle.service'
-export { ReferralService } from './referrals/referrals.service'
+export {
+  CONVERTIBLE_REFERRAL_STATUSES,
+  REWARD_DISPATCH_MARKER,
+  ReferralService,
+  type ReferralRewardDispatch,
+} from './referrals/referrals.service'
 export { PreferencesService } from './preferences/preferences.service'
 export { SearchService, type SearchResult } from './search/search.service'
 export { TagsService } from './tags/tags.service'

@@ -290,6 +290,8 @@ vi.mock('@phynd/services', () => ({
       ctx.db.stage('leads', row)
       return row
     },
+    // Reads through the delivery's transaction, like the service.
+    getById: async (id: string) => ctx.db.rows('leads').find((row) => row.id === id) ?? null,
   })),
   PipelinesService: vi.fn().mockImplementation(() => ({
     getDefault: mockGetDefaultPipeline,
@@ -780,8 +782,11 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(1)
     const email = sentEmail()
     expect(email.to).toBe('ventas@example.test')
-    expect(email.subject).toBe('Nueva reserva en Kalya: Ana Prospecto (Empresa Ejemplo)')
-    expect(email.html).toContain('Nuevo lead — reserva en Kalya')
+    // Origin and tier only in the subject and the preview; the person in the body.
+    expect(email.subject).toBe('Nuevo lead · Kalya · reserva · Tier sin calcular')
+    expect(email.preheader).toBe('Tier sin calcular · Kalya · reserva')
+    expect(email.html).toContain('Nuevo lead — Kalya · reserva')
+    expect(email.html).toContain('Ana Prospecto')
     expect(email.html).toContain('Diagnóstico de 30 minutos')
     expect(email.html).toContain('17 nov 2026')
     expect(email.html).toContain('(America/Mexico_City)')
@@ -914,6 +919,8 @@ describe('POST /api/webhooks/lead-intake — test traffic', () => {
     expect(res.status).toBe(200)
     expect(mockCreateLead).toHaveBeenCalledWith(expect.objectContaining({ isTest: true }))
     expect(committed('activities')).toHaveLength(0)
+    // No alert for test traffic.
+    expect(mockSendEmail).not.toHaveBeenCalled()
   })
 
   it('marks a real lead as not test and gives its task the first-contact kind', async () => {
@@ -960,8 +967,8 @@ describe('POST /api/webhooks/lead-intake — site lead', () => {
     ])
 
     const email = sentEmail()
-    expect(email.subject).toBe('Nuevo lead del sitio: Luis Visitante (Taller Ejemplo)')
-    expect(email.html).toContain('Nuevo lead — formulario del sitio')
+    expect(email.subject).toBe('Nuevo lead · Sitio · formulario · Tier sin calcular')
+    expect(email.html).toContain('Nuevo lead — Sitio · formulario')
     expect(email.html).toContain('buscador')
     expect(email.html).toContain('fabricacion-q4')
     expect(email.html).toContain('fabricacion')
@@ -1106,27 +1113,39 @@ describe('POST /api/webhooks/lead-intake — notification', () => {
     expect(committed('webhook_events')).toHaveLength(1)
   })
 
-  it('falls back to NAUTA_LEADS_NOTIFY_EMAIL while LEADS_NOTIFY_EMAIL is unset', async () => {
+  it('goes to hola@madfam.io while LEADS_NOTIFY_EMAIL is unset (ruling V8), never the old nauta variable', async () => {
     delete process.env.LEADS_NOTIFY_EMAIL
     process.env.NAUTA_LEADS_NOTIFY_EMAIL = 'uno@example.test, dos@example.test'
+    const res = await post(makeSiteEvent())
+    expect(res.status).toBe(200)
+    expect(sentEmail().to).toBe('hola@madfam.io')
+  })
+
+  it('sends to every LEADS_NOTIFY_EMAIL address', async () => {
+    process.env.LEADS_NOTIFY_EMAIL = 'uno@example.test, dos@example.test'
     const res = await post(makeSiteEvent())
     expect(res.status).toBe(200)
     expect(sentEmail().to).toBe('uno@example.test,dos@example.test')
   })
 
-  it('prefers LEADS_NOTIFY_EMAIL when both are set', async () => {
-    process.env.NAUTA_LEADS_NOTIFY_EMAIL = 'anterior@example.test'
+  it('puts the scored tier in the subject', async () => {
+    // Scoring at creation set the tier; the alert reads it back on the transaction.
+    const { LeadsService } = await import('@phynd/services')
+    vi.mocked(LeadsService).mockImplementationOnce(
+      (ctx: unknown) =>
+        ({
+          create: async (data: Row) => {
+            const row = { id: nextId('lead'), ...data, tier: 'A' }
+            ;(ctx as FakeCtx).db.stage('leads', row)
+            return row
+          },
+          getById: async (id: string) =>
+            (ctx as FakeCtx).db.rows('leads').find((row) => row.id === id) ?? null,
+        }) as never,
+    )
     const res = await post(makeSiteEvent())
     expect(res.status).toBe(200)
-    expect(sentEmail().to).toBe('ventas@example.test')
-  })
-
-  it('skips the email when no recipient is configured, and still returns 200', async () => {
-    delete process.env.LEADS_NOTIFY_EMAIL
-    const res = await post(makeSiteEvent())
-    expect(res.status).toBe(200)
-    expect(mockSendEmail).not.toHaveBeenCalled()
-    expect(mockCreateLead).toHaveBeenCalled()
+    expect(sentEmail().subject).toBe('Nuevo lead · Sitio · formulario · Tier A')
   })
 
   it('links to the canonical CRM host whatever NEXT_PUBLIC_APP_URL says', async () => {
@@ -1449,8 +1468,8 @@ describe('POST /api/webhooks/lead-intake — quote request', () => {
       'Lead por solicitud de cotización. Solicitud de cotización Q-2026-11-0042 · 18450.50 MXN · 3 partidas.',
     )
     const email = sentEmail()
-    expect(email.subject).toBe('Nueva solicitud de cotización: Rosa Compradora (Taller Ejemplo)')
-    expect(email.html).toContain('Nuevo lead — solicitud de cotización')
+    expect(email.subject).toBe('Nuevo lead · Cotiza · solicitud de cotización · Tier sin calcular')
+    expect(email.html).toContain('Nuevo lead — Cotiza · solicitud de cotización')
     expect(email.html).toContain('Q-2026-11-0042')
     expect(email.html).toContain('18450.50 MXN')
     expect(email.html).toMatch(/Partidas<\/td><td[^>]*>3</)
@@ -1475,7 +1494,7 @@ describe('POST /api/webhooks/lead-intake — quote request', () => {
     const { html, preheader } = sentEmail()
     expect(html).toContain('sin precio aún')
     expect(html).not.toContain('Partidas')
-    expect(preheader).toBe('Solicitud de cotización cq_SIN_PRECIO · sin precio aún')
+    expect(preheader).toBe('Tier sin calcular · Cotiza · solicitud de cotización')
   })
 
   it('drops malformed quote fields and keeps the lead', async () => {

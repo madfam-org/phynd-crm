@@ -1,6 +1,7 @@
 import { getCacheManager } from '@/lib/federation/clients'
 import { handleWebhook } from '@/lib/webhooks/handler'
 import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
+import { leadTierOf, sendLeadAlert } from '@/lib/webhooks/lead-alert'
 import { resolveRedisUrl } from '@phynd/config/connections'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -160,6 +161,14 @@ async function createDefaultLead(
     isTest,
     displayName: contact.email ?? source,
     feed: 'tezca',
+  })
+  await sendLeadAlert({
+    feed: 'tezca',
+    sourceLabel: `Tezca · ${source}`,
+    leadId: lead.id,
+    contactId,
+    tier: await leadTierOf(ctx, lead.id),
+    isTest,
   })
   await enqueueDrip(lead.id)
   return lead

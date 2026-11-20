@@ -22,6 +22,10 @@ const FIELD_LIMITS = {
   ec_code: LEAD_ATTRIBUTION_MAX_LENGTH,
   intent: LEAD_ATTRIBUTION_MAX_LENGTH,
   availability_status: LEAD_ATTRIBUTION_MAX_LENGTH,
+  certifier_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  center_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  consent_commercial_contact: LEAD_ATTRIBUTION_MAX_LENGTH,
+  consent_captured_at: LEAD_ATTRIBUTION_MAX_LENGTH,
 } as const satisfies Record<Exclude<keyof LeadAttribution, 'booking' | 'interests'>, number>
 
 /** Most interests kept, and the longest one. */

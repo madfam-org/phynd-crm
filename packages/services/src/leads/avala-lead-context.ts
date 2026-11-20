@@ -2,8 +2,9 @@ import type { LeadAttribution } from '@phynd/types/crm'
 import { sanitizeLeadAttribution } from './lead-attribution'
 
 // First-party context an Avala `avala.lead.captured` event carries (G1), kept
-// on the CRM lead and contact: the lead kind, EC code, intent, availability and
-// interests on `leads.attribution`; the prospect's message as a contact note.
+// on the CRM lead and contact: the lead kind, EC code, intent, availability,
+// interests, certifier and center ids and the form's commercial-contact
+// consent on `leads.attribution`; the prospect's message as a contact note.
 // Used by the Avala webhook and by the worker's backfill of stored events, so
 // both write exactly the same thing.
 
@@ -28,6 +29,7 @@ export function avalaLeadAttribution(payload: unknown): LeadAttribution | null {
   const block = record(payload)
   const lead = record(block.lead)
   const attribution = record(block.attribution)
+  const consent = record(block.consent)
   return sanitizeLeadAttribution({
     utm_source: attribution.utmSource,
     utm_medium: attribution.utmMedium,
@@ -38,7 +40,26 @@ export function avalaLeadAttribution(payload: unknown): LeadAttribution | null {
     intent: attribution.intent,
     availability_status: attribution.availabilityStatus,
     interests: lead.interests,
+    certifier_id: lead.certifierId,
+    center_id: lead.centerId,
+    ...avalaConsent(consent),
   })
+}
+
+/**
+ * The form's answer to «may we contact you commercially?» Avala sends
+ * `consent.commercialContact` as a boolean and `consent.capturedAt`; anything
+ * else (no block, a non-boolean) records nothing rather than guessing.
+ */
+function avalaConsent(consent: Record<string, unknown>): {
+  consent_commercial_contact?: string
+  consent_captured_at?: string
+} {
+  if (typeof consent.commercialContact !== 'boolean') return {}
+  return {
+    consent_commercial_contact: consent.commercialContact ? 'granted' : 'not_granted',
+    consent_captured_at: text(consent.capturedAt),
+  }
 }
 
 /** The prospect's message from `payload.lead.message`, or undefined. */

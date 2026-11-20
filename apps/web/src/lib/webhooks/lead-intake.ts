@@ -1,13 +1,10 @@
-import { createLogger } from '@phynd/logging'
-import { EmailService } from '@phynd/services'
-import type { LeadAttribution } from '@phynd/types/crm'
+import type { LeadAttribution, LeadTier } from '@phynd/types/crm'
+import { escapeHtml, sendLeadAlert } from './lead-alert'
 
 // Shared pieces of the lead-intake webhook (`/api/webhooks/lead-intake`): the
 // origin vocabulary, the human-readable booking time, the follow-up due date
 // and the notification email. Kept out of the route file so they can be tested
 // on their own.
-
-const logger = createLogger('web:webhook:lead-intake')
 
 export const LEAD_INTAKE_SOURCES = ['kalya', 'madfam-site', 'cotiza'] as const
 export type LeadIntakeSource = (typeof LEAD_INTAKE_SOURCES)[number]
@@ -49,10 +46,11 @@ export const LEAD_INTAKE_ORIGIN_LABEL: Record<LeadIntakeSource, string> = {
   cotiza: 'solicitud de cotización',
 }
 
-const SUBJECT_PREFIX: Record<LeadIntakeSource, string> = {
-  kalya: 'Nueva reserva en Kalya',
-  'madfam-site': 'Nuevo lead del sitio',
-  cotiza: 'Nueva solicitud de cotización',
+/** How the alert names each origin (subject and body); never personal data. */
+const SOURCE_LABEL: Record<LeadIntakeSource, string> = {
+  kalya: 'Kalya · reserva',
+  'madfam-site': 'Sitio · formulario',
+  cotiza: 'Cotiza · solicitud de cotización',
 }
 
 /** The quote a `cotiza.quote.requested` event carries, validated and bounded. */
@@ -175,33 +173,6 @@ export function formatBookingStart(
  */
 export { nextBusinessDayDueAt } from '@phynd/services/leads/lead-intake-defaults'
 
-/**
- * Who is told about a new lead. `LEADS_NOTIFY_EMAIL` (comma-separated); while
- * it is unset or empty, `NAUTA_LEADS_NOTIFY_EMAIL` is used so the address
- * already configured for the nauta webhook keeps working.
- */
-export function leadNotificationRecipients(
-  env: Record<string, string | undefined> = process.env,
-): string[] {
-  const parse = (value: string | undefined): string[] =>
-    (value ?? '')
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry !== '')
-
-  const recipients = parse(env.LEADS_NOTIFY_EMAIL)
-  return recipients.length > 0 ? recipients : parse(env.NAUTA_LEADS_NOTIFY_EMAIL)
-}
-
-function escapeHtml(value: string | undefined): string {
-  return (value ?? '—')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
 export interface NewLeadNotification {
   source: LeadIntakeSource
   contactId: string
@@ -218,6 +189,10 @@ export interface NewLeadNotification {
   quote?: LeadQuote | null
   /** Set when a follow-up task was opened for the lead. */
   followUpDueAt?: Date | null
+  /** A | B | C as scored at creation; null while unscored. */
+  tier?: LeadTier | null
+  /** Synthetic or test traffic: no alert. */
+  isTest?: boolean
 }
 
 /** Table rows of the notification: the person always, the rest when known. */
@@ -249,44 +224,10 @@ function notificationRows(
   ]
 }
 
-/** The inbox preview: the prospect's words, else the meeting, the quote or the origin. */
-function notificationPreheader(
-  lead: NewLeadNotification,
-  bookingStart: string | undefined,
-): string {
-  if (lead.message) return lead.message.slice(0, 120)
-  if (bookingStart) return `Reunión: ${bookingStart}`
-  if (lead.quote) return `Solicitud de ${quoteSummary(lead.quote)}`
-  return `Origen: ${LEAD_INTAKE_ORIGIN_LABEL[lead.source]}`
-}
-
-/**
- * One email per captured lead to the humans who follow up. Best effort by
- * design: it runs after the rows are stored, and neither a missing recipient
- * nor a provider error may turn into a failed webhook (the sender would retry
- * a lead that already exists). `EmailService` itself skips with a warning when
- * no API key is configured. Tags carry the lead and contact ids so opens and
- * clicks can be attributed later.
- */
-export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
-  const recipients = leadNotificationRecipients()
-  if (recipients.length === 0) {
-    logger.warn(
-      { leadId: lead.leadId, source: lead.source },
-      'LEADS_NOTIFY_EMAIL not configured: lead captured with no notification',
-    )
-    return
-  }
-
-  // Always the canonical host, never NEXT_PUBLIC_APP_URL or the request host
-  // (same reasoning as the nauta webhook's notification).
-  const crmBase = 'https://crm.madfam.io'
-  const leadUrl = lead.leadId ? `${crmBase}/leads/${lead.leadId}` : `${crmBase}/leads`
-
-  const origin = LEAD_INTAKE_ORIGIN_LABEL[lead.source]
+/** The detailed body this feed has always sent, below the shared feed and tier rows. */
+function notificationDetails(lead: NewLeadNotification): string {
   const booking = lead.attribution?.booking
   const bookingStart = formatBookingStart(booking?.starts_at, booking?.timezone)
-
   const rows = notificationRows(lead, bookingStart)
 
   const followUp = lead.followUpDueAt
@@ -295,9 +236,7 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
       )
     : undefined
 
-  const html = [
-    '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#1a232e">',
-    `<h2 style="margin:0 0 4px">Nuevo lead — ${escapeHtml(origin)}</h2>`,
+  return [
     lead.page ? `<p style="margin:0 0 16px;color:#5a6a7a">Vía ${escapeHtml(lead.page)}</p>` : '',
     '<table style="border-collapse:collapse;width:100%;font-size:14px">',
     ...rows.map(
@@ -308,36 +247,26 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
     lead.message
       ? `<blockquote style="margin:16px 0;padding:12px 16px;background:#f2f6fa;border-left:3px solid #2e6db4;white-space:pre-wrap">${escapeHtml(lead.message)}</blockquote>`
       : '',
-    `<p style="margin:20px 0"><a href="${leadUrl}" style="background:#2e6db4;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Abrir en el CRM</a></p>`,
     followUp
       ? `<p style="color:#8a97a5;font-size:12px">Tarea de seguimiento en el CRM para el ${escapeHtml(followUp)}.</p>`
       : '',
-    '</div>',
   ].join('')
+}
 
-  const subjectPrefix = SUBJECT_PREFIX[lead.source]
-
-  try {
-    const emailService = new EmailService()
-    const sent = await emailService.send({
-      to: recipients.join(','),
-      subject: `${subjectPrefix}: ${lead.name}${lead.company ? ` (${lead.company})` : ''}`,
-      html,
-      preheader: notificationPreheader(lead, bookingStart),
-      tags: [
-        { name: 'source', value: lead.source },
-        ...(lead.leadId ? [{ name: 'lead_id', value: lead.leadId }] : []),
-        { name: 'contact_id', value: lead.contactId },
-      ],
-    })
-    logger.info(
-      { leadId: lead.leadId, source: lead.source, resendId: sent?.id ?? null },
-      'lead notification sent',
-    )
-  } catch (error) {
-    logger.error(
-      { err: error, leadId: lead.leadId, source: lead.source },
-      'lead notification failed',
-    )
-  }
+/**
+ * The new-lead alert for this feed (`lead-alert.ts`): one email per captured
+ * real lead, to `LEADS_NOTIFY_EMAIL` (default `hola@madfam.io`). The subject
+ * names the origin and the tier only; the prospect's details stay in the body.
+ * Best effort: never throws, so a provider problem never fails the webhook.
+ */
+export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
+  await sendLeadAlert({
+    feed: lead.source,
+    sourceLabel: SOURCE_LABEL[lead.source],
+    leadId: lead.leadId,
+    contactId: lead.contactId,
+    tier: lead.tier ?? null,
+    isTest: lead.isTest === true,
+    detailsHtml: notificationDetails(lead),
+  })
 }

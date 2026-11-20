@@ -1,6 +1,7 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
 import { finishIntakeLead } from '@/lib/webhooks/intake-lead'
+import { type LeadAlert, leadTierOf, sendLeadAlert } from '@/lib/webhooks/lead-alert'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -13,8 +14,10 @@ import {
   LeadsService,
   NotesService,
   PipelinesService,
+  type Transaction,
   VisitorTrackingService,
   createServiceContext,
+  withTransaction,
 } from '@phynd/services'
 import {
   avalaLeadAttribution,
@@ -24,10 +27,22 @@ import {
 import { isTestLead } from '@phynd/services/leads/lead-qualification'
 import type { AuthContext } from '@phynd/types/auth'
 import type { LeadAttribution } from '@phynd/types/crm'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 const logger = createLogger('web:webhook:avala')
+
+// Avala → PhyndCRM. Exactly once per delivery: every row an event writes
+// (contact, lead, note, owner and first-contact task, visitor session,
+// conversion) and its `webhook_events` record go in ONE transaction, serialized
+// per event id with a transaction-scoped advisory lock, so a failure anywhere
+// rolls the whole delivery back and Avala's retry starts clean, and a retry or
+// a concurrent copy of a delivery that did commit is acknowledged as a
+// duplicate and writes nothing. A lead event is also serialized per Avala lead
+// id: a lead already stored for that id (a re-emitted event under a new event
+// id) is never created twice. The new-lead alert is sent once, after commit.
+
+type AvalaOutcome = { deduplicated: true } | { deduplicated: false; alert: LeadAlert | null }
 
 type AvalaWebhookEnvelope = {
   schema_version?: string
@@ -89,21 +104,15 @@ export async function POST(req: Request): Promise<NextResponse> {
   const eventId = event.event_id ?? ''
   const eventType = event.event_type ?? ''
 
-  if (await hasSeenEvent(eventId)) {
-    return NextResponse.json(
-      { received: true, status: 'duplicate', event_id: eventId },
-      { headers: { 'X-RateLimit-Remaining': String(remaining) } },
-    )
-  }
+  const headers = { 'X-RateLimit-Remaining': String(remaining) }
+  const duplicate = () =>
+    NextResponse.json({ received: true, status: 'duplicate', event_id: eventId }, { headers })
 
+  let outcome: AvalaOutcome
   try {
-    await processAvalaEvent(event)
-    await recordWebhookEvent(event)
-
-    return NextResponse.json(
-      { received: true, status: 'processed', event_id: eventId, event_type: eventType },
-      { headers: { 'X-RateLimit-Remaining': String(remaining) } },
-    )
+    // Fast path only; the authoritative check runs under the lock below.
+    if (await hasSeenEvent(getDb(), eventId)) return duplicate()
+    outcome = await getDb().transaction((tx) => storeEvent(tx, event))
   } catch (err) {
     logger.error(
       { err, event_id: eventId, event_type: eventType },
@@ -111,6 +120,36 @@ export async function POST(req: Request): Promise<NextResponse> {
     )
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
+
+  if (outcome.deduplicated) return duplicate()
+  // After the commit, so a rolled-back attempt never alerts and a retry (a
+  // duplicate above) never alerts twice. Best effort, never throws.
+  if (outcome.alert) await sendLeadAlert(outcome.alert)
+
+  return NextResponse.json(
+    { received: true, status: 'processed', event_id: eventId, event_type: eventType },
+    { headers },
+  )
+}
+
+/**
+ * One delivery's whole unit of work. Lock order is fixed: event id, then (in
+ * the lead handler) Avala lead id, then email address.
+ */
+async function storeEvent(tx: Transaction, event: AvalaWebhookEnvelope): Promise<AvalaOutcome> {
+  const eventId = event.event_id ?? ''
+  await advisoryLock(tx, `phynd:avala:event:${eventId}`)
+  if (await hasSeenEvent(tx, eventId)) return { deduplicated: true }
+
+  const ctx = withTransaction(createAvalaContext(), tx)
+  const alert = await processAvalaEvent(ctx, event)
+  await recordWebhookEvent(tx, event)
+  return { deduplicated: false, alert }
+}
+
+/** Transaction-scoped: released when the delivery's transaction ends. */
+async function advisoryLock(db: Pick<Transaction, 'execute'>, key: string): Promise<void> {
+  await db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`)
 }
 
 function validateEvent(event: AvalaWebhookEnvelope): string | null {
@@ -123,8 +162,10 @@ function validateEvent(event: AvalaWebhookEnvelope): string | null {
   return null
 }
 
-async function hasSeenEvent(eventId: string): Promise<boolean> {
-  const db = getDb()
+async function hasSeenEvent(
+  db: Transaction | ReturnType<typeof getDb>,
+  eventId: string,
+): Promise<boolean> {
   const prior = await db
     .select({ id: webhookEvents.id })
     .from(webhookEvents)
@@ -139,68 +180,87 @@ async function hasSeenEvent(eventId: string): Promise<boolean> {
   return prior.length > 0
 }
 
-async function recordWebhookEvent(event: AvalaWebhookEnvelope): Promise<void> {
-  await getDb()
-    .insert(webhookEvents)
-    .values({
-      provider: 'avala',
-      eventType: event.event_type ?? 'unknown',
-      payload: event as unknown as Record<string, unknown>,
-      processedAt: new Date(),
-    })
+async function recordWebhookEvent(tx: Transaction, event: AvalaWebhookEnvelope): Promise<void> {
+  await tx.insert(webhookEvents).values({
+    provider: 'avala',
+    eventType: event.event_type ?? 'unknown',
+    payload: event as unknown as Record<string, unknown>,
+    processedAt: new Date(),
+  })
 }
 
 function createAvalaContext(): PhyndServiceContext {
   return createServiceContext(getDb(), getCacheManager(), SERVICE_AUTH)
 }
 
-async function processAvalaEvent(event: AvalaWebhookEnvelope): Promise<void> {
-  const ctx = createAvalaContext()
+/** Writes the event's rows; returns the new-lead alert when a real lead was created. */
+async function processAvalaEvent(
+  ctx: PhyndServiceContext,
+  event: AvalaWebhookEnvelope,
+): Promise<LeadAlert | null> {
   const eventType = event.event_type ?? ''
   const payload = event.payload ?? {}
 
   switch (eventType) {
     case 'avala.lead.captured':
-      await handleLeadCaptured(ctx, event, payload)
-      return
+      return handleLeadCaptured(ctx, event, payload)
     case 'avala.visitor.page_viewed':
       await handleVisitorPageViewed(ctx, event, payload)
-      return
+      break
     case 'avala.search.performed':
       await handleSearchPerformed(ctx, event, payload)
-      return
+      break
     case 'avala.conversion.tracked':
       await handleConversionTracked(ctx, event, payload)
-      return
+      break
     case 'avala.user.created':
     case 'avala.user.login':
       await handleUserLifecycle(ctx, event, payload)
-      return
+      break
     case 'avala.tenant.created':
       await handleTenantCreated(ctx, event, payload)
-      return
+      break
     case 'avala.subscription.created':
     case 'avala.subscription.updated':
     case 'avala.subscription.cancelled':
     case 'avala.payment.succeeded':
     case 'avala.payment.failed':
       await handleCustomerLifecycle(ctx, event, payload)
-      return
+      break
     default:
       logger.info({ eventType }, 'Ignoring unknown Avala event type')
   }
+  return null
 }
 
 async function handleLeadCaptured(
   ctx: PhyndServiceContext,
   event: AvalaWebhookEnvelope,
   payload: Record<string, unknown>,
-): Promise<void> {
+): Promise<LeadAlert | null> {
   const lead = readObject(payload.lead)
   const attribution = readObject(payload.attribution)
   const email = readString(lead.email)
-  if (!email) return
+  if (!email) return null
 
+  // A lead already stored for this Avala lead id (Avala re-emitting it under a
+  // new event id) is not created again. Serialized per Avala lead id.
+  const avalaLeadId = readString(lead.id)
+  if (avalaLeadId) {
+    await advisoryLock(ctx.db, `phynd:avala:lead:${avalaLeadId}`)
+    const existing = await findLeadForAvalaLead(ctx, avalaLeadId)
+    if (existing) {
+      logger.info(
+        { event_id: event.event_id, lead_id: existing },
+        'Avala lead already stored for this Avala lead id; nothing created',
+      )
+      return null
+    }
+  }
+
+  // `contacts.email` has no unique key: two first events for one new address
+  // take turns here, and the second finds the contact the first created.
+  await advisoryLock(ctx.db, `phynd:avala:email:${email.toLowerCase()}`)
   const name = readString(lead.name) ?? email.split('@')[0] ?? email
   const contact = await ensureContact(ctx, {
     email,
@@ -227,7 +287,7 @@ async function handleLeadCaptured(
   }
 
   if (crmLead?.id) {
-    await finishIntakeLead(getDb(), logger, {
+    await finishIntakeLead(ctx.db, logger, {
       leadId: crmLead.id,
       contactOwnerId: contact.ownerId,
       isTest,
@@ -249,32 +309,64 @@ async function handleLeadCaptured(
   const conversionMetadata = {
     source: 'avala',
     event_id: event.event_id,
-    avala_lead_id: readString(lead.id),
+    avala_lead_id: avalaLeadId,
     ec_code: readString(lead.ecCode),
+    certifier_id: readString(lead.certifierId),
+    center_id: readString(lead.centerId),
     intent: readString(attribution.intent),
     availability_status: readString(attribution.availabilityStatus),
     interests: Array.isArray(lead.interests) ? lead.interests : [],
   }
 
-  if (crmLead?.id) {
-    await ctx.db
-      .update(conversions)
-      .set({
-        contactId: contact.id,
-        visitorSessionId: visitorSession?.id,
-        metadata: conversionMetadata,
-      })
-      .where(and(eq(conversions.type, 'visitor_to_lead'), eq(conversions.leadId, crmLead.id)))
-    return
+  if (!crmLead?.id) {
+    await new ConversionsService(ctx).recordConversion({
+      type: 'visitor_to_lead',
+      contactId: contact.id,
+      visitorSessionId: visitorSession?.id,
+      metadata: conversionMetadata,
+    })
+    return null
   }
 
-  const conversionsService = new ConversionsService(ctx)
-  await conversionsService.recordConversion({
-    type: 'visitor_to_lead',
+  await ctx.db
+    .update(conversions)
+    .set({
+      contactId: contact.id,
+      visitorSessionId: visitorSession?.id,
+      metadata: conversionMetadata,
+    })
+    .where(and(eq(conversions.type, 'visitor_to_lead'), eq(conversions.leadId, crmLead.id)))
+
+  return {
+    feed: 'avala',
+    sourceLabel: source === 'avala' ? 'Avala' : `Avala · ${source}`,
+    leadId: crmLead.id,
     contactId: contact.id,
-    visitorSessionId: visitorSession?.id,
-    metadata: conversionMetadata,
-  })
+    tier: await leadTierOf(ctx, crmLead.id),
+    isTest,
+  }
+}
+
+/**
+ * The CRM lead an earlier event already created for this Avala lead id: its
+ * `visitor_to_lead` conversion carries `metadata.avala_lead_id`.
+ */
+async function findLeadForAvalaLead(
+  ctx: PhyndServiceContext,
+  avalaLeadId: string,
+): Promise<string | null> {
+  const [row] = await ctx.db
+    .select({ leadId: conversions.leadId })
+    .from(conversions)
+    .where(
+      and(
+        eq(conversions.type, 'visitor_to_lead'),
+        isNotNull(conversions.leadId),
+        sql`${conversions.metadata} ->> 'avala_lead_id' = ${avalaLeadId}`,
+      ),
+    )
+    .limit(1)
+  return row?.leadId ?? null
 }
 
 async function handleVisitorPageViewed(
@@ -442,7 +534,7 @@ async function ensureContact(
   const existing = await contactsService.getByEmail(data.email)
   if (existing) {
     if (data.externalJanuaId && !existing.externalJanuaId) {
-      await getDb()
+      await ctx.db
         .update(contacts)
         .set({ externalJanuaId: data.externalJanuaId })
         .where(eq(contacts.id, existing.id))

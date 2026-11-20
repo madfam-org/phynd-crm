@@ -49,6 +49,18 @@ export type LeadAttribution = {
   availability_status?: string
   /** Topics the lead picked on the sender's form. */
   interests?: string[]
+  /** Certifier the lead asked about, as the sender's id (Avala `certifierId`). */
+  certifier_id?: string
+  /** Evaluation center the lead asked about, as the sender's id (Avala `centerId`). */
+  center_id?: string
+  /**
+   * Whether the prospect agreed on the sender's form to be contacted
+   * commercially: `granted` | `not_granted` (Avala `consent.commercialContact`).
+   * A record of the form, not a marketing-consent record (`consent_records`).
+   */
+  consent_commercial_contact?: string
+  /** When the sender captured that answer (ISO-8601, as sent). */
+  consent_captured_at?: string
 }
 
 export const leads = pgTable(

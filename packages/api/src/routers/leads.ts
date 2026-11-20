@@ -28,6 +28,10 @@ const leadAttributionInput = z.object({
   ec_code: attributionValue.optional(),
   intent: attributionValue.optional(),
   availability_status: attributionValue.optional(),
+  certifier_id: attributionValue.optional(),
+  center_id: attributionValue.optional(),
+  consent_commercial_contact: z.enum(['granted', 'not_granted']).optional(),
+  consent_captured_at: attributionValue.optional(),
   interests: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
   booking: z
     .object({

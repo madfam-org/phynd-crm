@@ -8,7 +8,6 @@ import {
   formatBookingStart,
   isLeadIntakeSource,
   leadEventSource,
-  leadNotificationRecipients,
   nextBusinessDayDueAt,
   quotePrice,
   quoteSummary,
@@ -112,36 +111,6 @@ describe('formatBookingStart', () => {
       '2026-13-45T99:99:00Z',
     )
     expect(formatBookingStart(undefined, 'America/Mexico_City')).toBeUndefined()
-  })
-})
-
-describe('leadNotificationRecipients', () => {
-  it('reads LEADS_NOTIFY_EMAIL as a comma-separated list', () => {
-    expect(
-      leadNotificationRecipients({ LEADS_NOTIFY_EMAIL: ' a@example.test , b@example.test,, ' }),
-    ).toEqual(['a@example.test', 'b@example.test'])
-  })
-
-  it('falls back to NAUTA_LEADS_NOTIFY_EMAIL while LEADS_NOTIFY_EMAIL is unset or empty', () => {
-    expect(leadNotificationRecipients({ NAUTA_LEADS_NOTIFY_EMAIL: 'n@example.test' })).toEqual([
-      'n@example.test',
-    ])
-    expect(
-      leadNotificationRecipients({
-        LEADS_NOTIFY_EMAIL: '  ',
-        NAUTA_LEADS_NOTIFY_EMAIL: 'n@example.test',
-      }),
-    ).toEqual(['n@example.test'])
-  })
-
-  it('prefers LEADS_NOTIFY_EMAIL and returns nothing when neither is set', () => {
-    expect(
-      leadNotificationRecipients({
-        LEADS_NOTIFY_EMAIL: 'a@example.test',
-        NAUTA_LEADS_NOTIFY_EMAIL: 'n@example.test',
-      }),
-    ).toEqual(['a@example.test'])
-    expect(leadNotificationRecipients({})).toEqual([])
   })
 })
 

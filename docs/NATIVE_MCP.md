@@ -265,11 +265,12 @@ Prerequisite: Janua machine tokens are already on for this deployment
    `allowed_scopes: [phynd-crm-pipeline:read]`, org-bound to the organization
    of `PHYND_CRM_MACHINE_JANUA_ORG_ID`, and provision it (the first run creates
    the client and prints its `jnc_…` id; the secret goes to the consumer
-   through intake, never to chat or git):
-
-   ```bash
-   enclii --profile admin secrets provision oidc --platform <consumer>-phynd-crm-pipeline --intake-profile default --json --reason "<consumer> reads the CRM pipeline over MCP"
-   ```
+   through intake, never to chat or git). Run `enclii secrets provision oidc`
+   under the admin profile (`--profile admin`) with `--platform` set to the
+   consumer's name followed by `-phynd-crm-pipeline` (the registry entry just
+   declared), `--intake-profile default`, `--json`, and a `--reason` saying
+   which consumer reads the CRM pipeline over MCP. The consumers are not
+   decided yet, so no command is written out here.
 
 3. **Promote this code** as usual (`promote-to-prod.yml`); the route ships off.
    The PreSync migration job applies `0019` (`mcp_call_audit`); without that

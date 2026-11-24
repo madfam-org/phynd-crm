@@ -27,6 +27,7 @@ export function leadAttributionRows(
 ): [label: string, value: string][] {
   if (!attribution) return []
   const booking = attribution.booking
+  const census = attribution.census
   const rows: [string, string | undefined][] = [
     ['UTM source', attribution.utm_source],
     ['UTM medium', attribution.utm_medium],
@@ -50,6 +51,10 @@ export function leadAttributionRows(
     ],
     ['Meeting host', booking?.host_name],
     ['Booking ID', booking?.id],
+    ['Census list', census?.list_name],
+    ['Census stage', census?.stage],
+    ['Channel', census?.channel_url],
+    ['Removed from census', census?.opted_out_at],
   ]
   return rows.filter((row): row is [string, string] => row[1] !== undefined)
 }

@@ -154,6 +154,21 @@ export class LeadsService {
     return lead ?? null
   }
 
+  /**
+   * Replaces a lead's attribution with `attribution`, cleaned to the shape
+   * `sanitizeLeadAttribution` keeps (`null` clears it). For system writers
+   * (the creator-census consumer); it also reaches a soft-deleted lead, so a
+   * purge of identifiers covers every row that holds them.
+   */
+  async updateAttribution(id: string, attribution: LeadAttribution | null) {
+    const [lead] = await this.ctx.db
+      .update(leads)
+      .set({ attribution: sanitizeLeadAttribution(attribution) })
+      .where(eq(leads.id, id))
+      .returning()
+    return lead ?? null
+  }
+
   async moveToStage(id: string, stageId: string) {
     const current = await this.getById(id)
     const result = await this.update(id, { stageId })

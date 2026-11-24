@@ -127,4 +127,30 @@ describe('sanitizeLeadAttribution', () => {
     })
     expect(sanitizeLeadAttribution({ quote_total: 10.5 })).toBeNull()
   })
+  it('keeps the census block, known keys only, strings only', () => {
+    expect(
+      sanitizeLeadAttribution({
+        census: {
+          org_id: ' org_test ',
+          list_name: 'Lista de prueba',
+          stage: 'in_talks',
+          external_id: 'UCaaaaaaaaaaaaaaaaaaaaaa',
+          channel_url: 'https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa',
+          handed_off_by: 'user_test_1',
+          title: 'Un canal',
+          subscribers: 12000,
+        },
+      }),
+    ).toEqual({
+      census: {
+        org_id: 'org_test',
+        list_name: 'Lista de prueba',
+        stage: 'in_talks',
+        external_id: 'UCaaaaaaaaaaaaaaaaaaaaaa',
+        channel_url: 'https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa',
+      },
+    })
+    expect(sanitizeLeadAttribution({ census: { title: 'x' } })).toBeNull()
+    expect(sanitizeLeadAttribution({ census: 'org_test' })).toBeNull()
+  })
 })

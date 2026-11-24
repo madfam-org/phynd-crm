@@ -4,6 +4,7 @@ import { isFeatureEnabled } from '@phynd/config/features'
 import { createLogger } from '@phynd/logging'
 import { isBuyerSignalPushConfigured } from '@phynd/services'
 import { Worker } from 'bullmq'
+import { startCensusEventConsumer } from './census-events'
 import { initInstrumentation } from './instrumentation'
 import { processBuyerSignalPush } from './processors/buyer-signal-push'
 import { processCacheWarmup } from './processors/cache-warmup'
@@ -152,6 +153,10 @@ async function main() {
     logger.info('Buyer-signal pusher disabled — SELVA_API_URL / SELVA_API_KEY not set')
   }
 
+  // Creator-census hand-offs (Redis Streams, not BullMQ). Off unless
+  // PHYND_CRM_CENSUS_CONSUMER_ENABLED=true; see docs/CENSUS_HANDOFF.md.
+  const censusConsumer = startCensusEventConsumer(REDIS_URL)
+
   const workers = [
     { name: 'buyer-signal-push', worker: buyerSignalPushWorker },
     { name: 'cache-warmup', worker: cacheWorker },
@@ -222,6 +227,7 @@ async function main() {
     logger.info('Shutting down workers...')
     healthServer.close()
     await Promise.all([
+      censusConsumer?.stop(),
       buyerSignalPushWorker.close(),
       cacheWorker.close(),
       demoCleanupWorker.close(),

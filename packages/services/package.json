@@ -24,7 +24,10 @@
     "./payment-evidence/extractors": "./src/payment-evidence/extractors.ts",
     "./payment-evidence/access": "./src/payment-evidence/access.ts",
     "./payments/dhanam-checkout": "./src/payments/dhanam-checkout.service.ts",
-    "./payments/payment-reconciliation": "./src/payments/payment-reconciliation.service.ts"
+    "./payments/payment-reconciliation": "./src/payments/payment-reconciliation.service.ts",
+    "./tasks/follow-up-due": "./src/tasks/follow-up-due.ts",
+    "./tasks/system-task-owner": "./src/tasks/system-task-owner.ts",
+    "./census": "./src/census/index.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -36,4 +36,5 @@ export {
   applyCensusPickHandoff,
   censusContactName,
 } from './census-handoff'
+export { type CensusHandlerDeps, createCensusEventHandlers } from './census-handlers'
 export { createCensusTenantStore } from './census-tenant-store'

@@ -148,6 +148,19 @@ repository is a soft delete that would keep the identifiers anyway. A repeated
 opt-out finds no link and changes nothing. A Bluesky opt-out is accepted and
 matches nothing.
 
+## Tests
+
+- Unit (`pnpm test`): `packages/services/src/__tests__/census-*.test.ts`: payload validation, configuration, the hand-off and opt-out rules on an in-memory tenant, the consumer on a fake stream, the store's use of the services, and the handlers' refusal of the default tenant.
+- Integration (E2E workflow, step «Census consumer integration test»): `census-postgres.integration.test.ts` runs against the job's Postgres and Redis containers. It creates a second database `phynd_crm_census_it`, migrates it with `scripts/db-migrate.mjs`, maps an organization to it, XADDs real events and checks the rows in both databases: the hand-off, a redelivery, a second hand-off, an unmapped organization, an invalid event and the opt-out, and that no row in either database still holds the channel id afterwards. It runs only when `PHYND_CENSUS_IT_DATABASE_URL` and `PHYND_CENSUS_IT_REDIS_URL` are set (the workflow also sets `PHYND_CENSUS_IT_REQUIRED=true`, so it cannot pass by skipping). Locally:
+
+  ```bash
+  PHYND_CENSUS_IT_DATABASE_URL=postgresql://phynd:phynd@127.0.0.1:5432/phynd_crm \
+  PHYND_CENSUS_IT_REDIS_URL=redis://127.0.0.1:6379 \
+  pnpm --filter @phynd/services exec vitest run src/__tests__/census-postgres.integration.test.ts
+  ```
+
+  The URL's user must be able to create databases; the test drops and re-creates `phynd_crm_census_it` on that server.
+
 ## Turning it on (a separate change)
 
 1. Register `census.pick.handed_off` in the ecosystem registry and add

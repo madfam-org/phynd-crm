@@ -4,11 +4,8 @@ import { createLogger } from '@phynd/logging'
 import {
   CensusEventConsumer,
   type CensusStreamClient,
-  applyCensusOptOut,
-  applyCensusPickHandoff,
-  createCensusTenantStore,
+  createCensusEventHandlers,
   readCensusConsumerSettings,
-  tenantDatabaseEnv,
 } from '@phynd/services/census'
 import Redis from 'ioredis'
 import { getCacheManager } from './lib/federation'
@@ -35,20 +32,6 @@ export function startCensusEventConsumer(redisUrl: string): CensusEventConsumer 
     return null
   }
 
-  const tenantStore = (tenantId: string) => {
-    // Checked at start already; checked again so a tenant can never fall back
-    // to the default database (`getDb` does that when its URL is missing).
-    if (tenantId === DEFAULT_TENANT_ID || !process.env[tenantDatabaseEnv(tenantId)]?.trim()) {
-      throw new Error(`census tenant ${tenantId} has no database of its own`)
-    }
-    return createCensusTenantStore({
-      db: getDb(tenantId),
-      cache: getCacheManager(),
-      tenantId,
-      logger,
-    })
-  }
-
   const client = new Redis(settings.redisUrl ?? redisUrl, {
     maxRetriesPerRequest: null, // required for blocking reads
     lazyConnect: true,
@@ -58,10 +41,12 @@ export function startCensusEventConsumer(redisUrl: string): CensusEventConsumer 
     client,
     orgTenants: settings.orgTenants,
     logger,
-    handlers: {
-      pickHandedOff: (tenantId, event) => applyCensusPickHandoff(tenantStore(tenantId), event),
-      optOutCompleted: (tenantId, event) => applyCensusOptOut(tenantStore(tenantId), event),
-    },
+    handlers: createCensusEventHandlers({
+      getDb,
+      cache: getCacheManager(),
+      logger,
+      defaultTenantId: DEFAULT_TENANT_ID,
+    }),
   })
   consumer.start().catch((err) => {
     logger.error({ err }, 'census event consumer stopped on an error')

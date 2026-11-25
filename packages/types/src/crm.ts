@@ -52,6 +52,33 @@ export interface LeadAttribution {
   quote_total?: string
   quote_currency?: string
   booking?: LeadBookingAttribution
+  /** The agency pick the lead came from, for a lead handed off by the creator census. */
+  census?: LeadCensusAttribution
+}
+
+/**
+ * A creator-census pick handed off to the CRM (`census.pick.handed_off`).
+ * Identifiers only: the census sends no title, handle or statistic. When the
+ * creator opts out of the census, `platform`, `external_id` and `channel_url`
+ * are removed and `opted_out_at` is set.
+ */
+export interface LeadCensusAttribution {
+  /** Janua organization of the agency that handed the pick off. */
+  org_id?: string
+  list_id?: string
+  list_name?: string
+  /** shortlisted | approached | in_talks | allied | passed */
+  stage?: string
+  platform?: string
+  /** The platform's channel id. */
+  external_id?: string
+  channel_url?: string
+  /** Event id of the last hand-off applied to the lead. */
+  event_id?: string
+  /** `occurred_at` of the last hand-off applied to the lead (ISO 8601). */
+  handed_off_at?: string
+  /** When the census completed the creator's opt-out (ISO 8601). */
+  opted_out_at?: string
 }
 
 export interface Lead {

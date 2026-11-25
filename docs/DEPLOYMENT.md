@@ -62,6 +62,9 @@ public contributor needs for local development:
 | `PHYND_CRM_MACHINE_TENANT_ID` | Tenant for Janua machine tokens; unset = machine tokens off ([MACHINE_AUTH.md](./MACHINE_AUTH.md)) | `madfam` |
 | `PHYND_CRM_MACHINE_JANUA_ORG_ID` | Janua organization UUID a machine token's `org_id` must equal; unset = off | Janua org UUID |
 | `PHYND_CRM_MACHINE_AUDIENCE` | Required `aud` on machine tokens | `phynd-crm` (default) |
+| `PHYND_CRM_CENSUS_CONSUMER_ENABLED` | Worker: creator-census consumer (`madfam:census-events`) runs only when exactly `true` ([CENSUS_HANDOFF.md](./CENSUS_HANDOFF.md)) | `false` (default) |
+| `PHYND_CRM_CENSUS_ORG_TENANTS` | Worker: allowlist `<janua_org_id>=<tenant_id>`, comma-separated; each tenant needs its own `DATABASE_URL_<TENANT>` (not `DATABASE_URL`), the default tenant is refused, an unlisted organization is skipped. Organization ids identify customers: secret store only, never plain env in this public repo | empty (default) |
+| `PHYND_CRM_CENSUS_REDIS_URL` | Worker: the bus Redis for the census consumer, when it is not `REDIS_URL` | `REDIS_URL` |
 | `PHYND_CRM_MCP_ENABLED` | Native MCP switch: `POST /mcp` is 404 unless exactly `true` and machine tokens are configured ([NATIVE_MCP.md](./NATIVE_MCP.md)) | `false` (default) |
 | `PHYND_CRM_MCP_READ_CLIENTS` | Janua clients allowed to read over MCP, `client-id@org-id` comma-separated; empty or malformed = none | empty (default) |
 | `PHYND_CRM_MCP_UNMASKED_CLIENTS` | MCP readers that get personal fields unmasked (owner exception); same format, each must also be a reader; empty, malformed or not a reader = every client masked | empty (default) |

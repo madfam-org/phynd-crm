@@ -399,6 +399,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation API Keys    | `PRAVARA_API_KEY`, `SELVA_API_KEY`, `FEDERATION_API_TOKEN` |
 | Machine auth (Janua)   | `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — see [docs/MACHINE_AUTH.md](docs/MACHINE_AUTH.md) |
 | System task owner      | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` — CRM user (`users.id`, or `janua:<subject>` of a linked user) who owns system-created tasks on a contact without owner; unset = unassigned + warning |
+| Creator-census hand-off | `PHYND_CRM_CENSUS_CONSUMER_ENABLED`, `PHYND_CRM_CENSUS_ORG_TENANTS`, `PHYND_CRM_CENSUS_REDIS_URL` — worker consumer of `madfam:census-events`, off by default, see [docs/CENSUS_HANDOFF.md](docs/CENSUS_HANDOFF.md) |
 | Native MCP (read-only) | `PHYND_CRM_MCP_ENABLED`, `PHYND_CRM_MCP_READ_CLIENTS`, `PHYND_CRM_MCP_UNMASKED_CLIENTS` — off by default, see [docs/NATIVE_MCP.md](docs/NATIVE_MCP.md) |
 | Production dispatch    | `PRAVARA_DISPATCH_URL`, `SELVA_DISPATCH_URL`, `PRAVARA_DISPATCH_SECRET`, `SELVA_DISPATCH_SECRET`, `PRODUCTION_DISPATCH_SCAN_LIMIT`, `PRODUCTION_DISPATCH_TIMEOUT_MS` |
 | Webhook secrets        | `JANUA_WEBHOOK_SECRET`, `JANUA_TELEMETRY_WEBHOOK_SECRET`, `DHANAM_WEBHOOK_SECRET`, `COTIZA_WEBHOOK_SECRET`, `PRAVARA_WEBHOOK_SECRET`, `FORJ_WEBHOOK_SECRET`, `TEZCA_WEBHOOK_SECRET`, `FORTUNA_WEBHOOK_SECRET`, `CEQ_WEBHOOK_SECRET`, `COFORMA_WEBHOOK_SECRET`, `PHYND_CRM_EVENTS_SECRET`, `PHYND_CRM_LEAD_INTAKE_SECRET`, `PHYND_ENGAGEMENT_EVENTS_SECRET` |
@@ -523,6 +524,10 @@ For a lead event the receiver:
 - writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent, and for a quote request its number or id, total with currency or «sin precio aún», and item count);
 - opens a follow-up task on the lead, due the next business day, owned by the contact's owner, else by `PHYND_CRM_DEFAULT_TASK_OWNER_ID` when it names a CRM user, else unassigned with a `DEFAULT_TASK_OWNER_UNAVAILABLE` warning (`activities.update` with `ownerId` assigns it);
 - after the transaction commits, emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
+
+## Creator-census hand-off
+
+An agency hands a curated pick from the creator census to its CRM; the census publishes `census.pick.handed_off` on the ecosystem bus (`madfam:census-events`) and the worker turns it into a contact, a lead with source `creator-census`, the agency's note and a follow-up task, in the CRM tenant the allowlist `PHYND_CRM_CENSUS_ORG_TENANTS` maps the agency's Janua organization to. An organization that is not listed is skipped and written nowhere; the default tenant is never a target. `census.optout.completed` removes the channel's identifiers from every tenant. Off unless `PHYND_CRM_CENSUS_CONSUMER_ENABLED=true`; the census does not publish the event yet. Contract, tenancy and opt-out rules: [docs/CENSUS_HANDOFF.md](docs/CENSUS_HANDOFF.md).
 
 ## Production domain truth
 

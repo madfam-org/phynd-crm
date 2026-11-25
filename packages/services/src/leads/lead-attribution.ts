@@ -1,4 +1,8 @@
-import type { LeadAttribution, LeadBookingAttribution } from '@phynd/types/crm'
+import type {
+  LeadAttribution,
+  LeadBookingAttribution,
+  LeadCensusAttribution,
+} from '@phynd/types/crm'
 
 /** Longest value kept for a campaign parameter or a booking field. */
 export const LEAD_ATTRIBUTION_MAX_LENGTH = 255
@@ -18,7 +22,7 @@ const FIELD_LIMITS = {
   quote_number: LEAD_ATTRIBUTION_MAX_LENGTH,
   quote_total: LEAD_ATTRIBUTION_MAX_LENGTH,
   quote_currency: LEAD_ATTRIBUTION_MAX_LENGTH,
-} as const satisfies Record<Exclude<keyof LeadAttribution, 'booking'>, number>
+} as const satisfies Record<Exclude<keyof LeadAttribution, 'booking' | 'census'>, number>
 
 const BOOKING_FIELDS = [
   'id',
@@ -27,6 +31,19 @@ const BOOKING_FIELDS = [
   'host_name',
   'timezone',
 ] as const satisfies readonly (keyof LeadBookingAttribution)[]
+
+const CENSUS_FIELD_LIMITS = {
+  org_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  list_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  list_name: LEAD_ATTRIBUTION_MAX_LENGTH,
+  stage: LEAD_ATTRIBUTION_MAX_LENGTH,
+  platform: LEAD_ATTRIBUTION_MAX_LENGTH,
+  external_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  channel_url: LEAD_ATTRIBUTION_URL_MAX_LENGTH,
+  event_id: LEAD_ATTRIBUTION_MAX_LENGTH,
+  handed_off_at: LEAD_ATTRIBUTION_MAX_LENGTH,
+  opted_out_at: LEAD_ATTRIBUTION_MAX_LENGTH,
+} as const satisfies Record<keyof LeadCensusAttribution, number>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -49,6 +66,19 @@ function sanitizeBooking(value: unknown): LeadBookingAttribution | undefined {
   return Object.keys(booking).length > 0 ? booking : undefined
 }
 
+function sanitizeCensus(value: unknown): LeadCensusAttribution | undefined {
+  if (!isRecord(value)) return undefined
+  const census: LeadCensusAttribution = {}
+  for (const [field, maxLength] of Object.entries(CENSUS_FIELD_LIMITS) as [
+    keyof LeadCensusAttribution,
+    number,
+  ][]) {
+    const cleaned = cleanString(value[field], maxLength)
+    if (cleaned !== undefined) census[field] = cleaned
+  }
+  return Object.keys(census).length > 0 ? census : undefined
+}
+
 /**
  * The only shape `leads.attribution` ever holds. Keeps the known keys, string
  * values only, trimmed and cut to their maximum length; everything else is
@@ -69,6 +99,9 @@ export function sanitizeLeadAttribution(input: unknown): LeadAttribution | null 
 
   const booking = sanitizeBooking(input.booking)
   if (booking) attribution.booking = booking
+
+  const census = sanitizeCensus(input.census)
+  if (census) attribution.census = census
 
   return Object.keys(attribution).length > 0 ? attribution : null
 }

@@ -48,6 +48,16 @@ jobs:
       - run: pnpm db:generate && pnpm db:migrate && pnpm db:seed
         env:
           DATABASE_URL: postgresql://phynd:phynd@localhost:5432/phynd_crm
+      - name: Census consumer integration test (Postgres + Redis, second tenant database)
+        # Drives madfam:census-events → contacts/leads through the real stream
+        # client and services. The test creates and migrates a second database
+        # (phynd_crm_census_it) on this Postgres for the mapped tenant and checks
+        # that nothing lands in the default database. REQUIRED makes it fail, not skip, if a URL is missing.
+        run: pnpm --filter @phynd/services exec vitest run src/__tests__/census-postgres.integration.test.ts
+        env:
+          PHYND_CENSUS_IT_DATABASE_URL: postgresql://phynd:phynd@localhost:5432/phynd_crm
+          PHYND_CENSUS_IT_REDIS_URL: redis://localhost:6379
+          PHYND_CENSUS_IT_REQUIRED: "true"
       - run: pnpm --filter @phynd/web exec playwright install --with-deps chromium
       - run: pnpm --filter @phynd/web test:e2e
         env:

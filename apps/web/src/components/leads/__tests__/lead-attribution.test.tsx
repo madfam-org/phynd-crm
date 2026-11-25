@@ -55,6 +55,25 @@ describe('leadAttributionRows', () => {
     expect(rows.get('Meeting start')).toBe('mañana a las 10')
   })
 
+  it('shows the census list, stage and channel of a census hand-off', () => {
+    const rows = new Map(
+      leadAttributionRows({
+        census: {
+          list_name: 'Lista de prueba',
+          stage: 'approached',
+          channel_url: 'https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa',
+          org_id: 'org_test',
+        },
+      }),
+    )
+    expect(rows.get('Census list')).toBe('Lista de prueba')
+    expect(rows.get('Census stage')).toBe('approached')
+    expect(rows.get('Channel')).toBe('https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa')
+    expect(rows.has('Removed from census')).toBe(false)
+    // The organization id is not shown.
+    expect([...rows.values()]).not.toContain('org_test')
+  })
+
   it('is empty without attribution', () => {
     expect(leadAttributionRows(null)).toEqual([])
     expect(leadAttributionRows(undefined)).toEqual([])

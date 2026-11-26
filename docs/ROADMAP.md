@@ -4,7 +4,7 @@
 > PRD implementation callouts, and ad-hoc remediation docs when they conflict on
 > sequencing or target state.
 >
-> **Last updated:** 2026-10-02 (pending-work section); phase tables last updated 2026-05-28  
+> **Last updated:** 2026-11-26 (pending-work section: lead-intake row added); phase tables last updated 2026-05-28  
 > **Baseline evidence:** [`CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md) (supersedes the 2026-05-27 note)  
 > **Master remediation plan:** [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md)  
 > **Staging / PP.5:** [`PP_5_STAGING_AUDIT.md`](./PP_5_STAGING_AUDIT.md), [`PP_5_FULL_REMEDIATION_PLAN.md`](./PP_5_FULL_REMEDIATION_PLAN.md)
@@ -36,7 +36,7 @@ axis, not a lone number — the earlier "~55–62% composite" and the README's
 execution and prod verification, not missing code. See
 [`CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md`](./CODEBASE_AND_PROD_EVIDENCE_2026-07-09.md).
 
-## Pending work (as of 2026-10-02)
+## Pending work (as of 2026-10-02; lead-intake row added 2026-11-26)
 
 This is the single pending-work list for the repository; `AGENTS.md`,
 `llms.txt` and `llms-full.txt` point here. Priorities: **P0** blocks
@@ -47,6 +47,7 @@ production use, **P1** next, **P2** planned, **P3** cleanup.
 | **Link CRM users to their Janua subjects.** Run the read-only `scripts/audit-session-user-ids.mjs`, then `scripts/link-janua-users.mjs` dry-run, `--links` validation and `--apply`; then choose a repair option for rows written with per-login ids. | Since 2026-10-01 an unlinked staff member gets `CRM_USER_NOT_LINKED` (HTTP 412) on FK writes and per-user reads, so nobody can work until linked. | P1 | Owner decision (which links, which repair option); the scripts exist | [`IDENTITY.md`](./IDENTITY.md) |
 | **Database-error scrubbing in the shared logger and Sentry** (tracked privately). | Keeps query details out of logs and error reports. | P1 | Engineering work | — |
 | **Pravara → PhyndCRM webhook signature header drift.** Pravara's outbound dispatcher signs deliveries as `X-Pravara-Signature: sha256=<hex>`. `/api/webhooks/pravara` (through `apps/web/src/lib/webhooks/handler.ts`) verifies `x-madfam-signature` or `x-webhook-signature`, so a delivery that carries only `X-Pravara-Signature` is answered 401. forj already accepts `X-Pravara-Signature`. Plan: during a transition, either side accepts or sends both headers; then settle on one. Also check the fields this route reads (`event`, `status`, `orderId`/`externalId`) against Pravara's outbox payload. | Fabrication status changes may not reach the CRM timeline or the client portal. | P1 | Engineering work (coordinate with Pravara) | [pravara-mes `ROADMAP.md`, "Pending work and roadmap ahead"](https://github.com/madfam-org/pravara-mes/blob/main/ROADMAP.md) |
+| **Lead intake gaps G1–G6 and enrichment E2–E3.** Not started as of 2026-11-26. | New leads arrive with no owner. Leads from the Avala and Nauta routes also get no follow-up task, and the Avala route drops the sender's message, lead type and consent block, so those leads wait unworked. | P1 | Engineering work | [`LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md`](./LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md) |
 | **OpenTelemetry SDK 2.x.** `apps/web` and `apps/worker` pin `@opentelemetry/sdk-node` 0.56 and `auto-instrumentations-node` 0.52 (the 1.x line). Web OTel is also still deferred (item 4.6). | Stays on an older SDK line, and the web app has no traces. | P2 | Engineering work | Item 4.6 below |
 | **Open phase items** from the tables below: 0.3–0.5 (Janua OIDC client, admin claims, Enclii junctions), 1.5 (staging webhook split), 1.6 (masked prod→staging refresh, deferred), 2.3, 2.4 (outbound staging URL wiring), 4.6, 4.7. | They gate the live pilot. Their status was last verified 2026-05-28; re-check before acting. | P2 | Mixed: 0.3–0.5 and 2.4 need operator/owner action; the rest is engineering work | Phase tables below; [`MADFAM_TRUTH_LAYER_REMEDIATION.md`](./MADFAM_TRUTH_LAYER_REMEDIATION.md) |
 | **Legacy `/tests/test_reddit_poster.py`.** No CI job runs it. | Dead test code reads as coverage. | P3 | Engineering work (delete or port) | `AGENTS.md`, "Known Issues" |

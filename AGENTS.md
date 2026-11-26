@@ -35,6 +35,7 @@ redirect and should not become the source of truth again.
 - `ECOSYSTEM.md`
 - `docs/ROADMAP.md` — canonical phase map, gap scorecard and "Pending work", the single prioritized backlog
 - `docs/MADFAM_TRUTH_LAYER_REMEDIATION.md` — executable workstreams WS0–WS9
+- `docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md` — lead-intake gaps G1–G6 and enrichment plan (not started as of 2026-11-26)
 - `docs/runbooks/` — operator runbooks (`PILOT_GO_LIVE.md`, `apply-migrations.md`, `payment-evidence-storage.md`; the client-engagement operator runbook is kept in the private operations repo)
 - `infra/`
 - `.github/workflows/`
@@ -50,6 +51,36 @@ redirect and should not become the source of truth again.
 
 Regenerate or repair these files with
 `internal-devops/scripts/sync-agent-docs.py` from the labspace ecosystem.
+
+## Commercial pipeline state (2026-11-26)
+
+What is true for this repository at each stage of the business pipeline, read on `main` on
+2026-11-26. The cross-repo source is the business pipeline audit of that date in the private
+operations repo:
+[`internal-devops` `audits/2026-11-26-business-pipeline/README.md`](https://github.com/madfam-org/internal-devops/blob/main/audits/2026-11-26-business-pipeline/README.md)
+(private).
+
+- **Prospecting.** Leads arrive through three receivers. The lead-intake route (Kalya, site
+  forms, Cotiza) writes a contact, a lead, a note, a follow-up task and a notification email
+  (README § [Lead-intake webhook](README.md#lead-intake-webhook)). The Avala route writes a
+  contact, a lead, a visitor session and a conversion only: it drops the sender's message, lead type and consent
+  block and opens no task or notification (README §
+  [Avala webhook receiver](README.md#avala-webhook-receiver)). The Nauta route writes a note and
+  a notification email but no task. Every lead is scored on create, but the 2026-11-16 review
+  found no scoring rules configured in production. No item of the
+  [lead-intake plan](docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md) has been built; it is a
+  P1 row in [`docs/ROADMAP.md`](docs/ROADMAP.md) § Pending work.
+- **Consent.** The consent capture API answers 503 while its secret is unset
+  ([`docs/CONSENT_API.md`](docs/CONSENT_API.md)); whether production sets it was not verified.
+- **Creator-census hand-off.** Built and off on both sides; the event is registered
+  ([`docs/CENSUS_HANDOFF.md`](docs/CENSUS_HANDOFF.md)).
+- **Customer success.** A Dhanam money-received event marks the contact a customer and a failed
+  payment opens a task (Customer stage and health, System task owner, below). Cases are entered
+  by staff only; there is no help-desk intake (Cases, below).
+- **Virality and expansion.** The referral REST routes accept only the legacy federation token
+  and answer 503 without it ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), `FEDERATION_API_TOKEN`).
+  Upsell offers from ops events are stored as `pending` and never sent: the dispatch worker is
+  not built (`packages/services/src/ops-events/ops-events.service.ts`).
 
 ---
 
@@ -159,6 +190,7 @@ under the break-glass rules above; see README § Operator scripts and `docs/IDEN
 - **Webhook security**: Rate limiting (Redis sliding window, 100 req/min/IP) + HMAC-SHA256 + timestamp validation via shared handler (`apps/web/src/lib/webhooks/handler.ts`); all 6 tenant-side webhook routes use the shared handler
 - **RouteCraft webhook** (`apps/web/src/app/api/webhooks/routecraft/route.ts`): ecosystem payment attribution endpoint — counterpart to `@routecraft/payments::emitPaymentSucceeded`. Uses `validateMadfamSignature()` from `@phynd/federation` (Stripe-style `t=<ts>,v1=<hex>` header, 5-min replay window, timing-safe compare). Idempotent via `webhook_events.payload->>'event_id'` lookup. Tenant via `resolveTenantIdForWebhook()`. Inserts a `conversions` row (`type='ecosystem_payment_succeeded'`) with attribution in metadata; links `contactId` via `externalJanuaId` = `attribution.source_agent_id` and `campaignId` via `campaigns.utm_campaign` = `attribution.campaign_id` when resolvable. Secret: `PHYND_CRM_EVENTS_SECRET` (when unset → 503)
 - **Lead-intake webhook** (`POST /api/webhooks/lead-intake`, `apps/web/src/app/api/webhooks/lead-intake/route.ts` + `apps/web/src/lib/webhooks/lead-intake.ts`): Kalya bookings (`kalya.booking.created`, source `kalya`), public-site contact forms (`site.lead.captured`, source `madfam-site`) and quoting-platform quote requests (`cotiza.quote.requested`, source `cotiza`, `payload.quote` with a required `id`; `webhook_events.provider` `cotiza-lead-intake`). `validateMadfamSignature()` with its own key `PHYND_CRM_LEAD_INTAKE_SECRET` (production: optional `secretKeyRef` from dedicated ExternalSecret `phynd-crm-lead-intake`; no fallback to `PHYND_CRM_EVENTS_SECRET`; unset → 503, bad signature → 401), rate limit, body ≤ 64 KB (413), `schema_version` `'1'` (422); unknown source or a mismatched source/event pair → 400; an invalid or over-255 `lead.email` → 422; unknown event type from a known source → acknowledged and recorded. Exactly once per `event_id` and source: one `db.transaction` takes `pg_advisory_xact_lock` on the event id, re-checks `webhook_events` (source as `provider`), then locks the email and writes contact/lead/note/task and the `webhook_events` row; services join it through `withTransaction(ctx, tx)` (`packages/services/src/context.ts`). A lead event reuses the contact by email, case-insensitively (never overwritten), or creates it, creates a lead in the default pipeline's first stage with `source` and `attribution`, writes a contact note (message + origin lines), opens one `task` activity on the lead due the next business day (09:00 Mexico City; in a savepoint, best effort), owned by the contact's owner, else `PHYND_CRM_DEFAULT_TASK_OWNER_ID`, else unassigned (see System task owner) and, after commit, sends one email to `LEADS_NOTIFY_EMAIL` (falls back to `NAUTA_LEADS_NOTIFY_EMAIL`; best effort). Contract: README § Lead-intake webhook
+- **Avala and Nauta receivers** (`apps/web/src/app/api/webhooks/avala/route.ts`, `apps/web/src/app/api/webhooks/nauta/route.ts`): both create leads through `LeadsService.create`. As of 2026-11-26 neither opens the follow-up task above; Avala also keeps no note, notification, message, lead type or consent block, and Nauta writes a note and an email to `NAUTA_LEADS_NOTIFY_EMAIL`. Gaps and fixes: `docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md` (G1, G2)
 - **Cases** (migration `0021`, `cases`): requests from a contact that carry a deadline. `type` support | refund | data_rights | invoice_correction, free-text `summary`, `status` open | in_progress | resolved (CHECKs; `resolved_at` set iff resolved, cleared on reopen), `opened_at`, `due_at` (computed from the type when not given), `owner_id` (default: the caller), `contact_id` (live contact required). Default due dates in BUSINESS days (Mon–Fri, holidays not skipped so a published deadline is met early), end of day Mexico City: `packages/services/src/cases/case-deadlines.ts` (`CASE_DEFAULT_DUE_BUSINESS_DAYS`: data_rights 20 = the privacy notice's ARCO answer deadline; support 3, refund 5, invoice_correction 5 are internal targets; comments quote the published terms). `CasesService` (list newest opened first with `unresolved`/`status`/`ownerId`/`contactId` filters, getById, create, update; never deleted) and tRPC `cases.list/getById/create/update` (MCP-exempt by ruling). UI `/cases` (unresolved by default, overdue count) and `/cases/[id]` (edit), Spanish copy, «Vencido» badge when unresolved past due. No email, automation or MCP tool
 - **Customer stage and health** (migrations `0020`, `0022`, `0023`): `contacts.lifecycle_stage` `lead` | `customer` | `former_customer` (CHECK; default `lead`; separate from `contacts.status`, the record's active/inactive/archived) and `lifecycle_stage_changed_at` (time of the event behind the last change). One rule, `packages/services/src/contacts/customer-stage.ts` (`markCustomer`, `markFormerCustomer`), called inside the transaction that records the money: Dhanam money-received events (`invoice.payment_succeeded`, `payment.succeeded`, a checkout with `payment_status: 'paid'`; not a subscription start, not an unpaid checkout), an order that becomes paid or partly paid (Dhanam reconciliation, payment evidence applied to an order), a verified payment evidence, a routecraft ecosystem payment. A subscription cancellation or a FULL refund ends a customer only when no other active paid relationship is visible (another order paid/partial/partial_refund, or a started subscription without a recorded cancellation). Dhanam reconciliation pays an order only for money received too (a subscription start or an unpaid checkout leaves the order alone, status `ignored`). An event older than `lifecycle_stage_changed_at` changes nothing; a later payment from a customer moves that time forward without changing the stage, so an end is compared with the latest money received; nothing moves back to `lead`. Backfills: `0020` customers (recorded successful payment), `0022` former customers (history ends in a cancellation or a refunded order, nothing active, no money after), `0023` corrects `0020`: a customer or former customer whose only evidence is a subscription start or an unpaid checkout, with no sign of money anywhere (payment/refund/dispute conversion, paid checkout, order that held money, verified or voided evidence), goes back to `lead`. Health is derived on read, never stored (`packages/services/src/contacts/customer-health.ts`): `former_customer` → `cancelled`, latest Dhanam payment conversion failed → `payment_failed`, `customer` → `ok`, else null. Shown as Spanish badges on `/contacts` and `/clients/[id]`; returned to MCP clients unmasked (statuses, not identifiers)
 - **Dhanam conversion rows**: `conversions.type` comes from the explicit map `DHANAM_CONVERSION_TYPES` (`apps/web/src/app/api/webhooks/dhanam/payment-lifecycle.ts`), never longer than the column (30); unknown long types get a deterministic short form. `conversions.lead_id` is set only on the event that converts the contact's lead (`lead-conversion.ts`); `metadata.contact_lead_id` names the lead on every row. The revenue-loop probe (`GET /api/v1/probe/attribution`) matches the lead by either, so a renewal's billing id is credited (one row per billing id, never summed)

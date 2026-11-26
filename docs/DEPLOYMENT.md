@@ -57,7 +57,7 @@ public contributor needs for local development:
 | `SELVA_WEBHOOK_SECRET` | HMAC secret for `POST /api/webhooks/selva` (dedicated per env) | Secret-store value |
 | `PHYND_CRM_EVENTS_SECRET` | Shared HMAC secret for ecosystem CRM events | Secret-store value |
 | `PHYND_CRM_LEAD_INTAKE_SECRET` | HMAC key for `/api/webhooks/lead-intake` only (Kalya bookings, site contact forms, Cotiza quote requests); not shared with other routes. Production: dedicated ExternalSecret `phynd-crm-lead-intake` (`secret/phynd-crm`, property `lead_intake_secret`), mounted optional on the web Deployment; must equal the three senders' value | Secret-store value |
-| `FEDERATION_API_TOKEN` | LEGACY static service-to-service token, Selva only (grants every `SERVICE_AUTH_SCOPES` scope) | Secret-store value |
+| `FEDERATION_API_TOKEN` | LEGACY static service-to-service token for Selva's tRPC and GraphQL calls (grants every `SERVICE_AUTH_SCOPES` scope). As of 2026-11-26 it is also the only credential the referral REST routes `/api/referrals/{code,apply,stats,convert}` accept (`apps/web/src/app/api/referrals/_lib/auth.ts`); unset, they answer 503. Product callers of the referral funnel need it until they move to machine tokens | Secret-store value |
 | `FEDERATION_SERVICE_USER_ID` | Machine principal id for service token (default `service:selva`) | `service:selva` |
 | `PHYND_CRM_MACHINE_TENANT_ID` | Tenant for Janua machine tokens; unset = machine tokens off ([MACHINE_AUTH.md](./MACHINE_AUTH.md)) | `madfam` |
 | `PHYND_CRM_MACHINE_JANUA_ORG_ID` | Janua organization UUID a machine token's `org_id` must equal; unset = off | Janua org UUID |

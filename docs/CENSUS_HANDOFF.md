@@ -5,10 +5,11 @@ the CRM. When an agency hands a curated pick to its CRM, the census publishes
 `census.pick.handed_off` on the ecosystem bus, and the worker turns it into a
 contact and a lead in that agency's CRM tenant.
 
-**Status:** the consumer is built and **off by default**. The census does not
-publish `census.pick.handed_off` yet, and the event is not yet in the
-ecosystem registry (`internal-devops` `ecosystem/event-schemas.yaml`); both are
-needed before it is turned on.
+**Status (2026-11-26):** the consumer is built and **off by default**. The
+census publisher is also built and off by default (two switches on the census
+side), and `census.pick.handed_off` is registered in the ecosystem registry
+(`internal-devops` `ecosystem/event-schemas.yaml`). Turning the hand-off on
+needs both sides' switches and the tenant allowlist below.
 
 ## Consumer
 

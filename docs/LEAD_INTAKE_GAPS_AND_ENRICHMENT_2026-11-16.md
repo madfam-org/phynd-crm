@@ -6,6 +6,10 @@
 
 A review on 2026-11-16 read every lead in production against the code that created it. It found that leads arrive reliably, but the CRM loses part of what the sender sends, hides where a contact came from, and nothing assigns or scores leads, so they wait unworked. This document lists each gap with the fix, then the data-enrichment design.
 
+> **Status 2026-11-26:** none of G1–G6, E2 or E3 has been built. The routes behave as §2 describes;
+> two statements in G2 about what the code did were corrected on this date. The plan is tracked as a
+> row in [`ROADMAP.md`](./ROADMAP.md) § Pending work.
+
 ## 1. Where leads come from (as of 2026-11-16)
 
 | Feed | Route | Since | `leads.source` values |
@@ -29,9 +33,9 @@ A review on 2026-11-16 read every lead in production against the code that creat
 
 ### G2 — Nobody owns or scores a new lead (HIGH: leads wait for weeks)
 
-- **What happens now:** leads are created with `ownerId = null` and no score. `lead-scoring` (router plus `settings/scoring`) exists, but no rule fires on intake. The default task owner (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`, provisioned 2026-11-16) applies only to system-created tasks.
+- **What happens now:** leads are created with `ownerId = null` and no score. Scoring does run when a lead is created (`LeadsService.create` calls the scorer while the `leadScoring` flag is on), but the review found no scoring rules configured in production, so no rule fires (corrected 2026-11-26). The default task owner (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`, provisioned 2026-11-16) applies only to system-created tasks.
 - **Fix:**
-  1. **Assignment on intake:** every feed's create path sets `ownerId` to the configured default owner when no routing rule matches, and creates a "First contact" task due in 1 business day. That task already exists for Kalya; extend it to Avala, Nauta and the intake route.
+  1. **Assignment on intake:** every feed's create path sets `ownerId` to the configured default owner when no routing rule matches, and creates a "First contact" task due in 1 business day. That task already exists on the lead-intake route for all three of its sources (Kalya, site forms, Cotiza); extend it to the Avala and Nauta routes (corrected 2026-11-26).
   2. **Seeded scoring rules** (editable in Settings › Scoring). Each lead's score is the sum of four parts:
      - **intent:** `sales-request` +4; `request-access` +2 (+1 when the source is a demo or Comply page); `waitlist` +1;
      - **fit:** the email domain is not a free-mail provider +2; interests include `dc3` or `compliance` +1;
@@ -85,6 +89,8 @@ A review on 2026-11-16 read every lead in production against the code that creat
 **Done when:** a new Avala lead from a company domain shows, on its lead page, the message, the EC title, the company's one-line description, a score and tier, an owner and a "First contact" task. A free-mail lead shows everything except E3.
 
 ## 4. Order of work
+
+Status 2026-11-26: no step below has started.
 
 1. **G1 and its backfill.** Small, and it unblocks informed calls.
 2. **G2: owner, task and scoring.**

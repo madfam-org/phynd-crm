@@ -39,7 +39,7 @@ API-level detail for the consent and suppression surfaces lives in [`docs/CONSEN
 > topology, credential names, environment configuration, and incident detail are not reproduced here and should
 > not be added to this repository.
 
-_Last Updated: 2026-07-26_
+_Last Updated: 2026-11-26_
 
 ## Architecture
 
@@ -472,7 +472,7 @@ The receiver:
 - verifies `x-madfam-signature` with `PHYND_CRM_EVENTS_SECRET`;
 - rate-limits inbound requests;
 - deduplicates by Avala `event_id` in `webhook_events`;
-- maps `avala.lead.captured` into contacts, leads, visitor sessions, and `visitor_to_lead` conversions;
+- maps `avala.lead.captured` into contacts, leads, visitor sessions, and `visitor_to_lead` conversions; as of 2026-11-26 it does not keep the sender's message, lead type or consent block, and opens no follow-up task or notification (the [lead-intake webhook](#lead-intake-webhook) does; fix planned in [`docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md`](docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md), G1 and G2);
 - maps Avala search/page/conversion/user/tenant/billing events into CRM activity and conversion records.
 
 Avala producers must send the shared event envelope documented in Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md`.
@@ -544,5 +544,5 @@ Public repo sanitization and campaign-readiness requirements are tracked in `doc
 | Selva service-token read tools | this repo | [`docs/SELVA_CRM_AGENT_TOOLS.md`](docs/SELVA_CRM_AGENT_TOOLS.md) |
 | Marketing consent API | this repo | [`docs/CONSENT_API.md`](docs/CONSENT_API.md) |
 | Avala lifecycle events → `POST /api/webhooks/avala` | Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md` (shared event envelope) | [§ Avala webhook receiver](#avala-webhook-receiver) |
-| Kalya bookings and site leads → `POST /api/webhooks/lead-intake` | this repo | [§ Lead-intake webhook](#lead-intake-webhook) |
+| Kalya bookings, site leads and Cotiza quote requests → `POST /api/webhooks/lead-intake` | this repo | [§ Lead-intake webhook](#lead-intake-webhook) |
 | dev → staging → prod promotion | [internal-devops RFC 0001](https://github.com/madfam-org/internal-devops/blob/main/rfcs/0001-dev-staging-prod-pipeline.md) | [`AGENTS.md`](AGENTS.md) § Deployment Pipeline |

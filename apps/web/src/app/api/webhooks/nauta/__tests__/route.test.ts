@@ -17,6 +17,14 @@ vi.mock('@phynd/config/constants', () => ({
   DEFAULT_TENANT_ID: 'madfam',
 }))
 
+// The owner rule and the task are tested in lib/webhooks/__tests__/first-contact.test.ts.
+const mockResolveOwner = vi.fn().mockResolvedValue(null)
+const mockOpenFirstContact = vi.fn().mockResolvedValue(new Date('2026-08-13T15:00:00.000Z'))
+vi.mock('@/lib/webhooks/first-contact', () => ({
+  resolveIntakeLeadOwner: (...args: unknown[]) => mockResolveOwner(...args),
+  openFirstContactTask: (...args: unknown[]) => mockOpenFirstContact(...args),
+}))
+
 const state = {
   insertedWebhookEvents: [] as Array<Record<string, unknown>>,
   seenEventIds: [] as string[],
@@ -153,6 +161,8 @@ beforeEach(() => {
   mockCreateNote.mockClear().mockResolvedValue({ id: 'resend-note-1' })
   mockCreateNote.mockClear().mockResolvedValue({ id: 'note-1' })
   mockSendEmail.mockClear().mockResolvedValue({ id: 'resend-msg-1' })
+  mockResolveOwner.mockClear().mockResolvedValue(null)
+  mockOpenFirstContact.mockClear().mockResolvedValue(new Date('2026-08-13T15:00:00.000Z'))
   process.env.NAUTA_LEADS_NOTIFY_EMAIL = 'ops@example.test'
 })
 
@@ -211,6 +221,43 @@ describe('POST /api/webhooks/nauta', () => {
 
     expect(state.insertedWebhookEvents).toHaveLength(1)
     expect(state.insertedWebhookEvents[0]?.provider).toBe('nauta')
+  })
+
+  it('gives the lead the configured owner and opens its first-contact task', async () => {
+    mockResolveOwner.mockResolvedValue('user-default')
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+
+    expect(mockResolveOwner).toHaveBeenCalledWith(mockDb, expect.anything(), {
+      contactOwnerId: undefined,
+      source: 'nauta',
+      contactId: 'contact-1',
+    })
+    expect(mockCreateLead).toHaveBeenCalledWith(
+      expect.objectContaining({ contactId: 'contact-1', ownerId: 'user-default' }),
+    )
+    expect(mockOpenFirstContact).toHaveBeenCalledTimes(1)
+    expect(mockOpenFirstContact.mock.calls[0]?.[2]).toEqual({
+      leadId: 'lead-1',
+      ownerId: 'user-default',
+      subject: 'Dra. Prospecto',
+      description: 'Lead por el formulario de Nauta. Plan de interés: ecosistema.',
+    })
+  })
+
+  it("passes an existing contact's owner to the owner rule", async () => {
+    mockGetByEmail.mockResolvedValue({ ...mockContact, ownerId: 'user-owner' })
+    mockResolveOwner.mockResolvedValue('user-owner')
+    await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(mockResolveOwner.mock.calls[0]?.[2]).toMatchObject({ contactOwnerId: 'user-owner' })
+    expect(mockOpenFirstContact.mock.calls[0]?.[2]).toMatchObject({ ownerId: 'user-owner' })
+  })
+
+  it('opens no task when no lead could be created', async () => {
+    mockGetDefaultPipeline.mockResolvedValue(null)
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+    expect(mockOpenFirstContact).not.toHaveBeenCalled()
   })
 
   it('reuses an existing contact instead of duplicating it', async () => {

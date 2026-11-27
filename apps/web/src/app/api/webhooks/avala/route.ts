@@ -1,5 +1,17 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import {
+  avalaFirstContactDescription,
+  avalaLeadAttribution,
+  avalaLeadNote,
+  readAvalaLeadContext,
+} from '@/lib/webhooks/avala-lead-context'
+import {
+  createAvalaLeadDeletionStore,
+  propagateAvalaLeadDeletion,
+} from '@/lib/webhooks/avala-lead-deletion'
+import { openFirstContactTask, resolveIntakeLeadOwner } from '@/lib/webhooks/first-contact'
+import { notifyNewLead } from '@/lib/webhooks/lead-intake'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -10,11 +22,14 @@ import {
   ContactsService,
   ConversionsService,
   LeadsService,
+  NotesService,
   PipelinesService,
   VisitorTrackingService,
   createServiceContext,
+  withTransaction,
 } from '@phynd/services'
 import type { AuthContext } from '@phynd/types/auth'
+import type { LeadAttribution } from '@phynd/types/crm'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -154,6 +169,9 @@ async function processAvalaEvent(event: AvalaWebhookEnvelope): Promise<void> {
     case 'avala.lead.captured':
       await handleLeadCaptured(ctx, event, payload)
       return
+    case 'avala.lead.deleted':
+      await handleLeadDeleted(event, payload)
+      return
     case 'avala.visitor.page_viewed':
       await handleVisitorPageViewed(ctx, event, payload)
       return
@@ -182,6 +200,12 @@ async function processAvalaEvent(event: AvalaWebhookEnvelope): Promise<void> {
   }
 }
 
+/**
+ * A lead from an Avala form: contact, lead (with owner and attribution), the
+ * prospect's message and context as a note on the lead, the visitor session
+ * and conversion, a first-contact task and one notification email. The note,
+ * task and email are written after the lead; the email is best effort.
+ */
 async function handleLeadCaptured(
   ctx: PhyndServiceContext,
   event: AvalaWebhookEnvelope,
@@ -192,6 +216,13 @@ async function handleLeadCaptured(
   const email = readString(lead.email)
   if (!email) return
 
+  const context = readAvalaLeadContext(payload)
+  // A replayed capture of a lead Avala already deleted must not bring it back.
+  if (context.avalaLeadId && (await wasDeletedInAvala(context.avalaLeadId))) {
+    logger.info({ event_id: event.event_id }, 'Avala lead already deleted: capture ignored')
+    return
+  }
+
   const contact = await ensureContact(ctx, {
     email,
     name: readString(lead.name) ?? email.split('@')[0] ?? email,
@@ -199,7 +230,18 @@ async function handleLeadCaptured(
     company: readString(lead.company),
   })
 
-  const crmLead = await createDefaultLead(ctx, contact.id, readString(lead.source) ?? 'avala')
+  const ownerId = await resolveIntakeLeadOwner(ctx.db, logger, {
+    contactOwnerId: contact.ownerId,
+    source: 'avala',
+    contactId: contact.id,
+  })
+  const crmLead = await createDefaultLead(
+    ctx,
+    contact.id,
+    context.source,
+    avalaLeadAttribution(context),
+    ownerId,
+  )
   const visitorSession = await upsertVisitorSession(ctx, {
     externalSessionId: readString(attribution.sessionId),
     contactId: contact.id,
@@ -214,32 +256,115 @@ async function handleLeadCaptured(
   const conversionMetadata = {
     source: 'avala',
     event_id: event.event_id,
-    avala_lead_id: readString(lead.id),
-    ec_code: readString(lead.ecCode),
-    intent: readString(attribution.intent),
+    avala_lead_id: context.avalaLeadId,
+    ec_code: context.ecCode,
+    intent: context.intent,
     availability_status: readString(attribution.availabilityStatus),
     interests: Array.isArray(lead.interests) ? lead.interests : [],
   }
 
-  if (crmLead?.id) {
-    await ctx.db
-      .update(conversions)
-      .set({
-        contactId: contact.id,
-        visitorSessionId: visitorSession?.id,
-        metadata: conversionMetadata,
-      })
-      .where(and(eq(conversions.type, 'visitor_to_lead'), eq(conversions.leadId, crmLead.id)))
+  if (!crmLead?.id) {
+    const conversionsService = new ConversionsService(ctx)
+    await conversionsService.recordConversion({
+      type: 'visitor_to_lead',
+      contactId: contact.id,
+      visitorSessionId: visitorSession?.id,
+      metadata: conversionMetadata,
+    })
     return
   }
 
-  const conversionsService = new ConversionsService(ctx)
-  await conversionsService.recordConversion({
-    type: 'visitor_to_lead',
-    contactId: contact.id,
-    visitorSessionId: visitorSession?.id,
-    metadata: conversionMetadata,
+  await ctx.db
+    .update(conversions)
+    .set({
+      contactId: contact.id,
+      visitorSessionId: visitorSession?.id,
+      metadata: conversionMetadata,
+    })
+    .where(and(eq(conversions.type, 'visitor_to_lead'), eq(conversions.leadId, crmLead.id)))
+
+  // On the lead (one note per submission), so the person who calls reads the
+  // prospect's own words and what they were looking at.
+  await new NotesService(ctx).create({
+    content: avalaLeadNote(context),
+    entityType: 'lead',
+    entityId: crmLead.id,
   })
+
+  const name = readString(lead.name) ?? email
+  const followUpDueAt = await openFirstContactTask(ctx, logger, {
+    leadId: crmLead.id,
+    ownerId,
+    subject: name,
+    description: avalaFirstContactDescription(context),
+  })
+
+  logger.info(
+    {
+      contactId: contact.id,
+      leadId: crmLead.id,
+      hasMessage: context.message !== undefined,
+      owned: ownerId !== null,
+    },
+    'Avala lead captured',
+  )
+
+  await notifyNewLead({
+    source: 'avala',
+    contactId: contact.id,
+    leadId: crmLead.id,
+    name,
+    email,
+    company: readString(lead.company),
+    phone: readString(lead.phone),
+    message: context.message,
+    page: context.sourcePage,
+    attribution: crmLead.attribution ?? null,
+    followUpDueAt,
+    leadType: context.leadType,
+    ecCode: context.ecCode,
+  })
+}
+
+/**
+ * Avala deleted a lead: the CRM's copy goes too (`avala-lead-deletion.ts`), in
+ * one transaction. Identified by the Avala lead id only.
+ */
+async function handleLeadDeleted(
+  event: AvalaWebhookEnvelope,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const avalaLeadId =
+    readString(readObject(payload.lead).id) ??
+    (event.aggregate?.type === 'lead' ? readString(event.aggregate.id) : undefined)
+  if (!avalaLeadId) {
+    logger.warn({ event_id: event.event_id }, 'Avala lead deletion without a lead id: ignored')
+    return
+  }
+
+  const result = await getDb().transaction((tx) =>
+    propagateAvalaLeadDeletion(
+      createAvalaLeadDeletionStore(withTransaction(createAvalaContext(), tx)),
+      avalaLeadId,
+    ),
+  )
+  logger.info({ event_id: event.event_id, ...result }, 'Avala lead deletion propagated')
+}
+
+/** True when an `avala.lead.deleted` for this Avala lead id was already processed. */
+async function wasDeletedInAvala(avalaLeadId: string): Promise<boolean> {
+  const prior = await getDb()
+    .select({ id: webhookEvents.id })
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.provider, 'avala'),
+        eq(webhookEvents.eventType, 'avala.lead.deleted'),
+        sql`${webhookEvents.payload} -> 'payload' -> 'lead' ->> 'id' = ${avalaLeadId}`,
+      ),
+    )
+    .limit(1)
+  return prior.length > 0
 }
 
 async function handleVisitorPageViewed(
@@ -426,7 +551,13 @@ async function ensureContact(
   })
 }
 
-async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, source: string) {
+async function createDefaultLead(
+  ctx: PhyndServiceContext,
+  contactId: string,
+  source: string,
+  attribution: LeadAttribution | null,
+  ownerId: string | null,
+) {
   const leadsService = new LeadsService(ctx)
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -439,8 +570,10 @@ async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, so
   return leadsService.create({
     contactId,
     source,
+    attribution,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
+    ...(ownerId ? { ownerId } : {}),
   })
 }
 

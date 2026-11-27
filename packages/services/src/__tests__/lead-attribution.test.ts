@@ -110,6 +110,13 @@ describe('sanitizeLeadAttribution', () => {
     expect(sanitizeLeadAttribution({ tenant: { id: 'x' } })).toBeNull()
   })
 
+  it('keeps the sender lead type as a string', () => {
+    expect(sanitizeLeadAttribution({ lead_type: ' ORGANIZATION ' })).toEqual({
+      lead_type: 'ORGANIZATION',
+    })
+    expect(sanitizeLeadAttribution({ lead_type: 2 })).toBeNull()
+  })
+
   it('keeps the quote keys as strings', () => {
     expect(
       sanitizeLeadAttribution({

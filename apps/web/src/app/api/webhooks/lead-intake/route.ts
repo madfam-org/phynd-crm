@@ -1,5 +1,6 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import { openFirstContactTask, resolveIntakeLeadOwner } from '@/lib/webhooks/first-contact'
 import {
   BOOKING_EVENT_TYPE,
   LEAD_INTAKE_ORIGIN_LABEL,
@@ -18,14 +19,12 @@ import {
   readLeadQuote,
 } from '@/lib/webhooks/lead-intake'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
-import { resolveSystemTaskOwner } from '@/lib/webhooks/system-task-owner'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
 import { webhookEvents } from '@phynd/db/schema'
 import { validateMadfamSignature } from '@phynd/federation'
 import { createLogger } from '@phynd/logging'
 import {
-  ActivitiesService,
   ContactsService,
   LeadsService,
   NotesService,
@@ -44,8 +43,8 @@ import { NextResponse } from 'next/server'
 // Kalya (`kalya.booking.created`), a contact form on the public site
 // (`site.lead.captured`) and a quote requested on the quoting platform
 // (`cotiza.quote.requested`). Each becomes a contact + a lead in the default
-// pipeline with its source and attribution, a note with the prospect's words,
-// a follow-up task and one notification email.
+// pipeline with its source, attribution and owner, a note with the
+// prospect's words, a first-contact task and one notification email.
 //
 // Same doctrine as the nauta webhook one directory over:
 //   - `x-madfam-signature` (t=<unix>,v1=<hmac of "t.body">) verified with
@@ -436,7 +435,13 @@ async function storeLead(
       company: lead.company,
     }))
 
-  const crmLead = await createDefaultLead(ctx, contact.id, source, attribution)
+  // The lead and its first-contact task share one owner (first-contact.ts).
+  const ownerId = await resolveIntakeLeadOwner(tx, logger, {
+    contactOwnerId: contact.ownerId,
+    source,
+    contactId: contact.id,
+  })
+  const crmLead = await createDefaultLead(ctx, contact.id, source, attribution, ownerId)
 
   // The prospect's own words go on the contact, followed by where they came
   // from, so the first person to open the record reads both.
@@ -450,7 +455,7 @@ async function storeLead(
   const followUpDueAt = crmLead
     ? await openFollowUp(ctx, {
         leadId: crmLead.id,
-        contactOwnerId: contact.ownerId,
+        ownerId,
         source,
         name: displayName,
         attribution,
@@ -513,57 +518,36 @@ function bookingSummary(attribution: LeadAttribution | null): string | undefined
 }
 
 /**
- * One follow-up task on the lead, due the next business day. It goes to the
- * contact's owner (a reused contact may have one), else to the configured
- * default task owner (`PHYND_CRM_DEFAULT_TASK_OWNER_ID`); with neither it is
- * unassigned, a warning is logged, and whoever takes it sets its owner. It
- * shows on the lead's timeline and in the activities list. Best effort: it runs
- * in a savepoint, so a failure rolls back only the task, is logged, and the
- * lead is still stored.
+ * The first-contact task on the lead, due the next business day, owned like
+ * the lead (see `first-contact.ts`). It shows on the lead's timeline and in the
+ * activities list. Best effort: a failure rolls back only the task.
  */
 async function openFollowUp(
   ctx: PhyndServiceContext,
   input: {
     leadId: string
-    contactOwnerId: string | null
+    ownerId: string | null
     source: LeadIntakeSource
     name: string
     attribution: LeadAttribution | null
     quote: LeadQuote | null
   },
 ): Promise<Date | null> {
-  const dueAt = nextBusinessDayDueAt()
   const meeting = bookingSummary(input.attribution)
   // The quote label goes first so a long name cannot cut it off.
   const subject = input.quote ? `cotización ${quoteLabel(input.quote)} · ${input.name}` : input.name
-  try {
-    await ctx.db.transaction(async (savepoint) => {
-      const ownerId = await resolveSystemTaskOwner(savepoint, logger, {
-        contactOwnerId: input.contactOwnerId,
-        logContext: { task: 'lead_intake_follow_up', lead_id: input.leadId },
-      })
-      return new ActivitiesService(withTransaction(ctx, savepoint)).create({
-        type: 'task',
-        // `activities.title` is varchar(255).
-        title: cut(`Dar seguimiento: ${subject}`, CONTACT_TEXT_MAX) ?? 'Dar seguimiento',
-        description: [
-          `Lead por ${LEAD_INTAKE_ORIGIN_LABEL[input.source]}.`,
-          meeting ? `Reunión: ${meeting}` : undefined,
-          input.quote ? `Solicitud de ${quoteSummary(input.quote)}.` : undefined,
-        ]
-          .filter((part): part is string => part !== undefined)
-          .join(' '),
-        dueAt,
-        entityType: 'lead',
-        entityId: input.leadId,
-        ownerId,
-      })
-    })
-    return dueAt
-  } catch (error) {
-    logger.warn({ err: error, leadId: input.leadId }, 'lead follow-up task not created')
-    return null
-  }
+  return openFirstContactTask(ctx, logger, {
+    leadId: input.leadId,
+    ownerId: input.ownerId,
+    subject,
+    description: [
+      `Lead por ${LEAD_INTAKE_ORIGIN_LABEL[input.source]}.`,
+      meeting ? `Reunión: ${meeting}` : undefined,
+      input.quote ? `Solicitud de ${quoteSummary(input.quote)}.` : undefined,
+    ]
+      .filter((part): part is string => part !== undefined)
+      .join(' '),
+  })
 }
 
 async function createDefaultLead(
@@ -571,6 +555,7 @@ async function createDefaultLead(
   contactId: string,
   source: LeadIntakeSource,
   attribution: LeadAttribution | null,
+  ownerId: string | null,
 ) {
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -587,5 +572,6 @@ async function createDefaultLead(
     attribution,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
+    ...(ownerId ? { ownerId } : {}),
   })
 }

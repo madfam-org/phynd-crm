@@ -51,6 +51,8 @@ export interface LeadAttribution {
   /** Plain decimal string; absent while the quote has no price. */
   quote_total?: string
   quote_currency?: string
+  /** The sender's classification of who asked (Avala: `INDIVIDUAL` | `ORGANIZATION`). */
+  lead_type?: string
   booking?: LeadBookingAttribution
   /** The agency pick the lead came from, for a lead handed off by the creator census. */
   census?: LeadCensusAttribution

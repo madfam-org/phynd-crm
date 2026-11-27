@@ -22,6 +22,7 @@ const FIELD_LIMITS = {
   quote_number: LEAD_ATTRIBUTION_MAX_LENGTH,
   quote_total: LEAD_ATTRIBUTION_MAX_LENGTH,
   quote_currency: LEAD_ATTRIBUTION_MAX_LENGTH,
+  lead_type: LEAD_ATTRIBUTION_MAX_LENGTH,
 } as const satisfies Record<Exclude<keyof LeadAttribution, 'booking' | 'census'>, number>
 
 const BOOKING_FIELDS = [

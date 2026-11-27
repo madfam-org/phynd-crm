@@ -1,5 +1,6 @@
 import { clientAddress } from '@/lib/client-address'
 import { getCacheManager } from '@/lib/federation/clients'
+import { openFirstContactTask, resolveIntakeLeadOwner } from '@/lib/webhooks/first-contact'
 import { checkRateLimit } from '@/lib/webhooks/rate-limiter'
 import { DEFAULT_TENANT_ID } from '@phynd/config/constants'
 import { getDb } from '@phynd/db'
@@ -212,7 +213,13 @@ async function handleLeadCaptured(
       company: readString(lead.company),
     }))
 
-  const crmLead = await createDefaultLead(ctx, contact.id, 'nauta')
+  // The lead and its first-contact task share one owner (first-contact.ts).
+  const ownerId = await resolveIntakeLeadOwner(ctx.db, logger, {
+    contactOwnerId: contact.ownerId,
+    source: 'nauta',
+    contactId: contact.id,
+  })
+  const crmLead = await createDefaultLead(ctx, contact.id, 'nauta', ownerId)
 
   // The prospect's own words are the highest-signal artifact of the whole
   // submission; they land as a note on the contact so the first human to open
@@ -232,8 +239,28 @@ async function handleLeadCaptured(
     entityId: contact.id,
   })
 
+  // Due the next business day: the landing promises an answer within one.
+  if (crmLead) {
+    await openFirstContactTask(ctx, logger, {
+      leadId: crmLead.id,
+      ownerId,
+      subject: readString(lead.name) ?? email,
+      description: [
+        'Lead por el formulario de Nauta.',
+        planInterest ? `Plan de interés: ${planInterest}.` : undefined,
+      ]
+        .filter((part): part is string => part !== undefined)
+        .join(' '),
+    })
+  }
+
   logger.info(
-    { contactId: contact.id, leadId: crmLead?.id ?? null, hasMessage: message !== undefined },
+    {
+      contactId: contact.id,
+      leadId: crmLead?.id ?? null,
+      hasMessage: message !== undefined,
+      owned: ownerId !== null,
+    },
     'nauta lead captured',
   )
 
@@ -340,7 +367,12 @@ async function notifyNewNautaLead(lead: {
   }
 }
 
-async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, source: string) {
+async function createDefaultLead(
+  ctx: PhyndServiceContext,
+  contactId: string,
+  source: string,
+  ownerId: string | null,
+) {
   const leadsService = new LeadsService(ctx)
   const pipelinesService = new PipelinesService(ctx)
   const pipeline = await pipelinesService.getDefault()
@@ -355,5 +387,6 @@ async function createDefaultLead(ctx: PhyndServiceContext, contactId: string, so
     source,
     pipelineId: pipeline.id,
     stageId: firstStage.id,
+    ...(ownerId ? { ownerId } : {}),
   })
 }

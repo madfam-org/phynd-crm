@@ -208,6 +208,7 @@ per-tenant database and `--json` for machine-readable output.
 | --- | --- | --- |
 | `scripts/audit-session-user-ids.mjs` | Per actor column, counts values that match no known Janua subject, CRM user, service principal or demo id (the per-login random ids written before 2026-09-30), with distinct counts and date ranges | Never: one `BEGIN READ ONLY` transaction, rolled back |
 | `scripts/link-janua-users.mjs` | Lists CRM users with no `external_janua_id`; validates a `{ "<users.id>": "<janua sub>" }` mapping | Only with `--apply`, all-or-nothing |
+| `scripts/backfill-avala-lead-context.mjs` | For leads stored from `avala.lead.captured` before the receiver kept the message and lead type: adds the Avala note on the lead and the attribution keys the lead lacks, read from the raw `webhook_events` record; prints counts only. Skips deleted leads and redacted records; a second run writes nothing | Only with `--apply`, one transaction |
 | `scripts/import-engagements.mjs` | Idempotent client import from a JSON manifest (contacts → opportunity → engagements → quotes → artifacts → events), every record keyed by `external_references` (provider `madfam-ops`); prints per-record create / link / update / unchanged | Only with `--apply`, all-or-nothing |
 
 ```bash
@@ -398,7 +399,7 @@ Copy `.env.example` to `.env` and fill in the required values. The key groups ar
 | Federation URLs        | `JANUA_API_URL`, `JANUA_TELEMETRY_API_URL`, `DHANAM_API_URL`, `COTIZA_API_URL`, `PRAVARA_BASE_URL`, `SELVA_API_URL`, `FORJ_API_URL` |
 | Federation API Keys    | `PRAVARA_API_KEY`, `SELVA_API_KEY`, `FEDERATION_API_TOKEN` |
 | Machine auth (Janua)   | `PHYND_CRM_MACHINE_TENANT_ID`, `PHYND_CRM_MACHINE_JANUA_ORG_ID`, `PHYND_CRM_MACHINE_AUDIENCE` — see [docs/MACHINE_AUTH.md](docs/MACHINE_AUTH.md) |
-| System task owner      | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` — CRM user (`users.id`, or `janua:<subject>` of a linked user) who owns system-created tasks on a contact without owner; unset = unassigned + warning |
+| System task owner      | `PHYND_CRM_DEFAULT_TASK_OWNER_ID` — CRM user (`users.id`, or `janua:<subject>` of a linked user) who owns system-created tasks on a contact without owner, and new inbound leads (Avala, Nauta, lead intake) with their first-contact task; unset = unassigned + warning |
 | Creator-census hand-off | `PHYND_CRM_CENSUS_CONSUMER_ENABLED`, `PHYND_CRM_CENSUS_ORG_TENANTS`, `PHYND_CRM_CENSUS_REDIS_URL` — worker consumer of `madfam:census-events`, off by default, see [docs/CENSUS_HANDOFF.md](docs/CENSUS_HANDOFF.md) |
 | Native MCP (read-only) | `PHYND_CRM_MCP_ENABLED`, `PHYND_CRM_MCP_READ_CLIENTS`, `PHYND_CRM_MCP_UNMASKED_CLIENTS` — off by default, see [docs/NATIVE_MCP.md](docs/NATIVE_MCP.md) |
 | Production dispatch    | `PRAVARA_DISPATCH_URL`, `SELVA_DISPATCH_URL`, `PRAVARA_DISPATCH_SECRET`, `SELVA_DISPATCH_SECRET`, `PRODUCTION_DISPATCH_SCAN_LIMIT`, `PRODUCTION_DISPATCH_TIMEOUT_MS` |
@@ -472,7 +473,8 @@ The receiver:
 - verifies `x-madfam-signature` with `PHYND_CRM_EVENTS_SECRET`;
 - rate-limits inbound requests;
 - deduplicates by Avala `event_id` in `webhook_events`;
-- maps `avala.lead.captured` into contacts, leads, visitor sessions, and `visitor_to_lead` conversions; as of 2026-11-26 it does not keep the sender's message, lead type or consent block, and opens no follow-up task or notification (the [lead-intake webhook](#lead-intake-webhook) does; fix planned in [`docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md`](docs/LEAD_INTAKE_GAPS_AND_ENRICHMENT_2026-11-16.md), G1 and G2);
+- maps `avala.lead.captured` into a contact, a lead, the visitor session and the `visitor_to_lead` conversion. The lead gets an owner (the contact's owner, else `PHYND_CRM_DEFAULT_TASK_OWNER_ID`, else none with a `DEFAULT_TASK_OWNER_UNAVAILABLE` warning; the owner gets an in-app notification), `leads.attribution` with the page, UTM parameters and `lead_type`, a note on the lead (author `service:avala`) with the prospect's message and context (page, Avala source, lead type, standard, intent, interests; a waitlist entry is marked as not a sales target), a «Primer contacto» task due the next business day, and one email to `LEADS_NOTIFY_EMAIL` (best effort). The consent block is still not stored. Leads stored before this change: `scripts/backfill-avala-lead-context.mjs` (owner-run, dry-run first);
+- handles `avala.lead.deleted` (`payload.lead.id`, else `aggregate.id`): every CRM lead created from that Avala lead is soft-deleted with its Avala note and its pending first-contact task; the contact is soft-deleted too unless another live lead, an opportunity, quote, order, engagement or case, a linked Janua account or a customer stage keeps it; the stored `avala.lead.captured` record keeps only its envelope and the Avala lead id. One transaction; a replayed capture of a deleted lead is ignored;
 - maps Avala search/page/conversion/user/tenant/billing events into CRM activity and conversion records.
 
 Avala producers must send the shared event envelope documented in Avala's `docs/architecture/PHYNDCRM_AVALA_INTEGRATION.md`.
@@ -522,7 +524,8 @@ For a lead event the receiver:
 - reuses the contact with that email regardless of letter case, or creates it (in lower case); an existing contact is never modified. `name` and `company` are cut to 255 characters; a `phone` longer than 50 characters is not put on the contact but is quoted (up to 200 characters) in the note;
 - creates a lead in the default pipeline's first stage with `source` set to the envelope source and the attribution in `leads.attribution` (UTM parameters, `referrer`, `landing_page` from `context.page`, `tenant` from `context.tenant`, the booking for a Kalya event, and `quote_id`/`quote_number`/`quote_total`/`quote_currency` for a quote request; known keys only, length-capped). Leads have no amount column, so the quote total is kept in the attribution only;
 - writes a note on the contact with the prospect's message and where it came from (including the tenant, when sent, and for a quote request its number or id, total with currency or «sin precio aún», and item count);
-- opens a follow-up task on the lead, due the next business day, owned by the contact's owner, else by `PHYND_CRM_DEFAULT_TASK_OWNER_ID` when it names a CRM user, else unassigned with a `DEFAULT_TASK_OWNER_UNAVAILABLE` warning (`activities.update` with `ownerId` assigns it);
+- gives the lead an owner: the contact's owner, else `PHYND_CRM_DEFAULT_TASK_OWNER_ID` when it names a CRM user, else none with one `DEFAULT_TASK_OWNER_UNAVAILABLE` warning; an owner gets an in-app assignment notification;
+- opens a «Primer contacto» task on the lead, due the next business day, with the lead's owner (unassigned when the lead has none; `activities.update` with `ownerId` assigns it);
 - after the transaction commits, emails the addresses in `LEADS_NOTIFY_EMAIL` (comma-separated; falls back to `NAUTA_LEADS_NOTIFY_EMAIL`). A notification problem never fails the request.
 
 ## Creator-census hand-off

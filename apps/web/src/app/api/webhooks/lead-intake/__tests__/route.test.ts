@@ -788,12 +788,13 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
       ownerId: string | null
     }
     expect(task.type).toBe('task')
-    expect(task.title).toBe('Dar seguimiento: Ana Prospecto')
+    expect(task.title).toBe('Primer contacto: Ana Prospecto')
     expect(task.description).toContain('reserva en Kalya')
     expect(task.description).toContain('Diagnóstico de 30 minutos')
     expect(task.entityType).toBe('lead')
     expect(task.entityId).toBe('lead-1')
     expect(task.ownerId).toBeNull()
+    expect('ownerId' in (committed('leads')[0] ?? {})).toBe(false)
     expect(task.dueAt.getTime()).toBeGreaterThan(before)
     expect(task.dueAt.getTime() - before).toBeLessThanOrEqual(4 * 24 * 60 * 60 * 1000)
     expect([1, 2, 3, 4, 5]).toContain(task.dueAt.getUTCDay())
@@ -801,13 +802,16 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
     expect(sentEmail().html).toContain('Tarea de seguimiento en el CRM')
   })
 
-  it('warns with a stable code when the unowned task stays unassigned', async () => {
+  it('warns with a stable code when the lead and its task stay unassigned', async () => {
     await post(makeBookingEvent())
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         code: 'DEFAULT_TASK_OWNER_UNAVAILABLE',
         reason: 'unset',
-        lead_id: 'lead-1',
+        task: 'lead_first_contact',
+        source: 'kalya',
+        contact_id: 'contact-1',
       }),
       expect.stringMatching(/^DEFAULT_TASK_OWNER_UNAVAILABLE: /),
     )
@@ -819,6 +823,8 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
     await post(makeBookingEvent())
     const task = committed('activities')[0] as { ownerId: string | null }
     expect(task.ownerId).toBe('user-default')
+    // The lead gets the same owner as its first-contact task.
+    expect(committed('leads')[0]?.ownerId).toBe('user-default')
     expect(store.ops).toContain('select:users')
     expect(mockLogger.warn).not.toHaveBeenCalled()
   })
@@ -834,6 +840,7 @@ describe('POST /api/webhooks/lead-intake — Kalya booking', () => {
     await post(makeBookingEvent())
     const task = committed('activities')[0] as { ownerId: string | null }
     expect(task.ownerId).toBe('user-owner')
+    expect(committed('leads')[0]?.ownerId).toBe('user-owner')
     expect(store.ops).not.toContain('select:users')
   })
 
@@ -1241,7 +1248,7 @@ describe('POST /api/webhooks/lead-intake — field limits', () => {
     expect(contact.company).toBe('c'.repeat(255))
     const task = committed('activities')[0] as { title: string }
     expect(Array.from(task.title)).toHaveLength(255)
-    expect(task.title.startsWith('Dar seguimiento: ')).toBe(true)
+    expect(task.title.startsWith('Primer contacto: ')).toBe(true)
   })
 
   it('keeps a phone of up to 50 characters on the contact', async () => {
@@ -1390,7 +1397,7 @@ describe('POST /api/webhooks/lead-intake — quote request', () => {
       '— utm: directo / — / —',
     ])
     const task = committed('activities')[0] as { title: string; description: string }
-    expect(task.title).toBe('Dar seguimiento: cotización Q-2026-11-0042 · Rosa Compradora')
+    expect(task.title).toBe('Primer contacto: cotización Q-2026-11-0042 · Rosa Compradora')
     expect(task.description).toBe(
       'Lead por solicitud de cotización. Solicitud de cotización Q-2026-11-0042 · 18450.50 MXN · 3 partidas.',
     )
@@ -1412,7 +1419,7 @@ describe('POST /api/webhooks/lead-intake — quote request', () => {
     const lines = String(committed('notes')[0]?.content).split('\n')
     expect(lines).toContain('— cotización cq_SIN_PRECIO · sin precio aún')
     const task = committed('activities')[0] as { title: string; description: string }
-    expect(task.title).toBe('Dar seguimiento: cotización cq_SIN_PRECIO · Rosa Compradora')
+    expect(task.title).toBe('Primer contacto: cotización cq_SIN_PRECIO · Rosa Compradora')
     expect(task.description).toContain('sin precio aún')
     const attribution = committed('leads')[0]?.attribution as Record<string, string>
     expect(attribution.quote_id).toBe('cq_SIN_PRECIO')

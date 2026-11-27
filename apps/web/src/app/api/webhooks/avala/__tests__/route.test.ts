@@ -14,6 +14,34 @@ vi.mock('@phynd/config/constants', () => ({
   DEFAULT_TENANT_ID: 'madfam',
 }))
 
+// Unit-tested on their own in lib/webhooks/__tests__ (first-contact,
+// avala-lead-deletion, lead-intake); here only the wiring is checked.
+const mockResolveOwner = vi.fn().mockResolvedValue(null)
+const mockOpenFirstContact = vi.fn().mockResolvedValue(new Date('2026-05-27T15:00:00.000Z'))
+vi.mock('@/lib/webhooks/first-contact', () => ({
+  resolveIntakeLeadOwner: (...args: unknown[]) => mockResolveOwner(...args),
+  openFirstContactTask: (...args: unknown[]) => mockOpenFirstContact(...args),
+}))
+
+const mockNotifyNewLead = vi.fn().mockResolvedValue(undefined)
+vi.mock('@/lib/webhooks/lead-intake', () => ({
+  notifyNewLead: (...args: unknown[]) => mockNotifyNewLead(...args),
+}))
+
+const mockPropagateDeletion = vi.fn().mockResolvedValue({
+  leadsDeleted: 1,
+  contactsDeleted: 1,
+  contactsKept: 0,
+  notesDeleted: 1,
+  tasksDeleted: 1,
+  eventsRedacted: 1,
+})
+const mockCreateDeletionStore = vi.fn((ctx: unknown) => ({ ctx }))
+vi.mock('@/lib/webhooks/avala-lead-deletion', () => ({
+  propagateAvalaLeadDeletion: (...args: unknown[]) => mockPropagateDeletion(...args),
+  createAvalaLeadDeletionStore: (ctx: unknown) => mockCreateDeletionStore(ctx),
+}))
+
 const state = {
   insertedWebhookEvents: [] as Array<Record<string, unknown>>,
 }
@@ -23,14 +51,19 @@ const mockUpdateSet = vi.fn(() => ({
   where: mockUpdateWhere,
 }))
 
+/** Result of each `select … limit 1`: the dedup check, then the deleted-lead check. */
+const mockSelectLimit = vi.fn().mockResolvedValue([])
+const mockTx = { tx: true }
+
 const mockDb = {
   select: vi.fn(() => ({
     from: vi.fn(() => ({
       where: vi.fn(() => ({
-        limit: vi.fn().mockResolvedValue([]),
+        limit: mockSelectLimit,
       })),
     })),
   })),
+  transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockTx)),
   insert: vi.fn(() => ({
     values: vi.fn((value: Record<string, unknown>) => {
       state.insertedWebhookEvents.push(value)
@@ -52,6 +85,7 @@ vi.mock('@phynd/db/schema', () => ({
   webhookEvents: {
     id: 'webhook_events.id',
     provider: 'webhook_events.provider',
+    eventType: 'webhook_events.event_type',
     payload: 'webhook_events.payload',
   },
 }))
@@ -65,7 +99,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 const mockContact = { id: 'contact-1', email: 'lead@example.com', externalJanuaId: null }
-const mockLead = { id: 'lead-1' }
+const mockLead = { id: 'lead-1', attribution: { landing_page: '/contacto' } }
 const mockVisitorSession = { id: 'visitor-session-1' }
 
 const mockGetByEmail = vi.fn().mockResolvedValue(null)
@@ -75,10 +109,15 @@ const mockGetStages = vi.fn().mockResolvedValue([{ id: 'stage-1' }])
 const mockCreateLead = vi.fn().mockResolvedValue(mockLead)
 const mockRecordConversion = vi.fn().mockResolvedValue({ id: 'conversion-1' })
 const mockUpsertSession = vi.fn().mockResolvedValue(mockVisitorSession)
+const mockCreateNote = vi.fn().mockResolvedValue({ id: 'note-1' })
 const mockRecordPageView = vi.fn().mockResolvedValue({ id: 'page-view-1' })
 
 vi.mock('@phynd/services', () => ({
   createServiceContext: (db: unknown) => ({ db }),
+  withTransaction: (ctx: Record<string, unknown>, tx: unknown) => ({ ...ctx, db: tx }),
+  NotesService: vi.fn().mockImplementation(() => ({
+    create: mockCreateNote,
+  })),
   ContactsService: vi.fn().mockImplementation(() => ({
     getByEmail: mockGetByEmail,
     create: mockCreateContact,
@@ -133,11 +172,15 @@ function makeLeadEvent(overrides: Partial<Record<string, unknown>> = {}) {
         email: 'lead@example.com',
         name: 'Lead Example',
         source: 'marketing_contact',
+        leadType: 'ORGANIZATION',
+        message: 'Queremos certificar a nuestro equipo.',
         interests: ['demo'],
       },
       attribution: {
         sessionId: 'avala-session-1',
         sourcePage: '/contacto',
+        intent: 'sales-request',
+        utmSource: 'boletin',
       },
       consent: { commercialContact: true },
     },
@@ -162,6 +205,14 @@ beforeEach(() => {
   mockRecordConversion.mockClear().mockResolvedValue({ id: 'conversion-1' })
   mockUpsertSession.mockClear().mockResolvedValue(mockVisitorSession)
   mockRecordPageView.mockClear().mockResolvedValue({ id: 'page-view-1' })
+  mockCreateNote.mockClear().mockResolvedValue({ id: 'note-1' })
+  mockSelectLimit.mockReset().mockResolvedValue([])
+  mockDb.transaction.mockClear()
+  mockResolveOwner.mockClear().mockResolvedValue(null)
+  mockOpenFirstContact.mockClear().mockResolvedValue(new Date('2026-05-27T15:00:00.000Z'))
+  mockNotifyNewLead.mockClear().mockResolvedValue(undefined)
+  mockPropagateDeletion.mockClear()
+  mockCreateDeletionStore.mockClear()
 })
 
 afterEach(() => {
@@ -211,5 +262,155 @@ describe('POST /api/webhooks/avala', () => {
       provider: 'avala',
       eventType: 'avala.lead.captured',
     })
+  })
+
+  it('keeps the message, lead type and context: attribution on the lead, a note on the lead', async () => {
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+
+    expect(mockCreateLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribution: {
+          utm_source: 'boletin',
+          landing_page: '/contacto',
+          lead_type: 'ORGANIZATION',
+        },
+      }),
+    )
+    expect(mockCreateNote).toHaveBeenCalledTimes(1)
+    const note = mockCreateNote.mock.calls[0]?.[0] as {
+      content: string
+      entityType: string
+      entityId: string
+    }
+    expect(note.entityType).toBe('lead')
+    expect(note.entityId).toBe('lead-1')
+    expect(note.content.split('\n')[0]).toBe('Queremos certificar a nuestro equipo.')
+    expect(note.content).toContain('— tipo de lead: ORGANIZATION')
+    expect(note.content).toContain('— intención: sales-request')
+  })
+
+  it('gives the lead an owner, opens its first-contact task and sends the notification', async () => {
+    mockResolveOwner.mockResolvedValue('user-default')
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+
+    expect(mockResolveOwner).toHaveBeenCalledWith(mockDb, expect.anything(), {
+      contactOwnerId: undefined,
+      source: 'avala',
+      contactId: 'contact-1',
+    })
+    expect(mockCreateLead).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: 'user-default' }),
+    )
+    expect(mockOpenFirstContact).toHaveBeenCalledTimes(1)
+    expect(mockOpenFirstContact.mock.calls[0]?.[2]).toMatchObject({
+      leadId: 'lead-1',
+      ownerId: 'user-default',
+      subject: 'Lead Example',
+    })
+    expect(mockNotifyNewLead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'avala',
+        leadId: 'lead-1',
+        contactId: 'contact-1',
+        message: 'Queremos certificar a nuestro equipo.',
+        leadType: 'ORGANIZATION',
+        followUpDueAt: new Date('2026-05-27T15:00:00.000Z'),
+      }),
+    )
+  })
+
+  it('creates nothing new on a redelivery of the same event', async () => {
+    mockSelectLimit.mockResolvedValueOnce([{ id: 'prior' }])
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe('duplicate')
+    expect(mockCreateLead).not.toHaveBeenCalled()
+    expect(mockCreateNote).not.toHaveBeenCalled()
+    expect(mockOpenFirstContact).not.toHaveBeenCalled()
+    expect(mockNotifyNewLead).not.toHaveBeenCalled()
+  })
+
+  it('marks a waitlist entry as not a sales target in its task', async () => {
+    const event = makeLeadEvent()
+    const lead = (event.payload as { lead: Record<string, unknown> }).lead
+    lead.source = 'ec_waitlist'
+    lead.ecCode = 'EC0000'
+    delete lead.message
+    await POST(signedRequest(JSON.stringify(event)))
+    const task = mockOpenFirstContact.mock.calls[0]?.[2] as { description: string }
+    expect(task.description).toContain('Estándar: EC0000.')
+    expect(task.description).toContain('no es un prospecto de venta')
+  })
+
+  it('ignores a replayed capture of a lead Avala already deleted', async () => {
+    // not seen as this event, but an avala.lead.deleted for the lead exists
+    mockSelectLimit.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'deleted' }])
+    const res = await POST(signedRequest(JSON.stringify(makeLeadEvent())))
+    expect(res.status).toBe(200)
+    expect(mockCreateContact).not.toHaveBeenCalled()
+    expect(mockCreateLead).not.toHaveBeenCalled()
+    expect(state.insertedWebhookEvents).toHaveLength(1)
+  })
+
+  it('propagates avala.lead.deleted in one transaction, by the Avala lead id', async () => {
+    const event = {
+      schema_version: '1',
+      event_id: 'avala:lead.deleted:lead:lead-1:v1',
+      event_type: 'avala.lead.deleted',
+      source: 'avala',
+      occurred_at: '2026-06-01T12:00:00.000Z',
+      aggregate: { type: 'lead', id: 'lead-1' },
+      payload: { lead: { id: 'lead-1' } },
+    }
+    const res = await POST(signedRequest(JSON.stringify(event)))
+    expect(res.status).toBe(200)
+    expect(mockDb.transaction).toHaveBeenCalledTimes(1)
+    expect(mockCreateDeletionStore).toHaveBeenCalledWith(expect.objectContaining({ db: mockTx }))
+    expect(mockPropagateDeletion).toHaveBeenCalledWith(expect.anything(), 'lead-1')
+    expect(state.insertedWebhookEvents[0]).toMatchObject({
+      provider: 'avala',
+      eventType: 'avala.lead.deleted',
+    })
+  })
+
+  it('falls back to the aggregate id and ignores a deletion with no lead id', async () => {
+    const base = {
+      schema_version: '1',
+      event_type: 'avala.lead.deleted',
+      source: 'avala',
+      occurred_at: '2026-06-01T12:00:00.000Z',
+      payload: {},
+    }
+    await POST(
+      signedRequest(
+        JSON.stringify({ ...base, event_id: 'e-1', aggregate: { type: 'lead', id: 'lead-9' } }),
+      ),
+    )
+    expect(mockPropagateDeletion).toHaveBeenLastCalledWith(expect.anything(), 'lead-9')
+
+    mockPropagateDeletion.mockClear()
+    const res = await POST(signedRequest(JSON.stringify({ ...base, event_id: 'e-2' })))
+    expect(res.status).toBe(200)
+    expect(mockPropagateDeletion).not.toHaveBeenCalled()
+  })
+
+  it('answers 500 and records nothing when the deletion fails, so Avala retries', async () => {
+    mockPropagateDeletion.mockRejectedValueOnce(new Error('db down'))
+    const res = await POST(
+      signedRequest(
+        JSON.stringify({
+          schema_version: '1',
+          event_id: 'e-3',
+          event_type: 'avala.lead.deleted',
+          source: 'avala',
+          occurred_at: '2026-06-01T12:00:00.000Z',
+          payload: { lead: { id: 'lead-1' } },
+        }),
+      ),
+    )
+    expect(res.status).toBe(500)
+    expect(state.insertedWebhookEvents).toHaveLength(0)
   })
 })

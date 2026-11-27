@@ -28,6 +28,7 @@ vi.mock('@phynd/db/schema', () => ({
     id: 'leads.id',
     status: 'leads.status',
   },
+  notifications: { id: 'notifications.id' },
   stageTransitions: { id: 'stageTransitions.id' },
 }))
 
@@ -206,6 +207,58 @@ describe('LeadsService', () => {
 
       const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
       expect(inserted.attribution).toBeNull()
+    })
+
+    it('stores the owner and notifies them in a savepoint', async () => {
+      mockDb._qb._result = [makeLead({ id: 'lead-owned', source: 'avala' })]
+
+      await service.create({
+        ownerId: 'user-owner',
+        pipelineId: 'pipeline-001',
+        source: 'avala',
+        stageId: 'stage-001',
+      })
+
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect(inserted.ownerId).toBe('user-owner')
+      // lead + conversion, then the notification
+      expect(mockDb.insert).toHaveBeenCalledTimes(3)
+      expect(mockDb._qb.values).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          userId: 'user-owner',
+          type: 'owner_assignment',
+          entityType: 'lead',
+          entityId: 'lead-owned',
+        }),
+      )
+      // the lead's transaction, then the notification's own
+      expect(mockDb.transaction).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps the lead when the owner notification fails', async () => {
+      const lead = makeLead({ id: 'lead-owned' })
+      mockDb._qb._result = [lead]
+      mockDb.transaction
+        .mockImplementationOnce(async (cb: (tx: MockDatabase) => Promise<unknown>) => cb(mockDb))
+        .mockRejectedValueOnce(new Error('notification insert failed'))
+
+      const result = await service.create({
+        ownerId: 'user-owner',
+        pipelineId: 'pipeline-001',
+        stageId: 'stage-001',
+      })
+
+      expect(result).toEqual(lead)
+    })
+
+    it('sets no owner and sends no notification without an owner', async () => {
+      mockDb._qb._result = [makeLead({ id: 'lead-unowned' })]
+
+      await service.create({ ownerId: null, pipelineId: 'pipeline-001', stageId: 'stage-001' })
+
+      const inserted = mockDb._qb.values.mock.calls[0]?.[0] as Record<string, unknown>
+      expect('ownerId' in inserted).toBe(false)
+      expect(mockDb.insert).toHaveBeenCalledTimes(2)
     })
 
     it('leaves the column untouched when no attribution is passed', async () => {

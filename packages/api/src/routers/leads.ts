@@ -24,6 +24,7 @@ const leadAttributionInput = z.object({
   quote_number: attributionValue.optional(),
   quote_total: attributionValue.optional(),
   quote_currency: attributionValue.optional(),
+  lead_type: attributionValue.optional(),
   booking: z
     .object({
       id: attributionValue.optional(),

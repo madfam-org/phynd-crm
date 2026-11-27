@@ -49,10 +49,22 @@ export const LEAD_INTAKE_ORIGIN_LABEL: Record<LeadIntakeSource, string> = {
   cotiza: 'solicitud de cotización',
 }
 
-const SUBJECT_PREFIX: Record<LeadIntakeSource, string> = {
+/**
+ * Senders whose leads `notifyNewLead` announces: this route's three, plus the
+ * Avala receiver (`/api/webhooks/avala`), which shares the email.
+ */
+export type LeadNotificationSource = LeadIntakeSource | 'avala'
+
+const NOTIFICATION_ORIGIN_LABEL: Record<LeadNotificationSource, string> = {
+  ...LEAD_INTAKE_ORIGIN_LABEL,
+  avala: 'formulario de Avala',
+}
+
+const SUBJECT_PREFIX: Record<LeadNotificationSource, string> = {
   kalya: 'Nueva reserva en Kalya',
   'madfam-site': 'Nuevo lead del sitio',
   cotiza: 'Nueva solicitud de cotización',
+  avala: 'Nuevo lead de Avala',
 }
 
 /** The quote a `cotiza.quote.requested` event carries, validated and bounded. */
@@ -204,7 +216,7 @@ function escapeHtml(value: string | undefined): string {
 }
 
 export interface NewLeadNotification {
-  source: LeadIntakeSource
+  source: LeadNotificationSource
   contactId: string
   leadId: string | null
   name: string
@@ -219,6 +231,10 @@ export interface NewLeadNotification {
   quote?: LeadQuote | null
   /** Set when a follow-up task was opened for the lead. */
   followUpDueAt?: Date | null
+  /** The sender's classification of who asked (Avala). */
+  leadType?: string
+  /** The competency standard the lead asked about (Avala). */
+  ecCode?: string
 }
 
 /** Table rows of the notification: the person always, the rest when known. */
@@ -233,6 +249,8 @@ function notificationRows(
     ['Total', quote && quotePrice(quote)],
     ['Partidas', quote?.itemCount === undefined ? undefined : String(quote.itemCount)],
     ['Plan de interés', lead.planInterest],
+    ['Tipo de lead', lead.leadType],
+    ['Estándar', lead.ecCode],
     ['Cuenta de origen (tenant)', lead.attribution?.tenant],
     ['Tipo de reunión', booking?.event_type_name],
     ['Inicio', bookingStart],
@@ -258,7 +276,7 @@ function notificationPreheader(
   if (lead.message) return lead.message.slice(0, 120)
   if (bookingStart) return `Reunión: ${bookingStart}`
   if (lead.quote) return `Solicitud de ${quoteSummary(lead.quote)}`
-  return `Origen: ${LEAD_INTAKE_ORIGIN_LABEL[lead.source]}`
+  return `Origen: ${NOTIFICATION_ORIGIN_LABEL[lead.source]}`
 }
 
 /**
@@ -284,7 +302,7 @@ export async function notifyNewLead(lead: NewLeadNotification): Promise<void> {
   const crmBase = 'https://crm.madfam.io'
   const leadUrl = lead.leadId ? `${crmBase}/leads/${lead.leadId}` : `${crmBase}/leads`
 
-  const origin = LEAD_INTAKE_ORIGIN_LABEL[lead.source]
+  const origin = NOTIFICATION_ORIGIN_LABEL[lead.source]
   const booking = lead.attribution?.booking
   const bookingStart = formatBookingStart(booking?.starts_at, booking?.timezone)
 

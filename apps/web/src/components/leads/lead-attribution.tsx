@@ -37,6 +37,7 @@ export function leadAttributionRows(
     ['Referrer', attribution.referrer],
     ['Landing page', attribution.landing_page],
     ['Tenant', attribution.tenant],
+    ['Lead type', attribution.lead_type],
     ['Quote', attribution.quote_number ?? attribution.quote_id],
     [
       'Quote total',

@@ -6,6 +6,10 @@
 
 A review on 2026-11-16 read every lead in production against the code that created it. It found that leads arrive reliably, but the CRM loses part of what the sender sends, hides where a contact came from, and nothing assigns or scores leads, so they wait unworked. This document lists each gap with the fix, then the data-enrichment design.
 
+> **Status 2026-11-27:** G1 (with its backfill script, not yet run), the owner, task and
+> notification part of G2, and G6 for Avala are built; see each section. Seeded scoring rules and
+> tiers (G2 points 2 and 3), G3–G5, E2 and E3 are not.
+>
 > **Status 2026-11-26:** none of G1–G6, E2 or E3 has been built. The routes behave as §2 describes;
 > two statements in G2 about what the code did were corrected on this date. The plan is tracked as a
 > row in [`ROADMAP.md`](./ROADMAP.md) § Pending work.
@@ -30,6 +34,7 @@ A review on 2026-11-16 read every lead in production against the code that creat
   - Copy `ec_code`, `intent` and `interests` into `leads.attribution` as well, so the lead row carries its own context without a join.
 - **Backfill:** a one-off, idempotent job reads `webhook_events` where `provider='avala'` and `event_type='avala.lead.captured'`, and applies the same writes to existing leads, matched by `avala_lead_id` in the conversion metadata. Run it as an Enclii job (operator step), with a dry run first.
 - **Tests:** a webhook test with a message creates exactly one note; a redelivery creates none (idempotency on `event_id`); the backfill is a no-op on a second run.
+- **Built (2026-11-27):** the note goes on the **lead**, not the contact (one note per submission, and an Avala deletion can remove it with the lead), authored by `service:avala`; `lead_type`, `landing_page` and the UTM parameters go to `leads.attribution`; EC code, intent and interests are lines of the note (they stay on the conversion metadata too). Backfill: `scripts/backfill-avala-lead-context.mjs`, dry-run by default, matched by the conversion's `event_id`, else `avala_lead_id`.
 
 ### G2 — Nobody owns or scores a new lead (HIGH: leads wait for weeks)
 
@@ -45,6 +50,7 @@ A review on 2026-11-16 read every lead in production against the code that creat
      Repeat submissions by the same contact within 7 days add +1 each, up to +2.
   3. **Tiers from score:** A ≥ 7 (call within 1 business day), B 4–6, C ≤ 3. A `waitlist` lead is always C and is flagged "notify when available", never "sell", because Avala marks those standards `capture_in_progress_not_for_sale`.
 - **Tests:** a scoring unit test per rule, and an intake test asserting owner, task and score.
+- **Built (2026-11-27), point 1 only:** the Avala, Nauta and lead-intake routes set the lead's owner (contact owner, else `PHYND_CRM_DEFAULT_TASK_OWNER_ID`, else none with a warning), notify that owner in-app, and open a «Primer contacto» task due the next business day; Avala leads also get the notification email. No routing rules. Points 2 and 3 (seeded rules and tiers) are business values awaiting a ruling and are not built.
 
 ### G3 — The contact list hides the source (MEDIUM)
 
@@ -65,6 +71,7 @@ A review on 2026-11-16 read every lead in production against the code that creat
 ### G6 — Deletion does not propagate from the sender (LOW, privacy)
 
 - A deletion request honoured in Avala leaves the CRM copy. Accept a sender event (for Avala: `avala.lead.deleted`) that soft-deletes the CRM lead, and suppresses the contact when it has no other source. The sender side is tracked in Avala's docs.
+- **Built (2026-11-27):** `avala.lead.deleted` soft-deletes the lead, deletes its Avala note and pending first-contact task, soft-deletes the contact when nothing else keeps it, and strips the prospect's data from the stored capture record. No suppression entry is written (suppression is a marketing opt-out, not a deletion). Soft delete keeps the contact row's fields; a hard purge is not part of the CRM's deletion semantics today.
 
 ## 3. Data enrichment
 

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
+const mockSend = vi.fn().mockResolvedValue({ id: 'msg-1' })
 vi.mock('@phynd/services', () => ({
-  EmailService: vi.fn(),
+  EmailService: vi.fn().mockImplementation(() => ({ send: mockSend })),
 }))
 
 import {
@@ -10,6 +11,7 @@ import {
   leadEventSource,
   leadNotificationRecipients,
   nextBusinessDayDueAt,
+  notifyNewLead,
   quotePrice,
   quoteSummary,
   readLeadQuote,
@@ -187,5 +189,41 @@ describe('readLeadQuote', () => {
     ).toBe('cotización Q-1 · 10 MXN · 1 partida')
     expect(quotePrice({ id: 'q', total: '10' })).toBe('10')
     expect(quoteSummary({ id: 'q' })).toBe('cotización q · sin precio aún')
+  })
+})
+
+describe('notifyNewLead for an Avala lead', () => {
+  it('announces the Avala origin with the lead type and standard', async () => {
+    process.env.LEADS_NOTIFY_EMAIL = 'ventas@example.org'
+    try {
+      await notifyNewLead({
+        source: 'avala',
+        contactId: 'contact-1',
+        leadId: 'lead-1',
+        name: 'Lead Uno',
+        email: 'lead.uno@example.org',
+        message: 'Queremos una demostración.',
+        attribution: null,
+        leadType: 'ORGANIZATION',
+        ecCode: 'EC0000',
+        followUpDueAt: new Date('2026-11-26T15:00:00.000Z'),
+      })
+    } finally {
+      delete process.env.LEADS_NOTIFY_EMAIL
+    }
+    expect(mockSend).toHaveBeenCalledTimes(1)
+    const sent = mockSend.mock.calls[0]?.[0] as {
+      to: string
+      subject: string
+      html: string
+      tags: { name: string; value: string }[]
+    }
+    expect(sent.to).toBe('ventas@example.org')
+    expect(sent.subject).toBe('Nuevo lead de Avala: Lead Uno')
+    expect(sent.html).toContain('Nuevo lead — formulario de Avala')
+    expect(sent.html).toContain('ORGANIZATION')
+    expect(sent.html).toContain('EC0000')
+    expect(sent.html).toContain('Tarea de seguimiento en el CRM')
+    expect(sent.tags).toContainEqual({ name: 'source', value: 'avala' })
   })
 })

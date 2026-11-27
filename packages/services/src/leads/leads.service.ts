@@ -94,9 +94,16 @@ export class LeadsService {
     attribution?: LeadAttribution | null
     pipelineId: string
     stageId: string
+    /**
+     * The CRM user who owns the lead from the start (intake routes pass the
+     * system owner rule's answer). That user gets an in-app assignment
+     * notification.
+     */
+    ownerId?: string | null
   }) {
     // Whatever the caller passes, only the known attribution shape is stored.
-    const { attribution, ...fields } = data
+    const { attribution, ownerId, ...rest } = data
+    const fields = ownerId ? { ...rest, ownerId } : rest
     const values =
       attribution === undefined
         ? fields
@@ -119,6 +126,20 @@ export class LeadsService {
 
     // Auto-compute lead score on creation (outside transaction, non-blocking)
     await this.triggerScoring(created.id)
+
+    if (ownerId) {
+      // In its own (sub)transaction, like scoring: a failed insert never
+      // aborts the caller's transaction or loses the lead.
+      try {
+        await this.ctx.db.transaction((tx) =>
+          new NotificationsService(withTransaction(this.ctx, tx)).create(
+            ownerAssignmentNotification(ownerId, 'lead', created.id, created.source ?? 'Lead'),
+          ),
+        )
+      } catch {
+        // Non-blocking: the lead and its owner are stored either way.
+      }
+    }
 
     return created
   }
@@ -216,14 +237,9 @@ export class LeadsService {
   ) {
     try {
       const notificationsService = new NotificationsService(this.ctx)
-      await notificationsService.create({
-        userId,
-        type: 'owner_assignment',
-        title: `New ${entityType} assigned to you`,
-        message: `You have been assigned ${entityType}: ${entityName}`,
-        entityType,
-        entityId,
-      })
+      await notificationsService.create(
+        ownerAssignmentNotification(userId, entityType, entityId, entityName),
+      )
     } catch {
       // Non-blocking: notification failure should not break lead operations
     }
@@ -241,5 +257,22 @@ export class LeadsService {
     } catch {
       // Non-blocking: scoring failure should not break lead operations
     }
+  }
+}
+
+/** The in-app notification a user gets when a lead is assigned to them. */
+function ownerAssignmentNotification(
+  userId: string,
+  entityType: string,
+  entityId: string,
+  entityName: string,
+) {
+  return {
+    userId,
+    type: 'owner_assignment',
+    title: `New ${entityType} assigned to you`,
+    message: `You have been assigned ${entityType}: ${entityName}`,
+    entityType,
+    entityId,
   }
 }

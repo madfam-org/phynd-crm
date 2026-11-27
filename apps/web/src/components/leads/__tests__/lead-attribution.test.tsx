@@ -50,6 +50,12 @@ describe('leadAttributionRows', () => {
     expect(unpriced.has('Quote total')).toBe(false)
   })
 
+  it('shows the lead type the sender classified', () => {
+    const rows = new Map(leadAttributionRows({ lead_type: 'ORGANIZATION', tenant: 't' }))
+    expect(rows.get('Lead type')).toBe('ORGANIZATION')
+    expect([...rows.keys()]).toEqual(['Tenant', 'Lead type'])
+  })
+
   it('shows a start that is not a date as stored', () => {
     const rows = new Map(leadAttributionRows({ booking: { starts_at: 'mañana a las 10' } }))
     expect(rows.get('Meeting start')).toBe('mañana a las 10')
